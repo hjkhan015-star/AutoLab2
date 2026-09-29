@@ -9,6 +9,49 @@
 <style>
 :root { --al-accent: #38bdf8; }
 html.light-theme { --al-accent: color-mix(in oklch, #38bdf8 68%, black); }
+
+/* ── module-local UI: extra controls + rolling graph ─────────────── */
+#ds-panel{
+  position:fixed; left:12px; top:12px; z-index:30;
+  width:268px; max-width:46vw;
+  padding:10px 12px 12px;
+  border:1px solid var(--border,#333);
+  border-radius:10px;
+  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38);
+  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
+  color:var(--text-dim,#9aa4b2);
+  max-height:calc(100dvh - 24px); overflow:auto;
+}
+#ds-panel.folded .ds-body{ display:none; }
+.ds-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.ds-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
+.ds-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
+.ds-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.ds-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.ds-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-mute,#6b7280); }
+.ds-w b{ color:var(--text,#e5e7eb); font-weight:700; }
+#ds-panel .al-range{ height:22px; }
+#ds-panel .al-sel{ min-height:32px; font-size:11px; }
+.ds-btns{ display:flex; gap:6px; margin-bottom:8px; }
+.ds-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
+.ds-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.ds-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(56,189,248,.14); }
+#ds-zero{ color:#22d3ee; border-color:rgba(34,211,238,.4); }
+#ds-zero:hover{ border-color:#22d3ee; }
+.ds-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
+  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
+  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
+.ds-warn.show{ display:block; }
+#ds-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
+  border-radius:6px; background:rgba(0,0,0,.28); }
+.ds-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
+.ds-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+@media (max-width:700px){ #ds-panel{ width:212px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -29,37 +72,617 @@ html.light-theme { --al-accent: color-mix(in oklch, #38bdf8 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "driveshaft", "title": "Driveshafts & U-Joints", "kicker": "Transmission & Drivetrain", "accent": "#38bdf8", "badge": "Universal joint", "camPos": [4.2, 2.8, 5.6], "target": [0, 0, 0], "floorY": -1.7, "ctl": {"label": "Joint angle", "val": 45, "caption": "Working angle"}, "chipLabel": "Joint angle", "rows": [["vary", "Speed swing"], ["ratio", "Instant ratio"]], "ro": [["ang", "Joint angle"], ["in", "Input speed"], ["ratio", "Instant output ratio"], ["vary", "Speed variation"], ["note", "Advice"]], "legend": [["#e2e8f0", "Input shaft"], ["#38bdf8", "Output shaft"], ["#f97316", "Reference marks"]], "overview": "<div class=\"al-sec\"><h4>Transmitting power at an angle<\/h4><p>A cardan (universal) joint lets a shaft turn power through an angle – e.g. from gearbox to rear axle as the suspension moves.<\/p><\/div><div class=\"al-sec\"><h4>The catch<\/h4><p>A single U-joint at an angle makes the output speed fluctuate twice per revolution. The bigger the angle, the bigger the fluctuation (ratio between cos α and 1/cos α).<\/p><\/div><div class=\"al-sec\"><h4>The cure<\/h4><ul><li>Use <b>two joints<\/b> with equal angles in the same plane – their errors cancel.<\/li><li>Constant-velocity (CV) joints remove the fluctuation completely and are used on driveshafts to the wheels.<\/li><li>Keep working angles below about 12–15° for smooth running.<\/li><\/ul><\/div>", "faults": [["Worn u-joint", "Clunk when taking up drive, vibration, chirp at low speed.", "Twist the shaft by hand – any play in the cross means replace."], ["Out-of-balance shaft", "Vibration at a particular speed.", "Check for lost balance weights, dents or mud; re-balance."], ["Failed centre bearing", "Rumble under load, vibration.", "Check the rubber mount and bearing for wear."]], "quiz": [["A single u-joint at an angle causes…", ["Speed fluctuation twice per rev", "Constant speed", "Zero torque"], 0, "The output speed speeds up and slows down twice per revolution."], ["How are the fluctuations cancelled?", ["Two joints with equal angles", "Higher speed", "Lower angle to zero only"], 0, "The second joint reverses the first joint’s error."], ["CV joints…", ["Give constant output speed", "Are cheaper", "Need no grease"], 0, "They transmit uniformly at large angles."]]};
+const CFG = {
+  "moduleId": "driveshaft",
+  "title": "Driveshafts & U-Joints",
+  "kicker": "Transmission & Drivetrain",
+  "accent": "#38bdf8",
+  "badge": "Universal joint",
+  "camPos": [4.2, 2.8, 5.6],
+  "target": [0, 0, 0],
+  "floorY": -1.7,
+  "ctl": { "label": "Joint angle", "val": 45, "caption": "Working angle" },
+  "chipLabel": "Speed swing",
+  "rows": [["ratio", "Instant ratio"], ["rpm", "Input rpm"]],
+  "ro": [
+    ["ang",    "Joint angle"],
+    ["rpm",    "Input speed"],
+    ["range",  "Output range"],
+    ["swing",  "Speed swing"],
+    ["ratio",  "Instant ratio"],
+    ["vib",    "Vibration"],
+    ["crit",   "Critical speed"],
+    ["margin", "Speed margin"],
+    ["phase",  "Yoke phase"],
+    ["type",   "Joint type"],
+    ["state",  "State"]
+  ],
+  "legend": [
+    ["#e2e8f0", "Input shaft"],
+    ["#38bdf8", "Output shaft"],
+    ["#f97316", "Reference marks"],
+    ["#ef4444", "Worn joint / imbalance"],
+    ["#a855f7", "CV joint (constant velocity)"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Transmitting power at an angle<\/h4><p>A cardan (universal) joint lets a shaft carry torque through an angle &mdash; for example from gearbox to rear axle as the suspension moves. On a rear-drive car the joint angle changes every time the car hits a bump.<\/p><\/div><div class=\"al-sec\"><h4>The catch<\/h4><p>A single U-joint at an angle makes the output speed fluctuate <b>twice per revolution<\/b>. The output speeds up to 1/cos&nbsp;&alpha; and slows to cos&nbsp;&alpha;, so the bigger the angle, the bigger the fluctuation. At 15&deg; the swing is about &plusmn;3.5&nbsp;%; at 30&deg; it is over &plusmn;14&nbsp;%, which shakes the whole drivetrain.<\/p><\/div><div class=\"al-sec\"><h4>Two cures<\/h4><ul><li><b>Two joints, in phase.<\/b> The second joint reverses the first joint&rsquo;s error, so a correctly phased pair transmits uniform speed. Get the yokes out of phase by 90&deg; and the errors add instead &mdash; the swing doubles.<\/li><li><b>Constant-velocity (CV) joints.<\/b> These transmit uniformly at any angle and are used on front-wheel-drive driveshafts. They are heavier and more expensive, so a U-joint pair still wins on a rear-drive propshaft.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Vibration and critical speed<\/h4><p>Every propshaft has a <b>critical speed<\/b> at which its own bending resonance is excited &mdash; roughly 3200&nbsp;rpm for a 1.5&nbsp;m shaft, less for a longer one. Imbalance, a worn cross or a sagging centre bearing all push vibration up; at the critical speed a small fault becomes a violent shake.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Hold the joint angle near zero and confirm the output is uniform. Now increase the working angle to 25&ndash;30&deg; and watch the speed-swing and vibration readouts climb. Then select the <b>out-of-phase yokes<\/b> fault and see the swing double &mdash; the same way a propshaft fitted one spline off shakes the car. Finally try <b>worn U-joint<\/b> or <b>imbalance<\/b> and watch the vibration build as rpm approaches the critical speed.<\/p><\/div>",
+  "faults": [
+    ["Worn U-joint (play in the cross)", "Clunk when taking up drive, chirp or vibration at low speed, a shake that gets worse under load. The needle rollers are dry or worn so the joint has radial play.", "Twist the shaft by hand with the transmission in neutral and feel for play at the cross; any perceptible movement means replace the joint."],
+    ["Out-of-phase yokes", "A shake that starts at road speed and does not go away with balance weights. The second joint\u2019s yoke is fitted one spline out, so the two joints\u2019 errors add instead of cancelling.", "Compare reference marks on the yokes with the workshop manual; on a two-piece shaft the yoke ears must lie in the same plane."],
+    ["Imbalance / lost balance weight", "A drone or shake that appears at one particular speed and eases off either side. Often after a U-joint replacement, a dent, or mud baked onto the shaft.", "Inspect the shaft for missing balance weights, dents or dried mud; re-balance or replace the shaft."],
+    ["Failed centre support bearing", "Rumble under load, a shake at cruise and sometimes a small clonk over bumps. The rubber mount perishes and the bearing loses preload so the two-piece shaft runs out of line.", "Check the rubber mount for cracking and the bearing for roughness; replace the support with the shaft out of the car."]
+  ],
+  "quiz": [
+    ["A single U-joint running at an angle causes\u2026", ["Speed fluctuation twice per revolution", "Constant output speed", "Zero torque"], 0, "The output speeds up to 1/cos alpha and slows to cos alpha twice per revolution."],
+    ["Two joints on a propshaft cancel the fluctuation when\u2026", ["Their yokes are in phase and the angles are equal", "The shaft is longer", "The joint angle is zero"], 0, "The second joint reverses the first joint\u2019s error only if the yoke ears are in the same plane."],
+    ["A 2-piece shaft yoked one spline out will\u2026", ["Double the speed swing and shake the car", "Run smoother", "Have no effect"], 0, "The errors add instead of cancelling, so the swing doubles."],
+    ["CV joints differ from U-joints because\u2026", ["They transmit constant velocity at any angle", "They are cheaper", "They need no grease"], 0, "CV joints use balls running in curved tracks so the output stays uniform even at 45 degrees."],
+    ["A propshaft\u2019s critical speed is reached when\u2026", ["Rpm coincides with the shaft\u2019s own bending resonance", "The car is fully loaded", "The gearbox is in neutral"], 0, "At this speed a small imbalance causes a large vibration - the shaft whirls."],
+    ["A worn U-joint is usually diagnosed by\u2026", ["Feeling for play in the cross with the shaft unloaded", "Listening to the exhaust", "Reading the ECU fault memory"], 0, "Wear shows as radial play between the yokes - a classic dry-needle-roller failure."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   PHYSICS MODEL — pure, named functions.
+   Simplified physical trends, not a bench lookup table.
+   ═══════════════════════════════════════════════════════════════════ */
+function clampN(x, a, b) {
+  if (!Number.isFinite(x)) return a;
+  return x < a ? a : (x > b ? b : x);
+}
+const num = (x, d) => (Number.isFinite(x) ? x : d);
+const DEG2RAD = Math.PI / 180;
+
+/* ── named constants ─────────────────────────────────────────────── */
+const UJ_SMOOTH_DEG = 8;    /* below this, a U-joint runs smoothly          */
+const UJ_WARN_DEG   = 15;   /* above this, driveline shake is noticeable    */
+const UJ_SEVERE_DEG = 22;   /* above this, CV or two-joint layout is needed */
+const CRIT_K        = 3200; /* rpm, critical speed of a 1.5 m × 100 mm shaft */
+const REF_LEN       = 1.5;  /* m, reference shaft length for CRIT_K          */
+const REF_DIA       = 0.10; /* m, reference shaft diameter                   */
+const VIB_TAU       = 0.8;  /* s, vibration envelope smoothing                */
+const IMBAL_WARN    = 28;   /* mm/s rms, vibration warning                    */
+const IMBAL_CRIT    = 45;   /* mm/s rms, vibration danger                     */
+
+/* Half of the peak-to-peak speed swing of a single U-joint. Direction:
+   bigger working angle -> bigger swing. Zero at alpha = 0. */
+function ujointHalfSwing(angleDeg) {
+  const a = clampN(angleDeg, 0, 45) * DEG2RAD;
+  const ca = Math.cos(a);
+  if (ca <= 0.01) return 0.5;
+  return clampN((1 / ca - ca) / 2, 0, 0.5);
+}
+
+/* Instantaneous output / input speed ratio for a single U-joint.
+   theta = input shaft angle, alpha = working angle. Direction:
+   ratio swings between cos(alpha) and 1/cos(alpha) twice per rev. */
+function ujointInstantRatio(theta, angleDeg) {
+  const a = clampN(angleDeg, 0, 45) * DEG2RAD;
+  const sa2 = Math.sin(a) * Math.sin(a);
+  const ct2 = Math.cos(theta) * Math.cos(theta);
+  const denom = 1 - sa2 * (1 - ct2);
+  return clampN(Math.cos(a) / Math.max(0.05, denom), 0.5, 2.0);
+}
+
+/* Effect of yoke phase error on a two-joint system. Direction: 0 deg
+   (in phase) -> 0 extra swing; 90 deg (worst) -> 2x single-joint swing. */
+function phasingFactor(phaseErrDeg) {
+  const p = clampN(phaseErrDeg, 0, 90) * DEG2RAD;
+  return 2 * Math.abs(Math.sin(p));
+}
+
+/* Critical (whirl) speed of a hollow propshaft in rpm. Direction:
+   longer shaft -> lower critical speed; bigger diameter -> higher. */
+function criticalSpeed(lengthM, diameterM) {
+  const L = clampN(num(lengthM, REF_LEN), 0.3, 3.0);
+  const D = clampN(num(diameterM, REF_DIA), 0.03, 0.25);
+  const scaleL = Math.pow(REF_LEN / L, 2);
+  const scaleD = D / REF_DIA;
+  return clampN(CRIT_K * scaleL * scaleD, 500, 12000);
+}
+
+/* Imbalance vibration velocity (mm/s rms). Direction: more imbalance
+   or more rpm -> more vibration. Roughly linear in rpm and g·mm. */
+function imbalanceVibration(rpm, imbalanceGmm) {
+  const rpmN = clampN(num(rpm, 0) / 1000, 0, 10);
+  return clampN(num(imbalanceGmm, 0) * rpmN * 0.55, 0, 200);
+}
+
+/* Resonance amplification at the shaft's critical speed. Direction:
+   operating rpm near the critical speed -> large factor. */
+function resonanceFactor(rpm, critRpm) {
+  const r = clampN(num(rpm, 0) / Math.max(200, num(critRpm, 3000)), 0, 3);
+  const zeta = 0.10;
+  const den = Math.sqrt(Math.pow(1 - r * r, 2) + Math.pow(2 * zeta * r, 2));
+  return clampN(1 / Math.max(0.15, den), 0.5, 6);
+}
+
+const FAULT_INFO = {
+  none:          { label: 'None (healthy)',                    warn: '' },
+  wornJoint:     { label: 'Worn U-joint (P-code n/a)',         warn: 'Worn U-joint: the needle rollers in the cross are dry or worn, so the joint has radial play. Typical symptom is a clunk when taking up drive, a chirp at low speed and a 2x-per-rev shake that gets worse with load. Twist the shaft by hand to feel for play and replace the joint.' },
+  outOfPhase:    { label: 'Out-of-phase yokes',                warn: 'Yoke phase error is not a fault code but a fitting error: the second joint yoke is one spline off, so the two joints\u2019 errors add instead of cancelling. Result: the speed swing doubles and the whole car shakes at cruise. Reference marks on both yokes must lie in the same plane.' },
+  imbalance:     { label: 'Imbalance / lost weight',           warn: 'Shaft imbalance produces a drone or shake at one particular speed that eases off either side. Common after a U-joint replacement, a dent, or dried mud stuck to the shaft. Re-balance or replace.' },
+  centreBearing: { label: 'Failed centre support bearing',     warn: 'The centre support bearing is worn or its rubber mount has perished. The two-piece shaft runs out of line, causing a rumble under load and a shake at cruise. Inspect the rubber for cracking and the bearing for roughness.' }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXTRA CONTROLS (built here; the runtime only provides one slider)
+   ═══════════════════════════════════════════════════════════════════ */
+const S = {
+  rpm: 2400,
+  length: 1.5,
+  phase: 0,
+  jointType: 'ujoint',
+  fault: 'none',
+  speed: 1
+};
+
+const panel = document.createElement('div');
+panel.id = 'ds-panel';
+let faultOptions = '';
+for (const id in FAULT_INFO) {
+  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
+}
+panel.innerHTML =
+  '<div class="ds-h"><span>Driveshaft simulation</span><button type="button" id="ds-fold" aria-label="Collapse controls">&#8211;</button></div>' +
+  '<div class="ds-body">' +
+    '<div class="ds-w"><label for="ds-rpm">Input speed <b id="ds-rpm-v">2400 rpm</b></label>' +
+      '<input id="ds-rpm" class="al-range" type="range" min="800" max="6000" step="50" value="2400" aria-label="Input speed"></div>' +
+    '<div class="ds-w"><label for="ds-len">Shaft length <b id="ds-len-v">1.50 m</b></label>' +
+      '<input id="ds-len" class="al-range" type="range" min="80" max="250" step="5" value="150" aria-label="Shaft length"></div>' +
+    '<div class="ds-w"><label for="ds-ph">Yoke phase error <b id="ds-ph-v">0 &deg;</b></label>' +
+      '<input id="ds-ph" class="al-range" type="range" min="0" max="90" step="5" value="0" aria-label="Yoke phase error"></div>' +
+    '<div class="ds-w"><label for="ds-type">Joint type</label>' +
+      '<select id="ds-type" class="al-sel" aria-label="Joint type">' +
+        '<option value="ujoint" selected>Cardan (U-joint)</option>' +
+        '<option value="cv">Constant velocity (CV)</option>' +
+      '</select></div>' +
+    '<div class="ds-w"><label for="ds-fault">Fault injection</label>' +
+      '<select id="ds-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
+    '<div class="ds-w"><label>Simulation speed</label>' +
+      '<div class="ds-btns" id="ds-speed">' +
+        '<button type="button" data-sp="1" class="on">1&times;</button>' +
+        '<button type="button" data-sp="5">5&times;</button>' +
+        '<button type="button" data-sp="20">20&times;</button>' +
+      '</div></div>' +
+    '<div class="ds-btns">' +
+      '<button type="button" id="ds-zero">Zero angle</button>' +
+      '<button type="button" id="ds-reset">Reset</button>' +
+    '</div>' +
+    '<div class="ds-warn" id="ds-warn"></div>' +
+    '<canvas id="ds-graph" width="480" height="150" aria-label="Speed swing and vibration history"></canvas>' +
+    '<div class="ds-key"><span><i style="background:#38bdf8"></i>Swing %</span><span><i style="background:#fb923c"></i>Vib mm/s</span></div>' +
+  '</div>';
+document.body.appendChild(panel);
+
+const elFold  = document.getElementById('ds-fold');
+const elRpm   = document.getElementById('ds-rpm');
+const elRpmV  = document.getElementById('ds-rpm-v');
+const elLen   = document.getElementById('ds-len');
+const elLenV  = document.getElementById('ds-len-v');
+const elPh    = document.getElementById('ds-ph');
+const elPhV   = document.getElementById('ds-ph-v');
+const elType  = document.getElementById('ds-type');
+const elFault = document.getElementById('ds-fault');
+const elSpeed = document.getElementById('ds-speed');
+const elZero  = document.getElementById('ds-zero');
+const elReset = document.getElementById('ds-reset');
+const elWarn  = document.getElementById('ds-warn');
+const gcv     = document.getElementById('ds-graph');
+const gctx    = gcv.getContext('2d');
+
+elFold.addEventListener('click', () => {
+  panel.classList.toggle('folded');
+  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
+});
+elRpm.addEventListener('input', () => {
+  S.rpm = Number(elRpm.value) || 800;
+  elRpmV.textContent = S.rpm + ' rpm';
+});
+elLen.addEventListener('input', () => {
+  S.length = (Number(elLen.value) || 150) / 100;
+  elLenV.textContent = S.length.toFixed(2) + ' m';
+});
+elPh.addEventListener('input', () => {
+  S.phase = Number(elPh.value) || 0;
+  elPhV.textContent = S.phase + ' \u00B0';
+});
+elType.addEventListener('change', () => {
+  S.jointType = elType.value;
+  /* grey out the phase slider when a CV joint is selected */
+  const dim = (S.jointType === 'cv');
+  elPh.disabled = dim;
+  elPh.style.opacity = dim ? 0.45 : 1;
+});
+elFault.addEventListener('change', () => { S.fault = elFault.value; });
+elSpeed.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sp]');
+  if (!b) return;
+  S.speed = Number(b.dataset.sp) || 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
+});
+elZero.addEventListener('click', () => {
+  const ctlEl = document.getElementById('ctl');
+  if (ctlEl) { ctlEl.value = '0'; ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
+});
+
+/* ── simulation state (module level so Reset can reach it) ───────── */
+const GRAPH_N = 150;
+const sim = {
+  thetaIn: 0,
+  vibRms: 0,
+  lastT: -1,
+  samples: []
+};
+
+function resetModel() {
+  sim.thetaIn = 0;
+  sim.vibRms = 0;
+  sim.lastT = -1;
+  sim.samples.length = 0;
+}
+function resetAll() {
+  S.rpm = 2400;       elRpm.value = 2400;   elRpmV.textContent = '2400 rpm';
+  S.length = 1.5;     elLen.value = 150;    elLenV.textContent = '1.50 m';
+  S.phase = 0;        elPh.value = 0;       elPhV.textContent = '0 \u00B0';
+  elPh.disabled = false; elPh.style.opacity = 1;
+  S.jointType = 'ujoint'; elType.value = 'ujoint';
+  S.fault = 'none';   elFault.value = 'none';
+  S.speed = 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
+  resetModel();
+  const ctlEl = document.getElementById('ctl');
+  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+elReset.addEventListener('click', resetAll);
+
+/* ── rolling graph ───────────────────────────────────────────────── */
+function drawGraph() {
+  const W = gcv.width, Hh = gcv.height;
+  gctx.clearRect(0, 0, W, Hh);
+  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
+  gctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = Math.round(Hh * i / 4) + 0.5;
+    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+  }
+  const n = sim.samples.length;
+  if (n < 2) return;
+  const xAt   = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
+  const ySw   = (v) => Hh - clampN(v / 60, 0, 1) * (Hh - 6) - 3;
+  const yVib  = (v) => Hh - clampN(v / 100, 0, 1) * (Hh - 6) - 3;
+
+  /* speed swing filled area */
+  gctx.beginPath();
+  gctx.moveTo(xAt(0), Hh);
+  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), ySw(sim.samples[i].s));
+  gctx.lineTo(xAt(n - 1), Hh);
+  gctx.closePath();
+  gctx.fillStyle = 'rgba(56,189,248,0.20)';
+  gctx.fill();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = ySw(sim.samples[i].s);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#38bdf8'; gctx.lineWidth = 1.6; gctx.stroke();
+
+  /* vibration line */
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yVib(sim.samples[i].v);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.6; gctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE SCENE (per-module 3D parts)
+   ═══════════════════════════════════════════════════════════════════ */
 function build(H){
- const {box,cyl,cylX,mat,glass,clamp,root,THREE}=H;
- const steel=mat(0xe2e8f0,.8,.3), blue=mat(0x38bdf8,.7,.35), dark=mat(0x3d4555,.6,.5), or=mat(0xf97316,.4,.5), cross=mat(0x94a3b8,.9,.25);
- box(1.0,1.4,1.4,dark,-3.9,0,0);
- const gIn=new THREE.Group(); root.add(gIn);
- cylX(.22,.22,3.2,steel,-1.7,0,0,gIn); cyl(.5,.5,.14,dark,-3.2,0,0,gIn).rotation.z=Math.PI/2;
- box(.5,.06,.06,or,-2.4,.24,0,gIn); box(.3,.05,.05,or,-1.2,.24,0,gIn);
- box(.4,.14,.16,steel,-.2,.52,0,gIn); box(.4,.14,.16,steel,-.2,-.52,0,gIn); box(.08,1.2,.16,steel,-.42,0,0,gIn);
- cyl(.07,.07,1.0,cross,0,0,0,gIn);
- const gTilt=new THREE.Group(); root.add(gTilt);
- const gOut=new THREE.Group(); gTilt.add(gOut);
- cylX(.22,.22,3.2,blue,1.7,0,0,gOut); cyl(.5,.5,.14,dark,3.2,0,0,gOut).rotation.z=Math.PI/2;
- box(.5,.06,.06,or,2.4,.24,0,gOut); box(.3,.05,.05,or,1.2,.24,0,gOut);
- box(.4,.16,.14,blue,.2,0,.52,gOut); box(.4,.16,.14,blue,.2,0,-.52,gOut); box(.08,.16,1.2,blue,.42,0,0,gOut);
- cyl(.07,.07,1.0,cross,0,0,0,gOut).rotation.x=Math.PI/2;
- const diff=box(1.0,1.4,1.4,dark,0,0,0,gTilt); diff.position.set(3.9,0,0);
+ const { box, cyl, cylX, cylZ, mat, glass, pipe, stream, lc, clamp, root, THREE, lowEnd, put } = H;
+
+ /* ── assembly group (gets shaken on imbalance) ─────────────────── */
+ const assembly = new THREE.Group();
+ root.add(assembly);
+
+ /* ── materials ─────────────────────────────────────────────────── */
+ const steel  = mat(0xe2e8f0, 0.80, 0.30);
+ const blue   = mat(0x38bdf8, 0.70, 0.35);
+ const dark   = mat(0x3d4555, 0.60, 0.50);
+ const or     = mat(0xf97316, 0.40, 0.50);
+ const crossM = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.90, roughness: 0.25, emissive: 0x000000, emissiveIntensity: 0 });
+ const bootM  = mat(0x1f2937, 0.15, 0.85);
+
+ /* ── gearbox housing ───────────────────────────────────────────── */
+ box(1.0, 1.4, 1.4, dark, -4.4, 0, 0, assembly);
+
+ /* ── input shaft (attached to the input group so the reference
+       mark spins with the shaft) ────────────────────────────────── */
+ const gIn = new THREE.Group();
+ gIn.position.set(0, 0, 0);
+ assembly.add(gIn);
+ cylX(0.22, 0.22, 3.6, steel, -2.1, 0, 0, gIn);
+
+ /* input yoke ears + cross (all children of gIn) */
+ box(0.35, 0.14, 0.16, steel, -0.15,  0.52, 0, gIn);
+ box(0.35, 0.14, 0.16, steel, -0.15, -0.52, 0, gIn);
+ box(0.08, 1.10, 0.16, steel,  0.02, 0, 0, gIn);
+ /* reference mark on input shaft */
+ box(0.10, 0.28, 0.28, or, -1.10, 0.32, 0, gIn);
+
+ /* cross (spider) */
+ cyl(0.075, 0.075, 1.06, crossM, 0, 0, 0, gIn);
+ cylZ(0.075, 0.075, 1.06, crossM, 0, 0, 0, gIn);
+
+ /* ── tilt group (sets the working angle) ──────────────────────── */
+ const gTilt = new THREE.Group();
+ gTilt.position.set(0, 0, 0);
+ assembly.add(gTilt);
+
+ /* ── output group (rotates within gTilt about its own axis) ───── */
+ const gOut = new THREE.Group();
+ gTilt.add(gOut);
+
+ /* yoke phase group (visualises yoke misalignment) */
+ const yokePhase = new THREE.Group();
+ yokePhase.position.set(0.15, 0, 0);
+ gOut.add(yokePhase);
+ box(0.35, 0.16, 0.14, blue, 0,  0.52, 0, yokePhase);
+ box(0.35, 0.16, 0.14, blue, 0, -0.52, 0, yokePhase);
+ box(0.08, 0.16, 1.10, blue, 0, 0, 0, yokePhase);
+
+ /* output shaft + reference mark */
+ cylX(0.22, 0.22, 3.6, blue, 2.1, 0, 0, gOut);
+ box(0.10, 0.28, 0.28, or, 1.10, 0.32, 0, gOut);
+
+ /* differential / axle housing */
+ box(1.0, 1.4, 1.4, dark, 4.4, 0, 0, gTilt);
+
+ /* ── CV boot (hidden by default; shown when CV is selected) ───── */
+ const cvBoot = new THREE.Group();
+ gTilt.add(cvBoot);
+ for (let i = -2; i <= 2; i++) {
+   const r = 0.32 - Math.abs(i) * 0.015;
+   const t = new THREE.Mesh(new THREE.TorusGeometry(r, 0.055, 8, 22), bootM);
+   t.position.set(0.02 + i * 0.09, 0, 0);
+   t.rotation.y = Math.PI / 2;
+   cvBoot.add(t);
+ }
+ cvBoot.visible = false;
+
+ /* ── centre support bearing on the input shaft ────────────────── */
+ const cbMat = new THREE.MeshStandardMaterial({ color: 0x3d4555, metalness: 0.6, roughness: 0.5, emissive: 0x000000, emissiveIntensity: 0 });
+ const cbRing = new THREE.Mesh(new THREE.TorusGeometry(0.30, 0.09, 8, 20), cbMat);
+ cbRing.position.set(-1.4, 0, 0);
+ cbRing.rotation.y = Math.PI / 2;
+ assembly.add(cbRing);
+ const cbBracket = box(0.35, 0.55, 0.35, cbMat, -1.4, -0.50, 0, assembly);
+
+ /* ── visible imbalance weight (hidden by default) ─────────────── */
+ const imbalW = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, 0.24), or);
+ imbalW.position.set(-2.0, 0.32, 0.30);
+ imbalW.visible = false;
+ assembly.add(imbalW);
+
+ /* ── glow shell around the joint (visible when worn) ─────────── */
+ const glowM = new THREE.MeshBasicMaterial({ color: 0xff3a3a, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+ const glow = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 10), glowM);
+ assembly.add(glow);
+
+ /* ── air-through-the-joint particle stream (small, subtle) ───── */
+ const nSpark = lowEnd ? 8 : 14;
+ const sparkS = stream([[-0.2, 0.35, 0.35], [0.4, 0.20, 0.20]], nSpark, 0x94a3b8, 0.06);
+
+ let lastDom = 0;
+
  return {
-  labels:[['Input shaft',[-2.6,.7,0]],['Yoke',[-.2,.95,0]],['Cross (spider)',[0,-.85,.4]],['Output shaft',[2.6,.7,0]],['Gearbox',[-3.9,1.05,0]],['Axle flange',[3.5,1.05,0]]],
-  update(c){
-   const a=c.k*25*Math.PI/180, th=c.t*5, ca=Math.cos(a), ph=Math.atan2(Math.sin(th),Math.cos(th)*ca);
-   const r=ca/(Math.cos(th)*Math.cos(th)*ca*ca+Math.sin(th)*Math.sin(th));
-   gIn.rotation.x=th; gTilt.rotation.z=a; gOut.rotation.x=ph-0;
-   const deg=c.k*25, lo=Math.cos(a), hi=1/Math.cos(a), swing=(hi-lo)/2*100;
-   const note=deg<8?'Smooth':deg<15?'Acceptable':'Use CV / second joint';
-   return {big:deg.toFixed(1),unit:' °',bar:c.k*100,rows:{vary:'±'+swing.toFixed(1)+' %',ratio:r.toFixed(2)},
-    ro:{ang:[deg.toFixed(1)+' °','hi'],in:['2400 rpm',''],ratio:[r.toFixed(3),''],vary:['±'+swing.toFixed(1)+' %',deg>15?'crit':deg>8?'warn':'ok'],note:[note,deg>15?'crit':deg>8?'warn':'ok']},
-    status:[note,true],ctl:deg.toFixed(1)+' °'};
-  }};
+  labels: [
+    ['Input shaft',    [-2.1, 0.75, 0]],
+    ['Yoke',           [-0.15, 0.95, 0]],
+    ['Cross (spider)', [ 0.0, -0.90, 0.45]],
+    ['Output shaft',   [ 2.1, 0.75, 0]],
+    ['Gearbox',        [-4.4, 1.10, 0]],
+    ['Centre bearing', [-1.4, -0.90, 0]],
+    ['Axle flange',    [ 4.4, 1.10, 0]]
+  ],
+  update(c) {
+   /* ── 1. inputs ─────────────────────────────────────────────── */
+   const dt      = Math.max(0, num(c.dt, 0)) * S.speed;
+   const L       = clampN(c.k, 0, 1);
+   const angleDeg = L * 30;                       /* runtime slider 0..30° */
+   const rpm     = num(S.rpm, 2400);
+   const lengthM = num(S.length, 1.5);
+   let phaseErr  = num(S.phase, 0);
+   const jointType = S.jointType;
+   const fault     = S.fault;
+
+   /* toolbar Reset detection */
+   if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) resetModel();
+   sim.lastT = c.t;
+
+   /* fault overrides */
+   if (fault === 'outOfPhase') phaseErr = 90;
+   if (jointType === 'cv')     phaseErr = 0;
+
+   /* ── 2. swing & speed range ───────────────────────────────── */
+   let halfSwing;
+   if (jointType === 'cv') {
+     halfSwing = 0;
+   } else {
+     halfSwing = ujointHalfSwing(angleDeg) * phasingFactor(phaseErr);
+   }
+   const swingPct = halfSwing * 100;
+   const rpmAvg   = rpm;
+   const rpmHi    = rpm * (1 + halfSwing);
+   const rpmLo    = rpm * (1 - halfSwing);
+
+   /* ── 3. critical speed & margin ───────────────────────────── */
+   const critRpm   = criticalSpeed(lengthM, 0.10);
+   const marginPct = (critRpm - rpm) / Math.max(200, critRpm) * 100;
+
+   /* ── 4. vibration envelope ────────────────────────────────── */
+   let imbG = 4;                                  /* healthy baseline */
+   if (fault === 'wornJoint')     imbG = 14;
+   if (fault === 'imbalance')     imbG = 55;
+   if (fault === 'centreBearing') imbG = 20;
+   /* U-joint speed swing itself contributes to perceived shake */
+   const ujVib = jointType === 'cv' ? 0 : swingPct * 0.35;
+   const rp    = resonanceFactor(rpm, critRpm);
+   const vTarget = (imbalanceVibration(rpm, imbG) + ujVib) * rp;
+
+   if (dt > 0) {
+     const a = 1 - Math.exp(-dt / VIB_TAU);
+     sim.vibRms += (vTarget - sim.vibRms) * a;
+   }
+   sim.vibRms = clampN(sim.vibRms, 0, 250);
+
+   /* ── 5. shaft rotation & output kinematics ───────────────── */
+   const omega = rpm * 2 * Math.PI / 60;
+   if (dt > 0) {
+     sim.thetaIn += omega * dt;
+     if (sim.thetaIn > 1e6) sim.thetaIn -= 1e6;
+   }
+   const alpha = angleDeg * DEG2RAD;
+   let thetaOut;
+   if (jointType === 'cv') {
+     thetaOut = sim.thetaIn;
+   } else {
+     thetaOut = Math.atan2(Math.sin(sim.thetaIn), Math.cos(sim.thetaIn) * Math.cos(alpha));
+   }
+   const instRatio = (jointType === 'cv') ? 1 : ujointInstantRatio(sim.thetaIn, angleDeg);
+
+   /* ── 6. apply to 3D ───────────────────────────────────────── */
+   gIn.rotation.x   = sim.thetaIn;
+   gTilt.rotation.z = -alpha;
+   gOut.rotation.x  = thetaOut;
+   /* yoke misalignment visual: 0° = correct, 90° = worst */
+   yokePhase.rotation.x = phaseErr * DEG2RAD;
+
+   /* worn joint wobble & glow */
+   if (fault === 'wornJoint') {
+     gTilt.rotation.y = 0.02 * Math.sin(sim.thetaIn * 2);
+     glowM.opacity = 0.42 + 0.20 * Math.sin(c.t * 6);
+     crossM.emissive.setHex(0xef4444);
+     crossM.emissiveIntensity = 0.40 + 0.20 * Math.abs(Math.sin(c.t * 5));
+   } else {
+     gTilt.rotation.y = 0;
+     glowM.opacity = 0;
+     crossM.emissive.setHex(0x000000);
+     crossM.emissiveIntensity = 0;
+   }
+
+   /* imbalance weight visible only for that fault */
+   imbalW.visible = (fault === 'imbalance');
+
+   /* shake the whole assembly based on smoothed vibration */
+   const shakeAmt = clampN(sim.vibRms / 160, 0, 1) * 0.09;
+   assembly.position.y = shakeAmt * Math.sin(sim.thetaIn);
+   assembly.position.z = shakeAmt * 0.50 * Math.sin(2 * sim.thetaIn + 0.6);
+   assembly.rotation.x = shakeAmt * 0.25 * Math.sin(2 * sim.thetaIn + 0.3);
+
+   /* centre bearing fault: pulsing red glow + small wobble */
+   if (fault === 'centreBearing') {
+     cbMat.emissive.setHex(0xef4444);
+     cbMat.emissiveIntensity = 0.45 + 0.30 * Math.sin(c.t * 8);
+     cbRing.position.y = 0.012 * Math.sin(c.t * 14);
+   } else {
+     cbMat.emissive.setHex(0x000000);
+     cbMat.emissiveIntensity = 0;
+     cbRing.position.y = 0;
+   }
+
+   /* CV boot visibility */
+   cvBoot.visible = (jointType === 'cv');
+
+   /* particle stream: small sparks near the joint, scaled with vibration */
+   sparkS.update(c.t, 0.35, clampN(sim.vibRms / 60, 0.05, 1));
+
+   /* ── 7. throttled DOM work (graph + warning) ──────────────── */
+   const now = performance.now();
+   if (now - lastDom > 140) {
+     lastDom = now;
+     if (dt > 0) {
+       sim.samples.push({ s: swingPct, v: sim.vibRms });
+       if (sim.samples.length > GRAPH_N) sim.samples.shift();
+       drawGraph();
+     }
+     let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
+     if (!warn) {
+       if (Math.abs(rpm - critRpm) < 0.10 * critRpm) {
+         warn = 'Operating at ' + rpm.toFixed(0) + ' rpm is within 10 % of the shaft\u2019s critical speed (' + critRpm.toFixed(0) + ' rpm). Reduce speed or fit a shorter / stiffer shaft.';
+       } else if (sim.vibRms > IMBAL_CRIT) {
+         warn = 'Driveline vibration ' + sim.vibRms.toFixed(0) + ' mm/s rms - well above the safe limit. Inspect for imbalance, worn U-joints and a sagging centre bearing.';
+       } else if (angleDeg > UJ_SEVERE_DEG && jointType === 'ujoint') {
+         warn = 'Working angle ' + angleDeg.toFixed(1) + ' \u00B0 is severe for a single U-joint (over ' + UJ_SEVERE_DEG + ' \u00B0). Use a CV joint or re-phase two joints to cancel the fluctuation.';
+       } else if (sim.vibRms > IMBAL_WARN) {
+         warn = 'Driveline vibration ' + sim.vibRms.toFixed(0) + ' mm/s rms - above the comfort limit. Check balance and U-joint condition.';
+       } else if (angleDeg > UJ_WARN_DEG && jointType === 'ujoint') {
+         warn = 'Joint angle ' + angleDeg.toFixed(1) + ' \u00B0 is above the ' + UJ_WARN_DEG + ' \u00B0 comfort threshold for a single U-joint.';
+       } else if (phaseErr > 20 && jointType === 'ujoint') {
+         warn = 'Yoke phase error ' + phaseErr.toFixed(0) + ' \u00B0 - the two joints are not cancelling. Re-index the yoke one spline so the ears lie in the same plane.';
+       }
+     }
+     elWarn.textContent = warn;
+     elWarn.classList.toggle('show', !!warn);
+   }
+
+   /* ── 8. derived state ─────────────────────────────────────── */
+   let stateTxt;
+   const nearCrit = Math.abs(rpm - critRpm) < 0.15 * critRpm;
+   if (fault === 'wornJoint')           stateTxt = 'Worn U-joint - clunk';
+   else if (fault === 'outOfPhase')     stateTxt = 'Out-of-phase yokes';
+   else if (fault === 'imbalance')      stateTxt = 'Imbalance vibration';
+   else if (fault === 'centreBearing')  stateTxt = 'Centre bearing rumble';
+   else if (nearCrit)                   stateTxt = 'Near critical speed';
+   else if (jointType === 'cv')         stateTxt = 'CV - constant velocity';
+   else if (angleDeg < UJ_SMOOTH_DEG)   stateTxt = 'Smooth';
+   else if (angleDeg < UJ_WARN_DEG)     stateTxt = 'Acceptable';
+   else if (angleDeg < UJ_SEVERE_DEG)   stateTxt = 'Rough - above comfort';
+   else                                 stateTxt = 'Severe angle';
+
+   /* ── 9. readouts ──────────────────────────────────────────── */
+   const angState  = angleDeg > UJ_SEVERE_DEG ? 'crit' : (angleDeg > UJ_WARN_DEG ? 'warn' : (angleDeg < UJ_SMOOTH_DEG ? 'ok' : 'hi'));
+   const swState   = swingPct > 15 ? 'crit' : (swingPct > 5 ? 'warn' : 'ok');
+   const vibState  = sim.vibRms > IMBAL_CRIT ? 'crit' : (sim.vibRms > IMBAL_WARN ? 'warn' : 'ok');
+   const critState = nearCrit ? 'crit' : (Math.abs(marginPct) < 30 ? 'warn' : 'ok');
+   const phaseState = (jointType === 'cv') ? 'ok' : (phaseErr > 45 ? 'crit' : (phaseErr > 10 ? 'warn' : 'ok'));
+   const stState = (stateTxt.indexOf('Worn') >= 0 || stateTxt.indexOf('Out-of-phase') >= 0 ||
+                    stateTxt.indexOf('Imbalance') >= 0 || stateTxt.indexOf('rumble') >= 0 ||
+                    stateTxt.indexOf('Severe') >= 0 || stateTxt.indexOf('critical') >= 0 ||
+                    stateTxt.indexOf('Near') >= 0) ? 'crit'
+                 : (stateTxt.indexOf('Rough') >= 0) ? 'warn'
+                 : 'ok';
+
+   const rangeTxt = rpmLo.toFixed(0) + ' - ' + rpmHi.toFixed(0) + ' rpm';
+   const typeTxt  = (jointType === 'cv') ? 'CV (constant velocity)' : 'Cardan (U-joint)';
+
+   return {
+     big: swingPct.toFixed(1),
+     unit: ' %',
+     bar: clampN(swingPct / 30, 0, 1) * 100,
+     rows: {
+       ratio: instRatio.toFixed(3) + ' : 1',
+       rpm:   rpmAvg.toFixed(0) + ' rpm'
+     },
+     ro: {
+       ang:    [angleDeg.toFixed(1) + ' \u00B0', angState],
+       rpm:    [rpmAvg.toFixed(0) + ' rpm', ''],
+       range:  [rangeTxt, ''],
+       swing:  ['\u00B1' + swingPct.toFixed(1) + ' %', swState],
+       ratio:  [instRatio.toFixed(3) + ' : 1', ''],
+       vib:    [sim.vibRms.toFixed(1) + ' mm/s', vibState],
+       crit:   [critRpm.toFixed(0) + ' rpm', critState],
+       margin: [marginPct.toFixed(0) + ' %', critState],
+       phase:  [(jointType === 'cv') ? '\u2014 (CV)' : (phaseErr.toFixed(0) + ' \u00B0'), phaseState],
+       type:   [typeTxt, ''],
+       state:  [stateTxt, stState]
+     },
+     status: [stateTxt, true],
+     ctl: angleDeg.toFixed(1) + ' \u00B0'
+   };
+  }
+ };
 }
 
 runGuidedModule(CFG, build);
