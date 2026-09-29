@@ -96,6 +96,7 @@ function scoreLabel(text) {
 }
 
 /* ── The system ───────────────────────────────────────────────────────── */
+const SOLVE_MS   = 250;   // re-solve label collisions at most 4x/second
 const GRACE_MS   = 180;   // keep a label alive this long after the last project()
 const FADE_IN_MS = 120;
 const PAD        = 4;     // declutter padding (px)
@@ -117,6 +118,7 @@ export function createLabelSystem(options = {}) {
   let density = DENSITY.ALL;
   let dirtyRank = true;
   let raf = 0;
+  let lastSig = '', lastSolve = -Infinity;
   const listeners = new Set();
 
   window.__autolabDensity = density;
@@ -233,8 +235,10 @@ export function createLabelSystem(options = {}) {
       _v.copy(world).project(camera);
       r.behind = _v.z > 1 || _v.z < -1;
       if (r.behind) return;                       // not "seen" → grace timer then fade
-      r.ax = (_v.x * 0.5 + 0.5) * w;
-      r.ay = (-_v.y * 0.5 + 0.5) * h;
+      const nx = (_v.x * 0.5 + 0.5) * w, ny = (-_v.y * 0.5 + 0.5) * h;
+      /* deadband: ignore sub-pixel float noise so a still model gives a still label */
+      if (!r.seenOnce || Math.abs(nx - r.ax) > 0.35 || Math.abs(ny - r.ay) > 0.35) { r.ax = nx; r.ay = ny; }
+      r.seenOnce = true;
       r.seen = performance.now();
       r.w0 = w; r.h0 = h;
     },
@@ -279,30 +283,48 @@ export function createLabelSystem(options = {}) {
       }
     }
 
-    /* Place: default offset up-and-right of the anchor; primaries first */
+    /* Placement is SOLVED only occasionally, and stored as an OFFSET from the anchor.
+       Between solves every label is simply anchor + offset — rigid, like the cooling
+       module's callouts — so it tracks the 3D point 1:1 with no lag and no wobble.
+       The solver is sticky: a label keeps its previous slot unless it truly collides. */
     vis.sort((a, b) => a.tier - b.tier || a.order - b.order);
-    const placed = [];
-    for (const r of vis) {
-      const home = homeOffset(r, wrapW, wrapH);
-      let tx = r.ax + home.dx, ty = r.ay + home.dy;
-      /* push away from already-placed labels (vertical first, then alternate side) */
-      let tries = 0;
-      while (tries < 8 && placed.some(p => overlap(p, tx, ty, r.w, r.h))) {
-        const step = (tries % 2 === 0 ? 1 : -1) * (Math.floor(tries / 2) + 1) * (r.h + PAD);
-        ty = r.ay + home.dy + step;
-        if (tries >= 4) tx = r.ax - home.dx - r.w * 0.2;
-        tries++;
+    const sig = vis.map(r => r.id).join('|') + '@' + wrapW + 'x' + wrapH;
+    const solve = sig !== lastSig || (now - lastSolve) > SOLVE_MS;
+    if (solve) {
+      lastSig = sig; lastSolve = now;
+      const placed = [];
+      for (const r of vis) {
+        /* flip side with hysteresis so a label near the flip line can't oscillate */
+        if (!r.flip && r.ax > wrapW * 0.70) r.flip = true;
+        else if (r.flip && r.ax < wrapW * 0.60) r.flip = false;
+        const base = r.tier === 1 ? 22 : 16;
+        const hdx = r.flip ? -(r.w + base) : base, hdy = -(r.h + base * 0.9);
+        const cands = [];
+        if (r.hasTarget) cands.push([r.tox, r.toy]);              // sticky: try last slot first
+        cands.push([hdx, hdy]);
+        for (let t = 0; t < 8; t++) {
+          const step = (t % 2 === 0 ? 1 : -1) * (Math.floor(t / 2) + 1) * (r.h + PAD);
+          cands.push([t >= 4 ? -hdx - r.w * 0.2 : hdx, hdy + step]);
+        }
+        let pick = null;
+        for (const [dx, dy] of cands) {
+          const bx = clampX(r.ax + dx, r.w, wrapW), by = clampY(r.ay + dy, r.h, wrapH);
+          if (!placed.some(p => overlap(p, bx, by, r.w, r.h))) { pick = [dx, dy, bx, by]; break; }
+        }
+        r.yield = !pick && r.tier > 1;                            // lower priority yields; primaries never do
+        if (!pick) { const [dx, dy] = cands[r.hasTarget ? 0 : 0]; pick = [dx, dy, clampX(r.ax + dx, r.w, wrapW), clampY(r.ay + dy, r.h, wrapH)]; }
+        r.tox = pick[0]; r.toy = pick[1];
+        if (!r.hasTarget || !r.placed) { r.ox = r.tox; r.oy = r.toy; }
+        r.hasTarget = true; r.placed = true;
+        if (!r.yield) placed.push({ x: pick[2], y: pick[3], w: r.w, h: r.h });
       }
-      const collide = placed.some(p => overlap(p, tx, ty, r.w, r.h));
-      /* a lower-priority label that still collides yields; primaries never do */
-      r.yield = collide && r.tier > 1;
-      /* keep on screen */
-      tx = Math.max(4, Math.min(wrapW - r.w - 4, tx));
-      ty = Math.max(4, Math.min(wrapH - r.h - 4, ty));
-      /* smooth the motion so labels glide rather than jitter */
-      if (!r.placed) { r.x = tx; r.y = ty; r.placed = true; }
-      else { const k = 0.35; r.x += (tx - r.x) * k; r.y += (ty - r.y) * k; }
-      if (!r.yield) placed.push({ x: r.x, y: r.y, w: r.w, h: r.h });
+    }
+    /* Ease only the OFFSET (slot changes glide); the anchor part is never smoothed. */
+    for (const r of vis) {
+      if (Math.abs(r.tox - r.ox) > 0.05 || Math.abs(r.toy - r.oy) > 0.05) { r.ox += (r.tox - r.ox) * 0.22; r.oy += (r.toy - r.oy) * 0.22; }
+      else { r.ox = r.tox; r.oy = r.toy; }
+      r.x = clampX(r.ax + r.ox, r.w, wrapW);
+      r.y = clampY(r.ay + r.oy, r.h, wrapH);
     }
 
     /* Commit to DOM */
@@ -310,7 +332,7 @@ export function createLabelSystem(options = {}) {
       const show = r.want && !r.yield;
       if (show) {
         if (!r.shown) { r.shown = true; r.shownAt = now; r.el.classList.add('visible'); r.lead.g.classList.add('visible'); }
-        r.el.style.transform = `translate3d(${r.x.toFixed(1)}px, ${r.y.toFixed(1)}px, 0)`;
+        r.el.style.transform = `translate3d(${Math.round(r.x)}px, ${Math.round(r.y)}px, 0)`;
         r.el.dataset.tier = r.tier;
         r.lead.g.dataset.tier = r.tier;
         /* leader: from the label's nearest edge midpoint to the anchor */
@@ -322,7 +344,7 @@ export function createLabelSystem(options = {}) {
         r.lead.pt.setAttribute('cx', r.ax.toFixed(1));
         r.lead.pt.setAttribute('cy', r.ay.toFixed(1));
       } else if (r.shown) {
-        r.shown = false; r.placed = false;
+        r.shown = false; r.placed = false; r.hasTarget = false;
         r.el.classList.remove('visible'); r.lead.g.classList.remove('visible');
       }
     }
@@ -330,12 +352,8 @@ export function createLabelSystem(options = {}) {
     if (L.size) ensureLoop();
   }
 
-  function homeOffset(r, W, H) {
-    /* labels in the right third flip to the left so they never hang off-screen */
-    const flip = r.ax > W * 0.66;
-    const base = r.tier === 1 ? 22 : 16;
-    return { dx: flip ? -(r.w + base) : base, dy: -(r.h + base * 0.9) };
-  }
+  function clampX(x, w, W) { return Math.max(4, Math.min(W - w - 4, x)); }
+  function clampY(y, h, H) { return Math.max(4, Math.min(H - h - 4, y)); }
   function overlap(p, x, y, w, h) {
     return x < p.x + p.w + PAD && x + w + PAD > p.x && y < p.y + p.h + PAD && y + h + PAD > p.y;
   }
