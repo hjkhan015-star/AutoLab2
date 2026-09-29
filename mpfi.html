@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0d13">
-<title>Electronic Fuel Injection (MPFI) — Auto Lab</title>
+<title>Fuel Injection (MPFI &amp; CRDI) — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
 <style>
-  /* ═══════════════════════════════════════════════════════════
-     PANEL READOUT INTERIOR — mode badge, live readout rows, description
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     PANEL READOUT — badge, live rows, description, trim graph
+     ══════════════════════════════════════════════════════════════ */
   #mp-readout { display: flex; flex-direction: column; gap: 0; }
 
   #mp-badge {
@@ -26,6 +26,8 @@
     display: inline-block; background: currentColor;
     box-shadow: 0 0 6px currentColor;
   }
+  #mp-badge.warn { background: rgba(239,68,68,.18); color: #ef4444; }
+  #mp-badge.cold { background: rgba(56,189,248,.18); color: #38bdf8; }
 
   .mp-rows {
     display: flex; flex-direction: column; gap: 5px;
@@ -44,6 +46,61 @@
     font-variant-numeric: tabular-nums; letter-spacing: .01em;
   }
 
+  /* ── Per-cylinder trim bars ── */
+  #mp-trims {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(148,163,184,.14);
+  }
+  #mp-trims .title {
+    font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: #94a3b8; margin-bottom: 8px;
+  }
+  #mp-trims .trim-bar {
+    display: grid; grid-template-columns: 42px 1fr 54px;
+    align-items: center; gap: 8px;
+    font-size: 10.5px; font-family: var(--font-mono);
+    color: var(--text-dim, #94a3b8);
+    margin-bottom: 4px;
+  }
+  #mp-trims .trim-bar .bar {
+    height: 6px; border-radius: 3px;
+    background: rgba(148,163,184,.15);
+    position: relative; overflow: hidden;
+  }
+  #mp-trims .trim-bar .bar .fill {
+    position: absolute; top: 0; bottom: 0;
+    background: #22c55e;
+    transition: width .25s, background .25s;
+  }
+  #mp-trims .trim-bar .v { text-align: right; font-weight: 700; color: var(--text, #e5e7eb); }
+
+  /* ── Fuel trim history graph ── */
+  #mp-graph-wrap {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(148,163,184,.14);
+  }
+  #mp-graph-wrap .title {
+    font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: #94a3b8; margin-bottom: 6px;
+    display: flex; justify-content: space-between;
+  }
+  #mp-graph {
+    width: 100%; height: 72px; display: block;
+    border-radius: 6px;
+    background: rgba(2,6,16,.7);
+    border: 1px solid rgba(148,163,184,.18);
+  }
+  #mp-graph-wrap .legend {
+    display: flex; gap: 12px; margin-top: 5px;
+    font-size: 9.5px; color: #94a3b8;
+  }
+  #mp-graph-wrap .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  #mp-graph-wrap .legend i {
+    width: 8px; height: 3px; border-radius: 2px;
+  }
+
   #mp-desc {
     margin-top: 12px;
     font-size: 12.5px; line-height: 1.55;
@@ -51,6 +108,30 @@
   }
   #mp-desc strong { color: var(--text, #e5e7eb); font-weight: 700; }
   #mp-desc em { color: #f59e0b; font-style: normal; font-weight: 700; }
+
+  #mp-actions {
+    margin-top: 14px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  #mp-actions button {
+    flex: 1 1 auto;
+    min-width: 92px;
+    padding: 6px 10px;
+    font: 600 11px/1.2 ui-sans-serif, system-ui, sans-serif;
+    border-radius: 8px;
+    border: 1px solid rgba(148,163,184,.32);
+    background: rgba(15,23,42,.72);
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  #mp-actions button:hover { background: rgba(148,163,184,.18); }
+  #mp-actions button.on {
+    background: var(--al-accent, #22c55e);
+    color: #fff; border-color: transparent;
+  }
+  #mp-actions button.cold { border-color: rgba(56,189,248,.5); color: #7dd3fc; }
+  #mp-actions button.warn { border-color: rgba(239,68,68,.5); color: #fca5a5; }
 
   html.light-theme .mp-rows .mp-row b { color: #0a0d13; }
   html.light-theme #mp-desc { color: #475569; }
@@ -63,86 +144,156 @@
 
   <script src="guard.js"></script>
   <script type="importmap">
-  { "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-  } }
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
   </script>
 
   <script type="module">
+  /* ══════════════════════════════════════════════════════════════════
+     MODULE: Fuel Injection — MPFI + CRDI combined
+     ──────────────────────────────────────────────────────────────────
+     A single 3D scene that switches between two fuel-injection
+     topologies via a bottom tab strip:
+
+       MPFI (Multi-Point Fuel Injection, petrol):
+         · Low-pressure pump (3–4.5 bar)
+         · Thin fuel rail feeding four port injectors
+         · Intake manifold with MAF, MAP and IAT sensors
+         · Closed-loop O2 feedback; STFT and LTFT trims
+         · Fuel-pressure regulator with vacuum reference
+
+       CRDI (Common Rail Direct Injection, diesel):
+         · High-pressure pump (300–2000 bar)
+         · Thick common rail feeding four direct injectors
+         · Pilot / main / post injection sequence
+         · Turbo boost, EGR valve, DPF-regen injection
+         · Wideband lambda sensor
+
+     Both modes share: tank, filter, LP pump, ECU, exhaust, engine
+     cutaway, per-cylinder trims, fuel-trim history graph and a
+     cold-start enrichment phase triggered by a button.
+     ══════════════════════════════════════════════════════════════════ */
   import * as THREE from 'three';
   import * as Base from './kit.js';
-import { Parts } from './components.js';
+  import { Parts } from './components.js';
   import { UI } from './kit.js';
 
+  /* ══════════════════════════════════════════════════════════════
+     DEVICE TIER DETECTION
+     ══════════════════════════════════════════════════════════════ */
   const isCoarse = matchMedia('(pointer: coarse)').matches;
   const cores    = navigator.hardwareConcurrency || 4;
   const mem      = navigator.deviceMemory || 4;
   const isLowEnd = cores <= 4 || mem <= 2;
   const isMidEnd = !isLowEnd && (cores <= 6 || isCoarse);
 
-  const SEG  = isLowEnd ? 24 : 40;
-  const TRAD = isLowEnd ? 8  : 12;
+  /* Geometry resolution per tier */
+  const SEG       = isLowEnd ? 24 : 40;
+  const TRAD      = isLowEnd ? 8  : 12;
   const SPRAY_PER = isLowEnd ? 14 : isMidEnd ? 26 : 40;
   const BUBBLE_N  = isLowEnd ? 14 : 26;
+  const EX_N      = isLowEnd ? 18 : 32;
 
   const TAU = Base.TAU;
 
+  /* ══════════════════════════════════════════════════════════════
+     SCENE SETUP
+     ══════════════════════════════════════════════════════════════ */
   const { scene, camera, renderer, controls, wrap, viewManager } = Base.buildScene({
-    fov: 44,
+    fov:    44,
     camPos: isCoarse ? [2.4, 1.6, 4.4] : [2.9, 1.9, 5.2],
     target: [0.0, -0.05, 0],
     floorY: -2.15
   });
   Base.attachResize(camera, renderer, wrap, 44);
   const particleTex = Base.createParticleTexture();
-  const labels = Base.createLabelSystem();
-  const state = Base.createUIState();
+  const labels      = Base.createLabelSystem();
+  const state       = Base.createUIState();
 
-  /* state.speedMul is used as engine load (0–1) in this module. */
+  /* The kit's speedMul is repurposed as engine load (0–1). */
   state.speedMul = 0.20;
 
-  /* ═══════════════════════════════════════════════════════════
-     MATERIALS
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     MATERIALS — each one documented with its intended use
+     ══════════════════════════════════════════════════════════════ */
+
+  /* Glass-like helper for transparent shells (tank, pipes, filter). */
   const glass = (color, opacity = 0.24) => new THREE.MeshStandardMaterial({
-    color, metalness: 0.4, roughness: 0.16,
-    transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide
+    color,
+    metalness: 0.4,
+    roughness: 0.16,
+    transparent: true,
+    opacity,
+    depthWrite: false,
+    side: THREE.DoubleSide
   });
 
   const M = {
+    /* Structural metals */
     steel:      new THREE.MeshStandardMaterial({ color: 0xa8b0be, metalness: 0.88, roughness: 0.28 }),
     steelDark:  new THREE.MeshStandardMaterial({ color: 0x3d4555, metalness: 0.78, roughness: 0.42 }),
     alum:       new THREE.MeshStandardMaterial({ color: 0xc5ccd6, metalness: 0.82, roughness: 0.26 }),
     brass:      new THREE.MeshStandardMaterial({ color: 0xc89050, metalness: 0.86, roughness: 0.28 }),
-    copper:     new THREE.MeshStandardMaterial({ color: 0xb87333, metalness: 0.9, roughness: 0.3 }),
+    copper:     new THREE.MeshStandardMaterial({ color: 0xb87333, metalness: 0.90, roughness: 0.30 }),
+
+    /* Engine block and cutaway surfaces */
     block:      new THREE.MeshStandardMaterial({ color: 0x5a6474, metalness: 0.72, roughness: 0.46 }),
     blockCut:   new THREE.MeshStandardMaterial({ color: 0xc26030, metalness: 0.22, roughness: 0.66, side: THREE.DoubleSide }),
-    bore:       new THREE.MeshStandardMaterial({ color: 0x232a36, metalness: 0.7, roughness: 0.55, side: THREE.DoubleSide }),
+    bore:       new THREE.MeshStandardMaterial({ color: 0x232a36, metalness: 0.70, roughness: 0.55, side: THREE.DoubleSide }),
     piston:     new THREE.MeshStandardMaterial({ color: 0xd4dbe6, metalness: 0.65, roughness: 0.32 }),
-    glassTank:  glass(0xa8c8e8, 0.18),
-    glassPipe:  glass(0x9bb6cc, 0.22),
-    glassFilter:glass(0xa8d8e8, 0.28),
+
+    /* Transparent containers */
+    glassTank:   glass(0xa8c8e8, 0.18),
+    glassPipe:   glass(0x9bb6cc, 0.22),
+    glassFilter: glass(0xa8d8e8, 0.28),
+
+    /* Petrol fuel appearance (amber) */
     fuel:       new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 0.5, transparent: true, opacity: 0.9, roughness: 0.25, metalness: 0.35 }),
     fuelTop:    new THREE.MeshStandardMaterial({ color: 0xffc860, emissive: 0xffa040, emissiveIntensity: 0.9, transparent: true, opacity: 0.95, roughness: 0.15, metalness: 0.4 }),
+
+    /* Diesel fuel appearance (blue) */
     diesel:     new THREE.MeshStandardMaterial({ color: 0x3b82f6, emissive: 0x1e3a8a, emissiveIntensity: 0.35, transparent: true, opacity: 0.9, roughness: 0.25, metalness: 0.35 }),
     dieselTop:  new THREE.MeshStandardMaterial({ color: 0x60a5fa, emissive: 0x3b82f6, emissiveIntensity: 0.8, transparent: true, opacity: 0.95, roughness: 0.15, metalness: 0.4 }),
-    filterPaper:new THREE.MeshStandardMaterial({ color: 0xece4cc, metalness: 0.05, roughness: 0.9 }),
-    ecubox:     new THREE.MeshStandardMaterial({ color: 0x1a1f2a, metalness: 0.35, roughness: 0.62 }),
-    exhaust:    new THREE.MeshStandardMaterial({ color: 0x6a7383, metalness: 0.70, roughness: 0.42 }),
-    o2:         new THREE.MeshStandardMaterial({ color: 0x9aa3b0, metalness: 0.85, roughness: 0.30, emissive: 0xf59e0b, emissiveIntensity: 0 }),
-    accent:     new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 1.0 }),
-    green:      new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 1.0 }),
-    red:        new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0x7f1d1d, emissiveIntensity: 0.4 }),
-    wireGreen:  new THREE.MeshStandardMaterial({ color: 0x22c55e, metalness: 0.15, roughness: 0.6 })
+
+    /* Filter element */
+    filterPaper: new THREE.MeshStandardMaterial({ color: 0xece4cc, metalness: 0.05, roughness: 0.9 }),
+
+    /* Electronics */
+    ecubox:  new THREE.MeshStandardMaterial({ color: 0x1a1f2a, metalness: 0.35, roughness: 0.62 }),
+    wireGreen: new THREE.MeshStandardMaterial({ color: 0x22c55e, metalness: 0.15, roughness: 0.6 }),
+    wireBlue:  new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.15, roughness: 0.6 }),
+    wireYellow:new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.15, roughness: 0.6 }),
+    wireRed:   new THREE.MeshStandardMaterial({ color: 0xdc2626, metalness: 0.15, roughness: 0.6 }),
+
+    /* Exhaust */
+    exhaust: new THREE.MeshStandardMaterial({ color: 0x6a7383, metalness: 0.70, roughness: 0.42 }),
+
+    /* Sensors (base colour, often overridden per-instance) */
+    o2: new THREE.MeshStandardMaterial({ color: 0x9aa3b0, metalness: 0.85, roughness: 0.30, emissive: 0xf59e0b, emissiveIntensity: 0 }),
+
+    /* Indicators */
+    accent: new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 1.0 }),
+    green:  new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 1.0 }),
+    red:    new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0x7f1d1d, emissiveIntensity: 0.4 }),
+    amber:  new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 0.9 }),
+
+    /* CRDI specific */
+    railHP:    new THREE.MeshStandardMaterial({ color: 0x2a3038, metalness: 0.88, roughness: 0.30 }),
+    hpRed:     new THREE.MeshStandardMaterial({ color: 0xdc2626, emissive: 0x7f1d1d, emissiveIntensity: 0.25, metalness: 0.55, roughness: 0.38 }),
+    directTip: new THREE.MeshStandardMaterial({ color: 0xe5e7eb, metalness: 0.92, roughness: 0.18 })
   };
 
+  /* Root group for everything in this module. */
   const system = new THREE.Group();
   scene.add(system);
 
-  /* ═══════════════════════════════════════════════════════════
-     LAYOUT
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     LAYOUT ANCHORS — all world-space positions in one place
+     ══════════════════════════════════════════════════════════════ */
   const TANK    = new THREE.Vector3(-2.35, -0.85, 0.15);
   const TANK_W  = 0.95, TANK_H = 0.72, TANK_D = 0.72;
 
@@ -156,7 +307,7 @@ import { Parts } from './components.js';
   const ENG_W   = 1.50, ENG_H = 1.00, ENG_D = 0.80, WALL = 0.10;
 
   const RAIL    = new THREE.Vector3(ENGINE.x, 0.55, 0.00);
-  const RAIL_L  = 1.10, RAIL_R = 0.10;
+  const RAIL_L  = 1.10, RAIL_R = 0.10, RAIL_R_HP = 0.155;
 
   const INJ_XS = [
     RAIL.x - 0.45,
@@ -165,19 +316,23 @@ import { Parts } from './components.js';
     RAIL.x + 0.45
   ];
 
-  const MANIFOLD = new THREE.Vector3(ENGINE.x, -0.15, 0.05);
+  const MANIFOLD   = new THREE.Vector3(ENGINE.x, -0.15, 0.05);
   const MANIFOLD_W = 1.40, MANIFOLD_H = 0.18, MANIFOLD_D = 0.34;
 
   const EXHAUST = new THREE.Vector3(1.75, -0.78, 0.00);
   const O2_POS  = new THREE.Vector3(2.05, -0.78, 0.20);
   const ECU     = new THREE.Vector3(-0.15, 1.15, -0.95);
 
-  /* ═══════════════════════════════════════════════════════════
-     HELPERS
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     REUSABLE HELPERS
+     ══════════════════════════════════════════════════════════════ */
   const _v = new THREE.Vector3();
-  const _c = new THREE.Color();
 
+  /**
+   * Build a CurvePath of straight segments through the given waypoints.
+   * Used by streams so they can travel along the same polyline that the
+   * pipes visually follow.
+   */
   function makeOrthoCurve(waypoints) {
     const path = new THREE.CurvePath();
     for (let i = 0; i < waypoints.length - 1; i++) {
@@ -188,6 +343,11 @@ import { Parts } from './components.js';
     return path;
   }
 
+  /**
+   * Build a visible pipe from a waypoint list. Each segment becomes its own
+   * cylinder oriented along the segment direction. Joints get a sphere so
+   * the elbows look correct.
+   */
   function makeStraightPipe(waypoints, radius, mat) {
     const group = new THREE.Group();
     for (let i = 0; i < waypoints.length - 1; i++) {
@@ -203,10 +363,7 @@ import { Parts } from './components.js';
       group.add(mesh);
     }
     for (let i = 1; i < waypoints.length - 1; i++) {
-      const sphere = new THREE.Mesh(
-        new THREE.SphereGeometry(radius, TRAD, 8),
-        mat || M.glassPipe
-      );
+      const sphere = new THREE.Mesh(new THREE.SphereGeometry(radius, TRAD, 8), mat || M.glassPipe);
       sphere.position.copy(waypoints[i]);
       sphere.renderOrder = 4;
       group.add(sphere);
@@ -214,9 +371,11 @@ import { Parts } from './components.js';
     return group;
   }
 
+  /** Small decorative collar ring around a pipe joint. */
   function addCollarAt(point, dir, radius) {
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(radius + 0.013, 0.018, 8, 18), M.steelDark
+      new THREE.TorusGeometry(radius + 0.013, 0.018, 8, 18),
+      M.steelDark
     );
     ring.position.copy(point);
     ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir.clone().normalize());
@@ -224,21 +383,26 @@ import { Parts } from './components.js';
     system.add(ring);
   }
 
+  /**
+   * Walk a waypoint polyline and round the corners with small quadratic
+   * fillets. Produces points suitable for a smooth CatmullRom tube, so
+   * wires look like they bend around the engine bay rather than snap.
+   */
   function buildManhattanPoints(waypoints, fillet = 0.045) {
     const pts = [];
     for (let i = 0; i < waypoints.length; i++) {
       const curr = waypoints[i];
       if (i === 0 || i === waypoints.length - 1) { pts.push(curr.clone()); continue; }
-      const prev = waypoints[i - 1];
-      const next = waypoints[i + 1];
+      const prev = waypoints[i - 1], next = waypoints[i + 1];
       const toPrev = new THREE.Vector3().subVectors(prev, curr);
       const toNext = new THREE.Vector3().subVectors(next, curr);
       const dPrev = toPrev.length(), dNext = toNext.length();
       if (dPrev < 1e-5 || dNext < 1e-5) { pts.push(curr.clone()); continue; }
-      toPrev.divideScalar(dPrev); toNext.divideScalar(dNext);
+      toPrev.divideScalar(dPrev);
+      toNext.divideScalar(dNext);
       const cosA = toPrev.dot(toNext);
       if (cosA > 0.9995) { pts.push(curr.clone()); continue; }
-      const r = Math.min(fillet, dPrev * 0.4, dNext * 0.4);
+      const r  = Math.min(fillet, dPrev * 0.4, dNext * 0.4);
       const p1 = curr.clone().addScaledVector(toPrev, r);
       const p2 = curr.clone().addScaledVector(toNext, r);
       for (let s = 0; s <= 5; s++) {
@@ -251,20 +415,30 @@ import { Parts } from './components.js';
     }
     return pts;
   }
+
+  /** Build a smooth wire mesh from a waypoint list. */
   function makeManhattanWire(waypoints, radius, mat, fillet = 0.045) {
-    const pts = buildManhattanPoints(waypoints, fillet);
+    const pts   = buildManhattanPoints(waypoints, fillet);
     const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
-    const geo = new THREE.TubeGeometry(curve, Math.max(24, pts.length * 2), radius, isLowEnd ? 6 : 10, false);
-    const mesh = new THREE.Mesh(geo, mat);
+    const geo   = new THREE.TubeGeometry(curve, Math.max(24, pts.length * 2), radius, isLowEnd ? 6 : 10, false);
+    const mesh  = new THREE.Mesh(geo, mat);
     mesh.castShadow = true;
     return mesh;
   }
 
+  /**
+   * Build an additive particle stream along a curve.
+   * Returns the geometry, points object, and per-particle data so the
+   * animation loop can advance positions in-place without allocating.
+   */
   function makeStream(curve, count, size, color, opacity = 0.95) {
-    const { geo, mat, pts } = Parts.additivePoints(particleTex, count, size, opacity, { renderOrder: 3, parent: system });
+    const { geo, mat, pts } = Parts.additivePoints(particleTex, count, size, opacity, {
+      renderOrder: 3,
+      parent: system
+    });
     const baseCol = new THREE.Color(color);
-    const data = [];
-    const colArr = geo.attributes.color.array;
+    const data    = [];
+    const colArr  = geo.attributes.color.array;
     for (let i = 0; i < count; i++) {
       const j = 0.7 + Math.random() * 0.3;
       data.push({ t: Math.random(), speed: 0.85 + Math.random() * 0.3, j });
@@ -275,6 +449,8 @@ import { Parts } from './components.js';
     geo.attributes.color.needsUpdate = true;
     return { geo, pts, data, count, curve, mat, baseCol };
   }
+
+  /** Advance a stream's particles along its curve. */
   function updateStream(s, dt, flow) {
     if (!s.pts.visible) return;
     const posA = s.geo.attributes.position;
@@ -289,14 +465,17 @@ import { Parts } from './components.js';
     posA.needsUpdate = true;
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     FUEL TANK
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     FUEL TANK — transparent shell with amber/brown liquid inside
+     ══════════════════════════════════════════════════════════════ */
   const tankGroup = new THREE.Group();
   tankGroup.position.copy(TANK);
   system.add(tankGroup);
 
-  const tankShell = new THREE.Mesh(new THREE.BoxGeometry(TANK_W, TANK_H, TANK_D), M.glassTank);
+  const tankShell = new THREE.Mesh(
+    new THREE.BoxGeometry(TANK_W, TANK_H, TANK_D),
+    M.glassTank
+  );
   tankShell.renderOrder = 6;
   tankGroup.add(tankShell);
 
@@ -306,33 +485,54 @@ import { Parts } from './components.js';
   );
   tankGroup.add(tankEdges);
 
+  /* Fuel volume occupies the lower ~60 % of the tank. */
   const FUEL_H = TANK_H * 0.60;
-  const fuelMesh = new THREE.Mesh(new THREE.BoxGeometry(TANK_W - 0.06, FUEL_H, TANK_D - 0.06), M.fuel);
+  const fuelMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(TANK_W - 0.06, FUEL_H, TANK_D - 0.06),
+    M.fuel
+  );
   fuelMesh.position.y = -TANK_H / 2 + FUEL_H / 2 + 0.03;
   fuelMesh.renderOrder = 2;
   tankGroup.add(fuelMesh);
 
-  const fuelSurface = new THREE.Mesh(new THREE.PlaneGeometry(TANK_W - 0.06, TANK_D - 0.06), M.fuelTop);
+  const fuelSurface = new THREE.Mesh(
+    new THREE.PlaneGeometry(TANK_W - 0.06, TANK_D - 0.06),
+    M.fuelTop
+  );
   fuelSurface.rotation.x = -Math.PI / 2;
   fuelSurface.position.y = -TANK_H / 2 + FUEL_H + 0.03;
   tankGroup.add(fuelSurface);
 
-  const fillerCap = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.08, 16), M.steelDark);
+  /* Filler cap on the tank lid. */
+  const fillerCap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.09, 0.11, 0.08, 16),
+    M.steelDark
+  );
   fillerCap.position.set(TANK_W / 2 - 0.35, TANK_H / 2 + 0.04, 0);
   fillerCap.castShadow = true;
   tankGroup.add(fillerCap);
 
-  const tankOutlet = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.10, 12), M.steelDark);
+  /* Outlet fitting at the base. */
+  const tankOutlet = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.045, 0.045, 0.10, 12),
+    M.steelDark
+  );
   tankOutlet.rotation.z = Math.PI / 2;
   tankOutlet.position.set(TANK_W / 2 + 0.03, -TANK_H / 2 + 0.10, 0);
   tankGroup.add(tankOutlet);
 
+  /* Suspended bubbles rising through the fuel. */
   const bubbleGeo = new THREE.BufferGeometry();
   bubbleGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(BUBBLE_N * 3), 3));
   const bubbleMat = new THREE.PointsMaterial({
-    map: particleTex, size: 0.045, sizeAttenuation: true,
-    color: 0xffd070, transparent: true, opacity: 0.75,
-    depthWrite: false, blending: THREE.AdditiveBlending
+    map: particleTex,
+    size: 0.045,
+    sizeAttenuation: true,
+    color: 0xffd070,
+    transparent: true,
+    opacity: 0.75,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
   });
   const bubblePts = new THREE.Points(bubbleGeo, bubbleMat);
   bubblePts.frustumCulled = false;
@@ -341,32 +541,35 @@ import { Parts } from './components.js';
   const bubbleData = [];
   for (let i = 0; i < BUBBLE_N; i++) {
     bubbleData.push({
-      x: (Math.random() - 0.5) * (TANK_W - 0.25),
-      z: (Math.random() - 0.5) * (TANK_D - 0.25),
-      y: Math.random(),
+      x:   (Math.random() - 0.5) * (TANK_W - 0.25),
+      z:   (Math.random() - 0.5) * (TANK_D - 0.25),
+      y:   Math.random(),
       spd: 0.12 + Math.random() * 0.20
     });
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     FUEL FILTER
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     FUEL FILTER — cartridge in a glass housing with pleated element
+     ══════════════════════════════════════════════════════════════ */
   const filterGroup = new THREE.Group();
   filterGroup.position.copy(FILTER);
   system.add(filterGroup);
 
   const filterShell = new THREE.Mesh(
-    new THREE.CylinderGeometry(FILT_R, FILT_R, FILT_H, SEG, 1, true), M.glassFilter
+    new THREE.CylinderGeometry(FILT_R, FILT_R, FILT_H, SEG, 1, true),
+    M.glassFilter
   );
   filterShell.renderOrder = 5;
   filterGroup.add(filterShell);
 
+  /* Inner pleated paper element. */
   const filterElement = new THREE.Mesh(
     new THREE.CylinderGeometry(FILT_R * 0.70, FILT_R * 0.70, FILT_H - 0.14, SEG),
     M.filterPaper
   );
   filterGroup.add(filterElement);
 
+  /* Vertical pleats around the element. */
   const PLEAT_N = isLowEnd ? 12 : 20;
   const pleatGeo = new THREE.BoxGeometry(0.018, FILT_H - 0.16, 0.010);
   for (let i = 0; i < PLEAT_N; i++) {
@@ -376,24 +579,29 @@ import { Parts } from './components.js';
     p.rotation.y = -a;
     filterGroup.add(p);
   }
+
+  /* Top and bottom caps. */
   [-1, 1].forEach(s => {
     const cap = new THREE.Mesh(
-      new THREE.CylinderGeometry(FILT_R + 0.012, FILT_R + 0.012, 0.06, SEG), M.steelDark
+      new THREE.CylinderGeometry(FILT_R + 0.012, FILT_R + 0.012, 0.06, SEG),
+      M.steelDark
     );
     cap.position.y = s * (FILT_H / 2 - 0.03);
     cap.castShadow = true;
     filterGroup.add(cap);
   });
+
   const filtInlet = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.10, 12), M.steelDark);
   filtInlet.position.y = -FILT_H / 2 - 0.04;
   filterGroup.add(filtInlet);
+
   const filtOutlet = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.10, 12), M.steelDark);
   filtOutlet.position.y = FILT_H / 2 + 0.04;
   filterGroup.add(filtOutlet);
 
-  /* ═══════════════════════════════════════════════════════════
-     LOW-PRESSURE PUMP
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     LOW-PRESSURE PUMP — inline electric lift pump (both modes)
+     ══════════════════════════════════════════════════════════════ */
   const lpGroup = new THREE.Group();
   lpGroup.position.copy(LPPUMP);
   system.add(lpGroup);
@@ -418,19 +626,20 @@ import { Parts } from './components.js';
   lpOutlet.position.y = 0.19;
   lpGroup.add(lpOutlet);
 
+  /* Rotating marker ring — visual "the pump is running" cue. */
   const lpSpinner = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.010, 8, 18), M.accent);
   lpSpinner.rotation.y = Math.PI / 2;
   lpSpinner.position.x = 0.14;
   lpGroup.add(lpSpinner);
 
-  /* ═══════════════════════════════════════════════════════════
-     HIGH-PRESSURE PUMP
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     HIGH-PRESSURE PUMP — CRDI only
+     ══════════════════════════════════════════════════════════════ */
   const hpGroup = new THREE.Group();
   hpGroup.position.copy(HPPUMP);
   system.add(hpGroup);
 
-  const hpBody = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.38, 6, SEG), M.red);
+  const hpBody = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.38, 6, SEG), M.hpRed);
   hpBody.rotation.z = Math.PI / 2;
   hpBody.castShadow = true;
   hpGroup.add(hpBody);
@@ -469,56 +678,121 @@ import { Parts } from './components.js';
   hpPulleyMark.position.z = 0.34;
   hpGroup.add(hpPulleyMark);
 
-  /* ═══════════════════════════════════════════════════════════
-     FUEL RAIL
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     FUEL RAIL — thin (MPFI, 3–4.5 bar) or thick (CRDI, 300–2000 bar)
+     ══════════════════════════════════════════════════════════════ */
   const railGroup = new THREE.Group();
   railGroup.position.copy(RAIL);
   system.add(railGroup);
 
-  const railBody = new THREE.Mesh(new THREE.CylinderGeometry(RAIL_R, RAIL_R, RAIL_L, SEG), M.alum);
+  /* Thin MPFI rail. */
+  const railBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(RAIL_R, RAIL_R, RAIL_L, SEG),
+    M.alum
+  );
   railBody.rotation.z = Math.PI / 2;
   railBody.castShadow = true;
   railGroup.add(railBody);
 
   [-1, 1].forEach(s => {
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(RAIL_R + 0.022, RAIL_R + 0.022, 0.05, SEG), M.steelDark);
+    const cap = new THREE.Mesh(
+      new THREE.CylinderGeometry(RAIL_R + 0.022, RAIL_R + 0.022, 0.05, SEG),
+      M.steelDark
+    );
     cap.rotation.z = Math.PI / 2;
     cap.position.x = s * RAIL_L / 2;
     cap.castShadow = true;
     railGroup.add(cap);
   });
 
-  INJ_XS.forEach(wx => {
+  /* Thick CRDI common rail (hidden in MPFI mode). */
+  const railBodyHP = new THREE.Mesh(
+    new THREE.CylinderGeometry(RAIL_R_HP, RAIL_R_HP, RAIL_L, SEG),
+    M.railHP
+  );
+  railBodyHP.rotation.z = Math.PI / 2;
+  railBodyHP.castShadow = true;
+  railBodyHP.visible = false;
+  railGroup.add(railBodyHP);
+
+  const railHPCaps = [-1, 1].map(s => {
+    const cap = new THREE.Mesh(
+      new THREE.CylinderGeometry(RAIL_R_HP + 0.028, RAIL_R_HP + 0.028, 0.06, SEG),
+      M.steelDark
+    );
+    cap.rotation.z = Math.PI / 2;
+    cap.position.x = s * RAIL_L / 2;
+    cap.castShadow = true;
+    cap.visible = false;
+    railGroup.add(cap);
+    return cap;
+  });
+
+  /* Thin-rail bosses for MPFI injectors. */
+  const railBosses = INJ_XS.map(wx => {
     const relX = wx - RAIL.x;
-    const boss = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.10, 14), M.alum);
+    const boss = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.055, 0.055, 0.10, 14),
+      M.alum
+    );
     boss.position.set(relX, -RAIL_R - 0.03, 0);
     boss.castShadow = true;
     railGroup.add(boss);
+    return boss;
   });
 
+  /* Thick-rail bosses for CRDI injectors. */
+  const railHPBosses = INJ_XS.map(wx => {
+    const relX = wx - RAIL.x;
+    const boss = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.075, 0.075, 0.16, 16),
+      M.railHP
+    );
+    boss.position.set(relX, -RAIL_R_HP - 0.05, 0);
+    boss.castShadow = true;
+    boss.visible = false;
+    railGroup.add(boss);
+    return boss;
+  });
+
+  /* Pressure sensor at the right end of the rail. */
   const sensorGroup = new THREE.Group();
   sensorGroup.position.set(RAIL_L / 2 - 0.15, RAIL_R + 0.10, 0);
   railGroup.add(sensorGroup);
-  const sensorBody = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.14, 14), M.steelDark);
+
+  const sensorBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.06, 0.07, 0.14, 14),
+    M.steelDark
+  );
   sensorGroup.add(sensorBody);
-  const sensorTop = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.03, 14), M.brass);
+
+  const sensorTop = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.075, 0.03, 14),
+    M.brass
+  );
   sensorTop.position.y = 0.085;
   sensorGroup.add(sensorTop);
+
   const sensorLed = new THREE.Mesh(new THREE.SphereGeometry(0.020, 10, 8), M.green);
   sensorLed.position.y = 0.11;
   sensorGroup.add(sensorLed);
 
-  const gauge = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.03, 20), M.alum);
+  /* Rail gauge — small circular dial. */
+  const gauge = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.07, 0.07, 0.03, 20),
+    M.alum
+  );
   gauge.rotation.x = Math.PI / 2;
   gauge.position.set(0.10, 0.20, 0.10);
   railGroup.add(gauge);
+
   const gaugeFace = new THREE.Mesh(
     new THREE.CircleGeometry(0.055, 20),
     new THREE.MeshBasicMaterial({ color: 0xf1f5f9 })
   );
   gaugeFace.position.set(0.10, 0.20, 0.116);
   railGroup.add(gaugeFace);
+
   const gaugeNeedle = new THREE.Mesh(
     new THREE.BoxGeometry(0.004, 0.042, 0.003),
     new THREE.MeshBasicMaterial({ color: 0xef4444 })
@@ -527,109 +801,241 @@ import { Parts } from './components.js';
   gaugeNeedle.position.set(0.10, 0.20, 0.118);
   railGroup.add(gaugeNeedle);
 
-  /* ═══════════════════════════════════════════════════════════
-     INJECTORS
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     INJECTORS — each carries both a port tip (MPFI) and a direct tip
+     ══════════════════════════════════════════════════════════════ */
   const injectors = [];
   INJ_XS.forEach((wx, i) => {
     const g = new THREE.Group();
     g.position.set(wx, RAIL.y, 0);
     system.add(g);
 
-    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.058, 0.20, 14), M.alum);
+    const upper = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.058, 0.058, 0.20, 14),
+      M.alum
+    );
     upper.position.y = -0.10;
     upper.castShadow = true;
     g.add(upper);
 
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.072, 0.035, 14), M.steelDark);
+    const collar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.072, 0.072, 0.035, 14),
+      M.steelDark
+    );
     collar.position.y = -0.215;
     g.add(collar);
 
-    const mid = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.50, 14), M.steel);
+    const mid = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.048, 0.048, 0.50, 14),
+      M.steel
+    );
     mid.position.y = -0.465;
     mid.castShadow = true;
     g.add(mid);
 
-    const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.036, 0.40, 14), M.steel);
+    const lower = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.048, 0.036, 0.40, 14),
+      M.steel
+    );
     lower.position.y = -0.915;
     lower.castShadow = true;
     g.add(lower);
 
-    const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.030, 0.012, 0.12, 12), M.brass.clone());
-    tip.position.y = -1.175;
-    g.add(tip);
+    /* MPFI port tip — wider, brass seat. */
+    const tipPort = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.030, 0.012, 0.12, 12),
+      M.brass.clone()
+    );
+    tipPort.position.y = -1.175;
+    g.add(tipPort);
 
-    const conn = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.055, 0.09), M.steelDark);
+    /* CRDI direct tip — narrow, longer steel nozzle. */
+    const tipDirect = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.018, 0.006, 0.16, 12),
+      M.directTip
+    );
+    tipDirect.position.y = -1.195;
+    tipDirect.visible = false;
+    g.add(tipDirect);
+
+    /* Electrical connector on the side of the injector. */
+    const conn = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.055, 0.09),
+      M.steelDark
+    );
     conn.position.set(0, -0.02, 0.08);
     g.add(conn);
 
     const tipWorldY = RAIL.y - 1.235;
 
     injectors.push({
-      group: g, tip,
-      tipWorld: new THREE.Vector3(wx, tipWorldY, 0),
+      group: g,
+      tipPort,
+      tipDirect,
+      tipWorld:  new THREE.Vector3(wx, tipWorldY, 0),
       connWorld: new THREE.Vector3(wx, RAIL.y - 0.02, 0.13),
       index: i
     });
   });
 
-  /* ═══════════════════════════════════════════════════════════
-     INTAKE MANIFOLD
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     INTAKE MANIFOLD — MPFI only; CRDI runs unthrottled
+     ══════════════════════════════════════════════════════════════ */
   const manifoldGroup = new THREE.Group();
   manifoldGroup.position.copy(MANIFOLD);
   system.add(manifoldGroup);
 
-  const plenum = new THREE.Mesh(new THREE.BoxGeometry(MANIFOLD_W, MANIFOLD_H, MANIFOLD_D), M.steel);
+  const plenum = new THREE.Mesh(
+    new THREE.BoxGeometry(MANIFOLD_W, MANIFOLD_H, MANIFOLD_D),
+    M.steel
+  );
   plenum.castShadow = true;
   manifoldGroup.add(plenum);
 
   [-1, 1].forEach(s => {
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(MANIFOLD_D / 2, MANIFOLD_D / 2, 0.05, 16), M.steel);
+    const cap = new THREE.Mesh(
+      new THREE.CylinderGeometry(MANIFOLD_D / 2, MANIFOLD_D / 2, 0.05, 16),
+      M.steel
+    );
     cap.rotation.z = Math.PI / 2;
     cap.position.x = s * (MANIFOLD_W / 2 - 0.02);
     manifoldGroup.add(cap);
   });
 
+  /* Four intake runners connecting the plenum to the head. */
   INJ_XS.forEach(wx => {
     const rx = wx - MANIFOLD.x;
-    const runner = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.24, 12), M.steelDark);
+    const runner = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.055, 0.055, 0.24, 12),
+      M.steelDark
+    );
     runner.position.set(rx, -MANIFOLD_H / 2 - 0.10, 0);
     runner.castShadow = true;
     manifoldGroup.add(runner);
 
-    const flange = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.03, 0.10), M.steelDark);
+    const flange = new THREE.Mesh(
+      new THREE.BoxGeometry(0.10, 0.03, 0.10),
+      M.steelDark
+    );
     flange.position.set(rx, -MANIFOLD_H / 2 - 0.22, 0);
     manifoldGroup.add(flange);
   });
 
-  /* ═══════════════════════════════════════════════════════════
-     ENGINE BLOCK (cutaway)
-     ═══════════════════════════════════════════════════════════ */
+  /* ── MAF sensor — sits in the intake tract upstream of the plenum ── */
+  const mafGroup = new THREE.Group();
+  mafGroup.position.set(MANIFOLD.x - MANIFOLD_W / 2 - 0.22, MANIFOLD.y, MANIFOLD.z);
+  system.add(mafGroup);
+
+  const mafHousing = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.075, 0.24, 16),
+    M.alum
+  );
+  mafHousing.rotation.z = Math.PI / 2;
+  mafGroup.add(mafHousing);
+
+  const mafElement = new THREE.Mesh(
+    new THREE.BoxGeometry(0.02, 0.10, 0.045),
+    M.steelDark
+  );
+  mafElement.position.y = 0.02;
+  mafGroup.add(mafElement);
+
+  /* Hot-film element — emissive so its "activity" is visible. */
+  const mafFilament = new THREE.Mesh(
+    new THREE.BoxGeometry(0.008, 0.06, 0.008),
+    new THREE.MeshStandardMaterial({
+      color: 0xffc840, emissive: 0xffa000, emissiveIntensity: 0.7
+    })
+  );
+  mafFilament.position.y = 0.02;
+  mafGroup.add(mafFilament);
+
+  /* ── MAP sensor — small box on top of the plenum ── */
+  const mapGroup = new THREE.Group();
+  mapGroup.position.set(MANIFOLD.x + 0.30, MANIFOLD.y + MANIFOLD_H / 2 + 0.07, MANIFOLD.z - 0.05);
+  system.add(mapGroup);
+
+  const mapBox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.09, 0.055, 0.07),
+    M.steelDark
+  );
+  mapGroup.add(mapBox);
+
+  const mapStem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.014, 0.014, 0.06, 10),
+    M.brass
+  );
+  mapStem.position.y = -0.05;
+  mapGroup.add(mapStem);
+
+  /* ── IAT sensor — small probe in the intake tract ── */
+  const iatGroup = new THREE.Group();
+  iatGroup.position.set(MANIFOLD.x - MANIFOLD_W / 2 - 0.42, MANIFOLD.y, MANIFOLD.z);
+  system.add(iatGroup);
+
+  const iatBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.030, 0.030, 0.10, 12),
+    M.brass
+  );
+  iatBody.rotation.z = Math.PI / 2;
+  iatGroup.add(iatBody);
+
+  const iatCable = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.010, 0.010, 0.14, 8),
+    M.wireBlue
+  );
+  iatCable.rotation.z = Math.PI / 2;
+  iatCable.position.x = -0.11;
+  iatGroup.add(iatCable);
+
+  /* ══════════════════════════════════════════════════════════════
+     ENGINE BLOCK — cutaway so bores and pistons are visible
+     ══════════════════════════════════════════════════════════════ */
   const engineGroup = new THREE.Group();
   engineGroup.position.copy(ENGINE);
   system.add(engineGroup);
 
-  const engBack = new THREE.Mesh(new THREE.BoxGeometry(ENG_W, ENG_H, WALL), M.block);
+  /* Back wall */
+  const engBack = new THREE.Mesh(
+    new THREE.BoxGeometry(ENG_W, ENG_H, WALL),
+    M.block
+  );
   engBack.position.set(0, 0, -ENG_D / 2 + WALL / 2);
-  engBack.castShadow = true; engBack.receiveShadow = true;
+  engBack.castShadow = true;
+  engBack.receiveShadow = true;
   engineGroup.add(engBack);
 
-  const engLeft = new THREE.Mesh(new THREE.BoxGeometry(WALL, ENG_H, ENG_D), M.block);
+  /* Left wall */
+  const engLeft = new THREE.Mesh(
+    new THREE.BoxGeometry(WALL, ENG_H, ENG_D),
+    M.block
+  );
   engLeft.position.set(-ENG_W / 2 + WALL / 2, 0, 0);
-  engLeft.castShadow = true; engLeft.receiveShadow = true;
+  engLeft.castShadow = true;
+  engLeft.receiveShadow = true;
   engineGroup.add(engLeft);
 
-  const engRight = new THREE.Mesh(new THREE.BoxGeometry(WALL, ENG_H, ENG_D), M.block);
+  /* Right wall */
+  const engRight = new THREE.Mesh(
+    new THREE.BoxGeometry(WALL, ENG_H, ENG_D),
+    M.block
+  );
   engRight.position.set(ENG_W / 2 - WALL / 2, 0, 0);
-  engRight.castShadow = true; engRight.receiveShadow = true;
+  engRight.castShadow = true;
+  engRight.receiveShadow = true;
   engineGroup.add(engRight);
 
-  const engBottom = new THREE.Mesh(new THREE.BoxGeometry(ENG_W, WALL, ENG_D), M.block);
+  /* Bottom (oil pan surface) */
+  const engBottom = new THREE.Mesh(
+    new THREE.BoxGeometry(ENG_W, WALL, ENG_D),
+    M.block
+  );
   engBottom.position.set(0, -ENG_H / 2 + WALL / 2, 0);
-  engBottom.castShadow = true; engBottom.receiveShadow = true;
+  engBottom.castShadow = true;
+  engBottom.receiveShadow = true;
   engineGroup.add(engBottom);
 
+  /* Head deck — split into segments so we can see the bores. */
   const deckSegs = [
     [-0.75, -0.54],
     [-0.36, -0.24],
@@ -638,36 +1044,59 @@ import { Parts } from './components.js';
     [ 0.54,  0.75]
   ];
   deckSegs.forEach(([a, b]) => {
-    const seg = new THREE.Mesh(new THREE.BoxGeometry(b - a, WALL, ENG_D), M.block);
+    const seg = new THREE.Mesh(
+      new THREE.BoxGeometry(b - a, WALL, ENG_D),
+      M.block
+    );
     seg.position.set((a + b) / 2, ENG_H / 2 - WALL / 2, 0);
-    seg.castShadow = true; seg.receiveShadow = true;
+    seg.castShadow = true;
+    seg.receiveShadow = true;
     engineGroup.add(seg);
   });
 
-  const cutBack = new THREE.Mesh(new THREE.PlaneGeometry(ENG_W - WALL * 2, ENG_H - WALL), M.blockCut);
+  /* Cut-surface planes — different material so the cut reads clearly. */
+  const cutBack = new THREE.Mesh(
+    new THREE.PlaneGeometry(ENG_W - WALL * 2, ENG_H - WALL),
+    M.blockCut
+  );
   cutBack.position.set(0, WALL / 2, -ENG_D / 2 + WALL + 0.001);
   engineGroup.add(cutBack);
-  const cutLeft = new THREE.Mesh(new THREE.PlaneGeometry(ENG_D - WALL, ENG_H - WALL), M.blockCut);
+
+  const cutLeft = new THREE.Mesh(
+    new THREE.PlaneGeometry(ENG_D - WALL, ENG_H - WALL),
+    M.blockCut
+  );
   cutLeft.rotation.y = Math.PI / 2;
   cutLeft.position.set(-ENG_W / 2 + WALL + 0.001, WALL / 2, 0);
   engineGroup.add(cutLeft);
-  const cutRight = new THREE.Mesh(new THREE.PlaneGeometry(ENG_D - WALL, ENG_H - WALL), M.blockCut);
+
+  const cutRight = new THREE.Mesh(
+    new THREE.PlaneGeometry(ENG_D - WALL, ENG_H - WALL),
+    M.blockCut
+  );
   cutRight.rotation.y = -Math.PI / 2;
   cutRight.position.set(ENG_W / 2 - WALL - 0.001, WALL / 2, 0);
   engineGroup.add(cutRight);
-  const cutBottom = new THREE.Mesh(new THREE.PlaneGeometry(ENG_W - WALL * 2, ENG_D - WALL), M.blockCut);
+
+  const cutBottom = new THREE.Mesh(
+    new THREE.PlaneGeometry(ENG_W - WALL * 2, ENG_D - WALL),
+    M.blockCut
+  );
   cutBottom.rotation.x = -Math.PI / 2;
   cutBottom.position.set(0, -ENG_H / 2 + WALL + 0.001, 0);
   engineGroup.add(cutBottom);
 
-  const BORE_R = 0.14;
-  const BORE_H = ENG_H - WALL * 2 - 0.02;
-  const boreGeo = new THREE.CylinderGeometry(BORE_R, BORE_R, BORE_H, 22, 1, true);
-  const boreRimGeo = new THREE.TorusGeometry(BORE_R, 0.012, 8, 22);
+  /* Four cylinder bores and their pistons. */
+  const BORE_R    = 0.14;
+  const BORE_H    = ENG_H - WALL * 2 - 0.02;
+  const boreGeo   = new THREE.CylinderGeometry(BORE_R, BORE_R, BORE_H, 22, 1, true);
+  const boreRimGeo= new THREE.TorusGeometry(BORE_R, 0.012, 8, 22);
   const pistonGeo = new THREE.CylinderGeometry(BORE_R * 0.96, BORE_R * 0.96, 0.10, 22);
 
+  const pistons = [];
   INJ_XS.forEach(wx => {
     const rx = wx - ENGINE.x;
+
     const bore = new THREE.Mesh(boreGeo, M.bore);
     bore.position.set(rx, -WALL / 2 + 0.02, 0);
     engineGroup.add(bore);
@@ -678,102 +1107,264 @@ import { Parts } from './components.js';
     engineGroup.add(rim);
 
     const piston = new THREE.Mesh(pistonGeo, M.piston);
-    piston.position.set(rx, -WALL / 2 - BORE_H / 2 + 0.13, 0);
+    const baseY  = -WALL / 2 - BORE_H / 2 + 0.13;
+    piston.position.set(rx, baseY, 0);
     piston.castShadow = true;
     engineGroup.add(piston);
+
+    pistons.push({ mesh: piston, baseY, rx });
   });
 
-  const crankcase = new THREE.Mesh(new THREE.BoxGeometry(ENG_W - WALL * 2, 0.14, ENG_D - WALL * 2), M.steelDark);
+  /* Decorative crankcase line at the base. */
+  const crankcase = new THREE.Mesh(
+    new THREE.BoxGeometry(ENG_W - WALL * 2, 0.14, ENG_D - WALL * 2),
+    M.steelDark
+  );
   crankcase.position.set(0, ENG_H / 2 - WALL - 0.09, 0);
   engineGroup.add(crankcase);
 
-  /* ═══════════════════════════════════════════════════════════
-     EXHAUST MANIFOLD + PIPE + O2 SENSOR
-     ═══════════════════════════════════════════════════════════ */
+  /* ── Knock sensor — piezo disc on the block, below the intake side ── */
+  const knockGroup = new THREE.Group();
+  knockGroup.position.set(ENGINE.x - 0.55, ENGINE.y + 0.35, -ENG_D / 2 - 0.03);
+  system.add(knockGroup);
+
+  const knockBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.055, 0.06, 14),
+    M.brass
+  );
+  knockBody.rotation.x = Math.PI / 2;
+  knockGroup.add(knockBody);
+
+  const knockBolt = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.014, 0.014, 0.08, 8),
+    M.steelDark
+  );
+  knockBolt.rotation.x = Math.PI / 2;
+  knockGroup.add(knockBolt);
+
+  const knockCable = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.008, 0.008, 0.20, 8),
+    M.wireBlue
+  );
+  knockCable.rotation.x = Math.PI / 2;
+  knockCable.position.z = -0.16;
+  knockGroup.add(knockCable);
+
+  /* ── Combustion glow — a sphere that flashes in the firing cylinder ── */
+  const combustionGlowMat = new THREE.MeshBasicMaterial({
+    color: 0xffd070, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+  const combustionGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(BORE_R * 0.85, 16, 12),
+    combustionGlowMat
+  );
+  combustionGlow.visible = false;
+  system.add(combustionGlow);
+
+  /* ══════════════════════════════════════════════════════════════
+     EXHAUST MANIFOLD + DOWNPIPE + O2 / LAMBDA SENSOR
+     ══════════════════════════════════════════════════════════════ */
   const exhGroup = new THREE.Group();
   exhGroup.position.copy(EXHAUST);
   system.add(exhGroup);
 
-  const collector = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.30, 18), M.exhaust);
+  const collector = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.11, 0.11, 0.30, 18),
+    M.exhaust
+  );
   collector.rotation.z = Math.PI / 2;
   collector.castShadow = true;
   exhGroup.add(collector);
 
+  /* Four curved runners from the head into the collector. */
   INJ_XS.forEach(wx => {
     const rx = wx - ENGINE.x;
     const targetX = ENGINE.x + rx;
-    const startX = EXHAUST.x - 0.15 + rx * 0.6;
-    const startY = EXHAUST.y + 0.10;
-    const endY   = ENGINE.y + 0.20;
-    const midX = (startX + targetX) / 2;
-    const midY = (startY + endY) / 2 + 0.12;
+    const startX  = EXHAUST.x - 0.15 + rx * 0.6;
+    const startY  = EXHAUST.y + 0.10;
+    const endY    = ENGINE.y + 0.20;
+    const midX    = (startX + targetX) / 2;
+    const midY    = (startY + endY) / 2 + 0.12;
+
     const curve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(startX, startY, 0),
       new THREE.Vector3(midX, midY, 0.02),
       new THREE.Vector3(targetX, endY, 0)
     ]);
-    const geo = new THREE.TubeGeometry(curve, 30, 0.045, TRAD, false);
+    const geo  = new THREE.TubeGeometry(curve, 30, 0.045, TRAD, false);
     const mesh = new THREE.Mesh(geo, M.exhaust);
     mesh.renderOrder = 4;
     system.add(mesh);
   });
 
+  /* Downpipe */
   const exhPipeCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(EXHAUST.x + 0.15, EXHAUST.y, 0),
     new THREE.Vector3(EXHAUST.x + 0.50, EXHAUST.y, 0),
     new THREE.Vector3(O2_POS.x + 0.10, O2_POS.y, 0),
     new THREE.Vector3(O2_POS.x + 0.40, O2_POS.y, 0)
   ]);
-  const exhPipeGeo = new THREE.TubeGeometry(exhPipeCurve, 40, 0.09, TRAD, false);
-  const exhPipeMesh = new THREE.Mesh(exhPipeGeo, M.exhaust);
+  const exhPipeMesh = new THREE.Mesh(
+    new THREE.TubeGeometry(exhPipeCurve, 40, 0.09, TRAD, false),
+    M.exhaust
+  );
   exhPipeMesh.renderOrder = 4;
   system.add(exhPipeMesh);
 
+  /* O2 / lambda sensor body. */
   const o2Group = new THREE.Group();
   o2Group.position.copy(O2_POS);
   system.add(o2Group);
 
-  const o2Body = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.18, 12), M.o2.clone());
+  const o2Body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.045, 0.045, 0.18, 12),
+    M.o2.clone()
+  );
   o2Body.rotation.x = Math.PI / 2;
   o2Group.add(o2Body);
 
-  const o2Hex = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.05, 6), M.steel);
+  const o2Hex = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.055, 0.05, 6),
+    M.steel
+  );
   o2Hex.rotation.x = Math.PI / 2;
   o2Hex.position.z = -0.12;
   o2Group.add(o2Hex);
 
-  const o2Pigtail = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.14, 8), M.wireGreen);
+  const o2Pigtail = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.010, 0.010, 0.14, 8),
+    M.wireGreen
+  );
   o2Pigtail.rotation.x = Math.PI / 2;
   o2Pigtail.position.z = -0.24;
   o2Group.add(o2Pigtail);
 
   const o2Conn = new THREE.Vector3(O2_POS.x, O2_POS.y, O2_POS.z - 0.31);
 
-  /* ═══════════════════════════════════════════════════════════
-     ECU BOX
-     ═══════════════════════════════════════════════════════════ */
+  /* ── EGR valve — CRDI only, sits on top of the exhaust side ── */
+  const egrGroup = new THREE.Group();
+  egrGroup.position.set(EXHAUST.x - 0.40, EXHAUST.y + 0.35, -0.30);
+  system.add(egrGroup);
+
+  const egrBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.085, 0.20, 16),
+    M.steelDark
+  );
+  egrGroup.add(egrBody);
+
+  const egrCap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.060, 0.060, 0.06, 16),
+    M.alum
+  );
+  egrCap.position.y = 0.13;
+  egrGroup.add(egrCap);
+
+  /* Position lever — tilts as the valve opens. */
+  const egrLever = new THREE.Mesh(
+    new THREE.BoxGeometry(0.016, 0.10, 0.020),
+    M.accent
+  );
+  egrLever.position.set(0, 0.20, 0);
+  egrGroup.add(egrLever);
+
+  /* ══════════════════════════════════════════════════════════════
+     FUEL-PRESSURE REGULATOR — MPFI only, on the return line
+     ══════════════════════════════════════════════════════════════ */
+  const fprGroup = new THREE.Group();
+  fprGroup.position.set(RAIL.x + 0.62, RAIL.y - 0.28, 0.35);
+  system.add(fprGroup);
+
+  const fprBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.055, 0.09, 18),
+    M.alum
+  );
+  fprGroup.add(fprBody);
+
+  const fprDome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.055, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+    M.steelDark
+  );
+  fprDome.position.y = 0.045;
+  fprGroup.add(fprDome);
+
+  /* Vacuum reference nipple on the dome. */
+  const fprVacNipple = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.010, 0.010, 0.05, 8),
+    M.brass
+  );
+  fprVacNipple.position.set(0, 0.08, 0.035);
+  fprVacNipple.rotation.x = -Math.PI / 3;
+  fprGroup.add(fprVacNipple);
+
+  /* ══════════════════════════════════════════════════════════════
+     ECU BOX — with scan-tool port on the underside
+     ══════════════════════════════════════════════════════════════ */
   const ecuGroup = new THREE.Group();
   ecuGroup.position.copy(ECU);
   system.add(ecuGroup);
 
-  const ecuBox = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.38, 0.22), M.ecubox);
+  const ecuBox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.62, 0.38, 0.22),
+    M.ecubox
+  );
   ecuBox.castShadow = true;
   ecuGroup.add(ecuBox);
 
-  const ecuLed = new THREE.Mesh(new THREE.SphereGeometry(0.026, 12, 8), M.green.clone());
+  const ecuLed = new THREE.Mesh(
+    new THREE.SphereGeometry(0.026, 12, 8),
+    M.green.clone()
+  );
   ecuLed.position.set(0.23, 0.13, 0.115);
   ecuGroup.add(ecuLed);
 
-  const ecuConnBlock = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.06, 0.10), M.steelDark);
+  const ecuConnBlock = new THREE.Mesh(
+    new THREE.BoxGeometry(0.40, 0.06, 0.10),
+    M.steelDark
+  );
   ecuConnBlock.position.set(0, -0.21, 0.06);
   ecuGroup.add(ecuConnBlock);
+
+  /* OBD-II diagnostic port on the underside of the ECU. */
+  const obdGroup = new THREE.Group();
+  obdGroup.position.set(ECU.x + 0.18, ECU.y - 0.24, ECU.z + 0.14);
+  system.add(obdGroup);
+
+  const obdBody = new THREE.Mesh(
+    new THREE.BoxGeometry(0.14, 0.05, 0.07),
+    M.steelDark
+  );
+  obdGroup.add(obdBody);
+
+  /* 16-pin D-shape face with a small pin grid. */
+  const obdFace = new THREE.Mesh(
+    new THREE.BoxGeometry(0.11, 0.032, 0.012),
+    new THREE.MeshBasicMaterial({ color: 0x0d1015 })
+  );
+  obdFace.position.y = -0.028;
+  obdGroup.add(obdFace);
+
+  for (let r = 0; r < 2; r++) {
+    for (let c = 0; c < 8; c++) {
+      const pin = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.0024, 0.0024, 0.006, 6),
+        M.brass
+      );
+      pin.position.set(
+        -0.042 + c * 0.012,
+        -0.034,
+        (r === 0 ? 0.003 : -0.003)
+      );
+      obdGroup.add(pin);
+    }
+  }
 
   const ecuTopConn = new THREE.Vector3(ECU.x + 0.20, ECU.y + 0.19, ECU.z + 0.05);
   const ecuBotConn = new THREE.Vector3(ECU.x + 0.25, ECU.y - 0.19, ECU.z + 0.05);
 
-  /* ═══════════════════════════════════════════════════════════
-     FUEL PIPES
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     FUEL PIPES — MPFI route and CRDI route
+     ══════════════════════════════════════════════════════════════ */
   const TANK_OUT    = new THREE.Vector3(TANK.x + TANK_W/2 + 0.03, TANK.y - TANK_H/2 + 0.10, TANK.z);
   const FILTER_IN   = new THREE.Vector3(FILTER.x, FILTER.y - FILT_H/2 - 0.05, FILTER.z);
   const FILTER_OUT  = new THREE.Vector3(FILTER.x, FILTER.y + FILT_H/2 + 0.05, FILTER.z);
@@ -785,26 +1376,24 @@ import { Parts } from './components.js';
   const RAIL_RIGHT  = new THREE.Vector3(RAIL.x + RAIL_L/2 + 0.03, RAIL.y, RAIL.z);
   const TANK_RETURN = new THREE.Vector3(TANK.x - 0.25, TANK.y + TANK_H/2 + 0.03, TANK.z);
 
+  /* Waypoint lists — route chosen by mode. */
   const tankToFilterWP = [
     TANK_OUT.clone(),
     new THREE.Vector3(TANK_OUT.x, FILTER_IN.y, TANK_OUT.z),
     FILTER_IN.clone()
   ];
-
   const filterToLpWP = [
     FILTER_OUT.clone(),
     new THREE.Vector3(FILTER_OUT.x, LP_TOP.y, FILTER_OUT.z),
     new THREE.Vector3(LP_TOP.x, LP_TOP.y, FILTER_OUT.z),
     LP_TOP.clone()
   ];
-
   const lpToHpWP = [
     LP_END.clone(),
     new THREE.Vector3(LP_END.x, HP_END.y, LP_END.z),
     new THREE.Vector3(HP_END.x, HP_END.y, LP_END.z),
     HP_END.clone()
   ];
-
   const hpToRailWP = [
     HP_TOP.clone(),
     new THREE.Vector3(HP_TOP.x, 0.90, HP_TOP.z),
@@ -812,7 +1401,13 @@ import { Parts } from './components.js';
     new THREE.Vector3(RAIL_LEFT.x, RAIL.y, HP_TOP.z),
     RAIL_LEFT.clone()
   ];
-
+  /* MPFI shortcut — LP pump feeds the rail directly. */
+  const lpToRailWP = [
+    LP_TOP.clone(),
+    new THREE.Vector3(LP_TOP.x, RAIL.y, LP_TOP.z),
+    new THREE.Vector3(RAIL_LEFT.x, RAIL.y, LP_TOP.z),
+    RAIL_LEFT.clone()
+  ];
   const returnWP = [
     RAIL_RIGHT.clone(),
     new THREE.Vector3(RAIL_RIGHT.x, RAIL.y, -0.55),
@@ -822,47 +1417,78 @@ import { Parts } from './components.js';
     TANK_RETURN.clone()
   ];
 
-  const pipeDefs = [
-    { wp: tankToFilterWP, r: 0.045, color: 0xfacc15, flow: 0.35, count: isLowEnd ? 14 : 26 },
-    { wp: filterToLpWP,   r: 0.045, color: 0xfacc15, flow: 0.35, count: isLowEnd ? 14 : 26 },
-    { wp: lpToHpWP,       r: 0.045, color: 0x60a5fa, flow: 0.38, count: isLowEnd ? 16 : 30 },
-    { wp: hpToRailWP,     r: 0.045, color: 0xef4444, flow: 0.75, count: isLowEnd ? 20 : 40 },
-    { wp: returnWP,       r: 0.042, color: 0x3b82f6, flow: 0.40, count: isLowEnd ? 18 : 36 }
-  ];
+  /* Build all pipe meshes; we'll toggle visibility per mode. */
+  const PIPE_TANK_FILTER = makeStraightPipe(tankToFilterWP, 0.045, M.glassPipe);
+  const PIPE_FILTER_LP   = makeStraightPipe(filterToLpWP,   0.045, M.glassPipe);
+  const PIPE_LP_HP       = makeStraightPipe(lpToHpWP,       0.045, M.glassPipe);
+  const PIPE_HP_RAIL     = makeStraightPipe(hpToRailWP,     0.045, M.glassPipe);
+  const PIPE_LP_RAIL     = makeStraightPipe(lpToRailWP,     0.045, M.glassPipe);
+  const PIPE_RETURN      = makeStraightPipe(returnWP,       0.042, M.glassPipe);
+  [PIPE_TANK_FILTER, PIPE_FILTER_LP, PIPE_LP_HP, PIPE_HP_RAIL, PIPE_LP_RAIL, PIPE_RETURN]
+    .forEach(p => system.add(p));
 
-  pipeDefs.forEach(p => {
-    system.add(makeStraightPipe(p.wp, p.r, M.glassPipe));
-    const curve = makeOrthoCurve(p.wp);
-    p.stream = makeStream(curve, p.count, p.r * 2.0, p.color, 0.95);
-  });
+  /* Matching particle streams. */
+  const STR_TANK_FILTER = makeStream(makeOrthoCurve(tankToFilterWP), isLowEnd ? 14 : 26, 0.09, 0xfacc15, 0.95);
+  const STR_FILTER_LP   = makeStream(makeOrthoCurve(filterToLpWP),   isLowEnd ? 14 : 26, 0.09, 0xfacc15, 0.95);
+  const STR_LP_HP       = makeStream(makeOrthoCurve(lpToHpWP),       isLowEnd ? 16 : 30, 0.09, 0x60a5fa, 0.95);
+  const STR_HP_RAIL     = makeStream(makeOrthoCurve(hpToRailWP),     isLowEnd ? 20 : 40, 0.09, 0xef4444, 0.95);
+  const STR_LP_RAIL     = makeStream(makeOrthoCurve(lpToRailWP),     isLowEnd ? 14 : 26, 0.09, 0xfacc15, 0.95);
+  const STR_RETURN      = makeStream(makeOrthoCurve(returnWP),       isLowEnd ? 18 : 36, 0.085, 0x3b82f6, 0.95);
 
-  addCollarAt(TANK_OUT,           new THREE.Vector3(1, 0, 0),  0.045);
-  addCollarAt(FILTER_IN,          new THREE.Vector3(0, 1, 0),  0.045);
-  addCollarAt(FILTER_OUT,         new THREE.Vector3(0, -1, 0), 0.045);
-  addCollarAt(LP_TOP,             new THREE.Vector3(0, -1, 0), 0.045);
-  addCollarAt(LP_END,             new THREE.Vector3(1, 0, 0),  0.045);
-  addCollarAt(HP_END,             new THREE.Vector3(1, 0, 0),  0.045);
-  addCollarAt(HP_TOP,             new THREE.Vector3(0, -1, 0), 0.045);
-  addCollarAt(RAIL_LEFT,          new THREE.Vector3(1, 0, 0),  0.045);
-  addCollarAt(RAIL_RIGHT,         new THREE.Vector3(-1, 0, 0), 0.042);
-  addCollarAt(TANK_RETURN,        new THREE.Vector3(0, -1, 0), 0.042);
+  /* Pipe joint collars. */
+  addCollarAt(TANK_OUT,    new THREE.Vector3(1, 0, 0),  0.045);
+  addCollarAt(FILTER_IN,   new THREE.Vector3(0, 1, 0),  0.045);
+  addCollarAt(FILTER_OUT,  new THREE.Vector3(0, -1, 0), 0.045);
+  addCollarAt(LP_TOP,      new THREE.Vector3(0, -1, 0), 0.045);
+  addCollarAt(LP_END,      new THREE.Vector3(1, 0, 0),  0.045);
+  addCollarAt(HP_END,      new THREE.Vector3(1, 0, 0),  0.045);
+  addCollarAt(HP_TOP,      new THREE.Vector3(0, -1, 0), 0.045);
+  addCollarAt(RAIL_LEFT,   new THREE.Vector3(1, 0, 0),  0.045);
+  addCollarAt(RAIL_RIGHT,  new THREE.Vector3(-1, 0, 0), 0.042);
+  addCollarAt(TANK_RETURN, new THREE.Vector3(0, -1, 0), 0.042);
 
-  /* ═══════════════════════════════════════════════════════════
-     SIGNAL WIRES
-     ═══════════════════════════════════════════════════════════ */
-  const wireMat = M.wireGreen;
+  /* ══════════════════════════════════════════════════════════════
+     SIGNAL WIRES — colour-coded per sensor
+     ══════════════════════════════════════════════════════════════ */
 
-  {
-    system.add(makeManhattanWire([
-      o2Conn.clone(),
-      new THREE.Vector3(o2Conn.x, -1.55, o2Conn.z),
-      new THREE.Vector3(ECU.x + 0.25, -1.55, o2Conn.z),
-      new THREE.Vector3(ECU.x + 0.25, -1.55, ECU.z + 0.05),
-      new THREE.Vector3(ECU.x + 0.25, ECU.y - 0.19, ECU.z + 0.05),
-      ecuBotConn.clone()
-    ], 0.010, wireMat));
-  }
+  /* O2 sensor to ECU. */
+  system.add(makeManhattanWire([
+    o2Conn.clone(),
+    new THREE.Vector3(o2Conn.x, -1.55, o2Conn.z),
+    new THREE.Vector3(ECU.x + 0.25, -1.55, o2Conn.z),
+    new THREE.Vector3(ECU.x + 0.25, -1.55, ECU.z + 0.05),
+    new THREE.Vector3(ECU.x + 0.25, ECU.y - 0.19, ECU.z + 0.05),
+    ecuBotConn.clone()
+  ], 0.010, M.wireGreen));
 
+  /* MAF to ECU. */
+  system.add(makeManhattanWire([
+    new THREE.Vector3(mafGroup.position.x, mafGroup.position.y, mafGroup.position.z),
+    new THREE.Vector3(mafGroup.position.x, mafGroup.position.y + 0.15, mafGroup.position.z),
+    new THREE.Vector3(ECU.x - 0.30, mafGroup.position.y + 0.15, mafGroup.position.z),
+    new THREE.Vector3(ECU.x - 0.30, ECU.y + 0.19, ECU.z + 0.05),
+    ecuTopConn.clone()
+  ], 0.008, M.wireBlue));
+
+  /* MAP to ECU. */
+  system.add(makeManhattanWire([
+    new THREE.Vector3(mapGroup.position.x, mapGroup.position.y, mapGroup.position.z),
+    new THREE.Vector3(mapGroup.position.x, 1.40, mapGroup.position.z),
+    new THREE.Vector3(ECU.x, 1.40, mapGroup.position.z),
+    new THREE.Vector3(ECU.x, ECU.y + 0.19, ECU.z + 0.05),
+    ecuTopConn.clone()
+  ], 0.008, M.wireYellow));
+
+  /* Knock sensor to ECU. */
+  system.add(makeManhattanWire([
+    new THREE.Vector3(knockGroup.position.x, knockGroup.position.y, knockGroup.position.z - 0.20),
+    new THREE.Vector3(knockGroup.position.x - 0.30, knockGroup.position.y - 0.50, knockGroup.position.z - 0.20),
+    new THREE.Vector3(ECU.x - 0.60, knockGroup.position.y - 0.50, knockGroup.position.z - 0.20),
+    new THREE.Vector3(ECU.x - 0.60, ECU.y + 0.19, ECU.z + 0.05),
+    ecuTopConn.clone()
+  ], 0.008, M.wireRed));
+
+  /* Injector command wires. */
   injectors.forEach((inj, i) => {
     const conn = inj.connWorld;
     const overY = 1.55 + i * 0.05;
@@ -873,20 +1499,44 @@ import { Parts } from './components.js';
       new THREE.Vector3(conn.x, overY, conn.z),
       new THREE.Vector3(conn.x, conn.y + 0.05, conn.z),
       conn.clone()
-    ], 0.008, wireMat));
+    ], 0.008, M.wireGreen));
   });
 
-  /* ═══════════════════════════════════════════════════════════
+  /* EGR feedback wire. */
+  system.add(makeManhattanWire([
+    new THREE.Vector3(egrGroup.position.x, egrGroup.position.y + 0.20, egrGroup.position.z),
+    new THREE.Vector3(egrGroup.position.x, egrGroup.position.y + 0.60, egrGroup.position.z),
+    new THREE.Vector3(ECU.x + 0.50, egrGroup.position.y + 0.60, egrGroup.position.z),
+    new THREE.Vector3(ECU.x + 0.50, ECU.y + 0.19, ECU.z + 0.05),
+    ecuTopConn.clone()
+  ], 0.008, M.wireYellow));
+
+  /* FPR vacuum reference hose (MPFI only, cosmetic). */
+  const fprVacWP = [
+    new THREE.Vector3(fprGroup.position.x, fprGroup.position.y + 0.10, fprGroup.position.z + 0.05),
+    new THREE.Vector3(fprGroup.position.x - 0.20, fprGroup.position.y + 0.30, fprGroup.position.z + 0.05),
+    new THREE.Vector3(MANIFOLD.x + 0.40, MANIFOLD.y + 0.10, MANIFOLD.z + 0.05),
+    new THREE.Vector3(MANIFOLD.x + 0.40, MANIFOLD.y + 0.05, MANIFOLD.z + 0.05)
+  ];
+  const PIPE_FPR_VAC = makeStraightPipe(fprVacWP, 0.010, M.wireGreen);
+  system.add(PIPE_FPR_VAC);
+
+  /* ══════════════════════════════════════════════════════════════
      SPRAY PARTICLES + CONES
-     ═══════════════════════════════════════════════════════════ */
+     ══════════════════════════════════════════════════════════════ */
   const sprayGeo = new THREE.BufferGeometry();
   const SPRAY_TOTAL = 4 * SPRAY_PER;
   sprayGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SPRAY_TOTAL * 3), 3));
   sprayGeo.setAttribute('color',    new THREE.BufferAttribute(new Float32Array(SPRAY_TOTAL * 3), 3));
   const sprayMat = new THREE.PointsMaterial({
-    map: particleTex, size: 0.09, sizeAttenuation: true,
-    vertexColors: true, transparent: true, opacity: 0.95,
-    depthWrite: false, blending: THREE.AdditiveBlending
+    map: particleTex,
+    size: 0.09,
+    sizeAttenuation: true,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.95,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
   });
   const sprayPoints = new THREE.Points(sprayGeo, sprayMat);
   sprayPoints.frustumCulled = false;
@@ -897,20 +1547,23 @@ import { Parts } from './components.js';
   for (let i = 0; i < SPRAY_TOTAL; i++) {
     sprayData.push({
       cyl: Math.floor(i / SPRAY_PER),
-      t: Math.random(),
+      t:   Math.random(),
       ang: Math.random() * TAU,
       rad: 0.4 + Math.random() * 0.6,
       spd: 0.7 + Math.random() * 0.6
     });
   }
 
-  const sprayCones = [];
-  injectors.forEach(inj => {
+  /* MPFI port cones — wider, greener. */
+  const portCones = injectors.map(inj => {
     const cone = new THREE.Mesh(
       new THREE.ConeGeometry(0.22, 0.42, 18, 1, true),
       new THREE.MeshBasicMaterial({
-        color: 0x22c55e, transparent: true, opacity: 0,
-        depthWrite: false, side: THREE.DoubleSide,
+        color: 0x22c55e,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide,
         blending: THREE.AdditiveBlending
       })
     );
@@ -918,20 +1571,45 @@ import { Parts } from './components.js';
     cone.position.set(inj.tipWorld.x, inj.tipWorld.y - 0.21, 0);
     cone.renderOrder = 2;
     system.add(cone);
-    sprayCones.push(cone);
+    return cone;
   });
 
-  /* ═══════════════════════════════════════════════════════════
+  /* CRDI direct cones — narrower, taller, bluer. */
+  const directCones = injectors.map(inj => {
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(0.10, 0.55, 16, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: 0x60a5fa,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending
+      })
+    );
+    cone.rotation.x = Math.PI;
+    cone.position.set(inj.tipWorld.x, inj.tipWorld.y - 0.27, 0);
+    cone.renderOrder = 2;
+    cone.visible = false;
+    system.add(cone);
+    return cone;
+  });
+
+  /* ══════════════════════════════════════════════════════════════
      EXHAUST PARTICLES
-     ═══════════════════════════════════════════════════════════ */
-  const EX_N = isLowEnd ? 18 : 32;
+     ══════════════════════════════════════════════════════════════ */
   const exhaustGeo = new THREE.BufferGeometry();
   exhaustGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(EX_N * 3), 3));
   exhaustGeo.setAttribute('color',    new THREE.BufferAttribute(new Float32Array(EX_N * 3), 3));
   const exhaustMat = new THREE.PointsMaterial({
-    map: particleTex, size: 0.13, sizeAttenuation: true,
-    vertexColors: true, transparent: true, opacity: 0.9,
-    depthWrite: false, blending: THREE.AdditiveBlending
+    map: particleTex,
+    size: 0.13,
+    sizeAttenuation: true,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
   });
   const exhaustPts = new THREE.Points(exhaustGeo, exhaustMat);
   exhaustPts.frustumCulled = false;
@@ -942,41 +1620,55 @@ import { Parts } from './components.js';
     exhaustData.push({ t: Math.random(), speed: 0.8 + Math.random() * 0.5 });
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     LABELS
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     LABELS — mode-specific visibility is handled at render time
+     ══════════════════════════════════════════════════════════════ */
   const labelDefs = [
-    { id:'tank',    text:'Fuel tank',            pos: new THREE.Vector3(TANK.x, TANK.y - TANK_H/2 - 0.30, TANK.z), mode:'both' },
-    { id:'filter',  text:'Fuel filter',          pos: new THREE.Vector3(FILTER.x, FILTER.y + FILT_H/2 + 0.28, FILTER.z), mode:'both' },
-    { id:'pump',    text:'Low-pressure pump',    pos: new THREE.Vector3(LPPUMP.x, LPPUMP.y - 0.35, LPPUMP.z), mode:'mpfi' },
-    { id:'pump_hp', text:'HP pump',              pos: new THREE.Vector3(HPPUMP.x, HPPUMP.y + 1.05, HPPUMP.z), mode:'crdi' },
-    { id:'rail',    text:'Fuel rail',            pos: new THREE.Vector3(RAIL.x - 0.20, RAIL.y + 0.42, RAIL.z), mode:'mpfi' },
-    { id:'rail_cr', text:'Common rail (HP)',     pos: new THREE.Vector3(RAIL.x - 0.20, RAIL.y + 0.42, RAIL.z), mode:'crdi' },
-    { id:'sensor',  text:'Pressure sensor',      pos: new THREE.Vector3(RAIL.x + 0.55, RAIL.y + 0.32, RAIL.z), mode:'both' },
-    { id:'inj',     text:'Injectors × 4',        pos: new THREE.Vector3(RAIL.x, RAIL.y - 0.85, 0.28), mode:'both' },
-    { id:'manifold',text:'Intake manifold',      pos: new THREE.Vector3(RAIL.x - 0.85, MANIFOLD.y + 0.05, MANIFOLD.z + 0.20), mode:'both' },
-    { id:'engine',  text:'Engine (cutaway)',     pos: new THREE.Vector3(ENGINE.x, ENGINE.y - ENG_H/2 - 0.30, ENGINE.z), mode:'both' },
-    { id:'exhaust', text:'Exhaust',              pos: new THREE.Vector3(EXHAUST.x + 0.10, EXHAUST.y + 0.28, EXHAUST.z), mode:'both' },
-    { id:'o2',      text:'O₂ sensor',            pos: new THREE.Vector3(O2_POS.x, O2_POS.y - 0.32, O2_POS.z + 0.10), mode:'mpfi' },
-    { id:'o2_nox',  text:'Lambda / NOx sensor',  pos: new THREE.Vector3(O2_POS.x, O2_POS.y - 0.32, O2_POS.z + 0.10), mode:'crdi' },
-    { id:'ecu',     text:'ECU',                  pos: new THREE.Vector3(ECU.x, ECU.y + 0.32, ECU.z), mode:'both' }
+    { id: 'tank',     text: 'Fuel tank',            pos: new THREE.Vector3(TANK.x, TANK.y - TANK_H/2 - 0.30, TANK.z), mode: 'both' },
+    { id: 'filter',   text: 'Fuel filter',          pos: new THREE.Vector3(FILTER.x, FILTER.y + FILT_H/2 + 0.28, FILTER.z), mode: 'both' },
+    { id: 'pump_lp',  text: 'Low-pressure pump',    pos: new THREE.Vector3(LPPUMP.x, LPPUMP.y - 0.35, LPPUMP.z), mode: 'both' },
+    { id: 'pump_hp',  text: 'High-pressure pump',   pos: new THREE.Vector3(HPPUMP.x, HPPUMP.y + 1.05, HPPUMP.z), mode: 'crdi' },
+    { id: 'rail',     text: 'Fuel rail · 3.5 bar',  pos: new THREE.Vector3(RAIL.x - 0.20, RAIL.y + 0.42, RAIL.z), mode: 'mpfi' },
+    { id: 'rail_hp',  text: 'Common rail · 2000 bar', pos: new THREE.Vector3(RAIL.x - 0.20, RAIL.y + 0.55, RAIL.z), mode: 'crdi' },
+    { id: 'sensor',   text: 'Rail pressure sensor', pos: new THREE.Vector3(RAIL.x + 0.55, RAIL.y + 0.32, RAIL.z), mode: 'both' },
+    { id: 'inj',      text: 'Injectors × 4',        pos: new THREE.Vector3(RAIL.x, RAIL.y - 0.85, 0.28), mode: 'both' },
+    { id: 'manifold', text: 'Intake manifold',      pos: new THREE.Vector3(RAIL.x - 0.85, MANIFOLD.y + 0.05, MANIFOLD.z + 0.20), mode: 'mpfi' },
+    { id: 'maf',      text: 'MAF sensor',           pos: new THREE.Vector3(mafGroup.position.x, mafGroup.position.y - 0.18, mafGroup.position.z), mode: 'mpfi' },
+    { id: 'map',      text: 'MAP sensor',           pos: new THREE.Vector3(mapGroup.position.x, mapGroup.position.y + 0.14, mapGroup.position.z), mode: 'mpfi' },
+    { id: 'iat',      text: 'IAT sensor',           pos: new THREE.Vector3(iatGroup.position.x, iatGroup.position.y + 0.16, iatGroup.position.z), mode: 'mpfi' },
+    { id: 'knock',    text: 'Knock sensor',         pos: new THREE.Vector3(knockGroup.position.x, knockGroup.position.y - 0.16, knockGroup.position.z), mode: 'both' },
+    { id: 'engine',   text: 'Engine (cutaway)',     pos: new THREE.Vector3(ENGINE.x, ENGINE.y - ENG_H/2 - 0.30, ENGINE.z), mode: 'both' },
+    { id: 'exhaust',  text: 'Exhaust',              pos: new THREE.Vector3(EXHAUST.x + 0.10, EXHAUST.y + 0.28, EXHAUST.z), mode: 'both' },
+    { id: 'o2',       text: 'O₂ sensor',            pos: new THREE.Vector3(O2_POS.x, O2_POS.y - 0.32, O2_POS.z + 0.10), mode: 'mpfi' },
+    { id: 'lambda',   text: 'Lambda / NOx sensor',  pos: new THREE.Vector3(O2_POS.x, O2_POS.y - 0.32, O2_POS.z + 0.10), mode: 'crdi' },
+    { id: 'egr',      text: 'EGR valve',            pos: new THREE.Vector3(egrGroup.position.x, egrGroup.position.y + 0.30, egrGroup.position.z), mode: 'crdi' },
+    { id: 'fpr',      text: 'Fuel-pressure regulator', pos: new THREE.Vector3(fprGroup.position.x, fprGroup.position.y + 0.18, fprGroup.position.z), mode: 'mpfi' },
+    { id: 'ecu',      text: 'ECU',                  pos: new THREE.Vector3(ECU.x, ECU.y + 0.32, ECU.z), mode: 'both' },
+    { id: 'obd',      text: 'OBD-II port',          pos: new THREE.Vector3(obdGroup.position.x, obdGroup.position.y - 0.10, obdGroup.position.z), mode: 'both' }
   ];
   labelDefs.forEach(d => labels.add(d.id, d.text));
 
-  /* ═══════════════════════════════════════════════════════════
-     UI — kit chrome + tabs for MPFI/CRDI
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     UI — panel, chip, toolbar, mode tabs
+     ══════════════════════════════════════════════════════════════ */
   const ui = UI.create({
-    moduleId: 'mpfi',
-
+    moduleId: 'fuelinjection',
     panel: {
       kicker: 'Fuel',
       title:  'Fuel Injection Systems',
       tabs: [
-        { id: 'mpfi', label: 'MPFI (Petrol)', color: '#22c55e',
-          icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2s-6 7-6 12a6 6 0 0 0 12 0c0-5-6-12-6-12z"/></svg>' },
-        { id: 'crdi', label: 'CRDI (Diesel)', color: '#3b82f6',
-          icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="6" width="14" height="12" rx="2"/><line x1="9" y1="10" x2="9" y2="14"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="15" y1="10" x2="15" y2="14"/></svg>' }
+        {
+          id: 'mpfi',
+          label: 'MPFI (Petrol)',
+          color: '#22c55e',
+          icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2s-6 7-6 12a6 6 0 0 0 12 0c0-5-6-12-6-12z"/></svg>'
+        },
+        {
+          id: 'crdi',
+          label: 'CRDI (Diesel)',
+          color: '#3b82f6',
+          icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="6" width="14" height="12" rx="2"/><line x1="9" y1="10" x2="9" y2="14"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="15" y1="10" x2="15" y2="14"/></svg>'
+        }
       ],
       onTab: (id) => applyModeSwitch(id),
       readout: `
@@ -984,24 +1676,67 @@ import { Parts } from './components.js';
           <div id="mp-badge">
             <span class="dot"></span><span data-mp="badge-text">Port Fuel Injection</span>
           </div>
+
           <div class="mp-rows">
             <div class="mp-row"><span>Engine speed</span><b data-mp="rpm">800 rpm</b></div>
-            <div class="mp-row"><span>Air : Fuel</span><b data-mp="afr">14.7 : 1</b></div>
-            <div class="mp-row"><span>Injector pulse</span><b data-mp="pw">2.4 ms</b></div>
-            <div class="mp-row"><span>Rail pressure</span><b data-mp="pres">3.5 bar</b></div>
+            <div class="mp-row"><span data-mp="afr-lbl">Air : Fuel</span><b data-mp="afr">14.7 : 1</b></div>
+            <div class="mp-row"><span data-mp="pw-lbl">Injector pulse</span><b data-mp="pw">2.4 ms</b></div>
+            <div class="mp-row"><span data-mp="pres-lbl">Rail pressure</span><b data-mp="pres">3.5 bar</b></div>
+            <div class="mp-row"><span data-mp="maf-lbl">MAF</span><b data-mp="maf">12.4 g/s</b></div>
+            <div class="mp-row"><span data-mp="map-lbl">MAP</span><b data-mp="map">42 kPa</b></div>
+            <div class="mp-row"><span data-mp="iat-lbl">Intake air</span><b data-mp="iat">34 °C</b></div>
+            <div class="mp-row"><span data-mp="knock-lbl">Knock retard</span><b data-mp="knock">0.0°</b></div>
+            <div class="mp-row"><span data-mp="egr-lbl">EGR</span><b data-mp="egr">Closed</b></div>
             <div class="mp-row"><span data-mp="sensor-lbl">O₂ sensor</span><b data-mp="o2">0.45 V</b></div>
           </div>
-          <div id="mp-desc">
-            <strong>Fuel Injection (MPFI).</strong> An electric pump pressurizes a common fuel rail.
-            Each injector is commanded by the ECU to open for a precise number of milliseconds —
-            spraying a fine mist directly at the intake valve. The <strong>O₂ sensor</strong> in
-            the exhaust measures leftover oxygen, and the ECU constantly trims injection time
-            to hold the mixture near the ideal 14.7:1 ratio.
+
+          <div id="mp-trims">
+            <div class="title">Per-cylinder fuel trim</div>
+            <div class="trim-bar">
+              <span>Cyl 1</span>
+              <div class="bar"><div class="fill" data-trim="0" style="width: 50%"></div></div>
+              <span class="v" data-trimval="0">0.0 %</span>
+            </div>
+            <div class="trim-bar">
+              <span>Cyl 2</span>
+              <div class="bar"><div class="fill" data-trim="1" style="width: 50%"></div></div>
+              <span class="v" data-trimval="1">0.0 %</span>
+            </div>
+            <div class="trim-bar">
+              <span>Cyl 3</span>
+              <div class="bar"><div class="fill" data-trim="2" style="width: 50%"></div></div>
+              <span class="v" data-trimval="2">0.0 %</span>
+            </div>
+            <div class="trim-bar">
+              <span>Cyl 4</span>
+              <div class="bar"><div class="fill" data-trim="3" style="width: 50%"></div></div>
+              <span class="v" data-trimval="3">0.0 %</span>
+            </div>
+          </div>
+
+          <div id="mp-graph-wrap">
+            <div class="title">
+              <span>Fuel trim history</span>
+              <span data-mp="trim-state">Balanced</span>
+            </div>
+            <canvas id="mp-graph" width="260" height="72"></canvas>
+            <div class="legend">
+              <span><i style="background:#38bdf8"></i>STFT</span>
+              <span><i style="background:#a855f7"></i>LTFT</span>
+              <span><i style="background:#22c55e"></i>Target</span>
+            </div>
+          </div>
+
+          <div id="mp-desc"></div>
+
+          <div id="mp-actions">
+            <button type="button" class="cold" data-action="cold">❄ Cold start</button>
+            <button type="button" data-action="egr">EGR pulse</button>
+            <button type="button" data-action="reset">⟲ Reset trims</button>
           </div>
         </div>
       `
     },
-
     chip: {
       label: 'Live mixture',
       value: 14.7,
@@ -1013,70 +1748,189 @@ import { Parts } from './components.js';
       ],
       status: { text: 'Balanced · Stoich' }
     },
-
     toolbar: {
-      play: true, reset: true,
+      play: true,
+      reset: true,
       speed: { label: 'Engine load', min: 0, max: 1, step: 0.02, value: 0.20 },
-      labels: true, gas: true
+      labels: true,
+      gas: true
     }
   });
 
-  /* Panel readout refs */
-  const panelBody    = ui.panel.body;
-  const elBadge      = panelBody ? panelBody.querySelector('#mp-badge') : null;
-  const elBadgeText  = panelBody ? panelBody.querySelector('[data-mp="badge-text"]') : null;
-  const elRpmEl      = panelBody ? panelBody.querySelector('[data-mp="rpm"]') : null;
-  const elAfrEl      = panelBody ? panelBody.querySelector('[data-mp="afr"]') : null;
-  const elPwEl       = panelBody ? panelBody.querySelector('[data-mp="pw"]') : null;
-  const elPresEl     = panelBody ? panelBody.querySelector('[data-mp="pres"]') : null;
-  const elO2El       = panelBody ? panelBody.querySelector('[data-mp="o2"]') : null;
-  const elSensorLbl  = panelBody ? panelBody.querySelector('[data-mp="sensor-lbl"]') : null;
-  const elDesc       = panelBody ? panelBody.querySelector('#mp-desc') : null;
+  /* ─── Resolve panel DOM refs ─────────────────────────────────── */
+  const panelBody   = ui.panel.body;
+  const elBadge     = panelBody.querySelector('#mp-badge');
+  const elBadgeText = panelBody.querySelector('[data-mp="badge-text"]');
+  const elRpmEl     = panelBody.querySelector('[data-mp="rpm"]');
+  const elAfrEl     = panelBody.querySelector('[data-mp="afr"]');
+  const elPwEl      = panelBody.querySelector('[data-mp="pw"]');
+  const elPresEl    = panelBody.querySelector('[data-mp="pres"]');
+  const elMafEl     = panelBody.querySelector('[data-mp="maf"]');
+  const elMapEl     = panelBody.querySelector('[data-mp="map"]');
+  const elIatEl     = panelBody.querySelector('[data-mp="iat"]');
+  const elKnockEl   = panelBody.querySelector('[data-mp="knock"]');
+  const elEgrEl     = panelBody.querySelector('[data-mp="egr"]');
+  const elO2El      = panelBody.querySelector('[data-mp="o2"]');
+  const elAfrLbl    = panelBody.querySelector('[data-mp="afr-lbl"]');
+  const elPwLbl     = panelBody.querySelector('[data-mp="pw-lbl"]');
+  const elPresLbl   = panelBody.querySelector('[data-mp="pres-lbl"]');
+  const elMafLbl    = panelBody.querySelector('[data-mp="maf-lbl"]');
+  const elMapLbl    = panelBody.querySelector('[data-mp="map-lbl"]');
+  const elIatLbl    = panelBody.querySelector('[data-mp="iat-lbl"]');
+  const elKnockLbl  = panelBody.querySelector('[data-mp="knock-lbl"]');
+  const elEgrLbl    = panelBody.querySelector('[data-mp="egr-lbl"]');
+  const elSensorLbl = panelBody.querySelector('[data-mp="sensor-lbl"]');
+  const elDesc      = panelBody.querySelector('#mp-desc');
+  const elTrimState = panelBody.querySelector('[data-mp="trim-state"]');
+  const elGraph     = panelBody.querySelector('#mp-graph');
 
-  /* ═══════════════════════════════════════════════════════════
-     MODE SWITCH
-     ═══════════════════════════════════════════════════════════ */
+  /* Per-cylinder trim bar fills and value labels. */
+  const trimFills  = [0, 1, 2, 3].map(i => panelBody.querySelector(`[data-trim="${i}"]`));
+  const trimLabels = [0, 1, 2, 3].map(i => panelBody.querySelector(`[data-trimval="${i}"]`));
+
+  /* Actions row. */
+  const btnCold  = panelBody.querySelector('[data-action="cold"]');
+  const btnEgr   = panelBody.querySelector('[data-action="egr"]');
+  const btnReset = panelBody.querySelector('[data-action="reset"]');
+
+  /* Graph canvas context. */
+  let gctx = null;
+  if (elGraph) gctx = elGraph.getContext('2d');
+
+  /* ══════════════════════════════════════════════════════════════
+     MODE SWITCHING — swap visible geometry + readout labels
+     ══════════════════════════════════════════════════════════════ */
   let sysMode = 'mpfi';
 
-  const DESC_MPFI = `<strong>Fuel Injection (MPFI).</strong> An electric pump pressurizes a common fuel rail.
-    Each injector is commanded by the ECU to open for a precise number of milliseconds —
-    spraying a fine mist at the intake valve. The <strong>O₂ sensor</strong> in the exhaust
-    measures leftover oxygen, and the ECU trims injection time to hold the mixture near
-    the ideal 14.7:1 ratio. Excess fuel returns to the tank through the <strong>pressure regulator</strong>.`;
+  const DESC_MPFI = `<strong>Multi-Point Fuel Injection (MPFI).</strong> An electric lift pump
+    pressurizes a common fuel rail to about 3–4.5 bar. Each of the four injectors is commanded by
+    the ECU to open for a precise number of milliseconds — spraying a fine mist at the intake valve.
+    The <strong>MAF</strong> and <strong>MAP</strong> sensors measure incoming air; the
+    <strong>O₂ sensor</strong> in the exhaust measures leftover oxygen; the ECU constantly trims
+    injection time to hold the mixture near the ideal 14.7:1 ratio. Excess fuel returns to the tank
+    through the <strong>pressure regulator</strong>, whose vacuum reference tracks manifold depression.`;
 
-  const DESC_CRDI = `<strong>Common Rail Direct Injection (CRDI).</strong> Used in modern diesel engines.
-    A high-pressure pump pressurizes diesel fuel (up to 2,500+ bar) into a shared accumulator —
-    the <strong>common rail</strong>. Solenoid or piezo injectors spray highly atomized fuel
-    directly into the combustion chamber. Air is unthrottled; power is metered purely by injection quantity.`;
+  const DESC_CRDI = `<strong>Common Rail Direct Injection (CRDI).</strong> Used in modern diesel
+    engines. A high-pressure pump pressurizes diesel fuel to 300–2000 bar into a shared
+    accumulator — the <strong>common rail</strong>. Solenoid or piezo injectors spray highly
+    atomized fuel <strong>directly</strong> into the combustion chamber, often in a pilot + main
+    (and sometimes post) sequence. Air is unthrottled; power is metered purely by injection quantity.
+    A wideband <strong>lambda sensor</strong> reads exhaust oxygen. <strong>EGR</strong> reduces NOx
+    by recirculating exhaust gas back into the intake.`;
 
   function applyModeSwitch(id) {
     sysMode = id || sysMode;
     const isCRDI = sysMode === 'crdi';
 
+    /* Rail geometry */
+    railBody.visible      = !isCRDI;
+    railBodyHP.visible    = isCRDI;
+    railHPCaps.forEach(c => c.visible = isCRDI);
+    railBosses.forEach(b => b.visible = !isCRDI);
+    railHPBosses.forEach(b => b.visible = isCRDI);
+
+    /* HP pump — only CRDI */
+    hpGroup.visible = isCRDI;
+
+    /* Intake manifold + its sensors — MPFI only */
+    manifoldGroup.visible = !isCRDI;
+    mafGroup.visible      = !isCRDI;
+    mapGroup.visible      = !isCRDI;
+    iatGroup.visible      = !isCRDI;
+
+    /* EGR — CRDI only */
+    egrGroup.visible = isCRDI;
+
+    /* Fuel-pressure regulator + vacuum hose — MPFI only */
+    fprGroup.visible     = !isCRDI;
+    PIPE_FPR_VAC.visible = !isCRDI;
+
+    /* Injector tips */
+    injectors.forEach(inj => {
+      inj.tipPort.visible   = !isCRDI;
+      inj.tipDirect.visible =  isCRDI;
+    });
+
+    /* Pipe route */
+    PIPE_LP_HP.visible   = isCRDI;
+    PIPE_HP_RAIL.visible = isCRDI;
+    PIPE_LP_RAIL.visible = !isCRDI;
+
+    /* Spray cones */
+    portCones.forEach(c => c.visible = !isCRDI);
+    directCones.forEach(c => c.visible = isCRDI);
+
+    /* Combustion glow only in CRDI */
+    combustionGlow.visible = isCRDI;
+
+    /* Badge */
     if (elBadge) {
+      elBadge.classList.remove('warn', 'cold');
       elBadge.style.background = isCRDI ? 'rgba(59,130,246,.18)' : 'rgba(34,197,94,.18)';
-      elBadge.style.color = isCRDI ? '#3b82f6' : '#22c55e';
+      elBadge.style.color      = isCRDI ? '#3b82f6' : '#22c55e';
     }
-    if (elBadgeText) elBadgeText.textContent = isCRDI ? 'High-Pressure Direct Injection' : 'Port Fuel Injection';
+    if (elBadgeText) elBadgeText.textContent = isCRDI
+      ? 'High-Pressure Direct Injection'
+      : 'Port Fuel Injection';
+
+    /* Description */
     if (elDesc) elDesc.innerHTML = isCRDI ? DESC_CRDI : DESC_MPFI;
 
-    viewManager.setMeshMaterial(fuelMesh, isCRDI ? M.diesel : M.fuel);
-    viewManager.setMeshMaterial(fuelSurface, isCRDI ? M.dieselTop : M.fuelTop);
-    if (elSensorLbl) elSensorLbl.textContent = isCRDI ? 'Lambda (λ)' : 'O₂ sensor';
+    /* Labels per mode */
+    if (elSensorLbl) elSensorLbl.textContent = isCRDI ? 'Lambda (λ)'      : 'O₂ sensor';
+    if (elAfrLbl)    elAfrLbl.textContent    = isCRDI ? 'Air : Fuel (lean)': 'Air : Fuel';
+    if (elPwLbl)     elPwLbl.textContent     = isCRDI ? 'Injection duration': 'Injector pulse';
+    if (elPresLbl)   elPresLbl.textContent   = 'Rail pressure';
+    if (elMafLbl)    elMafLbl.textContent    = isCRDI ? 'Turbo boost'      : 'MAF';
+    if (elMapLbl)    elMapLbl.textContent    = isCRDI ? 'Boost pressure'   : 'MAP';
+    if (elIatLbl)    elIatLbl.textContent    = isCRDI ? 'Charge air temp'  : 'Intake air';
+    if (elKnockLbl)  elKnockLbl.textContent  = isCRDI ? 'Injection advance': 'Knock retard';
+    if (elEgrLbl)    elEgrLbl.textContent    = isCRDI ? 'EGR position'     : 'MIL status';
 
-    labels.hideAll();
+    /* Fuel colour in the tank */
+    viewManager.setMeshMaterial(fuelMesh,    isCRDI ? M.diesel    : M.fuel);
+    viewManager.setMeshMaterial(fuelSurface, isCRDI ? M.dieselTop : M.fuelTop);
+
+    /* Show the EGR action only in CRDI; hide otherwise. */
+    if (btnEgr) btnEgr.style.display = isCRDI ? '' : 'none';
+
+    /* Clear per-mode state that shouldn't persist. */
+    egrPosition = 0;
+    knockRetard = 0;
+    turboBoost  = 0;
+    ecuTrim     = 0;
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     MIXTURE MODEL
-     ═══════════════════════════════════════════════════════════ */
-  let ecuTrim = 0.0;
-  let o2Voltage = 0.45;
-  let cyclePhase = 0;
-  let pumpSpin = 0;
-  let hpCam = 0;
-  let sloshT = 0;
+  /* ══════════════════════════════════════════════════════════════
+     PHYSICS STATE
+     ══════════════════════════════════════════════════════════════ */
+  let ecuTrim     = 0;      // long-term integrated trim, % AFR
+  let o2Voltage   = 0.45;   // simulated upstream O2 output, V
+  let cyclePhase  = 0;      // current position within a 4-stroke cycle (0–1)
+  let pumpSpin    = 0;      // rotation accumulator for the LP spinner
+  let hpCam       = 0;      // rotation accumulator for the HP pump
+  let sloshT      = 0;      // fuel slosh timer
+  let knockRetard = 0;      // ignition retard, degrees
+  let egrPosition = 0;      // 0 = closed, 1 = fully open
+  let turboBoost  = 0;      // bar, CRDI only
+  let coldStartT  = 0;      // seconds remaining in cold-start enrichment
+  const COLD_START_DURATION = 18;
 
+  /* Simulated STFT oscillation, averaged for the trim bar. */
+  let stft = 0;
+
+  /* Rolling history for the graph. */
+  const graphHistory = { stft: [], ltft: [], max: 80 };
+  let graphClock = 0;
+
+  /* Per-cylinder adaptive trims, −15 % to +15 %. */
+  const cylTrims = [0, 0, 0, 0];
+
+  /* ══════════════════════════════════════════════════════════════
+     PHYSICS HELPERS
+     ══════════════════════════════════════════════════════════════ */
+
+  /** Piecewise AFR curve. Richer at low and high load, near-stoich mid. */
   function computeAFR(thr, trim) {
     let base;
     if (thr < 0.15)      base = 12.4 + (thr / 0.15) * 0.8;
@@ -1085,176 +1939,444 @@ import { Parts } from './components.js';
     else                 base = 14.6 - ((thr - 0.70) / 0.30) * 2.0;
     return base + trim;
   }
+
+  /** Injection pulse width scales with air demand and RPM, and with AFR. */
   function computePulseWidth(thr, afr, rpm) {
     const airDemand = 0.30 + 0.70 * thr;
-    const rpmNorm = Math.max(0.5, rpm / 3000);
-    const basePW = 2.0 * airDemand * (1 + rpmNorm * 0.6);
+    const rpmNorm   = Math.max(0.5, rpm / 3000);
+    const basePW    = 2.0 * airDemand * (1 + rpmNorm * 0.6);
     return basePW * (14.7 / afr);
   }
-  function rpmFromLoad(v) { return 800 + Math.max(0, Math.min(1, v)) * 4200; }
 
+  /** Simple linear RPM model. */
+  function rpmFromLoad(v) {
+    return 800 + Math.max(0, Math.min(1, v)) * 4200;
+  }
+
+  /** Update the toolbar's live RPM hint. */
   function updateRpmLabelFromLoad() {
     const rpm = rpmFromLoad(state.speedMul);
     ui.toolbar.setRpmLabel('~' + Math.round(rpm) + ' rpm');
   }
 
-  function updateLiveUI(rpm, afr, pw, pressure) {
-    if (elRpmEl) elRpmEl.textContent = Math.round(rpm) + ' rpm';
-    if (elAfrEl) elAfrEl.textContent = afr.toFixed(1) + ' : 1';
-    if (elPwEl)  elPwEl.textContent  = pw.toFixed(2) + ' ms';
-    ui.chip.set('afr', afr.toFixed(1) + ' : 1');
-    ui.chip.set('pw',  pw.toFixed(2) + ' ms');
-    ui.chip.setBig(afr.toFixed(1), ':1');
-    if (elPresEl) {
-      elPresEl.textContent = sysMode === 'crdi'
-        ? Math.round(pressure) + ' bar'
-        : pressure.toFixed(1) + ' bar';
+  /* ══════════════════════════════════════════════════════════════
+     LIVE READOUT — panel rows, chip, per-cylinder trim bars, graph
+     ══════════════════════════════════════════════════════════════ */
+  function updateLiveUI(rpm, afr, pw, pressure, extras) {
+    const isCRDI = sysMode === 'crdi';
+
+    /* ── Row values ── */
+    if (elRpmEl)  elRpmEl.textContent  = Math.round(rpm) + ' rpm';
+    if (elAfrEl)  elAfrEl.textContent  = isCRDI ? afr.toFixed(0) + ' : 1' : afr.toFixed(1) + ' : 1';
+    if (elPwEl)   elPwEl.textContent   = pw.toFixed(2) + ' ms';
+    if (elPresEl) elPresEl.textContent = isCRDI
+      ? Math.round(pressure) + ' bar'
+      : pressure.toFixed(1) + ' bar';
+
+    if (elMafEl) elMafEl.textContent = isCRDI
+      ? extras.boost.toFixed(2) + ' bar'
+      : extras.maf.toFixed(1) + ' g/s';
+    if (elMapEl) elMapEl.textContent = isCRDI
+      ? Math.round(extras.map * 100) + ' kPa'
+      : Math.round(extras.map) + ' kPa';
+    if (elIatEl) elIatEl.textContent = Math.round(extras.iat) + ' °C';
+
+    if (elKnockEl) {
+      if (isCRDI) {
+        elKnockEl.textContent = '+' + extras.injAdvance.toFixed(1) + '°';
+      } else {
+        elKnockEl.textContent = '−' + extras.knock.toFixed(1) + '°';
+      }
     }
+
+    if (elEgrEl) {
+      if (isCRDI) {
+        elEgrEl.textContent = Math.round(egrPosition * 100) + ' %';
+      } else {
+        elEgrEl.textContent = 'OFF';
+      }
+    }
+
+    if (elO2El) {
+      if (isCRDI) {
+        elO2El.textContent = (afr / 14.5).toFixed(2) + ' λ';
+      } else {
+        elO2El.textContent = o2Voltage.toFixed(2) + ' V';
+      }
+    }
+
+    /* ── Chip ── */
+    ui.chip.set('afr', isCRDI ? afr.toFixed(0) + ' : 1' : afr.toFixed(1) + ' : 1');
+    ui.chip.set('pw',  pw.toFixed(2) + ' ms');
+    ui.chip.setBig(isCRDI ? afr.toFixed(0) : afr.toFixed(1), ':1');
 
     let name, color;
-    if (sysMode === 'mpfi') {
-      if (afr < 13.5)      { name='Rich';              color='#f97316'; }
-      else if (afr < 14.2) { name='Slightly Rich';     color='#fbbf24'; }
-      else if (afr < 15.2) { name='Balanced · Stoich'; color='#22c55e'; }
-      else if (afr < 15.6) { name='Slightly Lean';     color='#38bdf8'; }
-      else                 { name='Lean';              color='#3b82f6'; }
+    if (!isCRDI) {
+      if (afr < 13.5)      { name = 'Rich';              color = '#f97316'; }
+      else if (afr < 14.2) { name = 'Slightly Rich';     color = '#fbbf24'; }
+      else if (afr < 15.2) { name = 'Balanced · Stoich'; color = '#22c55e'; }
+      else if (afr < 15.6) { name = 'Slightly Lean';     color = '#38bdf8'; }
+      else                 { name = 'Lean';              color = '#3b82f6'; }
     } else {
-      if (afr < 20)      { name='Rich · Soot limit'; color='#f97316'; }
-      else if (afr < 35) { name='High Load';         color='#8b5cf6'; }
-      else               { name='Lean · Efficient';  color='#3b82f6'; }
+      if (afr < 20)      { name = 'Rich · Soot limit'; color = '#f97316'; }
+      else if (afr < 35) { name = 'High Load';         color = '#8b5cf6'; }
+      else               { name = 'Lean · Efficient';  color = '#3b82f6'; }
     }
     ui.chip.setColor(color);
-    ui.chip.setBar(Math.min(100, Math.abs(afr - 14.7) * 40 + 20), color);
+    ui.chip.setBar(Math.min(100, Math.abs(afr - (isCRDI ? 30 : 14.7)) * 40 + 20), color);
     ui.chip.setStatus(name, name.includes('Stoich') || name.includes('Efficient'));
+
+    /* ── Badge override for cold start or rich condition ── */
+    if (elBadge) {
+      elBadge.classList.remove('warn', 'cold');
+      if (coldStartT > 0) {
+        elBadge.classList.add('cold');
+      } else if (!isCRDI && (afr < 12 || afr > 16)) {
+        elBadge.classList.add('warn');
+      }
+    }
+
+    /* ── Per-cylinder trim bars ── */
+    for (let i = 0; i < 4; i++) {
+      const t = cylTrims[i];
+      const pct = 50 + t * 2;    // −15 % → 20 %, +15 % → 80 %
+      if (trimFills[i]) {
+        trimFills[i].style.width = Math.max(4, Math.min(96, pct)) + '%';
+        trimFills[i].style.background = t >= 0 ? '#22c55e' : '#ef4444';
+        trimFills[i].style.left = t < 0 ? '50%' : 'auto';
+        trimFills[i].style.right = t < 0 ? '50%' : 'auto';
+      }
+      if (trimLabels[i]) {
+        trimLabels[i].textContent = (t >= 0 ? '+' : '') + t.toFixed(1) + ' %';
+      }
+    }
+
+    /* ── Trim state word ── */
+    if (elTrimState) {
+      if (coldStartT > 0)          elTrimState.textContent = 'Cold enrich';
+      else if (Math.abs(ecuTrim) > 8) elTrimState.textContent = 'Correcting';
+      else if (Math.abs(ecuTrim) > 3) elTrimState.textContent = 'Trimming';
+      else                         elTrimState.textContent = 'Balanced';
+    }
   }
 
-  /* ═══════════════════════════════════════════════════════════
+  /** Push a fresh (STFT, LTFT) sample and redraw the small graph. */
+  function pushTrimSample() {
+    graphHistory.stft.push(stft);
+    graphHistory.ltft.push(ecuTrim);
+    if (graphHistory.stft.length > graphHistory.max) graphHistory.stft.shift();
+    if (graphHistory.ltft.length > graphHistory.max) graphHistory.ltft.shift();
+  }
+
+  function drawTrimGraph() {
+    if (!gctx) return;
+    const W = elGraph.width;
+    const H = elGraph.height;
+    gctx.clearRect(0, 0, W, H);
+
+    /* Grid lines */
+    gctx.strokeStyle = 'rgba(148,163,184,0.14)';
+    gctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      const y = Math.round((H * i) / 4) + 0.5;
+      gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+    }
+
+    /* Zero line */
+    gctx.strokeStyle = 'rgba(148,163,184,0.28)';
+    gctx.beginPath();
+    gctx.moveTo(0, H / 2);
+    gctx.lineTo(W, H / 2);
+    gctx.stroke();
+
+    /* Target band — green shading between ±2 % */
+    const yTop = H / 2 - (2 / 20) * (H / 2);
+    const yBot = H / 2 + (2 / 20) * (H / 2);
+    gctx.fillStyle = 'rgba(34,197,94,0.08)';
+    gctx.fillRect(0, yTop, W, yBot - yTop);
+
+    /* STFT (blue) */
+    gctx.strokeStyle = '#38bdf8';
+    gctx.lineWidth = 1.4;
+    gctx.beginPath();
+    for (let i = 0; i < graphHistory.stft.length; i++) {
+      const v = graphHistory.stft[i];
+      const x = (i / (graphHistory.max - 1)) * W;
+      const y = H / 2 - (Math.max(-20, Math.min(20, v)) / 20) * (H / 2);
+      if (i === 0) gctx.moveTo(x, y); else gctx.lineTo(x, y);
+    }
+    gctx.stroke();
+
+    /* LTFT (purple) */
+    gctx.strokeStyle = '#a855f7';
+    gctx.lineWidth = 1.4;
+    gctx.beginPath();
+    for (let i = 0; i < graphHistory.ltft.length; i++) {
+      const v = graphHistory.ltft[i];
+      const x = (i / (graphHistory.max - 1)) * W;
+      const y = H / 2 - (Math.max(-20, Math.min(20, v)) / 20) * (H / 2);
+      if (i === 0) gctx.moveTo(x, y); else gctx.lineTo(x, y);
+    }
+    gctx.stroke();
+
+    /* Axis labels */
+    gctx.fillStyle = 'rgba(148,163,184,0.6)';
+    gctx.font = '600 8px ui-sans-serif,system-ui,sans-serif';
+    gctx.fillText('+20%', 4, 10);
+    gctx.fillText('0', 4, H / 2 + 3);
+    gctx.fillText('−20%', 4, H - 4);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     ACTIONS — cold start, EGR pulse, reset
+     ══════════════════════════════════════════════════════════════ */
+  function triggerColdStart() {
+    coldStartT = COLD_START_DURATION;
+    if (btnCold) btnCold.classList.add('on');
+  }
+  function triggerEgrPulse() {
+    if (sysMode !== 'crdi') return;
+    egrPosition = 1.0;
+  }
+  function resetTrims() {
+    ecuTrim  = 0;
+    stft     = 0;
+    coldStartT = 0;
+    for (let i = 0; i < 4; i++) cylTrims[i] = 0;
+    graphHistory.stft.length = 0;
+    graphHistory.ltft.length = 0;
+    if (btnCold) btnCold.classList.remove('on');
+  }
+
+  if (btnCold)  btnCold.addEventListener('click', triggerColdStart);
+  if (btnEgr)   btnEgr.addEventListener('click', triggerEgrPulse);
+  if (btnReset) btnReset.addEventListener('click', resetTrims);
+
+  /* ══════════════════════════════════════════════════════════════
      BRIDGE
-     ═══════════════════════════════════════════════════════════ */
+     ══════════════════════════════════════════════════════════════ */
   const bridge = ui.wireBridge({
     viewManager,
     state,
     onCommand: (d) => {
-      switch (d.action) {
-        case 'reset':
-          ecuTrim = 0;
-          cyclePhase = 0;
-          state.speedMul = 0.20;
-          if (ui.toolbar.speedInput) ui.toolbar.speedInput.value = 0.20;
-          updateRpmLabelFromLoad();
-          break;
+      if (d.action === 'reset') {
+        resetTrims();
+        cyclePhase = 0;
+        state.speedMul = 0.20;
+        if (ui.toolbar.speedInput) ui.toolbar.speedInput.value = 0.20;
+        updateRpmLabelFromLoad();
       }
     }
   });
   bridge.ready();
   bridge.setStatus('Fuel Injection', '#22c55e');
 
-  /* Initialize */
+  /* Initial state. */
   applyModeSwitch('mpfi');
   updateRpmLabelFromLoad();
-
-  /* Keep the RPM label synced when the user drags the slider */
   if (ui.toolbar.speedInput) {
     ui.toolbar.speedInput.addEventListener('input', updateRpmLabelFromLoad);
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     ANIMATION LOOP
-     ═══════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     ANIMATION
+     ══════════════════════════════════════════════════════════════ */
   const clock = new THREE.Clock();
   let frame = 0;
-  const firingOrder = [0, 2, 3, 1];
+  const firingOrder = [0, 2, 3, 1];     // 1-3-4-2
 
   function animate() {
     requestAnimationFrame(animate);
     frame++;
-    const dt = Math.min(clock.getDelta(), 0.05);
+
+    const dt  = Math.min(clock.getDelta(), 0.05);
     const sim = state.playing ? dt : 0;
+    const isCRDI = sysMode === 'crdi';
 
     const throttle = Math.max(0, Math.min(1, state.speedMul));
-    const rpm = rpmFromLoad(throttle);
+    const rpm      = rpmFromLoad(throttle);
 
+    /* ═══ Physics per mode ═══ */
     let afr, pw, railPressure;
-    if (sysMode === 'mpfi') {
+    let maf = 0, map = 0, iat = 0, boost = 0, injAdvance = 0;
+
+    if (!isCRDI) {
+      /* ── MPFI ── */
       railPressure = 3.0 + throttle * 1.5;
-      afr = computeAFR(throttle, ecuTrim);
-      pw = computePulseWidth(throttle, afr, rpm);
 
-      const targetAFR = throttle < 0.15 ? 12.6 : (throttle > 0.85 ? 12.8 : 14.7);
-      const error = afr - targetAFR;
-      ecuTrim += (-error * 0.15 - ecuTrim * 0.03) * sim;
-      ecuTrim = Math.max(-0.6, Math.min(0.6, ecuTrim));
+      /* Cold-start enrichment */
+      if (coldStartT > 0) {
+        coldStartT = Math.max(0, coldStartT - sim);
+        if (coldStartT === 0 && btnCold) btnCold.classList.remove('on');
+      }
+      const coldEnrich = coldStartT > 0 ? 2.4 * (coldStartT / COLD_START_DURATION) : 0;
 
-      const osc = Math.sin(performance.now() * 0.006) * 0.12;
-      const baseVolt = afr < 14.7
-        ? 0.45 + Math.min(1, (14.7 - afr) / 1.5) * 0.45
-        : 0.45 - Math.min(1, (afr - 14.7) / 0.8) * 0.30;
-      o2Voltage = Math.max(0.05, Math.min(0.95, baseVolt + osc));
-      if (elO2El) elO2El.textContent = o2Voltage.toFixed(2) + ' V';
+      afr = computeAFR(throttle, ecuTrim) - coldEnrich * 0.8;
+      pw  = computePulseWidth(throttle, afr, rpm);
+
+      /* Air mass flow estimate (0–60 g/s) */
+      maf = 3 + throttle * 45 + Math.sin(performance.now() * 0.004) * 0.4;
+
+      /* Manifold absolute pressure (25–95 kPa). */
+      map = 28 + throttle * 62 + (coldStartT > 0 ? 4 : 0);
+
+      /* Intake air temperature (°C). Warmer at idle, cooler at load. */
+      iat = 42 - throttle * 14 + Math.sin(performance.now() * 0.002) * 0.5;
+
+      /* Closed-loop O2 sensor — only when warm and load is steady. */
+      const closedLoop = coldStartT === 0 && throttle > 0.05 && throttle < 0.92;
+      if (closedLoop) {
+        const targetAFR = throttle < 0.15 ? 12.6 : (throttle > 0.85 ? 12.8 : 14.7);
+        const error     = afr - targetAFR;
+        ecuTrim += (-error * 0.15 - ecuTrim * 0.03) * sim;
+        ecuTrim = Math.max(-15, Math.min(15, ecuTrim));
+
+        const osc = Math.sin(performance.now() * 0.006) * 0.12;
+        const baseVolt = afr < 14.7
+          ? 0.45 + Math.min(1, (14.7 - afr) / 1.5) * 0.45
+          : 0.45 - Math.min(1, (afr - 14.7) / 0.8) * 0.30;
+        o2Voltage = Math.max(0.05, Math.min(0.95, baseVolt + osc));
+
+        /* STFT trails the integrator. */
+        stft = -error * 22 + osc * 30;
+        stft = Math.max(-20, Math.min(20, stft));
+      } else {
+        o2Voltage = coldStartT > 0 ? 0.85 : 0.45;
+        stft = coldStartT > 0 ? -8 : 0;
+      }
+
+      /* Knock retard — only under high load, only when warm. */
+      const knockPressure = Math.max(0, (throttle - 0.68) / 0.32);
+      if (coldStartT === 0 && knockPressure > 0) {
+        const tgt = knockPressure * 8 + Math.abs(Math.sin(performance.now() * 0.0035)) * 2;
+        knockRetard = THREE.MathUtils.lerp(knockRetard, tgt, 0.05);
+      } else {
+        knockRetard = THREE.MathUtils.lerp(knockRetard, 0, 0.08);
+      }
+      injAdvance = 0;
+
+      /* Per-cylinder adaptive trims — drift slowly towards STFT. */
+      for (let i = 0; i < 4; i++) {
+        const phase = (performance.now() * 0.0004) + i * 0.7;
+        const tgt   = stft * 0.35 + Math.sin(phase) * 1.2;
+        cylTrims[i] = THREE.MathUtils.lerp(cylTrims[i], tgt, 0.006);
+      }
     } else {
+      /* ── CRDI ── */
       railPressure = 300 + throttle * 1700;
       afr = 60 - throttle * 42;
-      pw = 1.0 + throttle * 4.5;
+      pw  = 1.0 + throttle * 4.5;
+
+      /* Turbo boost lags throttle by a first-order filter. */
+      const boostTarget = Math.max(0, (throttle - 0.20) / 0.80) * 1.6;
+      turboBoost = THREE.MathUtils.lerp(turboBoost, boostTarget, 0.02);
+      boost = turboBoost;
+
+      /* Charge-air temperature rises with boost (compression heating). */
+      iat = 34 + turboBoost * 22 + Math.sin(performance.now() * 0.0018) * 0.4;
+
+      /* Boost pressure in kPa — bar * 100 + ambient. */
+      map = 100 + turboBoost * 100;
+
+      /* MAF-equivalent for CRDI display — reflects air demand. */
+      maf = 0;
+
+      /* Lambda sensor. */
       const lambda = afr / 14.5;
-      if (elO2El) elO2El.textContent = lambda.toFixed(2) + ' λ';
       o2Voltage = 0.5;
+
+      /* EGR decays back to closed after a pulse. */
+      egrPosition = THREE.MathUtils.lerp(egrPosition, 0, 0.03);
+
+      /* Injection advance — high load retards slightly. */
+      injAdvance = 4 - throttle * 3.5 + (turboBoost * 1.2);
+
+      /* CRDI per-cylinder trims are typically IQA codes, static. */
+      cylTrims[0] = 2.1;
+      cylTrims[1] = -1.4;
+      cylTrims[2] = 3.2;
+      cylTrims[3] = -2.6;
+
+      /* STFT + LTFT are not used in the same way on CRDI; leave both. */
+      stft    = 0;
+      ecuTrim = 0;
     }
 
+    /* ═══ Oxygen sensor emissive ─── */
     const o2Mat = o2Body.material;
     o2Mat.emissiveIntensity = 0.3 + Math.abs(o2Voltage - 0.45) * 1.6;
 
+    /* ═══ Cycle phase — four-stroke timing ═══ */
     const cyclesPerSec = rpm / 120;
     cyclePhase += sim * cyclesPerSec;
     if (cyclePhase >= 1) cyclePhase -= 1;
 
-    const cycleStep = cyclePhase * 4;
+    const cycleStep     = cyclePhase * 4;
     const activeCylIndex = Math.floor(cycleStep) % 4;
-    const firingCyl = firingOrder[activeCylIndex];
-    const localPhase = cycleStep - Math.floor(cycleStep);
-    const localFiring = localPhase < 0.15;
+    const firingCyl     = firingOrder[activeCylIndex];
+    const localPhase    = cycleStep - Math.floor(cycleStep);
 
+    /* Injection window and CRDI sub-pulses */
+    const mpfiFiring = !isCRDI && (localPhase < 0.15);
+
+    const pilotActive = isCRDI && localPhase >= 0.02 && localPhase < 0.05;
+    const mainActive  = isCRDI && localPhase >= 0.06 && localPhase < 0.10;
+    const postActive  = isCRDI && localPhase >= 0.12 && localPhase < 0.14 &&
+                        turboBoost > 1.2;
+    const crdiFiring  = pilotActive || mainActive || postActive;
+    const firingNow   = isCRDI ? crdiFiring : mpfiFiring;
+
+    /* ═══ Injector emissive + mechanical jitter ═══ */
     injectors.forEach((inj, i) => {
-      const isFiring = (i === firingCyl) && localFiring;
-      const mat = inj.tip.material;
+      const isFiring = (i === firingCyl) && firingNow;
+      const mat = isCRDI ? inj.tipDirect.material : inj.tipPort.material;
       if (!mat.userData.__base) {
         mat.userData.__base = true;
         mat.emissive = new THREE.Color(0x22c55e);
       }
-      mat.emissive.setHex(sysMode === 'crdi' ? 0x3b82f6 : 0x22c55e);
+      mat.emissive.setHex(isCRDI ? 0x3b82f6 : 0x22c55e);
       mat.emissiveIntensity = isFiring ? 1.6 : 0;
       inj.group.position.y = RAIL.y - (isFiring ? 0.006 : 0);
     });
 
+    /* ECU LED blinks on every injection event. */
     if (ecuLed && ecuLed.material) {
-      const activeColor = sysMode === 'crdi' ? 0x3b82f6 : 0x22c55e;
-      const inactiveColor = sysMode === 'crdi' ? 0x0a1a3a : 0x0a3a1a;
-      ecuLed.material.color.setHex(localFiring ? activeColor : inactiveColor);
+      const activeColor   = isCRDI ? 0x3b82f6 : 0x22c55e;
+      const inactiveColor = isCRDI ? 0x0a1a3a : 0x0a3a1a;
+      ecuLed.material.color.setHex(firingNow ? activeColor : inactiveColor);
       ecuLed.material.emissive = ecuLed.material.color;
-      ecuLed.material.emissiveIntensity = localFiring ? 1.0 : 0.2;
+      ecuLed.material.emissiveIntensity = firingNow ? 1.0 : 0.2;
     }
 
+    /* ═══ Pump animations ═══ */
     pumpSpin += sim * (8 + throttle * 32);
     lpSpinner.rotation.x = pumpSpin;
 
     hpCam += sim * (3 + throttle * 14);
-    hpPiston.position.y = 0.40 + Math.sin(hpCam) * 0.035;
-    hpCapTop.position.y  = 0.55 + Math.sin(hpCam) * 0.02;
+    hpPiston.position.y     = 0.40 + Math.sin(hpCam) * 0.035;
+    hpCapTop.position.y     = 0.55 + Math.sin(hpCam) * 0.02;
     hpPulleyMark.position.x = Math.sin(hpCam * 0.5) * 0.09;
     hpPulleyMark.position.y = Math.cos(hpCam * 0.5) * 0.09;
 
-    const railNorm = sysMode === 'crdi'
+    /* ═══ Rail gauge needle ═══ */
+    const railNorm = isCRDI
       ? Math.min(1, (railPressure - 300) / 1700)
       : Math.min(1, (railPressure - 3) / 1.5);
     gaugeNeedle.rotation.z = -Math.PI * 0.75 + railNorm * Math.PI * 1.5;
 
+    /* ═══ EGR lever ═══ */
+    egrLever.rotation.z = egrPosition * 0.9;
+
+    /* ═══ Fuel slosh ═══ */
     sloshT += sim * 1.1;
     const slosh = Math.sin(sloshT) * 0.012 * (0.4 + throttle);
-    fuelMesh.rotation.z = slosh;
+    fuelMesh.rotation.z    = slosh;
     fuelSurface.rotation.z = slosh;
     const bob = Math.sin(sloshT * 1.6) * 0.006;
-    fuelMesh.position.y = -TANK_H / 2 + FUEL_H / 2 + 0.03 + bob;
+    fuelMesh.position.y    = -TANK_H / 2 + FUEL_H / 2 + 0.03 + bob;
     fuelSurface.position.y = -TANK_H / 2 + FUEL_H + 0.03 + bob;
 
+    /* ═══ Tank bubbles ═══ */
     const bPos = bubbleGeo.attributes.position;
     for (let i = 0; i < BUBBLE_N; i++) {
       const b = bubbleData[i];
@@ -1266,79 +2388,117 @@ import { Parts } from './components.js';
           b.z = (Math.random() - 0.5) * (TANK_D - 0.25);
         }
       }
-      const localY = -TANK_H / 2 + 0.05 + b.y * (FUEL_H - 0.06);
-      bPos.setXYZ(i, b.x, localY, b.z);
+      bPos.setXYZ(i, b.x, -TANK_H / 2 + 0.05 + b.y * (FUEL_H - 0.06), b.z);
     }
     bPos.needsUpdate = true;
 
+    /* ═══ Pipe streams ═══ */
     const showFlow = state.showGas !== false;
-    pipeDefs.forEach(p => {
-      p.stream.pts.visible = showFlow;
+    const pipeVis = [
+      [PIPE_TANK_FILTER, STR_TANK_FILTER, 0.35, 0xfacc15],
+      [PIPE_FILTER_LP,   STR_FILTER_LP,   0.35, 0xfacc15],
+      [PIPE_LP_HP,       STR_LP_HP,       0.38, 0x60a5fa],
+      [PIPE_HP_RAIL,     STR_HP_RAIL,     0.75, 0xef4444],
+      [PIPE_LP_RAIL,     STR_LP_RAIL,     0.38, 0xfacc15],
+      [PIPE_RETURN,      STR_RETURN,      0.40, 0x3b82f6]
+    ];
+    pipeVis.forEach(([pipe, str, flow, color]) => {
+      if (!pipe.visible) { str.pts.visible = false; return; }
+      str.pts.visible = showFlow;
       if (showFlow) {
-        const boost = sysMode === 'crdi' && p.color === 0xef4444 ? 0.6 : 0;
-        const base = p.flow * (0.4 + throttle * 1.4 + boost);
-        updateStream(p.stream, sim, base);
+        const boostFlow = isCRDI && color === 0xef4444 ? 0.6 : 0;
+        updateStream(str, sim, flow * (0.4 + throttle * 1.4 + boostFlow));
       }
     });
 
+    /* ═══ Spray particles ═══ */
     sprayPoints.visible = showFlow;
     if (showFlow) {
       const posAttr = sprayGeo.attributes.position;
       const colAttr = sprayGeo.attributes.color;
 
       let tint;
-      if (sysMode === 'mpfi') {
+      if (!isCRDI) {
         const ideal = new THREE.Color(0xf59e0b);
         if (afr < 14.7) tint = ideal.clone().lerp(new THREE.Color(0xef4444), Math.min(1, (14.7 - afr) / 2.0));
         else            tint = ideal.clone().lerp(new THREE.Color(0x93c5fd), Math.min(1, (afr - 14.7) / 0.8));
       } else {
-        tint = new THREE.Color(0x3b82f6).lerp(new THREE.Color(0x94a3b8), throttle * 0.5);
+        tint = new THREE.Color(0x93c5fd).lerp(new THREE.Color(0xffffff), 0.3 + throttle * 0.4);
       }
 
-      const activeInj = injectors[firingCyl];
+      const activeInj  = injectors[firingCyl];
+      const spraySpeed = isCRDI ? 6.0 : 3.5;
+      const sprayLen   = isCRDI ? 0.55 : 0.45;
+      const sprayAngle = isCRDI ? 0.12 : 0.30;
 
       for (let i = 0; i < SPRAY_TOTAL; i++) {
         const p = sprayData[i];
-        if (p.cyl === firingCyl && localFiring) p.t += sim * p.speed * 3.5;
+        if (p.cyl === firingCyl && firingNow) p.t += sim * p.speed * spraySpeed;
         if (p.t > 1) p.t = 0;
 
         const isActiveCyl = (p.cyl === firingCyl);
-        const spread = p.t * 0.30;
-        const r = spread * (0.4 + p.rad * 0.6);
-        const y = activeInj.tipWorld.y - p.t * 0.45;
-        const x = activeInj.tipWorld.x + Math.cos(p.ang) * r;
-        const z = Math.sin(p.ang) * r;
+        const spread      = p.t * sprayAngle;
+        const r           = spread * (0.4 + p.rad * 0.6);
+        const y           = activeInj.tipWorld.y - p.t * sprayLen;
+        const x           = activeInj.tipWorld.x + Math.cos(p.ang) * r;
+        const z           = Math.sin(p.ang) * r;
 
         posAttr.setXYZ(i, x, y, z);
-        const I = (1 - p.t) * (0.5 + 0.5 * throttle) * (isActiveCyl && localFiring ? 1 : 0);
+        const I = (1 - p.t) * (0.5 + 0.5 * throttle) * (isActiveCyl && firingNow ? 1 : 0);
         colAttr.setXYZ(i, tint.r * I, tint.g * I, tint.b * I);
       }
       posAttr.needsUpdate = true;
       colAttr.needsUpdate = true;
     }
 
-    sprayCones.forEach((cone, i) => {
-      const isFiring = (i === firingCyl) && localFiring;
+    /* ═══ Spray cones ═══ */
+    portCones.forEach((cone, i) => {
+      const isFiring = (i === firingCyl) && mpfiFiring;
       const targetOp = isFiring ? 0.18 * (0.5 + 0.5 * throttle) : 0;
       cone.material.opacity += (targetOp - cone.material.opacity) * Math.min(1, sim * 18);
-      cone.material.color.setHex(sysMode === 'crdi' ? 0x3b82f6 : 0x22c55e);
+    });
+    directCones.forEach((cone, i) => {
+      const isFiring = (i === firingCyl) && crdiFiring;
+      const targetOp = isFiring ? 0.32 * (0.5 + 0.5 * throttle) : 0;
+      cone.material.opacity += (targetOp - cone.material.opacity) * Math.min(1, sim * 22);
     });
 
+    /* ═══ Combustion glow ═══ */
+    if (isCRDI && mainActive && pistons[firingCyl]) {
+      const p = pistons[firingCyl];
+      combustionGlow.position.set(ENGINE.x + p.rx, ENGINE.y + p.baseY + 0.30, 0);
+      combustionGlowMat.opacity = 0.55 * (0.5 + 0.5 * throttle);
+      const s = 0.6 + 0.5 * (1 - localPhase / 0.10);
+      combustionGlow.scale.setScalar(s);
+    } else {
+      combustionGlowMat.opacity *= Math.max(0, 1 - sim * 8);
+    }
+
+    /* ═══ Piston bobbing ═══ */
+    pistons.forEach((p, i) => {
+      const phase  = (cyclePhase * 4 + i * 1.0) % 4;
+      const stroke = Math.sin(phase * Math.PI * 2) * (isCRDI ? 0.035 : 0.025);
+      p.mesh.position.y = p.baseY + stroke * (0.3 + throttle * 0.7);
+    });
+
+    /* ═══ Exhaust particles ═══ */
     exhaustPts.visible = showFlow;
     if (showFlow) {
       const posAttr = exhaustGeo.attributes.position;
       const colAttr = exhaustGeo.attributes.color;
       const coolCol = new THREE.Color(0x64748b);
-      const hotCol  = sysMode === 'crdi' ? new THREE.Color(0x1e293b) : new THREE.Color(0xff6b35);
+      const hotCol  = isCRDI ? new THREE.Color(0x1e293b) : new THREE.Color(0xff6b35);
 
       for (let i = 0; i < EX_N; i++) {
         const p = exhaustData[i];
         p.t += sim * p.speed * 0.5 * (0.5 + throttle);
         if (p.t > 1) p.t -= 1;
-        const x = EXHAUST.x + 0.15 + p.t * 1.0;
-        const y = EXHAUST.y + Math.sin(p.t * 6 + i) * 0.04;
-        const z = Math.sin(p.t * 4 + i * 0.7) * 0.05;
-        posAttr.setXYZ(i, x, y, z);
+        posAttr.setXYZ(
+          i,
+          EXHAUST.x + 0.15 + p.t * 1.0,
+          EXHAUST.y + Math.sin(p.t * 6 + i) * 0.04,
+          Math.sin(p.t * 4 + i * 0.7) * 0.05
+        );
         const hotness = 1 - Math.min(1, p.t * 2);
         const c = coolCol.clone().lerp(hotCol, hotness * (0.5 + 0.5 * throttle));
         const I = (1 - p.t) * 0.8;
@@ -1348,8 +2508,22 @@ import { Parts } from './components.js';
       colAttr.needsUpdate = true;
     }
 
-    if (state.playing) updateLiveUI(rpm, afr, pw, railPressure);
+    /* ═══ Live readouts (throttled to ~10 Hz) ═══ */
+    if (state.playing && frame % 6 === 0) {
+      updateLiveUI(rpm, afr, pw, railPressure, {
+        maf, map, iat, boost, knock: knockRetard, injAdvance
+      });
+    }
 
+    /* ═══ Graph history ═══ */
+    graphClock += sim;
+    if (graphClock > 0.20) {
+      graphClock = 0;
+      pushTrimSample();
+      drawTrimGraph();
+    }
+
+    /* ═══ Labels ═══ */
     if (state.showLabels && frame % 2 === 0) {
       labelDefs.forEach(d => {
         if (d.mode === 'both' || d.mode === sysMode) {
