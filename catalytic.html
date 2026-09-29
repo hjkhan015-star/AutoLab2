@@ -9,6 +9,49 @@
 <style>
 :root { --al-accent: #fb923c; }
 html.light-theme { --al-accent: color-mix(in oklch, #fb923c 68%, black); }
+
+/* ── module-local UI: extra controls + rolling graph ─────────────── */
+#cat-panel{
+  position:fixed; left:12px; top:12px; z-index:30;
+  width:256px; max-width:46vw;
+  padding:10px 12px 12px;
+  border:1px solid var(--border,#333);
+  border-radius:10px;
+  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38);
+  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
+  color:var(--text-dim,#9aa4b2);
+  max-height:calc(100dvh - 24px); overflow:auto;
+}
+#cat-panel.folded .cat-body{ display:none; }
+.cat-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.cat-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
+.cat-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
+.cat-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.cat-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.cat-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-mute,#6b7280); }
+.cat-w b{ color:var(--text,#e5e7eb); font-weight:700; }
+#cat-panel .al-range{ height:22px; }
+#cat-panel .al-sel{ min-height:32px; font-size:11px; }
+.cat-btns{ display:flex; gap:6px; margin-bottom:8px; }
+.cat-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
+.cat-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.cat-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(251,146,60,.14); }
+#cat-cold{ color:#22d3ee; border-color:rgba(34,211,238,.4); }
+#cat-cold:hover{ border-color:#22d3ee; }
+.cat-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
+  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
+  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
+.cat-warn.show{ display:block; }
+#cat-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
+  border-radius:6px; background:rgba(0,0,0,.28); }
+.cat-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
+.cat-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+@media (max-width:700px){ #cat-panel{ width:200px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -29,38 +72,565 @@ html.light-theme { --al-accent: color-mix(in oklch, #fb923c 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "catalytic", "title": "Catalytic Converter", "kicker": "Exhaust & Emissions", "accent": "#fb923c", "badge": "Three-way · Pt/Pd/Rh", "camPos": [4.8, 2.6, 6.4], "target": [0, 0, 0], "floorY": -1.6, "ctl": {"label": "Catalyst temperature", "val": 25, "caption": "Exhaust temp"}, "chipLabel": "CO conversion", "rows": [["hc", "HC"], ["nox", "NOx"]], "ro": [["temp", "Catalyst temp"], ["co", "CO → CO₂"], ["hc", "HC → CO₂ + H₂O"], ["nox", "NOx → N₂"], ["state", "State"]], "legend": [["#9a7b4f", "Raw exhaust (CO, HC, NOx)"], ["#a5f3fc", "Cleaned gas (CO₂, H₂O, N₂)"]], "overview": "<div class=\"al-sec\"><h4>Three jobs at once<\/h4><ul><li>Oxidise carbon monoxide: CO → CO₂<\/li><li>Oxidise unburnt hydrocarbons: HC → CO₂ + H₂O<\/li><li>Reduce nitrogen oxides: NOx → N₂<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Light-off<\/h4><p>Platinum, palladium and rhodium on a ceramic honeycomb only work above about 250–300 °C. Modern engines place the catalyst close to the manifold and enrich briefly to heat it fast.<\/p><\/div><div class=\"al-sec\"><h4>Lambda window<\/h4><p>The ECU keeps the mixture near λ = 1 (14.7:1). Oxygen sensors before and after the catalyst check its efficiency.<\/p><\/div>", "faults": [["Contaminated (lead, silicone, oil)", "High emissions, P0420, failing MOT/test.", "Compare pre- and post-cat O₂ sensor waveforms."], ["Melted substrate", "Blockage: power loss, glowing red, rattle.", "Backpressure test; check for misfire that dumped raw fuel."], ["Rattling heat shield or broken monolith", "Metallic rattle at idle.", "Tap the shell; inspect for loose ceramic."]], "quiz": [["Catalyst light-off temperature is about…", ["100 °C", "250–300 °C", "700 °C"], 1, "Below ~250 °C the reactions are too slow to clean the exhaust."], ["The catalyst works best at…", ["Rich mixture", "Lean mixture", "λ ≈ 1"], 2, "The three-way catalyst needs a near-stoichiometric mixture."], ["P0420 indicates…", ["Catalyst efficiency below threshold", "Misfire", "Low coolant"], 0, "The post-cat oxygen sensor shows the catalyst is not cleaning enough."]]};
+const CFG = {
+  "moduleId": "catalytic",
+  "title": "Catalytic Converter",
+  "kicker": "Exhaust & Emissions",
+  "accent": "#fb923c",
+  "badge": "Three-way · Pt/Pd/Rh",
+  "camPos": [4.8, 2.6, 6.4],
+  "target": [0, 0, 0],
+  "floorY": -1.6,
+  "ctl": { "label": "Engine load", "val": 30, "caption": "Engine load" },
+  "chipLabel": "CO conversion",
+  "rows": [["hc", "HC"], ["nox", "NOx"]],
+  "ro": [
+    ["temp", "Catalyst temp"],
+    ["egt", "Exhaust gas"],
+    ["co", "CO → CO2"],
+    ["hc", "HC → CO2+H2O"],
+    ["nox", "NOx → N2"],
+    ["lam", "Lambda"],
+    ["bp", "Back pressure"],
+    ["o2", "Post-cat O2 (ECU)"],
+    ["state", "State"]
+  ],
+  "legend": [
+    ["#9a7b4f", "Raw exhaust (CO, HC, NOx)"],
+    ["#a5f3fc", "Cleaned gas (CO2, H2O, N2)"],
+    ["#d9c9a3", "Ceramic honeycomb"],
+    ["#22d3ee", "Post-cat O2 sensor"],
+    ["#fb923c", "Hot / light-off glow"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Three jobs at once<\/h4><ul><li>Oxidise carbon monoxide: CO &rarr; CO&#8322;<\/li><li>Oxidise unburnt hydrocarbons: HC &rarr; CO&#8322; + H&#8322;O<\/li><li>Reduce nitrogen oxides: NOx &rarr; N&#8322;<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Light-off<\/h4><p>Platinum, palladium and rhodium on a ceramic honeycomb only work above about 250&ndash;300&nbsp;&deg;C. The catalyst starts <b>cold</b> in this simulation &mdash; watch the conversion climb as the exhaust heats the brick through the light-off S-curve.<\/p><\/div><div class=\"al-sec\"><h4>Lambda window<\/h4><p>The ECU keeps the mixture near &lambda;&nbsp;=&nbsp;1. CO and HC prefer it just lean of stoichiometric, NOx prefers it just rich. Push the &lambda; slider to either extreme and the conversion of one group collapses while the other improves &mdash; the classic three-way conflict.<\/p><\/div><div class=\"al-sec\"><h4>Misfire &amp; melt-down<\/h4><p>Raw fuel that reaches the catalyst burns on the precious-metal surface. A long enough misfire pushes the bed above 950&nbsp;&deg;C, the ceramic substrate melts, back pressure rises and conversion drops &mdash; and the damage is permanent until Reset.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Select the <b>post-cat O2 sensor</b> fault, then hold high load with 100&nbsp;% misfire. The brick glows red, melts, and conversion collapses &mdash; yet the ECU never sets P0420 because it is blind. Now switch back to <b>None<\/b> and repeat: with a live sensor, P0420 latches within seconds.<\/p><\/div>",
+  "faults": [
+    ["Poisoned (lead, silicone, oil)", "P0420 - catalyst efficiency below threshold. The precious-metal sites are blocked, so even a hot brick cannot convert. Often caused by a coolant or oil leak into the exhaust.", "Compare pre- and post-cat O2 waveforms; check for coolant or oil consumption."],
+    ["Melted substrate", "P0420 plus a rise in back pressure and a rattle. Caused by a sustained misfire or a rich-running engine dumping raw fuel onto the brick. The monolith distorts and partly blocks the exhaust.", "Back-pressure test; drop the down-pipe and inspect the honeycomb for distortion."],
+    ["Post-cat O2 sensor failed", "P0136/P0141 or P0420 hidden. The sensor sticks at a healthy-looking voltage, so the ECU cannot see the real degradation and never sets an efficiency code.", "Read the downstream O2 sensor live; compare with a known-good sensor or a scope."]
+  ],
+  "quiz": [
+    ["Catalyst light-off temperature is about…", ["100 °C", "250-300 °C", "700 °C"], 1, "Below ~250 °C the precious-metal reactions are too slow to clean the exhaust."],
+    ["The three-way catalyst works best at…", ["Rich mixture (λ < 1)", "Lean mixture (λ > 1)", "λ ≈ 1"], 2, "CO and HC need just-lean, NOx needs just-rich - the ECU keeps the mixture oscillating around λ = 1 to satisfy both."],
+    ["P0420 means…", ["Catalyst efficiency below threshold", "Misfire detected", "Low coolant"], 0, "The ECU compares pre- and post-cat O2 signals and concludes the catalyst is not converting enough."],
+    ["A long misfire melts the catalyst because…", ["Raw fuel burns on the brick and raises its temperature", "The mixture is too lean", "The ceramic absorbs water"], 0, "Unburnt HC and CO oxidise exothermically on the precious metal and push the bed past ~950 °C."],
+    ["A poisoned catalyst is most likely caused by…", ["Lead, silicone or oil contamination", "Over-revving", "A blocked air filter"], 0, "Those contaminants coat the precious-metal sites and block the active surface permanently."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   PHYSICS MODEL — pure, named functions.
+   Simplified physical trends, not a bench lookup table.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* finite, range-safe clamp (never returns NaN) */
+function clampN(x, a, b) {
+  if (!Number.isFinite(x)) return a;
+  return x < a ? a : (x > b ? b : x);
+}
+const num = (x, d) => (Number.isFinite(x) ? x : d);
+
+/* ── named constants ─────────────────────────────────────────────── */
+const LIGHT_OFF     = 275;    /* °C, 50 % conversion (light-off midpoint)   */
+const LIGHT_OFF_W   = 35;     /* °C, steepness of the S-curve               */
+const MAX_CONV      = 0.995;  /* healthy conversion ceiling (CO, HC)        */
+const NOX_CEILING   = 0.985;  /* NOx reduction is slightly harder           */
+const TAU_CAT       = 12;     /* s, monolith thermal time constant          */
+const MELT_TEMP     = 950;    /* °C, thermal damage starts above this       */
+const MELT_RATE     = 0.0016; /* damage per (s · °C above the melt point)   */
+const MISFIRE_HEAT  = 420;    /* °C, max extra bed temperature at full misfire */
+const P0420_LIMIT   = 0.70;   /* measured efficiency below this = P0420     */
+const P0420_DELAY   = 8;      /* s sustained above the limit before latching */
+const COLD_START_T  = 30;     /* °C, initial bed temperature on a cold start */
+
+/* Light-off S-curve: near-zero below ~200 °C, ~0.5 at 275 °C, ~1 by
+   400 °C. Direction: hotter bed -> more conversion. */
+function lightOff(T) {
+  const x = (num(T, 0) - LIGHT_OFF) / LIGHT_OFF_W;
+  return 1 / (1 + Math.exp(-x));
+}
+
+/* Lambda window for each species. CO/HC oxidise best just lean of
+   stoichiometric, NOx reduction best just rich; both drop away from
+   their centre. Direction: further from centre -> lower factor. */
+function lambdaWindow(lambda, kind) {
+  const L = clampN(num(lambda, 1), 0.7, 1.3);
+  const centre = (kind === 'nox') ? 0.985 : 1.005;
+  const width  = 0.055;
+  const x = (L - centre) / width;
+  return clampN(1 - 0.55 * x * x, 0.02, 1);
+}
+
+/* Exhaust gas temperature at the catalyst inlet (°C). Rises with load
+   (more fuel per cycle) and with rpm (more cycles per second); the
+   ambient adds to the whole curve. Direction: more load/rpm -> hotter. */
+function exhaustGasTemp(load, rpm, ambient) {
+  const L = clampN(load, 0, 1);
+  const N = clampN((num(rpm, 800) - 800) / 4200, 0, 1);
+  const base = num(ambient, 20) + 150 + 700 * L * (0.6 + 0.4 * N) + 130 * N;
+  return clampN(base, -30, 950);
+}
+
+/* Extra heat released on the brick when unburnt fuel (misfire) oxidises
+   on the precious metal. Direction: more misfire + more load -> more
+   heat. Gated by light-off before use, so a cold cat does not self-heat. */
+function misfireHeat(misfire, load) {
+  const M = clampN(misfire, 0, 1);
+  const L = clampN(load, 0, 1);
+  return MISFIRE_HEAT * M * (0.35 + 0.65 * L);
+}
+
+/* True conversion efficiency per species. Ceiling drops with permanent
+   poisoning and with accumulated thermal damage. Direction: hot bed,
+   λ near the species' window and a clean, undamaged brick -> higher. */
+function conversion(kind, T, lambda, poison, damage) {
+  const lo = lightOff(T);
+  const lw = lambdaWindow(lambda, kind);
+  let ceiling = (kind === 'nox') ? NOX_CEILING : MAX_CONV;
+  ceiling *= (1 - 0.42 * clampN(poison, 0, 1));
+  ceiling *= (1 - 0.60 * clampN(damage, 0, 1));
+  return clampN(ceiling * lo * lw, 0, 0.995);
+}
+
+/* Back pressure across the brick (kPa). Rises with the square-ish of
+   exhaust mass flow and with a melted/blocked substrate. Direction:
+   more flow or more damage -> higher Δp. ~2 kPa clean at idle, >20 kPa
+   with a badly melted brick at full flow. */
+function backpressure(flowNorm, damage) {
+  const f = clampN(flowNorm, 0, 1.2);
+  const block = 26 * clampN(damage, 0, 1);
+  return clampN((2.5 + block) * Math.pow(f, 1.5), 0, 80);
+}
+
+/* Post-cat O2 sensor voltage seen by the ECU. A healthy brick sits
+   steady around 0.70 V; a bad brick oscillates and averages ~0.45 V.
+   A failed sensor reports a healthy-looking 0.68 V regardless of the
+   real efficiency - which is exactly how it hides a P0420. */
+function postCatO2Voltage(trueEff, sensorOk) {
+  if (!sensorOk) return 0.68;
+  return clampN(0.45 + 0.25 * clampN(trueEff, 0, 1), 0.10, 0.95);
+}
+
+const FAULT_POISON = { none: 0,    poisoned: 0.85, melted: 0.10, sensor: 0    };
+const FAULT_DAMAGE = { none: 0,    poisoned: 0,    melted: 0.75, sensor: 0    };
+const FAULT_INFO = {
+  none:     { label: 'None (healthy)',                          warn: '' },
+  poisoned: { label: 'Poisoned (oil / lead / silicone, P0420)', warn: 'P0420 - catalyst efficiency below threshold. The precious-metal sites are blocked by oil, lead or silicone contamination, so even a hot brick cannot convert. Check for coolant or oil leaking into the exhaust.' },
+  melted:   { label: 'Melted substrate (P0420 + high back pressure)', warn: 'P0420 + high back pressure. The ceramic substrate has partially melted and distorted, blocking gas flow. Usually caused by a sustained misfire dumping raw fuel onto the brick.' },
+  sensor:   { label: 'Post-cat O2 sensor failed (P0420 hidden)', warn: 'P0136 / P0141 - downstream O2 sensor circuit. The sensor is stuck at a healthy-looking voltage, so the ECU cannot detect catalyst degradation and never sets P0420.' }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXTRA CONTROLS (built here; the runtime only provides one slider)
+   ═══════════════════════════════════════════════════════════════════ */
+const S = {
+  rpm: 1800,
+  lambda: 1.00,
+  misfire: 0,
+  fault: 'none',
+  speed: 1
+};
+
+const panel = document.createElement('div');
+panel.id = 'cat-panel';
+let faultOptions = '';
+for (const id in FAULT_INFO) {
+  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
+}
+panel.innerHTML =
+  '<div class="cat-h"><span>Catalyst simulation</span><button type="button" id="cat-fold" aria-label="Collapse controls">&#8211;</button></div>' +
+  '<div class="cat-body">' +
+    '<div class="cat-w"><label for="cat-rpm">Engine speed <b id="cat-rpm-v">1800 rpm</b></label>' +
+      '<input id="cat-rpm" class="al-range" type="range" min="800" max="5000" step="50" value="1800" aria-label="Engine speed"></div>' +
+    '<div class="cat-w"><label for="cat-lam">Air-fuel &lambda; <b id="cat-lam-v">1.00</b></label>' +
+      '<input id="cat-lam" class="al-range" type="range" min="88" max="112" step="1" value="100" aria-label="Lambda"></div>' +
+    '<div class="cat-w"><label for="cat-mis">Misfire <b id="cat-mis-v">0 %</b></label>' +
+      '<input id="cat-mis" class="al-range" type="range" min="0" max="100" step="1" value="0" aria-label="Misfire level"></div>' +
+    '<div class="cat-w"><label for="cat-fault">Fault injection</label>' +
+      '<select id="cat-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
+    '<div class="cat-w"><label>Simulation speed</label>' +
+      '<div class="cat-btns" id="cat-speed">' +
+        '<button type="button" data-sp="1" class="on">1&times;</button>' +
+        '<button type="button" data-sp="5">5&times;</button>' +
+        '<button type="button" data-sp="20">20&times;</button>' +
+      '</div></div>' +
+    '<div class="cat-btns">' +
+      '<button type="button" id="cat-cold">Cold start</button>' +
+      '<button type="button" id="cat-reset">Reset</button>' +
+    '</div>' +
+    '<div class="cat-warn" id="cat-warn"></div>' +
+    '<canvas id="cat-graph" width="480" height="150" aria-label="Conversion and catalyst temperature history"></canvas>' +
+    '<div class="cat-key"><span><i style="background:#22d3ee"></i>CO conv. %</span><span><i style="background:#fb923c"></i>Bed &deg;C</span></div>' +
+  '</div>';
+document.body.appendChild(panel);
+
+const elFold  = document.getElementById('cat-fold');
+const elRpm   = document.getElementById('cat-rpm');
+const elRpmV  = document.getElementById('cat-rpm-v');
+const elLam   = document.getElementById('cat-lam');
+const elLamV  = document.getElementById('cat-lam-v');
+const elMis   = document.getElementById('cat-mis');
+const elMisV  = document.getElementById('cat-mis-v');
+const elFault = document.getElementById('cat-fault');
+const elSpeed = document.getElementById('cat-speed');
+const elCold  = document.getElementById('cat-cold');
+const elReset = document.getElementById('cat-reset');
+const elWarn  = document.getElementById('cat-warn');
+const gcv     = document.getElementById('cat-graph');
+const gctx    = gcv.getContext('2d');
+
+elFold.addEventListener('click', () => {
+  panel.classList.toggle('folded');
+  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
+});
+elRpm.addEventListener('input', () => {
+  S.rpm = Number(elRpm.value) || 800;
+  elRpmV.textContent = S.rpm + ' rpm';
+});
+elLam.addEventListener('input', () => {
+  S.lambda = (Number(elLam.value) || 100) / 100;
+  elLamV.textContent = S.lambda.toFixed(2);
+});
+elMis.addEventListener('input', () => {
+  S.misfire = (Number(elMis.value) || 0) / 100;
+  elMisV.textContent = Math.round(S.misfire * 100) + ' %';
+});
+elFault.addEventListener('change', () => { S.fault = elFault.value; });
+elSpeed.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sp]');
+  if (!b) return;
+  S.speed = Number(b.dataset.sp) || 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
+});
+elCold.addEventListener('click', () => { sim.Tbed = COLD_START_T; });
+
+/* ── simulation state (module level so Reset can reach it) ───────── */
+const GRAPH_N = 150;
+const sim = {
+  Tbed: COLD_START_T,
+  poison: 0,
+  damage: 0,
+  p0420: false,
+  p0420Timer: 0,
+  lastT: -1,
+  samples: [],
+  lastSample: 0
+};
+
+function resetModel() {
+  sim.Tbed = COLD_START_T;
+  sim.poison = 0;
+  sim.damage = 0;
+  sim.p0420 = false;
+  sim.p0420Timer = 0;
+  sim.lastT = -1;
+  sim.samples.length = 0;
+  sim.lastSample = 0;
+}
+function resetAll() {
+  S.rpm = 1800;   elRpm.value = 1800;   elRpmV.textContent = '1800 rpm';
+  S.lambda = 1.00; elLam.value = 100;   elLamV.textContent = '1.00';
+  S.misfire = 0;  elMis.value = 0;      elMisV.textContent = '0 %';
+  S.fault = 'none'; elFault.value = 'none';
+  S.speed = 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
+  resetModel();
+  const ctlEl = document.getElementById('ctl');
+  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+elReset.addEventListener('click', resetAll);
+
+/* ── rolling graph ───────────────────────────────────────────────── */
+function drawGraph() {
+  const W = gcv.width, Hh = gcv.height;
+  gctx.clearRect(0, 0, W, Hh);
+  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
+  gctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = Math.round(Hh * i / 4) + 0.5;
+    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+  }
+  const n = sim.samples.length;
+  if (n < 2) return;
+  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
+  const yConv = (v) => Hh - clampN(v, 0, 1) * (Hh - 6) - 3;
+  const yTemp = (v) => Hh - clampN(v / 1000, 0, 1) * (Hh - 6) - 3;
+
+  /* CO conversion filled area */
+  gctx.beginPath();
+  gctx.moveTo(xAt(0), Hh);
+  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yConv(sim.samples[i].c));
+  gctx.lineTo(xAt(n - 1), Hh);
+  gctx.closePath();
+  gctx.fillStyle = 'rgba(34,211,238,0.16)';
+  gctx.fill();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yConv(sim.samples[i].c);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#22d3ee'; gctx.lineWidth = 1.6; gctx.stroke();
+
+  /* catalyst bed temperature */
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yTemp(sim.samples[i].T);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.6; gctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE SCENE (per-module 3D parts)
+   ═══════════════════════════════════════════════════════════════════ */
 function build(H){
- const {box,cyl,cylX,mat,glass,stream,lc,clamp,root,THREE}=H;
- const steel=mat(0x6b7280,.8,.4);
- cylX(.97,.97,3.7,glass(0x94a3b8,.16),0,0,0,null,40,true);
- cylX(.42,.97,.7,steel,-2.2,0,0); cylX(.97,.42,.7,steel,2.2,0,0);
- cylX(.42,.42,1.6,steel,-3.35,0,0,null,24,true); cylX(.42,.42,1.6,steel,3.35,0,0,null,24,true);
- const cv=document.createElement('canvas'); cv.width=cv.height=256; const g=cv.getContext('2d');
- g.fillStyle='#cdbb8e'; g.fillRect(0,0,256,256); g.strokeStyle='#4b3f2a'; g.lineWidth=3;
- for(let i=0;i<=256;i+=14){ g.beginPath(); g.moveTo(i,0); g.lineTo(i,256); g.stroke(); g.beginPath(); g.moveTo(0,i); g.lineTo(256,i); g.stroke(); }
- const tex=new THREE.CanvasTexture(cv);
- const mono=new THREE.MeshStandardMaterial({color:0xd9c9a3,roughness:.9,metalness:0,emissive:0xff5a1f,emissiveIntensity:0});
- cylX(.86,.86,2.6,mono,0,0,0);
- [[-1.302,-Math.PI/2],[1.302,Math.PI/2]].forEach(f=>{ const m=new THREE.Mesh(new THREE.CircleGeometry(.86,40),new THREE.MeshBasicMaterial({map:tex})); m.position.x=f[0]; m.rotation.y=f[1]; root.add(m); });
- const rawS=stream([[-4.3,0,0],[-1.35,0,0]],22,0x9a7b4f,.12);
- const mid=[.4,0,-.4].map(y=>stream([[-1.3,y,0],[1.3,y,0]],8,0xd6b26a,.08));
- const dirty=stream([[1.35,.12,0],[4.3,.12,0]],18,0x9a7b4f,.11);
- const clean=stream([[1.35,-.1,0],[4.3,-.1,0]],18,0xa5f3fc,.11);
+ const {box,cyl,cylX,mat,glass,stream,lc,clamp,root,THREE,lowEnd,pipe}=H;
+
+ /* ── housing ───────────────────────────────────────────────────── */
+ const steel = mat(0x6b7280,.8,.4);
+ cylX(.97,.97,3.7,glass(0x94a3b8,.16),0,0,0,null,40,true);          /* transparent shell */
+ cylX(.42,.97,.7,steel,-2.2,0,0);                                    /* inlet cone  */
+ cylX(.97,.42,.7,steel, 2.2,0,0);                                    /* outlet cone */
+ cylX(.42,.42,1.6,steel,-3.35,0,0,null,24,true);                     /* inlet pipe  */
+ cylX(.42,.42,1.6,steel, 3.35,0,0,null,24,true);                     /* outlet pipe */
+
+ /* ── honeycomb face texture ────────────────────────────────────── */
+ const cv=document.createElement('canvas'); cv.width=cv.height=256;
+ const g=cv.getContext('2d');
+ g.fillStyle='#cdbb8e'; g.fillRect(0,0,256,256);
+ g.strokeStyle='#4b3f2a'; g.lineWidth=3;
+ for(let i=0;i<=256;i+=14){
+   g.beginPath(); g.moveTo(i,0); g.lineTo(i,256); g.stroke();
+   g.beginPath(); g.moveTo(0,i); g.lineTo(256,i); g.stroke();
+ }
+ const faceTex=new THREE.CanvasTexture(cv);
+
+ /* ── ceramic monolith ──────────────────────────────────────────── */
+ const mono = new THREE.MeshStandardMaterial({
+   color:0xd9c9a3, roughness:.9, metalness:0,
+   emissive:new THREE.Color(0x3a1000), emissiveIntensity:0
+ });
+ cylX(.86,.86,2.6,mono,0,0,0,null,32);
+
+ /* ── end faces ─────────────────────────────────────────────────── */
+ [[-1.302,-Math.PI/2],[1.302,Math.PI/2]].forEach(f=>{
+   const m=new THREE.Mesh(new THREE.CircleGeometry(.86,40),new THREE.MeshBasicMaterial({map:faceTex}));
+   m.position.x=f[0]; m.rotation.y=f[1]; root.add(m);
+ });
+
+ /* ── damage overlay: dark patches when the brick has melted ───── */
+ const damageM = new THREE.MeshBasicMaterial({ color:0x1a0f08, transparent:true, opacity:0, depthWrite:false });
+ cylX(.87,.87,2.62,damageM,0,0,0,null,32);
+
+ /* ── O2 sensors ────────────────────────────────────────────────── */
+ const sensorBody = mat(0x4b5563,.7,.5);
+ const preTipM   = new THREE.MeshStandardMaterial({ color:0x334155, emissive:0x22d3ee, emissiveIntensity:.9, metalness:.4, roughness:.5 });
+ const postTipM  = new THREE.MeshStandardMaterial({ color:0x334155, emissive:0x22d3ee, emissiveIntensity:.9, metalness:.4, roughness:.5 });
+
+ /* pre-cat sensor, sticking up from the inlet pipe at x=-2.7 */
+ cyl(.05,.05,.30,sensorBody,-2.7,.55,0,null,10);
+ const preTip = new THREE.Mesh(new THREE.SphereGeometry(.075,12,10), preTipM);
+ preTip.position.set(-2.7,.76,0); root.add(preTip);
+
+ /* post-cat sensor, sticking up from the outlet pipe at x=+2.7 */
+ cyl(.05,.05,.30,sensorBody, 2.7,.55,0,null,10);
+ const postTip = new THREE.Mesh(new THREE.SphereGeometry(.075,12,10), postTipM);
+ postTip.position.set(2.7,.76,0); root.add(postTip);
+
+ /* ── particle streams ──────────────────────────────────────────── */
+ const nIn  = lowEnd ? 12 : 22;
+ const nMid = lowEnd ?  6 : 12;
+ const nOut = lowEnd ? 12 : 22;
+
+ /* dirty brown exhaust entering the cat */
+ const rawS   = stream([[-4.3,0,0],[-1.35,0,0]],           nIn,  0x9a7b4f, .12);
+ /* three mid-channel streams (visual "through the brick")      */
+ const midA   = stream([[-1.3,.40,0],[1.3,.40,0]],         nMid, 0xd6b26a, .08);
+ const midB   = stream([[-1.3, 0,0],[1.3, 0,0]],           nMid, 0xd6b26a, .08);
+ const midC   = stream([[-1.3,-.40,0],[1.3,-.40,0]],       nMid, 0xd6b26a, .08);
+ /* outlet: clean (cyan) and leaked dirty (brown) - balance = eff */
+ const cleanOut = stream([[1.35,-.12,0],[4.3,-.12,0]],     nOut, 0xa5f3fc, .11);
+ const dirtyOut = stream([[1.35, .12,0],[4.3, .12,0]],     nOut, 0x9a7b4f, .11);
+
+ let lastDom = 0;
+
  return {
-  labels:[['Raw exhaust in',[-3.6,.7,0]],['Ceramic monolith',[0,1.1,0]],['Steel shell',[-1.4,1.15,0]],['Cleaned exhaust',[3.6,.7,0]],['Honeycomb face',[-1.3,-.7,.6]]],
+  labels:[
+    ['Raw exhaust in',[-3.6,.78,0]],
+    ['Honeycomb face',[-1.3,-.72,.65]],
+    ['Ceramic monolith',[0,1.15,0]],
+    ['Steel shell',[-1.5,1.20,0]],
+    ['Pre-cat O2 sensor',[-2.7,1.05,0]],
+    ['Post-cat O2 sensor',[2.7,1.05,0]],
+    ['Cleaned exhaust',[3.6,.78,0]]
+  ],
   update(c){
-   const T=100+700*c.k, s=x=>1/(1+Math.exp(-(T-x)/30)), co=s(260), hc=s(285), nox=s(310)*.93;
-   mono.emissiveIntensity=clamp((T-350)/450)*1.1;
-   rawS.update(c.t,.15,1); mid.forEach(m=>m.update(c.t,.15,.4+.4*co)); const cl=(co+hc+nox)/3;
-   dirty.update(c.t,.15,1-cl); clean.update(c.t,.15,cl);
-   const st=T<250?'Cold – not lit off':T<350?'Light-off':T<=780?'Operating window':'Overheat risk';
-   return {big:(co*100).toFixed(0),unit:' %',bar:co*100,rows:{hc:(hc*100).toFixed(0)+' %',nox:(nox*100).toFixed(0)+' %'},
-    ro:{temp:[T.toFixed(0)+' °C','hi'],co:[(co*100).toFixed(0)+' %',co>.9?'ok':'warn'],hc:[(hc*100).toFixed(0)+' %',hc>.9?'ok':'warn'],nox:[(nox*100).toFixed(0)+' %',nox>.85?'ok':'warn'],state:[st,T<250?'warn':T>780?'crit':'ok']},
-    status:[st,true],ctl:T.toFixed(0)+' °C'};
-  }};
+   /* ── 1. inputs ─────────────────────────────────────────────── */
+   const dt      = Math.max(0, num(c.dt, 0)) * S.speed;
+   const L       = clamp(c.k, 0, 1);
+   const rpm     = num(S.rpm, 1800);
+   const lambda  = num(S.lambda, 1.0);
+   const misfire = clampN(S.misfire, 0, 1);
+   const fault   = S.fault;
+
+   /* toolbar Reset rewinds simT -> detect and clear the model */
+   if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) resetModel();
+   sim.lastT = c.t;
+
+   /* ── 2. exhaust gas temperature and misfire heat ───────────── */
+   const egt     = exhaustGasTemp(L, rpm, 20);
+   const heatGate = lightOff(sim.Tbed);
+   const mHeat   = misfireHeat(misfire, L) * heatGate;
+
+   /* ── 3. bed temperature: first-order thermal lag ───────────── */
+   const target = egt + mHeat;
+   if (dt > 0) {
+     const a = 1 - Math.exp(-dt / TAU_CAT);
+     sim.Tbed += (target - sim.Tbed) * a;
+   }
+   sim.Tbed = clampN(sim.Tbed, -20, 1400);
+
+   /* ── 4. poison (reversible), damage (permanent) ────────────── */
+   if (dt > 0) {
+     const pTarget = FAULT_POISON[fault] || 0;
+     sim.poison += (pTarget - sim.poison) * (1 - Math.exp(-dt / 5));
+
+     const dTarget = FAULT_DAMAGE[fault] || 0;
+     if (sim.damage < dTarget) {
+       sim.damage += (dTarget - sim.damage) * (1 - Math.exp(-dt / 4));
+     }
+     if (sim.Tbed > MELT_TEMP) {
+       sim.damage = clampN(sim.damage + MELT_RATE * (sim.Tbed - MELT_TEMP) * dt, 0, 1);
+     }
+   }
+   sim.poison = clampN(sim.poison, 0, 1);
+   sim.damage = clampN(sim.damage, 0, 1);
+
+   /* ── 5. conversion of the three species ────────────────────── */
+   const co  = conversion('co',  sim.Tbed, lambda, sim.poison, sim.damage);
+   const hc  = conversion('hc',  sim.Tbed, lambda, sim.poison, sim.damage);
+   const nox = conversion('nox', sim.Tbed, lambda, sim.poison, sim.damage);
+
+   /* ── 6. exhaust flow proxy (0..1.2) and back pressure ──────── */
+   const flowNorm = clampN(0.10 + 0.85 * (0.45 * L + 0.55 * clampN((rpm - 800) / 4200, 0, 1)), 0.05, 1.2);
+   const bp = backpressure(flowNorm, sim.damage);
+
+   /* ── 7. ECU view: post-cat O2 + P0420 latching ─────────────── */
+   const sensorOk = (fault !== 'sensor');
+   const o2v = postCatO2Voltage(co, sensorOk);
+   const ecuEff = sensorOk ? co : 0.92;   /* a dead sensor "reports" a healthy cat */
+
+   if (ecuEff < P0420_LIMIT) {
+     if (dt > 0) sim.p0420Timer += dt;
+     if (sim.p0420Timer >= P0420_DELAY) sim.p0420 = true;
+   } else {
+     if (dt > 0) sim.p0420Timer = Math.max(0, sim.p0420Timer - dt * 0.5);
+     if (sim.p0420Timer <= 0) sim.p0420 = false;
+   }
+
+   /* ── 8. derived state string ───────────────────────────────── */
+   let stateTxt;
+   if (sim.Tbed < 200)             stateTxt = 'Cold - not lit off';
+   else if (sim.Tbed < 320)        stateTxt = 'Light-off';
+   else if (sim.Tbed <= 850)       stateTxt = 'Operating';
+   else if (sim.Tbed <= MELT_TEMP) stateTxt = 'Overheat risk';
+   else                            stateTxt = 'MELTDOWN';
+   if (sim.p0420)                  stateTxt += ' | P0420';
+
+   /* ── 9. 3D visuals ─────────────────────────────────────────── */
+   /* monolith glow: colour and intensity both follow bed temperature */
+   const hot = clampN((sim.Tbed - 250) / 600, 0, 1);
+   mono.emissive.copy(lc(0x3a1000, 0xff5a1f, hot));
+   mono.emissiveIntensity = 0.04 + 1.65 * hot;
+
+   /* ceramic colour tints towards brown as it is poisoned */
+   mono.color.copy(lc(0xd9c9a3, 0x5a4a35, sim.poison));
+   /* dark char patches appear as damage accumulates */
+   damageM.opacity = 0.05 + 0.62 * sim.damage;
+
+   /* O2 sensor tips: post-cat tip turns red on sensor failure */
+   preTipM.emissiveIntensity = 0.55 + 0.55 * (0.5 + 0.5 * Math.sin(c.t * 3.0));
+   if (fault === 'sensor') {
+     postTipM.emissive.setHex(0xef4444);
+     postTipM.emissiveIntensity = 0.30 + 0.15 * (0.5 + 0.5 * Math.sin(c.t * 2.0));
+   } else {
+     postTipM.emissive.setHex(0x22d3ee);
+     postTipM.emissiveIntensity = 0.35 + 0.95 * clampN(o2v / 0.9, 0, 1);
+   }
+
+   /* streams: density follows flow; the outlet splits into clean/dirty */
+   const dens = clampN(flowNorm / 1.05, 0.05, 1);
+   const spd  = 0.05 + 0.32 * flowNorm;
+   rawS.update(c.t, spd, dens);
+   /* mid streams shift colour towards cyan as conversion improves */
+   const midMix = (co + hc + nox) / 3;
+   midA.update(c.t, spd, dens * (0.55 + 0.45 * midMix));
+   midB.update(c.t, spd, dens * (0.55 + 0.45 * midMix));
+   midC.update(c.t, spd, dens * (0.55 + 0.45 * midMix));
+   cleanOut.update(c.t, spd, dens * midMix);
+   dirtyOut.update(c.t, spd, dens * (1 - midMix));
+
+   /* ── 10. throttled DOM work (graph + warning banner) ───────── */
+   const now = performance.now();
+   if (now - lastDom > 140) {
+     lastDom = now;
+     if (dt > 0) {
+       sim.samples.push({ c: co, T: sim.Tbed });
+       if (sim.samples.length > GRAPH_N) sim.samples.shift();
+       drawGraph();
+     }
+     let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
+     if (!warn) {
+       if (sim.p0420) {
+         warn = 'P0420 - catalyst efficiency below threshold. The ECU has compared the pre- and post-cat O2 signals and decided the brick is not converting enough.';
+       } else if (sim.Tbed > MELT_TEMP) {
+         warn = 'Catalyst bed at ' + sim.Tbed.toFixed(0) + ' °C - the ceramic substrate is melting. Damage is permanent until Reset.';
+       } else if (misfire > 0.55 && sim.Tbed > 780) {
+         warn = 'Severe misfire is dumping raw fuel onto the catalyst. Bed temperature is climbing past the safe operating window.';
+       } else if (sim.damage > 0.35) {
+         warn = 'Substrate damage ' + (sim.damage * 100).toFixed(0) + ' % - back pressure is rising and conversion has fallen.';
+       } else if (sim.poison > 0.35) {
+         warn = 'Catalyst contamination ' + (sim.poison * 100).toFixed(0) + ' % - the precious-metal sites are being blocked.';
+       }
+     }
+     elWarn.textContent = warn;
+     elWarn.classList.toggle('show', !!warn);
+   }
+
+   /* ── 11. readouts ──────────────────────────────────────────── */
+   const coState  = co  < 0.70 ? 'crit' : (co  < 0.90 ? 'warn' : 'ok');
+   const hcState  = hc  < 0.70 ? 'crit' : (hc  < 0.90 ? 'warn' : 'ok');
+   const nxState  = nox < 0.65 ? 'crit' : (nox < 0.85 ? 'warn' : 'ok');
+   const bpState  = bp > 18 ? 'crit' : (bp > 10 ? 'warn' : 'ok');
+   const tState   = sim.Tbed < 200 ? 'warn' : (sim.Tbed > MELT_TEMP ? 'crit' : (sim.Tbed > 880 ? 'warn' : 'ok'));
+   const o2State  = fault === 'sensor' ? 'crit' : (sensorOk ? 'ok' : 'warn');
+   const stState  = (sim.Tbed > MELT_TEMP || sim.p0420) ? 'crit'
+                  : (sim.Tbed < 320 || sim.Tbed > 850) ? 'warn' : 'ok';
+
+   return {
+     big: (co * 100).toFixed(0),
+     unit: ' % CO',
+     bar: clampN(co * 100, 0, 100),
+     rows: {
+       hc:  (hc  * 100).toFixed(0) + ' %',
+       nox: (nox * 100).toFixed(0) + ' %'
+     },
+     ro: {
+       temp:  [sim.Tbed.toFixed(0) + ' °C', tState],
+       egt:   [egt.toFixed(0) + ' °C', egt > 780 ? 'warn' : ''],
+       co:    [(co  * 100).toFixed(0) + ' %', coState],
+       hc:    [(hc  * 100).toFixed(0) + ' %', hcState],
+       nox:   [(nox * 100).toFixed(0) + ' %', nxState],
+       lam:   [lambda.toFixed(2), Math.abs(lambda - 1.0) > 0.05 ? 'warn' : 'ok'],
+       bp:    [bp.toFixed(1) + ' kPa', bpState],
+       o2:    [o2v.toFixed(2) + ' V',  o2State],
+       state: [stateTxt, stState]
+     },
+     status: [stateTxt, true],
+     ctl: (L * 100).toFixed(0) + ' %'
+   };
+  }
+ };
 }
 
 runGuidedModule(CFG, build);
