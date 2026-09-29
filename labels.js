@@ -1,38 +1,40 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   labels.js — Auto Lab shared 3D label engine.
+   labels.js — Auto Lab shared 3D label engine · v3 “docked callouts”
 
    Every module already calls   const labels = Base.createLabelSystem();
-   and then                     labels.add(id, text[, tier]) / labels.project(...)
+   and then                     labels.add(id, text[, tier|opts]) / labels.project(...)
    kit.js re-exports THIS implementation, so all modules pick it up with
    zero per-file changes.
 
    What it does
    ────────────
-   1. PRIORITY   Every label is PRIMARY (1), SECONDARY (2) or DETAIL (3).
-                 Explicit tier wins; otherwise it is inferred (see rank()).
-                 Density button cycles  All → Key parts → None:
-                   All  = primary + secondary + detail
-                   Key  = primary only
-                   None = nothing
-   2. COLOUR     Each label is colour-coded by what it IS (air, exhaust,
-                 fuel, coolant, electrical, control, hot/combustion,
-                 mechanical). Primary = solid pill, secondary = outlined,
-                 detail = small & translucent.
-   3. LINES      A leader line + anchor dot joins each label to the exact
-                 3D point it names and follows it as the model orbits.
-   4. STABLE     No more flicker: visibility is decided by a small state
-                 machine (grace period + hysteresis), not by "did the
-                 module call project() this exact frame".
-   5. DECLUTTER  Overlapping labels are pushed apart in screen space;
-                 if they still collide, the lower priority one yields.
+   1. DOCKED      Text lives in two stable gutters at the left / right
+                  screen edges, docked vertically between the shell's UI
+                  cards. It never sits over the model, and it never
+                  chases the part — reading is effortless.
+   2. LEADERS     An elbow connector + anchor dot tracks the 3D point
+                  every frame. The line stretches; the text stays put.
+   3. STABLE      Sub-pixel anchor noise is dead-banded; column side
+                  flips use hysteresis + fade-teleport (never slides
+                  across the model); slot order re-solves at most 4×/s
+                  and only re-flows when parts genuinely reorder.
+   4. PRIORITY    PRIMARY (1) / SECONDARY (2) / DETAIL (3) tiers, inferred
+                  unless set explicitly. Density cycles All → Key → None.
+                  If a column overflows its band, detail labels yield
+                  first — primaries never do.
+   5. COLOUR      Kind-coded (air, exhaust, fuel, coolant, electrical,
+                  control, hot, mechanical) — unchanged.
+   6. IDLE-SAFE   The rAF loop parks when nothing is shown; project(),
+                  add(), setDensity() … re-arm it.
 
    Public API (superset of the old one — nothing removed)
    ──────────────────────────────────────────────────────
      add(id, text, tier?|opts?)   opts: { tier, kind, color }
      project(id, worldVec3, camera, wrap)
-     setText(id, text)            hide(id)   hideAll()   remove(id)
-     setDensity(0|1|2)   getDensity()   cycleDensity()
-     setTier(id, 1|2|3)  setKind(id, kind)
+     setText(id, text)            hide(id)   hideAll(force?)   remove(id)
+     setDensity(0|1|2)  getDensity()  cycleDensity()  onDensity(fn)
+     setTier(id, 1|2|3)  setKind(id, kind)  relayout()  dispose()
+     createLabelSystem({ margin, maxGap, graceMs, solveMs, band })
    ═══════════════════════════════════════════════════════════════════════ */
 
 export const DENSITY = { NONE: 0, KEY: 1, ALL: 2 };
@@ -70,14 +72,7 @@ export function inferKind(text) {
   return 'mechanical';
 }
 
-/* ── Priority inference ───────────────────────────────────────────────
-   An explicit tier always wins. Otherwise a label is scored:
-     +3  names a major assembly / principal component
-     −2  is a readout, number, pin, sign or flow description
-     −1  names a fastener / minor sub-part
-   The best PRIMARY_CAP scorers (ties → order added) become PRIMARY, the
-   next batch SECONDARY, the rest DETAIL. The cap keeps "Key parts" mode
-   uncluttered even on modules with 20+ labels.                          */
+/* ── Priority inference (unchanged from v2) ──────────────────────────── */
 const MAJOR = /\b(engine|piston|crank(shaft)?|cam(shaft)?|valve(s)?|turbo(charger)?|compressor|turbine|supercharger|intercooler|radiator|thermostat|water pump|oil pump|pump|filter|ecu|battery|alternator|starter|solenoid|flywheel|clutch|gearbox|transmission|differential|crown wheel|pinion|propeller shaft|axle|half shaft|wheel|tyre|tire|brake|caliper|disc|rotor|drum|abs|steering (wheel|column)|rack|damper|shock|spring|coil spring|leaf|catalytic|converter|muffler|dpf|egr|injector|fuel rail|rail|carburet|venturi|float|jet|throttle|spark plug|ignition coil|distributor|planet|sun gear|ring gear|carrier|impeller|stator|sump|bulb|reflector|headlamp|lens|mass air|maf|dlc|scan tool|manifold|input shaft|output shaft|countershaft|tank)\b/i;
 const MINOR = /\b(bolt|nut|washer|seal|gasket|clip|ring(s)?\b(?!\s*gear)|seat|retainer|bucket|shim|bush(ing)?|journal|counterweight|throw|pin\b|brush(es)?|commutator|slip|hub|idler|shackle|u-bolt|hanger|tone|terminal|electrode|insulator|pleat|tread|inlet holes|base plate)\b/i;
 const READOUT = /(\d|[:×·]\s*\d|^[+−\-]$|^\s*$)/;
@@ -95,43 +90,72 @@ function scoreLabel(text) {
   return s;
 }
 
-/* ── The system ───────────────────────────────────────────────────────── */
-const SOLVE_MS   = 250;   // re-solve label collisions at most 4x/second
-const GRACE_MS   = 180;   // keep a label alive this long after the last project()
-const FADE_IN_MS = 120;
-const PAD        = 4;     // declutter padding (px)
+/* ── Docking constants ────────────────────────────────────────────────── */
+const GRACE_MS  = 220;   // keep a label alive this long after the last project()
+const SOLVE_MS  = 250;   // re-solve column order / slots at most 4×/second
+const DEADBAND  = 0.35;  // px of anchor movement ignored (kills sub-pixel jitter)
+const SIDE_ON   = 0.55;  // anchor past 55 % of width  → joins the right column
+const SIDE_OFF  = 0.45;  // anchor back under 45 %     → rejoins the left column
+const SWAP_MS   = 320;   // fade-out → teleport → fade-in on a column change
+const MAX_GAP   = 64;    // vertical breathing room between docked labels
+const MIN_GAP   = 4;
+const ELBOW     = 16;    // horizontal leader stub before the diagonal
+const MAX_W     = 200;   // label max width before wrapping
+
+/* ── Scratch vector — allocates exactly once, never per call ──────────── */
+let _vec = null;
+const _v = {
+  x: 0, y: 0, z: 0,
+  copy(v) {
+    this.x = v.x; this.y = v.y; this.z = v.z;
+    if (!_vec && typeof v.clone === 'function') _vec = v.clone();
+    return this;
+  },
+  project(camera) {
+    if (!_vec) return this;
+    _vec.set(this.x, this.y, this.z).project(camera);
+    this.x = _vec.x; this.y = _vec.y; this.z = _vec.z;
+    return this;
+  },
+};
 
 export function createLabelSystem(options = {}) {
   const root = document.getElementById('labels-root') || document.body;
+  const MARGIN  = options.margin  ?? 10;
+  const MAXGAP  = options.maxGap  ?? MAX_GAP;
+  const graceMs = options.graceMs ?? GRACE_MS;
+  const solveMs = options.solveMs ?? SOLVE_MS;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* SVG layer for leader lines — created once, shared by all systems on the page */
+  /* SVG layer for leader lines — created once, shared by all systems */
   let svg = root.querySelector(':scope > svg.label-lines');
   if (!svg) {
     svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'label-lines');
     svg.setAttribute('aria-hidden', 'true');
+    svg.style.pointerEvents = 'none';
     root.insertBefore(svg, root.firstChild);
   }
 
-  const L = new Map();        // id → label record
+  const L = new Map();          // id → label record
   let order = 0;
-  let density = DENSITY.ALL;
+  let density = [0, 1, 2].includes(options.density) ? options.density : DENSITY.ALL;
   let dirtyRank = true;
-  let raf = 0;
+  let raf = 0, lastNow = 0;
   let lastSig = '', lastSolve = -Infinity;
   const listeners = new Set();
 
   window.__autolabDensity = density;
 
-  /* — record helpers — */
+  /* — DOM builders — */
   function makeEl(text) {
     const el = document.createElement('div');
     el.className = 'label3d';
-    el.setAttribute('role', 'note');
-    const dot = document.createElement('i');
-    dot.className = 'label3d-dot';
-    const span = document.createElement('span');
-    span.className = 'label3d-text';
+    el.setAttribute('aria-hidden', 'true');   // the info panel carries the same content as text
+    el.style.pointerEvents = 'none';          // never block orbit drags
+    el.style.maxWidth = MAX_W + 'px';
+    const dot = document.createElement('i');   dot.className = 'label3d-dot';
+    const span = document.createElement('span'); span.className = 'label3d-text';
     span.textContent = text;
     el.append(dot, span);
     return el;
@@ -146,18 +170,21 @@ export function createLabelSystem(options = {}) {
     svg.appendChild(g);
     return { g, line, pt };
   }
+  function applyStyle(r) {
+    r.el.dataset.kind = r.kind;
+    r.el.style.setProperty('--lc', r.color);
+    r.lead.g.style.setProperty('--lc', r.color);
+  }
 
+  /* — priority ranking (unchanged) — */
   function rank() {
-    /* Assign auto tiers to every label with no explicit tier. */
     const auto = [...L.values()].filter(r => r.explicitTier == null);
     const scored = auto
       .map(r => ({ r, s: scoreLabel(r.text), o: r.order }))
       .sort((a, b) => b.s - a.s || a.o - b.o);
-    /* Modules with very few labels: everything that isn't clearly minor is primary */
     const total = L.size;
     const cap = total <= 4 ? total : Math.min(PRIMARY_CAP, Math.max(2, Math.ceil(total * 0.4)));
     let primaries = 0, secondaries = 0;
-    /* explicit primaries count toward the cap so hand-tuned modules stay in control */
     for (const r of L.values()) if (r.explicitTier === 1) primaries++;
     for (const { r, s } of scored) {
       if (primaries < cap && (s > 0 || total <= 4 || primaries < 2)) { r.tier = 1; primaries++; }
@@ -166,6 +193,85 @@ export function createLabelSystem(options = {}) {
     }
     for (const r of L.values()) if (r.explicitTier != null) r.tier = r.explicitTier;
     dirtyRank = false;
+  }
+
+  /* — wrap→root offset: project() works in canvas coords, labels live in
+       #labels-root. Probed at 4 Hz — they normally coincide. — */
+  let offX = 0, offY = 0, offWrap = null, offAt = -1e9;
+  function refreshWrapOffset(wrap) {
+    const t = performance.now();
+    if (wrap === offWrap && t - offAt < 250) return;
+    offWrap = wrap; offAt = t;
+    const wr = wrap.getBoundingClientRect(), rr = root.getBoundingClientRect();
+    offX = wr.left - rr.left; offY = wr.top - rr.top;
+  }
+
+  /* — dock band: the vertical span between the shell's UI cards, probed 4 Hz — */
+  let bandCache = [8, Math.max(200, innerHeight - 8)], bandH = -1, bandAt = -1e9;
+  function measureBand(H) {
+    const t = performance.now();
+    if (t - bandAt < 250 && bandH === H) return bandCache;
+    bandAt = t; bandH = H;
+    let top = 8, bottom = H - 8;
+    const bumpTop = id => { const el = document.getElementById(id); if (!el) return;
+      const r = el.getBoundingClientRect(); if (r.height > 4) top = Math.max(top, r.bottom + 10); };
+    const bumpBot = id => { const el = document.getElementById(id); if (!el) return;
+      const r = el.getBoundingClientRect(); if (r.height > 4) bottom = Math.min(bottom, r.top - 10); };
+    if (Array.isArray(options.band)) { top = options.band[0]; bottom = options.band[1]; }
+    else {
+      bumpTop('ui-top-stack'); bumpTop('ui-slot-tl'); bumpTop('ui-slot-tr');
+      bumpBot('ui-slot-bl'); bumpBot('ui-slot-br'); bumpBot('ui-slot-bc'); bumpBot('module-controls');
+    }
+    if (bottom - top < 150) { top = 8; bottom = H - 8; }   // degenerate → ignore UI
+    bandCache = [top, bottom];
+    return bandCache;
+  }
+
+  /* — column side with hysteresis (no oscillation at the mid-line) — */
+  function sideOf(r, W) {
+    if (r.side < 0) return r.ax > W * SIDE_ON  ? 1 : -1;
+    if (r.side > 0) return r.ax < W * SIDE_OFF ? -1 : 1;
+    return r.ax < W * 0.5 ? -1 : 1;
+  }
+
+  /* — slot layout for one column. Ordering by anchor height keeps leader
+       lines monotone → they never cross each other within a column. — */
+  function layoutCol(list, band) {
+    if (!list.length) return;
+    list.sort((a, b) => a.ay - b.ay || a.order - b.order);
+    for (const r of list) if (!r.w) { r.w = 110; r.h = 24; }    // provisional until measured
+    const [top, bottom] = band, room = bottom - top;
+
+    /* overflow: detail labels yield first, then secondary — never primary */
+    let members = list;
+    for (const t of [3, 2]) {
+      const need = members.reduce((s, r) => s + r.h, 0) + MIN_GAP * (members.length - 1);
+      if (need > room && members.some(r => r.tier >= t)) {
+        const keep = members.filter(r => r.tier < t);
+        if (keep.length) members = keep; else break;
+      }
+    }
+    for (const r of list) r.drop = !members.includes(r);
+
+    const sum = members.reduce((s, r) => s + r.h, 0);
+    const n = members.length;
+    const gap = n > 1 ? Math.min(MAXGAP, Math.max(MIN_GAP, (room - sum) / (n - 1))) : 0;
+    const total = sum + gap * (n - 1);
+    let y = top + Math.max(0, (room - total) / 2);               // centre the stack
+    for (const r of members) { r.slotY = y + r.h / 2; y += r.h + gap; }
+  }
+
+  function solve(now, W, band) {
+    const left = [], right = [];
+    for (const r of L.values()) {
+      if (!r.want) { r.drop = false; continue; }
+      const s = sideOf(r, W);
+      if (r.side !== 0 && s !== r.side) { r.swapAt = now; r.swapped = false; }   // fade-teleport, never slide
+      r.side = s;
+      (s < 0 ? left : right).push(r);
+    }
+    layoutCol(left, band);
+    layoutCol(right, band);
   }
 
   /* — public API — */
@@ -177,18 +283,20 @@ export function createLabelSystem(options = {}) {
       const kind = opts.kind && KINDS[opts.kind] ? opts.kind : inferKind(text);
       const el = makeEl(text);
       root.appendChild(el);
-      const lead = makeLine();
       const rec = {
         id, text, el, textEl: el.querySelector('.label3d-text'),
-        lead, order: order++, explicitTier: tier, tier: tier || 2,
-        kind, color: opts.color || KINDS[kind].color,
-        /* screen-space state */
-        ax: 0, ay: 0, x: 0, y: 0, w: 0, h: 0, ox: 0, oy: 0,
-        /* -Infinity, not 0: a label that has never been project()-ed must
-           never be mistaken for "recently seen" just because the page's
-           clock (performance.now()) is itself still a small number early
-           in its lifetime. */
-        seen: -Infinity, shown: false, shownAt: 0, placed: false, behind: true, sized: false,
+        lead: makeLine(), order: order++,
+        explicitTier: tier, tier: tier || 2, kind,
+        color: opts.color || KINDS[kind].color,
+        /* anchor (screen space) */
+        ax: 0, ay: 0, seenValid: false, behind: true,
+        /* dock state */
+        side: 0, swapAt: 0, swapped: false, slotY: 0,
+        w: 0, h: 0, x: 0, y: 0, alpha: 0, placed: false,
+        /* lifecycle */
+        seen: -Infinity, shown: false, sized: false, want: false, drop: false,
+        /* DOM diff keys */
+        lastT: '', lastTier: 0, lastA: '',
       };
       applyStyle(rec);
       L.set(id, rec);
@@ -197,23 +305,28 @@ export function createLabelSystem(options = {}) {
     },
     remove(id) {
       const r = L.get(id); if (!r) return;
-      r.el.remove(); r.lead.g.remove(); L.delete(id); dirtyRank = true;
+      r.el.remove(); r.lead.g.remove(); L.delete(id);
+      dirtyRank = true; lastSig = '';
+      ensureLoop();
     },
     setText(id, text) {
       const r = L.get(id); if (!r || r.text === text) return;
       r.text = text; r.textEl.textContent = text; r.sized = false;
       if (r.explicitTier == null) dirtyRank = true;
+      lastSig = '';
+      ensureLoop();
     },
-    setTier(id, tier) { const r = L.get(id); if (r) { r.explicitTier = tier; dirtyRank = true; } },
+    setTier(id, tier) { const r = L.get(id); if (r) { r.explicitTier = tier; dirtyRank = true; lastSig = ''; ensureLoop(); } },
     setKind(id, kind) {
       const r = L.get(id); if (!r || !KINDS[kind]) return;
-      r.kind = kind; r.color = KINDS[kind].color; applyStyle(r);
+      r.kind = kind; r.color = KINDS[kind].color; applyStyle(r); ensureLoop();
     },
     setDensity(level) {
       level = Math.max(0, Math.min(2, level | 0));
       if (level === density) return;
       density = level; window.__autolabDensity = level;
       listeners.forEach(fn => { try { fn(level); } catch (_) {} });
+      ensureLoop();
     },
     getDensity() { return density; },
     cycleDensity() {
@@ -223,148 +336,84 @@ export function createLabelSystem(options = {}) {
       return next;
     },
     onDensity(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    /* The old API needed hideAll() at the top of every frame. It is now advisory:
-       labels fade out on their own if no longer projected, so this must NOT force
-       an instant hide (that was the flicker). hideAll(true) forces it. */
-    hideAll(force) { if (force) for (const r of L.values()) r.seen = 0; },
-    hide(id) { const r = L.get(id); if (r) r.seen = 0; },
+    /* Advisory no-op (old per-frame pattern); hideAll(true) forces a hide. */
+    hideAll(force) { if (force) { for (const r of L.values()) r.seen = 0; ensureLoop(); } },
+    hide(id) { const r = L.get(id); if (r) { r.seen = 0; ensureLoop(); } },
     project(id, world, camera, wrap) {
       const r = L.get(id); if (!r) return;
+      if (density === 0 || !wrap) return;
       const w = wrap.clientWidth, h = wrap.clientHeight;
       if (!w || !h) return;
+      refreshWrapOffset(wrap);
       _v.copy(world).project(camera);
       r.behind = _v.z > 1 || _v.z < -1;
-      if (r.behind) return;                       // not "seen" → grace timer then fade
-      const nx = (_v.x * 0.5 + 0.5) * w, ny = (-_v.y * 0.5 + 0.5) * h;
-      /* deadband: ignore sub-pixel float noise so a still model gives a still label */
-      if (!r.seenOnce || Math.abs(nx - r.ax) > 0.35 || Math.abs(ny - r.ay) > 0.35) { r.ax = nx; r.ay = ny; }
-      r.seenOnce = true;
-      r.seen = performance.now();
-      r.w0 = w; r.h0 = h;
+      r.seen = performance.now();          // still "seen" while behind → stays docked, just dimmed
+      if (r.behind) { ensureLoop(); return; }
+      const nx = (_v.x * 0.5 + 0.5) * w + offX;
+      const ny = (-_v.y * 0.5 + 0.5) * h + offY;
+      /* deadband: ignore sub-pixel noise so a still model gives still lines */
+      if (!r.seenValid || Math.abs(nx - r.ax) > DEADBAND || Math.abs(ny - r.ay) > DEADBAND) {
+        r.ax = nx; r.ay = ny; r.seenValid = true;
+      }
+      ensureLoop();
+    },
+    /* Force a re-measure of the dock band + slots (call after UI changes). */
+    relayout() { bandAt = -1e9; lastSig = ''; ensureLoop(); },
+    dispose() {
+      for (const id of [...L.keys()]) api.remove(id);
+      listeners.clear();
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      if (window.__autolabLabels === api) {
+        try { delete window.__autolabLabels; } catch (_) { window.__autolabLabels = null; }
+      }
     },
     get labels() { return L; },
     kinds: KINDS,
   };
 
-  /* three.js is imported by kit.js, not here; we only need a tiny vector shim
-     with copy() and project(camera) — borrow the caller's world vector's class. */
-  const _v = { x: 0, y: 0, z: 0,
-    copy(v) { this.x = v.x; this.y = v.y; this.z = v.z; this._ctor = v.constructor; return this; },
-    project(camera) {
-      const V = this._ctor; const t = new V(this.x, this.y, this.z).project(camera);
-      this.x = t.x; this.y = t.y; this.z = t.z; return this;
-    } };
-
-  function applyStyle(r) {
-    r.el.dataset.kind = r.kind;
-    r.el.style.setProperty('--lc', r.color);
-    r.lead.g.style.setProperty('--lc', r.color);
-  }
-
-  /* — layout loop (independent of the module's own animation loop) — */
+  /* ── layout loop (independent of the module's animation loop) ───────── */
   function ensureLoop() { if (!raf) raf = requestAnimationFrame(tick); }
 
   function tick(now) {
     raf = 0;
+    const dt = Math.min(0.1, Math.max(0.001, (now - lastNow) / 1000));
+    lastNow = now;
     if (dirtyRank) rank();
-    const vis = [];
-    const wrapW = root.clientWidth || innerWidth, wrapH = root.clientHeight || innerHeight;
-    if (svg.getAttribute('width') !== String(wrapW)) {
-      svg.setAttribute('width', wrapW); svg.setAttribute('height', wrapH);
-      svg.setAttribute('viewBox', `0 0 ${wrapW} ${wrapH}`);
+
+    const W = root.clientWidth || innerWidth;
+    const H = root.clientHeight || innerHeight;
+    const ws = String(W), hs = String(H);
+    if (svg.getAttribute('width') !== ws || svg.getAttribute('height') !== hs) {
+      svg.setAttribute('width', ws); svg.setAttribute('height', hs);
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     }
 
+    /* visibility pass */
+    let anyWant = false, anyShown = false;
     for (const r of L.values()) {
-      const wanted = density > 0 && r.tier <= density && !r.behind && (now - r.seen) < GRACE_MS;
-      r.want = wanted;
-      if (wanted) {
-        if (!r.sized) { const b = r.el.getBoundingClientRect(); r.w = b.width || 60; r.h = b.height || 22; r.sized = true; }
-        vis.push(r);
-      }
+      r.want = density > 0 && r.tier <= density && (now - r.seen) < graceMs;
+      if (r.want) anyWant = true;
+      if (r.shown) anyShown = true;
     }
 
-    /* Placement is SOLVED only occasionally, and stored as an OFFSET from the anchor.
-       Between solves every label is simply anchor + offset — rigid, like the cooling
-       module's callouts — so it tracks the 3D point 1:1 with no lag and no wobble.
-       The solver is sticky: a label keeps its previous slot unless it truly collides. */
-    vis.sort((a, b) => a.tier - b.tier || a.order - b.order);
-    const sig = vis.map(r => r.id).join('|') + '@' + wrapW + 'x' + wrapH;
-    const solve = sig !== lastSig || (now - lastSolve) > SOLVE_MS;
-    if (solve) {
+    /* solve pass — structural changes solve instantly; order drift at ≤ 4 Hz */
+    const band = measureBand(H);
+    let sig = density + '|' + (band[0] | 0) + ':' + (band[1] | 0) + '|' + W + '|';
+    for (const r of L.values()) if (r.want) sig += r.id + r.tier + ',';
+    if (sig !== lastSig || now - lastSolve >= solveMs) {
       lastSig = sig; lastSolve = now;
-      const placed = [];
-      for (const r of vis) {
-        /* flip side with hysteresis so a label near the flip line can't oscillate */
-        if (!r.flip && r.ax > wrapW * 0.70) r.flip = true;
-        else if (r.flip && r.ax < wrapW * 0.60) r.flip = false;
-        const base = r.tier === 1 ? 22 : 16;
-        const hdx = r.flip ? -(r.w + base) : base, hdy = -(r.h + base * 0.9);
-        const cands = [];
-        if (r.hasTarget) cands.push([r.tox, r.toy]);              // sticky: try last slot first
-        cands.push([hdx, hdy]);
-        for (let t = 0; t < 8; t++) {
-          const step = (t % 2 === 0 ? 1 : -1) * (Math.floor(t / 2) + 1) * (r.h + PAD);
-          cands.push([t >= 4 ? -hdx - r.w * 0.2 : hdx, hdy + step]);
-        }
-        let pick = null;
-        for (const [dx, dy] of cands) {
-          const bx = clampX(r.ax + dx, r.w, wrapW), by = clampY(r.ay + dy, r.h, wrapH);
-          if (!placed.some(p => overlap(p, bx, by, r.w, r.h))) { pick = [dx, dy, bx, by]; break; }
-        }
-        r.yield = !pick && r.tier > 1;                            // lower priority yields; primaries never do
-        if (!pick) { const [dx, dy] = cands[r.hasTarget ? 0 : 0]; pick = [dx, dy, clampX(r.ax + dx, r.w, wrapW), clampY(r.ay + dy, r.h, wrapH)]; }
-        r.tox = pick[0]; r.toy = pick[1];
-        if (!r.hasTarget || !r.placed) { r.ox = r.tox; r.oy = r.toy; }
-        r.hasTarget = true; r.placed = true;
-        if (!r.yield) placed.push({ x: pick[2], y: pick[3], w: r.w, h: r.h });
-      }
-    }
-    /* Ease only the OFFSET (slot changes glide); the anchor part is never smoothed. */
-    for (const r of vis) {
-      if (Math.abs(r.tox - r.ox) > 0.05 || Math.abs(r.toy - r.oy) > 0.05) { r.ox += (r.tox - r.ox) * 0.22; r.oy += (r.toy - r.oy) * 0.22; }
-      else { r.ox = r.tox; r.oy = r.toy; }
-      r.x = clampX(r.ax + r.ox, r.w, wrapW);
-      r.y = clampY(r.ay + r.oy, r.h, wrapH);
+      solve(now, W, band);
     }
 
-    /* Commit to DOM */
+    /* commit pass — eased, frame-rate independent, diffed writes */
+    const kY = reduced ? 1 : 1 - Math.pow(0.82, dt * 60);   // ≈ 0.18 / 60 Hz frame
+    const kA = reduced ? 1 : Math.min(1, dt * 9);
+
     for (const r of L.values()) {
-      const show = r.want && !r.yield;
-      if (show) {
-        if (!r.shown) { r.shown = true; r.shownAt = now; r.el.classList.add('visible'); r.lead.g.classList.add('visible'); }
-        r.el.style.transform = `translate3d(${Math.round(r.x)}px, ${Math.round(r.y)}px, 0)`;
-        r.el.dataset.tier = r.tier;
-        r.lead.g.dataset.tier = r.tier;
-        /* leader: from the label's nearest edge midpoint to the anchor */
-        const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-        const ex = r.ax < r.x ? r.x : (r.ax > r.x + r.w ? r.x + r.w : Math.max(r.x + 8, Math.min(r.x + r.w - 8, r.ax)));
-        const ey = r.ay < r.y ? r.y : (r.ay > r.y + r.h ? r.y + r.h : cy);
-        const mx = (ex + r.ax) / 2;
-        r.lead.line.setAttribute('points', `${ex.toFixed(1)},${ey.toFixed(1)} ${mx.toFixed(1)},${ey.toFixed(1)} ${r.ax.toFixed(1)},${r.ay.toFixed(1)}`);
-        r.lead.pt.setAttribute('cx', r.ax.toFixed(1));
-        r.lead.pt.setAttribute('cy', r.ay.toFixed(1));
-      } else if (r.shown) {
-        r.shown = false; r.placed = false; r.hasTarget = false;
-        r.el.classList.remove('visible'); r.lead.g.classList.remove('visible');
-      }
-    }
-    /* keep running while any label exists */
-    if (L.size) ensureLoop();
-  }
-
-  function clampX(x, w, W) { return Math.max(4, Math.min(W - w - 4, x)); }
-  function clampY(y, h, H) { return Math.max(4, Math.min(H - h - 4, y)); }
-  function overlap(p, x, y, w, h) {
-    return x < p.x + p.w + PAD && x + w + PAD > p.x && y < p.y + p.h + PAD && y + h + PAD > p.y;
-  }
-
-  /* The toolbar button lives in kit.js; expose the legend for it */
-  api.legendHTML = () =>
-    `<div class="lab-legend"><b>Priority</b>
-       <span class="lg-p1"><i></i>Primary</span><span class="lg-p2"><i></i>Secondary</span><span class="lg-p3"><i></i>Detail</span>
-     </div>
-     <div class="lab-legend"><b>Colour</b>${Object.values(KINDS).map(k => `<span style="--lc:${k.color}"><i></i>${k.name}</span>`).join('')}</div>`;
-
-  window.__autolabLabels = api;
-  return api;
-}
+      const show = r.want && !r.drop;
+      if (!show) {
+        if (r.shown) {
+          r.shown = false; r.placed = false; r.alpha = 0;
+          r.el.classList.remove('visible'); r.lead.g.classList.remove('visible');
+          /* clear inline opacity so the CSS hide-transition can run */
+          r.el.style.opacity = ''; r.lead.g.styl
