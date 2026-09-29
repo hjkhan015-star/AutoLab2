@@ -9,6 +9,104 @@
 <style>
 :root { --al-accent: #64748b; }
 html.light-theme { --al-accent: color-mix(in oklch, #64748b 68%, black); }
+
+/* ── Floating panel ── */
+#ty-ui {
+  position: fixed; top: 80px; right: 14px;
+  width: min(258px, calc(100vw - 28px));
+  max-height: min(76vh, 640px);
+  overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 10px 12px 12px; border-radius: 12px;
+  background: rgba(8,11,18,.84);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(148,163,184,.22);
+  color: #cbd5e1; user-select: none; -webkit-user-select: none;
+  z-index: 9999;
+  font: 600 11px/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 10px 32px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.25);
+  transition: opacity .18s ease;
+  scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.35) transparent;
+}
+#ty-ui::-webkit-scrollbar { width: 6px; }
+#ty-ui::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); border-radius: 999px; }
+#ty-ui.hidden { display: none; }
+#ty-ui.dragging { box-shadow: 0 18px 44px rgba(0,0,0,.55), 0 4px 10px rgba(0,0,0,.3); }
+
+#ty-ui .ty-header {
+  display: flex; align-items: center; gap: 7px;
+  margin: -4px -6px 2px -6px; padding: 5px 6px 5px 8px;
+  border-radius: 8px; cursor: grab;
+  background: rgba(148,163,184,.08);
+  touch-action: none; flex-shrink: 0;
+  position: sticky; top: -10px; z-index: 1;
+  backdrop-filter: blur(6px);
+}
+#ty-ui.dragging .ty-header { cursor: grabbing; background: rgba(100,116,139,.20); }
+#ty-ui .ty-grip { color: #64748b; font-size: 13px; line-height: 1; letter-spacing: 1px; }
+#ty-ui.dragging .ty-grip { color: var(--al-accent, #64748b); }
+#ty-ui .ty-title { flex: 1; font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: #94a3b8; }
+#ty-ui .ty-icon { cursor: pointer; background: transparent; border: 0; color: #94a3b8; font-size: 14px; padding: 1px 6px; border-radius: 6px; line-height: 1; transition: background .12s, color .12s; }
+#ty-ui .ty-icon:hover { background: rgba(148,163,184,.18); color: #e2e8f0; }
+#ty-ui .ty-body { display: flex; flex-direction: column; gap: 9px; }
+#ty-ui.ty-collapsed .ty-body { display: none; }
+#ty-ui.ty-collapsed { max-height: 40px; overflow: hidden; }
+
+#ty-ui button { font: inherit; }
+#ty-ui .ty-row { display: flex; gap: 5px; align-items: center; }
+#ty-ui .ty-lab { color: #94a3b8; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; min-width: 54px; }
+#ty-ui .ty-btn {
+  cursor: pointer; border: 1px solid rgba(148,163,184,.32);
+  background: rgba(15,23,42,.72); color: #e2e8f0;
+  border-radius: 999px; padding: 4px 9px; font-size: 10.5px;
+  transition: background .15s, border-color .15s, color .15s;
+}
+#ty-ui .ty-btn.on { background: var(--al-accent, #64748b); color: #f8fafc; border-color: transparent; }
+#ty-ui input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 3px;
+  background: rgba(148,163,184,.28); border-radius: 999px; outline: none;
+}
+#ty-ui input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+  background: var(--al-accent, #64748b); cursor: pointer; border: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+#ty-ui input[type=range]::-moz-range-thumb {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--al-accent, #64748b); cursor: pointer; border: 0;
+}
+#ty-ui .ty-slider { display: flex; flex-direction: column; gap: 3px; }
+#ty-ui .ty-slider .ty-head {
+  display: flex; justify-content: space-between;
+  color: #94a3b8; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase;
+}
+#ty-ui .ty-slider .ty-val { color: #e2e8f0; }
+
+#ty-ui-toggle {
+  position: fixed; right: 14px; bottom: 84px; z-index: 10000;
+  width: 42px; height: 42px; border-radius: 50%;
+  background: rgba(8,11,18,.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(148,163,184,.3);
+  color: var(--al-accent, #64748b);
+  font-size: 17px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.4);
+  transition: transform .15s; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+#ty-ui-toggle:active { transform: scale(.9); }
+#ty-ui-toggle.hidden { display: none; }
+
+@media (max-width: 768px) {
+  #ty-ui { top: 68px; right: 10px; width: min(250px, calc(100vw - 20px)); padding: 10px 12px 14px; max-height: 68vh; }
+  #ty-ui .ty-btn { padding: 6px 12px; font-size: 11.5px; }
+  #ty-ui input[type=range] { height: 4px; }
+  #ty-ui input[type=range]::-webkit-slider-thumb { width: 16px; height: 16px; }
+  #ty-ui input[type=range]::-moz-range-thumb { width: 16px; height: 16px; }
+  #ty-ui .ty-header { padding: 7px 8px 7px 10px; }
+  #ty-ui .ty-grip { font-size: 15px; }
+  #ty-ui-toggle { bottom: 96px; width: 46px; height: 46px; font-size: 19px; }
+}
 </style>
 </head>
 <body>
@@ -16,7 +114,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #64748b 68%, black); }
 <div id="labels-root"></div>
 
 <script src="guard.js"></script>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
     "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -29,34 +127,716 @@ html.light-theme { --al-accent: color-mix(in oklch, #64748b 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "tyres", "title": "Wheels & Tyres", "kicker": "Steering, Suspension & Brakes", "accent": "#64748b", "badge": "Radial tyre", "camPos": [3.6, 1.6, 6.8], "target": [0, -0.2, 0], "floorY": -2.15, "ctl": {"label": "Tyre pressure", "val": 55, "caption": "Inflation"}, "chipLabel": "Pressure", "rows": [["patch", "Contact patch"], ["wear", "Wear"]], "ro": [["psi", "Pressure"], ["patch", "Contact patch"], ["wear", "Wear pattern"], ["rr", "Rolling resistance"], ["grip", "Grip index"]], "legend": [["#22c55e", "Even contact"], ["#ef4444", "Overloaded zone"], ["#111827", "Tread"]], "overview": "<div class=\"al-sec\"><h4>Only contact with the road<\/h4><p>Four palm-sized contact patches transmit all driving, braking and cornering forces. Correct pressure keeps the patch flat, even and predictable.<\/p><\/div><div class=\"al-sec\"><h4>Pressure effects<\/h4><ul><li><b>Under-inflated<\/b> – patch is long, shoulders overloaded, hot, more fuel used, wear on both edges.<\/li><li><b>Over-inflated<\/b> – tyre crowns, small centre patch, less grip, harsh ride, centre wear.<\/li><li><b>Correct<\/b> – even patch and wear; set to placard pressure when cold.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Reading a tyre<\/h4><p>Sidewall code like 205/55 R16: width 205 mm, aspect 55% of width, radial construction, 16-inch rim.<\/p><\/div>", "faults": [["Uneven wear", "Edge or centre wear; pulling; vibration.", "Check pressures, alignment and suspension wear."], ["Sidewall bulge or cut", "Sudden failure risk.", "Inspect visually; replace immediately if damaged."], ["Slow puncture", "Repeated pressure loss.", "Immerse or soap-test the tyre and valve."]], "quiz": [["Under-inflation mainly wears…", ["Both shoulders", "Centre only", "Inner edge only"], 0, "The shoulders carry more load and wear faster."], ["Check pressure when…", ["Tyres are cold", "After a long drive", "Any time"], 0, "Heat raises pressure; placard values are for cold tyres."], ["“205/55 R16” — 55 means…", ["Width in mm", "Aspect ratio (%)", "Speed rating"], 1, "Sidewall height is 55% of the tyre width."]]};
+const CFG = {
+  "moduleId": "tyres",
+  "title": "Wheels & Tyres",
+  "kicker": "Steering, Suspension & Brakes",
+  "accent": "#64748b",
+  "badge": "Radial tyre",
+  "camPos": [4.6, 1.8, 6.6],
+  "target": [0, -0.15, 0],
+  "floorY": -2.6,
+  "ctl": { "label": "Tyre pressure", "val": 55, "caption": "Inflation" },
+  "chipLabel": "Contact patch",
+  "rows": [["patch", "Contact patch"], ["wear", "Wear"]],
+  "ro": [
+    ["psi",   "Pressure"],
+    ["patch", "Contact patch"],
+    ["wear",  "Wear pattern"],
+    ["temp",  "Tyre temp"],
+    ["aqua",  "Aquaplane risk"],
+    ["grip",  "Grip index"],
+    ["rr",    "Rolling resistance"]
+  ],
+  "legend": [
+    ["#22c55e", "Even contact"],
+    ["#ef4444", "Overloaded zone"],
+    ["#f59e0b", "Heat"],
+    ["#111827", "Tread"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Only contact with the road<\/h4><p>Four palm-sized contact patches transmit all driving, braking and cornering forces. Correct pressure keeps the patch flat, even and predictable.<\/p><p>Use the floating panel: drag <b>Pressure<\/b>, <b>Load<\/b> and <b>Speed<\/b>, pick a <b>surface<\/b> (Dry / Wet \/ Standing water), and adjust <b>tread depth<\/b>. The tyre deforms in real time and the patch heats and colours according to the physics.<\/p><\/div><div class=\"al-sec\"><h4>Pressure effects<\/h4><ul><li><b>Under-inflated<\/b> – patch is long, shoulders overloaded, hot, more fuel used, wear on both edges.<\/li><li><b>Over-inflated<\/b> – tyre crowns, small centre patch, less grip, harsh ride, centre wear.<\/li><li><b>Correct<\/b> – even patch and wear; set to placard pressure when cold.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Reading a tyre<\/h4><p>Sidewall code like <b>205/55 R16 91V<\/b>: width 205&nbsp;mm, aspect 55% of width, radial construction, 16-inch rim, 91 load index, V speed rating.<\/p><\/div><div class=\"al-sec\"><h4>Aquaplaning<\/h4><p>On a wet road the tread must pump water out of the way. A worn tyre on standing water can aquaplane — the patch lifts off the road entirely. Risk climbs sharply above the aquaplaning speed, which depends on pressure, tread depth and water depth.<\/p><\/div>",
+  "faults": [
+    ["Uneven wear", "Edge or centre wear; pulling; vibration.", "Check pressures, alignment and suspension wear."],
+    ["Sidewall bulge or cut", "Sudden failure risk.", "Inspect visually; replace immediately if damaged."],
+    ["Slow puncture", "Repeated pressure loss.", "Immerse or soap-test the tyre and valve."],
+    ["Aquaplaning", "Steering goes light; no response on standing water.", "Slow down, check tread depth, avoid standing water."]
+  ],
+  "quiz": [
+    ["Under-inflation mainly wears…", ["Both shoulders", "Centre only", "Inner edge only"], 0, "The shoulders carry more load and wear faster."],
+    ["Check pressure when…", ["Tyres are cold", "After a long drive", "Any time"], 0, "Heat raises pressure; placard values are for cold tyres."],
+    ["“205/55 R16” — 55 means…", ["Width in mm", "Aspect ratio (%)", "Speed rating"], 1, "Sidewall height is 55% of the tyre width."],
+    ["Contact patch area equals…", ["Load ÷ Pressure", "Pressure × Width", "Circumference ÷ 4"], 0, "At constant load a lower pressure needs a bigger area."],
+    ["Aquaplaning speed depends on…", ["Pressure and tread depth", "Colour of the car", "Engine power"], 0, "Higher pressure and deeper tread both raise the aquaplaning speed."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
-function build(H){
- const {box,cyl,cylZ,tor,mat,clamp,root,THREE,lc}=H;
- const rubber=mat(0x1b1f27,.1,.9), steel=mat(0xcbd5e1,.9,.25);
- const defl=new THREE.Group(); root.add(defl); const wheel=new THREE.Group(); defl.add(wheel);
- const tire=new THREE.Mesh(new THREE.TorusGeometry(1.5,.55,20,56),rubber); tire.scale.z=1.35; wheel.add(tire);
- for(let i=0;i<40;i++){ const a=i/40*Math.PI*2, b=new THREE.Mesh(new THREE.BoxGeometry(.34,.12,1.05),mat(0x0f1218,.05,.95)); b.position.set(Math.cos(a)*2.03,Math.sin(a)*2.03,0); b.rotation.z=a+Math.PI/2; wheel.add(b); }
- cylZ(1.1,1.1,.5,steel,0,0,0,wheel); cylZ(.3,.3,.7,mat(0x9aa3b2,.9,.3),0,0,0,wheel);
- for(let i=0;i<5;i++){ const s=box(.3,1.0,.14,steel,0,0,.27,wheel); s.rotation.z=i*Math.PI*2/5; s.position.set(Math.sin(i*Math.PI*2/5)*-.55,Math.cos(i*Math.PI*2/5)*.55,.27); }
- for(let i=0;i<5;i++){ const a=i/5*Math.PI*2; cylZ(.05,.05,.1,mat(0x64748b,.9,.3),Math.cos(a)*.18,Math.sin(a)*.18,.38,wheel); }
- const mk=()=>new THREE.MeshBasicMaterial({color:0x22c55e,transparent:true,opacity:.85});
- const mats=[mk(),mk(),mk()], patch=[];
- [-.6,0,.6].forEach((z,i)=>patch.push(box(1.0,.03,.5,mats[i],0,-2.06,z)));
- return {
-  labels:[['Tread blocks',[1.6,1.65,.6]],['Sidewall',[-1.9,.6,.8]],['Rim',[0,.5,.7]],['Hub & lug nuts',[0,0,.9]],['Contact patch',[0,-2.3,1.0]]],
-  update(c){
-   const k=c.k, psi=20+25*k, area=880/psi*6.45, len=clamp(1.55-1.1*k,.55,1.5);
-   wheel.rotation.z=-c.t*3; defl.scale.y=.94+.06*k; defl.position.y=-2.05*(1-defl.scale.y); tire.scale.x=1+.04*(1-k);
-   const edge=clamp((.5-k)/.3), ctr=clamp((k-.6)/.3);
-   const cols=[lc(0x22c55e,0xef4444,edge),lc(0x22c55e,0xef4444,ctr),lc(0x22c55e,0xef4444,edge)];
-   patch.forEach((p,i)=>{ mats[i].color.copy(cols[i]); p.scale.x=len; p.scale.z=1; });
-   const wear=k<.4?'Both shoulders':k>.7?'Centre':'Even', rr=k<.5?100+(.5-k)*36:100-(k-.5)*14, grip=100-.9*Math.abs(psi-34);
-   return {big:psi.toFixed(0),unit:' psi',bar:k*100,rows:{patch:area.toFixed(0)+' cm²',wear:wear},
-    ro:{psi:[psi.toFixed(0)+' psi (cold)','hi'],patch:[area.toFixed(0)+' cm²',''],wear:[wear,wear==='Even'?'ok':'warn'],rr:[rr.toFixed(0)+' %',rr>108?'warn':''],grip:[grip.toFixed(0)+' / 100',grip>92?'ok':'warn']},
-    status:[wear==='Even'?'Optimal':'Off-spec',true],ctl:psi.toFixed(0)+' psi'};
-  }};
+/* ══════════════════════════════════════════════════════════════════
+   MODULE SCENE — realistic deformable tyre with floating panel
+   ══════════════════════════════════════════════════════════════════ */
+function build(H) {
+  const THREE = H.THREE;
+  const root  = H.root;
+  const clamp = H.clamp || ((v, a, b) => Math.max(a, Math.min(b, v)));
+  const lerp  = H.lerp  || ((a, b, t) => a + (b - a) * t);
+
+  /* ─── constants ─── */
+  const R_TIRE  = 1.35;      // torus major radius (to tube centre)
+  const R_TUBE  = 0.65;      // tube (sidewall) radius
+  const WHEEL_R = R_TIRE + R_TUBE;  // 2.00 — outer tyre radius
+  const GROUND_Y = -WHEEL_R;        // -2.00
+
+  /* ─── material factory (prefer framework's mat if available) ─── */
+  const std = (color, metal, rough) => {
+    if (H.mat) {
+      try {
+        const m = H.mat(color, metal, rough);
+        if (m && m.isMaterial) { m.side = THREE.DoubleSide; return m; }
+      } catch (e) { /* fall through */ }
+    }
+    return new THREE.MeshStandardMaterial({
+      color, metalness: metal, roughness: rough, side: THREE.DoubleSide
+    });
+  };
+
+  const MAT = {
+    rubber:  std(0x1c1f25, 0.05, 0.94),
+    rim:     std(0xccd3db, 0.92, 0.30),
+    rimDark: std(0x8b9199, 0.85, 0.42),
+    hub:     std(0x6f757d, 0.88, 0.45),
+    lug:     std(0xb0b8c4, 0.95, 0.18),
+    brake:   std(0x9aa0a8, 0.80, 0.55),
+    caliper: std(0xcc2828, 0.55, 0.55),
+    valve:   std(0x2a2c30, 0.60, 0.70),
+    ground:  std(0x3a3f4a, 0.05, 0.95),
+    pad:     std(0x8a9298, 0.90, 0.30)
+  };
+
+  /* ─── ground ─── */
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(26, 26), MAT.ground);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = GROUND_Y - 0.01;
+  root.add(ground);
+
+  const grid = new THREE.GridHelper(26, 52, 0x4a5060, 0x3a404c);
+  grid.position.y = GROUND_Y;
+  if (grid.material) {
+    grid.material.transparent = true;
+    grid.material.opacity = 0.55;
+  }
+  root.add(grid);
+
+  /* ─── tread canvas texture ─── */
+  function makeTreadTexture() {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 256;
+    const ctx = c.getContext('2d');
+
+    // base rubber
+    ctx.fillStyle = '#20242b';
+    ctx.fillRect(0, 0, 512, 256);
+
+    // circumferential grooves (horizontal lines = rings around the tube)
+    ctx.fillStyle = '#080a0d';
+    ctx.fillRect(0, 30, 512, 7);
+    ctx.fillRect(0, 118, 512, 8);
+    ctx.fillRect(0, 218, 512, 7);
+
+    // block highlight (so tread blocks read as raised)
+    ctx.fillStyle = '#2b313a';
+    for (let i = 0; i < 16; i++) {
+      const x = i * 32;
+      ctx.fillRect(x + 3, 0, 26, 28);
+      ctx.fillRect(x + 3, 40, 26, 76);
+      ctx.fillRect(x + 3, 128, 26, 88);
+    }
+
+    // lateral sipes (short vertical cuts)
+    ctx.fillStyle = '#080a0d';
+    for (let i = 0; i < 16; i++) {
+      const x = i * 32 + 14;
+      ctx.fillRect(x, 0, 4, 28);
+      ctx.fillRect(x, 40, 4, 76);
+      ctx.fillRect(x, 128, 4, 88);
+    }
+
+    // shoulder wear strips (subtle)
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(0, 0, 512, 4);
+    ctx.fillRect(0, 252, 512, 4);
+
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(1, 1);
+    t.anisotropy = 8;
+    return t;
+  }
+
+  const treadTex = makeTreadTexture();
+  const tyreMat = new THREE.MeshStandardMaterial({
+    map: treadTex,
+    color: 0xffffff,
+    metalness: 0.05,
+    roughness: 0.92,
+    side: THREE.DoubleSide,
+    emissive: new THREE.Color(0, 0, 0),
+    emissiveIntensity: 1.0
+  });
+
+  /* ─── deformable tyre ─── */
+  const tireGeo = new THREE.TorusGeometry(R_TIRE, R_TUBE, 32, 88);
+  tireGeo.scale(1, 1, 1.25);
+  const tireOrig = new Float32Array(tireGeo.attributes.position.array);
+  const tire = new THREE.Mesh(tireGeo, tyreMat);
+  root.add(tire);
+
+  /* ─── wheel group (rotating): rim + brake disc ─── */
+  const wheelGroup = new THREE.Group();
+  root.add(wheelGroup);
+
+  const RIM_R = R_TIRE - R_TUBE + 0.02;   // 0.72
+
+  // barrel (side wall of rim, open cylinder along Z)
+  const barrel = new THREE.Mesh(
+    new THREE.CylinderGeometry(RIM_R, RIM_R, 1.15, 36, 1, true),
+    MAT.rim
+  );
+  barrel.rotation.x = Math.PI / 2;
+  wheelGroup.add(barrel);
+
+  // backing disc
+  const backing = new THREE.Mesh(
+    new THREE.CylinderGeometry(RIM_R, RIM_R, 0.05, 36),
+    MAT.rimDark
+  );
+  backing.rotation.x = Math.PI / 2;
+  backing.position.z = -0.57;
+  wheelGroup.add(backing);
+
+  // deep-dish face ring
+  const faceRing = new THREE.Mesh(
+    new THREE.TorusGeometry(RIM_R - 0.02, 0.06, 8, 36),
+    MAT.rim
+  );
+  faceRing.position.z = -0.30;
+  wheelGroup.add(faceRing);
+
+  // hub
+  const hub = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.28, 0.28, 0.18, 24),
+    MAT.hub
+  );
+  hub.rotation.x = Math.PI / 2;
+  hub.position.z = -0.50;
+  wheelGroup.add(hub);
+
+  // 5 spokes
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2 + Math.PI / 2;
+    const spokeLen = RIM_R - 0.26;
+    const midR = (0.26 + RIM_R) / 2;
+    const spoke = new THREE.Mesh(
+      new THREE.BoxGeometry(0.34, spokeLen, 0.18),
+      MAT.rim
+    );
+    spoke.position.set(Math.cos(a) * midR, Math.sin(a) * midR, -0.42);
+    spoke.rotation.z = a - Math.PI / 2;
+    wheelGroup.add(spoke);
+
+    // spoke lightening hole (small dark cylinder as a fake hole)
+    const hole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.055, 0.055, 0.20, 12),
+      std(0x141820, 0.4, 0.85)
+    );
+    hole.rotation.x = Math.PI / 2;
+    hole.position.set(Math.cos(a) * (midR + 0.08), Math.sin(a) * (midR + 0.08), -0.42);
+    wheelGroup.add(hole);
+  }
+
+  // centre cap
+  const cap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.15, 0.15, 0.05, 24),
+    MAT.rim
+  );
+  cap.rotation.x = Math.PI / 2;
+  cap.position.z = -0.40;
+  wheelGroup.add(cap);
+
+  // 5 lug nuts
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2 + Math.PI / 5;
+    const lug = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.048, 0.048, 0.09, 12),
+      MAT.lug
+    );
+    lug.rotation.x = Math.PI / 2;
+    lug.position.set(Math.cos(a) * 0.205, Math.sin(a) * 0.205, -0.40);
+    wheelGroup.add(lug);
+  }
+
+  // valve stem + cap (on rim edge, rotates with wheel)
+  const valveGroup = new THREE.Group();
+  valveGroup.position.set(0, RIM_R - 0.08, -0.42);
+  const valve = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.032, 0.032, 0.11, 10),
+    MAT.valve
+  );
+  valve.rotation.x = Math.PI / 2;
+  valveGroup.add(valve);
+  const valveCap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.042, 0.042, 0.022, 10),
+    std(0x1a1c20, 0.6, 0.7)
+  );
+  valveCap.rotation.x = Math.PI / 2;
+  valveCap.position.z = 0.065;
+  valveGroup.add(valveCap);
+  wheelGroup.add(valveGroup);
+
+  // brake disc (rotates with wheel)
+  const discGroup = new THREE.Group();
+  discGroup.position.z = -0.90;
+  wheelGroup.add(discGroup);
+
+  const disc = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.62, 0.62, 0.06, 40),
+    MAT.brake
+  );
+  disc.rotation.x = Math.PI / 2;
+  discGroup.add(disc);
+
+  // disc vent grooves
+  for (let i = 0; i < 24; i++) {
+    const a = i / 24 * Math.PI * 2;
+    const slot = new THREE.Mesh(
+      new THREE.BoxGeometry(0.09, 0.06, 0.07),
+      std(0x5a6068, 0.7, 0.6)
+    );
+    slot.position.set(Math.cos(a) * 0.50, Math.sin(a) * 0.50, 0.001);
+    slot.rotation.z = a;
+    discGroup.add(slot);
+  }
+
+  const discInner = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.30, 0.30, 0.07, 28),
+    MAT.hub
+  );
+  discInner.rotation.x = Math.PI / 2;
+  discGroup.add(discInner);
+
+  /* ─── caliper (stationary) ─── */
+  const caliperGroup = new THREE.Group();
+  caliperGroup.position.z = -0.90;
+  root.add(caliperGroup);
+
+  const caliper = new THREE.Mesh(
+    new THREE.BoxGeometry(0.24, 0.30, 0.16),
+    MAT.caliper
+  );
+  caliper.position.set(-0.08, 0.44, 0);
+  caliperGroup.add(caliper);
+
+  const padFront = new THREE.Mesh(
+    new THREE.BoxGeometry(0.18, 0.22, 0.03),
+    MAT.pad
+  );
+  padFront.position.set(-0.08, 0.44, 0.055);
+  caliperGroup.add(padFront);
+
+  /* ─── contact patch (heat-mapped plane on the ground) ─── */
+  const patchGeo = new THREE.PlaneGeometry(1, 1, 24, 24);
+
+  // Radial-falloff shader material so the patch fades at its edges
+  const patchMat = new THREE.MeshBasicMaterial({
+    color: 0x22c55e,
+    transparent: true,
+    opacity: 0.75,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const patch = new THREE.Mesh(patchGeo, patchMat);
+  patch.rotation.x = -Math.PI / 2;
+  patch.position.set(0, GROUND_Y + 0.008, 0);
+  root.add(patch);
+
+  // Overlay heat layer
+  const heatMat = new THREE.MeshBasicMaterial({
+    color: 0xef4444,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide
+  });
+  const heatOverlay = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), heatMat);
+  heatOverlay.rotation.x = -Math.PI / 2;
+  heatOverlay.position.set(0, GROUND_Y + 0.012, 0);
+  root.add(heatOverlay);
+
+  /* ─── state ─── */
+  const state = {
+    pressure: 32,
+    load: 400,
+    speed: 0,
+    surface: 'dry',
+    treadDepth: 7.5,
+    rollAngle: 0,
+    tireTemp: 25
+  };
+  let prevT = 0;
+
+  /* ═══════════════════════════════════════════════════════════
+     UI PANEL — floating, draggable
+     ═══════════════════════════════════════════════════════════ */
+  try {
+    const panel = document.createElement('div');
+    panel.id = 'ty-ui';
+    document.body.appendChild(panel);
+
+    const header = document.createElement('div');
+    header.className = 'ty-header';
+    const grip = document.createElement('span');
+    grip.className = 'ty-grip';
+    grip.textContent = '⠿';
+    header.appendChild(grip);
+    const title = document.createElement('span');
+    title.className = 'ty-title';
+    title.textContent = 'Tyre Controls';
+    header.appendChild(title);
+    const collapseBtn = document.createElement('button');
+    collapseBtn.type = 'button';
+    collapseBtn.className = 'ty-icon';
+    collapseBtn.textContent = '—';
+    collapseBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      panel.classList.toggle('ty-collapsed');
+      collapseBtn.textContent = panel.classList.contains('ty-collapsed') ? '+' : '—';
+    });
+    header.appendChild(collapseBtn);
+    panel.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'ty-body';
+    panel.appendChild(body);
+
+    /* sliders */
+    function makeSlider(label, unit, min, max, step, initial, onChange) {
+      const wrap = document.createElement('div');
+      wrap.className = 'ty-slider';
+      const head = document.createElement('div');
+      head.className = 'ty-head';
+      const l = document.createElement('span'); l.textContent = label;
+      const v = document.createElement('span'); v.className = 'ty-val';
+      v.textContent = initial.toFixed(step < 1 ? 1 : 0) + ' ' + unit;
+      head.appendChild(l); head.appendChild(v);
+      const inp = document.createElement('input');
+      inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step; inp.value = initial;
+      inp.addEventListener('input', () => {
+        const val = parseFloat(inp.value);
+        v.textContent = val.toFixed(step < 1 ? 1 : 0) + ' ' + unit;
+        onChange(val);
+      });
+      wrap.appendChild(head); wrap.appendChild(inp);
+      body.appendChild(wrap);
+    }
+
+    makeSlider('Pressure', 'psi', 18, 45, 0.5, 32, v => state.pressure = v);
+    makeSlider('Load / corner', 'kg', 150, 700, 10, 400, v => state.load = v);
+    makeSlider('Speed', 'km/h', 0, 240, 5, 0, v => state.speed = v);
+    makeSlider('Tread depth', 'mm', 1.6, 9, 0.1, 7.5, v => state.treadDepth = v);
+
+    /* surface toggle */
+    (function () {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px';
+      const lab = document.createElement('div');
+      lab.className = 'ty-lab';
+      lab.textContent = 'Surface';
+      wrap.appendChild(lab);
+      const row = document.createElement('div');
+      row.className = 'ty-row';
+      const opts = [['dry', 'Dry'], ['wet', 'Wet'], ['standing', 'Water']];
+      const btns = {};
+      opts.forEach(([key, txt]) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ty-btn' + (state.surface === key ? ' on' : '');
+        b.textContent = txt;
+        b.addEventListener('click', () => {
+          state.surface = key;
+          Object.keys(btns).forEach(k => btns[k].classList.toggle('on', k === key));
+        });
+        btns[key] = b;
+        row.appendChild(b);
+      });
+      wrap.appendChild(row);
+      body.appendChild(wrap);
+    })();
+
+    /* drag logic */
+    (function makeDraggable(el, handle) {
+      let dragging = false, pid = null, sx = 0, sy = 0, sl = 0, st = 0;
+      handle.addEventListener('pointerdown', e => {
+        if (e.target.closest('button, input, canvas, a, select, textarea')) return;
+        e.preventDefault(); e.stopPropagation();
+        dragging = true; pid = e.pointerId;
+        const r = el.getBoundingClientRect();
+        sl = r.left; st = r.top;
+        sx = e.clientX; sy = e.clientY;
+        el.style.right = 'auto';
+        el.style.left = sl + 'px';
+        el.style.top  = st + 'px';
+        el.classList.add('dragging');
+        try { handle.setPointerCapture(pid); } catch (_) {}
+      });
+      handle.addEventListener('pointermove', e => {
+        if (!dragging || e.pointerId !== pid) return;
+        e.preventDefault();
+        const dx = e.clientX - sx, dy = e.clientY - sy;
+        const w = el.offsetWidth, h = el.offsetHeight;
+        let nl = sl + dx, nt = st + dy;
+        const mv = 48;
+        nl = Math.max(-w + mv, Math.min(window.innerWidth - mv, nl));
+        nt = Math.max(0, Math.min(window.innerHeight - 32, nt));
+        el.style.left = nl + 'px';
+        el.style.top  = nt + 'px';
+      });
+      const end = () => {
+        if (!dragging) return;
+        dragging = false;
+        el.classList.remove('dragging');
+        try { handle.releasePointerCapture(pid); } catch (_) {}
+      };
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+      handle.addEventListener('lostpointercapture', end);
+    })(panel, header);
+
+    /* FAB toggle */
+    const fab = document.createElement('button');
+    fab.id = 'ty-ui-toggle';
+    fab.type = 'button';
+    fab.innerHTML = '×';
+    fab.title = 'Hide controls';
+    fab.addEventListener('click', () => {
+      const hidden = panel.classList.toggle('hidden');
+      fab.innerHTML = hidden ? '⚙' : '×';
+      fab.title = hidden ? 'Show controls' : 'Hide controls';
+    });
+    document.body.appendChild(fab);
+
+    /* keep inside viewport on resize */
+    window.addEventListener('resize', () => {
+      if (!panel.style.left) return;
+      const w = panel.offsetWidth, h = panel.offsetHeight;
+      let l = parseFloat(panel.style.left) || 0;
+      let t = parseFloat(panel.style.top)  || 0;
+      const mv = 48;
+      l = Math.max(-w + mv, Math.min(window.innerWidth - mv, l));
+      t = Math.max(0, Math.min(window.innerHeight - 32, t));
+      panel.style.left = l + 'px';
+      panel.style.top  = t + 'px';
+    });
+  } catch (e) { /* overlay is optional */ }
+
+  /* ═══════════════════════════════════════════════════════════
+     PHYSICS + DEFORMATION
+     ═══════════════════════════════════════════════════════════ */
+
+  function updateTyreDeform(squish, bulge) {
+    const pos = tireGeo.attributes.position.array;
+    const orig = tireOrig;
+    const flatY = GROUND_Y + squish;
+
+    for (let i = 0; i < pos.length; i += 3) {
+      const ox = orig[i], oy = orig[i + 1], oz = orig[i + 2];
+
+      let dy = oy, dz = oz;
+      if (oy < flatY) {
+        dy = flatY;
+        const depth = Math.min(1, (flatY - oy) / (R_TUBE * 0.85));
+        // Sidewall bulge: push outward in Z direction proportionally
+        dz = oz * (1 + bulge * depth * 0.22);
+      }
+      pos[i]     = ox;
+      pos[i + 1] = dy;
+      pos[i + 2] = dz;
+    }
+    tireGeo.attributes.position.needsUpdate = true;
+    tireGeo.computeVertexNormals();
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     RETURN
+     ═══════════════════════════════════════════════════════════ */
+  return {
+    labels: [
+      ['Tread',           [ 1.55,  1.30,  0.85]],
+      ['Sidewall',        [-1.70,  0.65,  1.15]],
+      ['Rim',             [ 0.00,  0.30, -0.65]],
+      ['Brake disc',      [ 0.00,  0.35, -1.05]],
+      ['Caliper',         [-0.55,  0.55, -0.95]],
+      ['Valve',           [ 0.30,  1.35, -0.45]],
+      ['Contact patch',   [ 0.00, GROUND_Y + 0.15,  1.05]]
+    ],
+
+    update(c) {
+      const t = (typeof c.t === 'number' ? c.t : 0);
+      const dt = Math.min(0.05, Math.max(0.001, t - prevT));
+      prevT = t;
+
+      const pressure = state.pressure;
+      const load     = state.load;
+      const speed    = state.speed;
+      const surface  = state.surface;
+      const tread    = state.treadDepth;
+
+      /* ── contact patch area (real physics: A = F / P) ── */
+      const patchAreaM2  = (load * 9.81) / (pressure * 6895);
+      const patchAreaCm2 = patchAreaM2 * 10000;
+
+      /* ── visual squish ── */
+      const loadNorm  = load / 400;
+      const pressNorm = 32 / pressure;
+      const squish = clamp(0.10 + 0.11 * loadNorm * pressNorm, 0.05, 0.55);
+      const bulge  = clamp(0.55 * (squish - 0.10) / 0.45, 0, 0.95);
+
+      updateTyreDeform(squish, bulge);
+
+      /* ── rolling: rim + spokes + disc rotate; tyre texture scrolls ── */
+      const omega = (speed / 3.6) / WHEEL_R;   // rad/s
+      state.rollAngle += omega * dt;
+      wheelGroup.rotation.z = -state.rollAngle;
+      // scroll the tread UV so the tyre appears to roll
+      treadTex.offset.x = (state.rollAngle / (2 * Math.PI)) % 1;
+
+      /* ── tyre temperature model ── */
+      const pressureDeficit = Math.max(0, 1 - pressure / 32);
+      const heatRate = 0.45
+        * (speed / 100)
+        * (1 + 2.2 * pressureDeficit * pressureDeficit)
+        * Math.pow(load / 400, 0.7)
+        * (1 + 0.8 * Math.max(0, (8 - tread) / 6));
+      const coolRate = (state.tireTemp - 25) * 0.0125;
+      state.tireTemp += (heatRate - coolRate) * dt;
+      state.tireTemp = Math.max(25, state.tireTemp);
+
+      /* ── wear pattern from pressure ── */
+      const wearEdge   = clamp((32 - pressure) / 12, 0, 1);
+      const wearCentre = clamp((pressure - 32) / 12, 0, 1);
+      const wearEven   = 1 - Math.max(wearEdge, wearCentre);
+
+      /* ── aquaplaning ── */
+      const vAquaBase      = 14.5 * Math.sqrt(pressure);
+      const treadFactor    = clamp(tread / 8, 0.3, 1.0);
+      const surfaceFactor  = surface === 'dry'      ? Infinity
+                            : surface === 'wet'     ? 1.0
+                            : surface === 'standing' ? 0.72
+                            : 1.0;
+      const vAqua = vAquaBase * treadFactor * (surfaceFactor === Infinity ? 1 : surfaceFactor);
+      const aquaRisk = surface === 'dry' ? 0
+                     : clamp((speed - vAqua) / 40, 0, 1);
+
+      /* ── grip index ── */
+      const pressDev = Math.abs(pressure - 32) / 32;
+      const pressGripFactor  = 1 - 0.62 * Math.pow(pressDev, 1.5);
+      const loadGripFactor   = 1 - 0.15 * Math.max(0, (load / 400) - 1.3);
+      const surfaceGrip      = surface === 'dry'      ? 1.0
+                             : surface === 'wet'      ? 0.72
+                             : surface === 'standing' ? 0.45
+                             : 1.0;
+      const tempGripFactor   = state.tireTemp > 95 ? 0.68
+                             : state.tireTemp > 65 ? 0.95
+                             : state.tireTemp < 30 ? 0.90
+                             : 1.0;
+      const grip = clamp(
+        100 * pressGripFactor * loadGripFactor * surfaceGrip * tempGripFactor * (1 - aquaRisk * 0.7),
+        0, 100
+      );
+
+      /* ── rolling resistance ── */
+      const rrBase  = 100;
+      const rrPress = 1 + 0.5 * Math.pow((32 - pressure) / 12, 2);
+      const rrSpeed = 1 + 0.0012 * speed;
+      const rr = rrBase * rrPress * rrSpeed;
+
+      /* ═════════ VISUALS ═════════ */
+
+      /* contact patch geometry */
+      const realWidthCm   = 22;
+      const realLengthCm  = patchAreaCm2 / realWidthCm;
+      const worldUnitsCm  = 1.5 / realWidthCm;
+      const patchW = realWidthCm * worldUnitsCm * (1 - 0.06 * wearCentre);
+      const patchL = clamp(realLengthCm * worldUnitsCm, 0.35, 2.10);
+
+      patch.scale.set(patchL, patchW, 1);
+      heatOverlay.scale.set(patchL * 1.02, patchW * 1.02, 1);
+
+      /* patch colour: green (good) → red (bad) */
+      const patchDev = Math.max(wearEdge, wearCentre) * 0.65 + aquaRisk * 0.45 + Math.max(0, state.tireTemp - 90) / 80;
+      const c1 = new THREE.Color(0x22c55e);
+      const c2 = new THREE.Color(0xef4444);
+      const cFinal = c1.clone().lerp(c2, clamp(patchDev, 0, 1));
+      patchMat.color.copy(cFinal);
+      patchMat.opacity = 0.55 + 0.30 * clamp(patchDev, 0, 1);
+
+      /* heat overlay */
+      const heatIntensity = clamp((state.tireTemp - 55) / 85, 0, 1);
+      heatMat.opacity = heatIntensity * 0.42;
+
+      /* tyre glow from heat */
+      const heatGlow = clamp((state.tireTemp - 70) / 95, 0, 1);
+      tyreMat.emissive.setRGB(heatGlow * 0.42, heatGlow * 0.10, 0);
+
+      /* brake disc glow when very hot */
+      MAT.brake.emissive = MAT.brake.emissive || new THREE.Color();
+      MAT.brake.emissive.setRGB(heatGlow * 0.55, heatGlow * 0.10, 0);
+
+      /* ═════════ HUD ═════════ */
+      const wearTxt = wearEven > 0.70 ? 'Even'
+                    : wearEdge > wearCentre ? 'Shoulders'
+                    : 'Centre';
+      const wearCls = wearEven > 0.70 ? 'ok'
+                    : wearEven > 0.40 ? 'warn' : 'crit';
+
+      const aquaTxt = aquaRisk < 0.08 ? 'None'
+                    : aquaRisk < 0.40 ? 'Low'
+                    : aquaRisk < 0.75 ? 'High' : 'Severe';
+      const aquaCls = aquaRisk < 0.08 ? 'ok'
+                    : aquaRisk < 0.40 ? 'warn' : 'crit';
+
+      const tempTxt = state.tireTemp.toFixed(0) + ' °C' + (state.tireTemp > 105 ? ' ⚠' : '');
+      const tempCls = state.tireTemp > 105 ? 'crit'
+                    : state.tireTemp > 78  ? 'warn'
+                    : state.tireTemp < 40  ? 'warn' : 'ok';
+
+      const statusTxt = aquaRisk > 0.72 ? 'AQUAPLANING'
+                      : state.tireTemp > 105 ? 'OVERHEAT'
+                      : wearEdge > 0.6 ? 'UNDER-INFLATED'
+                      : wearCentre > 0.6 ? 'OVER-INFLATED'
+                      : tread < 2.0 ? 'TREAD LOW'
+                      : 'Normal';
+
+      return {
+        big: pressure.toFixed(0),
+        unit: ' psi',
+        bar: clamp((pressure - 18) / (45 - 18) * 100, 0, 100),
+        rows: {
+          patch: patchAreaCm2.toFixed(0) + ' cm²',
+          wear:  wearTxt
+        },
+        ro: {
+          psi:   [pressure.toFixed(1) + ' psi', pressure < 26 ? 'warn' : pressure > 38 ? 'warn' : 'hi'],
+          patch: [patchAreaCm2.toFixed(0) + ' cm²', ''],
+          wear:  [wearTxt, wearCls],
+          temp:  [tempTxt, tempCls],
+          aqua:  [aquaTxt, aquaCls],
+          grip:  [grip.toFixed(0) + ' / 100', grip < 55 ? 'crit' : grip < 82 ? 'warn' : 'ok'],
+          rr:    [rr.toFixed(0) + ' %', rr > 115 ? 'warn' : '']
+        },
+        status: [statusTxt, state.tireTemp > 105 || aquaRisk > 0.72],
+        ctl: pressure.toFixed(0) + ' psi'
+      };
+    }
+  };
 }
 
 runGuidedModule(CFG, build);
