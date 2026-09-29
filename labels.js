@@ -416,4 +416,79 @@ export function createLabelSystem(options = {}) {
           r.shown = false; r.placed = false; r.alpha = 0;
           r.el.classList.remove('visible'); r.lead.g.classList.remove('visible');
           /* clear inline opacity so the CSS hide-transition can run */
-          r.el.style.opacity = ''; r.lead.g.styl
+          r.el.style.opacity = ''; r.lead.g.style.opacity = '';
+          r.lastA = '';
+        }
+        continue;
+      }
+      if (!r.shown) {
+        r.shown = true; r.sized = false;
+        r.el.classList.add('visible'); r.lead.g.classList.add('visible');
+      }
+      if (!r.sized) {
+        const b = r.el.getBoundingClientRect();
+        if (b.width > 1) { r.w = b.width; r.h = b.height; r.sized = true; }
+      }
+
+      const tx = r.side < 0 ? MARGIN : W - MARGIN - r.w;   // gutter x (left coord)
+      const ty = r.slotY - r.h / 2;                          // slot centre → top-left
+
+      /* column swap: fade out at the old slot, teleport, fade in — the
+         label never glides across the middle of the model */
+      let aT = r.behind ? 0.32 : 1;
+      if (r.swapAt) {
+        const e = now - r.swapAt;
+        if (e < SWAP_MS * 0.45) aT = 0;
+        else if (!r.swapped) { r.x = tx; r.y = ty; r.swapped = true; }
+        if (e >= SWAP_MS) r.swapAt = 0;
+      }
+      if (!r.swapAt) {                                       // normal easing (frozen mid-swap)
+        if (!r.placed) { r.x = tx; r.y = ty; r.placed = true; }
+        else { r.x += (tx - r.x) * kY; r.y += (ty - r.y) * kY; }
+      }
+      r.alpha += (aT - r.alpha) * kA;
+
+      r.x = Math.max(2, Math.min(W - r.w - 2, r.x));
+      r.y = Math.max(2, Math.min(H - r.h - 2, r.y));
+
+      const t = `translate3d(${Math.round(r.x)}px,${Math.round(r.y)}px,0)`;
+      if (t !== r.lastT) { r.el.style.transform = t; r.lastT = t; }
+      const a = Math.round(r.alpha * 100) / 100;
+      const aKey = (r.behind ? 'b' : 'l') + a;
+      if (aKey !== r.lastA) {
+        r.el.style.opacity = a;
+        r.lead.g.style.opacity = r.behind ? '0' : String(a);
+        r.lastA = aKey;
+      }
+      if (r.tier !== r.lastTier) {
+        r.el.dataset.tier = r.tier; r.lead.g.dataset.tier = r.tier;
+        r.lastTier = r.tier;
+      }
+
+      /* elbow leader: label edge → short horizontal stub → anchor */
+      const ly = r.y + r.h / 2;
+      const lx = r.side < 0 ? r.x + r.w : r.x;
+      const ex = r.side < 0 ? lx + ELBOW : lx - ELBOW;
+      const useElbow = r.side < 0 ? r.ax > ex : r.ax < ex;
+      const pts = (useElbow
+        ? `${lx.toFixed(1)},${ly.toFixed(1)} ${ex.toFixed(1)},${ly.toFixed(1)} ${r.ax.toFixed(1)},${r.ay.toFixed(1)}`
+        : `${lx.toFixed(1)},${ly.toFixed(1)} ${r.ax.toFixed(1)},${r.ay.toFixed(1)}`);
+      r.lead.line.setAttribute('points', pts);
+      r.lead.pt.setAttribute('cx', r.ax.toFixed(1));
+      r.lead.pt.setAttribute('cy', r.ay.toFixed(1));
+    }
+
+    /* idle stop: park when nothing is shown or pending; mutators re-arm */
+    if (anyWant || anyShown) ensureLoop();
+  }
+
+  /* The toolbar button lives in kit.js; expose the legend for it */
+  api.legendHTML = () =>
+    `<div class="lab-legend"><b>Priority</b>
+       <span class="lg-p1"><i></i>Primary</span><span class="lg-p2"><i></i>Secondary</span><span class="lg-p3"><i></i>Detail</span>
+     </div>
+     <div class="lab-legend"><b>Colour</b>${Object.values(KINDS).map(k => `<span style="--lc:${k.color}"><i></i>${k.name}</span>`).join('')}</div>`;
+
+  window.__autolabLabels = api;
+  return api;
+}
