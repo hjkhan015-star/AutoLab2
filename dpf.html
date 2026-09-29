@@ -9,6 +9,48 @@
 <style>
 :root { --al-accent: #94a3b8; }
 html.light-theme { --al-accent: color-mix(in oklch, #94a3b8 68%, black); }
+
+/* ── module-local UI: extra controls + rolling graph ─────────────── */
+#dpf-panel{
+  position:fixed; left:12px; top:12px; z-index:30;
+  width:252px; max-width:46vw;
+  padding:10px 12px 12px;
+  border:1px solid var(--border,#333);
+  border-radius:10px;
+  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38);
+  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
+  color:var(--text-dim,#9aa4b2);
+  max-height:calc(100dvh - 24px); overflow:auto;
+}
+#dpf-panel.folded .dpf-body{ display:none; }
+.dpf-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.dpf-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
+.dpf-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
+.dpf-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.dpf-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.dpf-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-mute,#6b7280); }
+.dpf-w b{ color:var(--text,#e5e7eb); font-weight:700; }
+#dpf-panel .al-range{ height:22px; }
+#dpf-panel .al-sel{ min-height:32px; font-size:11px; }
+.dpf-btns{ display:flex; gap:6px; margin-bottom:8px; }
+.dpf-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
+.dpf-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.dpf-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(148,163,184,.14); }
+#dpf-force.on{ border-color:#f97316; color:#f97316; background:rgba(249,115,22,.12); }
+.dpf-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
+  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
+  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
+.dpf-warn.show{ display:block; }
+#dpf-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
+  border-radius:6px; background:rgba(0,0,0,.28); }
+.dpf-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
+.dpf-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+@media (max-width:700px){ #dpf-panel{ width:200px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -29,39 +71,545 @@ html.light-theme { --al-accent: color-mix(in oklch, #94a3b8 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "dpf", "title": "Diesel Particulate Filter", "kicker": "Exhaust & Emissions", "accent": "#94a3b8", "badge": "Wall-flow filter", "camPos": [4.8, 2.6, 6.4], "target": [0, 0, 0], "floorY": -1.6, "ctl": {"label": "Soot load", "val": 30, "caption": "Filter loading"}, "chipLabel": "Back pressure", "rows": [["soot", "Soot"], ["regen", "Regen"]], "ro": [["soot", "Soot load"], ["bp", "Back pressure"], ["eff", "Filtration"], ["regen", "Regeneration"], ["temp", "Regen temp"]], "legend": [["#525252", "Soot particles"], ["#a5f3fc", "Filtered exhaust"], ["#c8bfa5", "Ceramic wall"]], "overview": "<div class=\"al-sec\"><h4>Wall-flow filter<\/h4><p>The ceramic block has thousands of tiny channels plugged at alternate ends. Exhaust must pass through the porous walls, which trap over 99% of soot particles.<\/p><\/div><div class=\"al-sec\"><h4>Regeneration<\/h4><ul><li><b>Passive<\/b> – long motorway runs let soot burn slowly with NO₂.<\/li><li><b>Active<\/b> – the ECU injects extra fuel to raise exhaust to ~600 °C and burn the soot to ash.<\/li><li><b>Forced<\/b> – done by a workshop when limits are exceeded.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Back pressure<\/h4><p>As the filter loads, back pressure rises. A differential pressure sensor lets the ECU estimate soot mass and decide when to regenerate.<\/p><\/div>", "faults": [["Blocked DPF", "Limp mode, DPF warning light, power loss.", "Read soot load and differential pressure; attempt forced regeneration."], ["Failed regenerations (short trips)", "Frequent regen attempts, fuel in oil.", "Drive at sustained speed; check the oil level for dilution."], ["Cracked or melted substrate", "High emissions, loss of filtration.", "Inspect for faults after uncontrolled regen; replace the DPF."]], "quiz": [["Why are channels plugged alternately?", ["Force gas through the porous walls", "Slow the engine", "Store fuel"], 0, "The plugs make the gas flow through the wall, which traps the soot."], ["Active regeneration burns soot at about…", ["100 °C", "600 °C", "1500 °C"], 1, "Around 550–650 °C oxidises soot into CO₂."], ["Rising back pressure means…", ["Filter is loading with soot", "Turbo is stronger", "Coolant is low"], 0, "More soot restricts flow, increasing pressure upstream."]]};
+const CFG = {
+  "moduleId": "dpf",
+  "title": "Diesel Particulate Filter",
+  "kicker": "Exhaust & Emissions",
+  "accent": "#94a3b8",
+  "badge": "Wall-flow filter",
+  "camPos": [4.8, 2.6, 6.4],
+  "target": [0, 0, 0],
+  "floorY": -1.6,
+  "ctl": { "label": "Engine load", "val": 40, "caption": "Engine load" },
+  "chipLabel": "Back pressure",
+  "rows": [["soot", "Soot"], ["regen", "Regen"]],
+  "ro": [
+    ["soot", "Soot load"],
+    ["ash", "Ash load"],
+    ["bp", "Back pressure"],
+    ["dps", "dP sensor (ECU)"],
+    ["eff", "Filtration"],
+    ["temp", "Filter bed"],
+    ["egt", "Exhaust gas"],
+    ["flow", "Exhaust flow"],
+    ["regen", "Regeneration"]
+  ],
+  "legend": [
+    ["#525252", "Soot particles"],
+    ["#a5f3fc", "Filtered exhaust"],
+    ["#c8bfa5", "Ceramic wall"],
+    ["#8a8577", "Ash layer (permanent)"],
+    ["#22d3ee", "Differential-pressure sensor"],
+    ["#ff6a00", "Regeneration heat"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Wall-flow filter</h4><p>A ceramic honeycomb with thousands of square channels, plugged at alternate ends. Exhaust is forced through the porous walls, which trap over 99&nbsp;% of the solid soot particles. Everything that survives the wall leaves as harmless CO&#8322; and water.</p></div><div class=\"al-sec\"><h4>Soot in, soot out</h4><ul><li><b>Soot</b> builds up with engine load and engine speed and never leaves on its own.</li><li><b>Passive regeneration</b> burns it slowly with NO&#8322; once the bed is above roughly 350&nbsp;&deg;C &mdash; a long motorway run.</li><li><b>Active regeneration</b> uses post-injection to hold about 600&ndash;650&nbsp;&deg;C for ten to twenty minutes and burns the soot to CO&#8322;.</li><li><b>Ash</b> is the incombustible residue of oil additives. It accumulates for the whole life of the filter and can only be removed by cleaning or replacement.</li></ul></div><div class=\"al-sec\"><h4>Back pressure &amp; sensing</h4><p>A differential-pressure sensor compares the pressure upstream and downstream of the block. The ECU converts that into an estimated soot mass and decides when to regenerate. A clogged filter raises back pressure, costs power, raises fuel consumption and eventually forces limp mode.</p></div><div class=\"al-sec\"><h4>Try this</h4><p>Leave the fault on <b>None</b>, set a high load and speed and watch soot climb. Then drop the load and press <b>Force regen</b> &mdash; the bed takes ~16&nbsp;s to soak up to 620&nbsp;&deg;C before the soot starts falling. Now try the <b>failed dP sensor</b> fault and see that the ECU never asks for a regeneration.</p></div>",
+  "faults": [
+    ["Cracked / melted substrate", "P2002 filter efficiency below threshold. Filtration collapses and soot slips straight through, but back pressure actually falls so the ECU thinks the filter is fine.", "Compare dP with soot load; borescope or remove and inspect the block. Replace the DPF."],
+    ["Clogged by short trips", "P2463 excessive soot accumulation, frequent aborted regenerations, rising oil level from fuel dilution.", "Give the car a sustained motorway run or command a forced regeneration in the workshop."],
+    ["Failed differential-pressure sensor", "P2453 sensor range/performance. The ECU sees almost no pressure drop, so automatic regeneration never triggers and soot climbs unseen until limp mode.", "Compare the sensor reading with a known-good gauge; check the sensing tubes for blockage."],
+    ["Regeneration inhibited", "P2458 regeneration duration exceeded. Post-injection cannot raise the bed temperature, so every regeneration attempt fails and soot keeps rising.", "Check exhaust temperature sensors, glow/post-injection strategy and thermostat; carry out a forced regeneration with a diagnostic tool."]
+  ],
+  "quiz": [
+    ["Active regeneration needs the filter bed at roughly…", ["150 °C", "350 °C", "620 °C"], 2, "Post-injection holds the bed at about 600-650 °C so oxygen can burn the soot to CO2."],
+    ["Why does the ash layer never disappear?", ["It is an incombustible metallic oxide from oil additives", "It is too cold", "It is filtered out again"], 0, "Ash is the mineral residue left after the soot burns - only physical cleaning removes it."],
+    ["A differential-pressure sensor stuck low causes…", ["More frequent regeneration", "The ECU to under-estimate soot and never regenerate", "Higher filtration efficiency"], 1, "The dP signal is the ECU's only soot observer. No pressure rise, no regeneration request."],
+    ["Passive regeneration is most likely during…", ["Repeated short cold trips", "A long motorway run above ~350 °C", "Idling in traffic"], 1, "Sustained high exhaust temperature with NO2 oxidises soot continuously without extra fuel."],
+    ["A cracked substrate typically shows…", ["Filtration loss but lower back pressure", "Very high back pressure", "No soot at all in the exhaust"], 0, "Gas bypasses the porous wall through the crack, so particles escape while the pressure drop falls."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   PHYSICS MODEL — pure, named functions.
+   Simplified physical trends, not a dyno/bench lookup table.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* finite, range-safe clamp (never returns NaN) */
+function clampN(x, a, b) {
+  if (!Number.isFinite(x)) return a;
+  return x < a ? a : (x > b ? b : x);
+}
+const num = (x, d) => (Number.isFinite(x) ? x : d);
+
+/* ── named constants ─────────────────────────────────────────────── */
+const SOOT_MAX_RATE = 0.16;   /* g/L per s at full load AND full revs      */
+const PASSIVE_MAX   = 0.055;  /* g/L per s, NO2 oxidation at >= 500 C      */
+const ACTIVE_MAX    = 0.90;   /* g/L per s, O2 oxidation at >= 680 C       */
+const ASH_FROM_SOOT = 0.012;  /* g of ash left per g of soot burned        */
+const ASH_WEAR      = 0.00012;/* g/L per s, continuous lube-oil ash        */
+const TAU_FILTER    = 16;     /* s, monolith thermal time constant         */
+const REGEN_TEMP    = 620;    /* C, post-injection bed target              */
+const REGEN_ON      = 6.0;    /* g/L, ECU soot threshold to START a regen  */
+const REGEN_OFF     = 0.9;    /* g/L, ECU soot threshold to STOP a regen   */
+const SOOT_LIMIT    = 9.0;    /* g/L, derate / limp-mode threshold         */
+const ASH_MAX       = 2.5;    /* g/L, ash saturation                       */
+const EGT_IDLE      = 110;    /* C above ambient at idle, no load          */
+
+/* Soot formation: rises steeply with load (diffusion combustion goes
+   rich and cool, which makes soot) and with engine speed (more
+   combustion events per second). Direction: more load -> more soot,
+   more rpm -> more soot, motorway cycle -> slightly less per km. */
+function sootProduction(load, rpm, cycleFactor) {
+  const L = clampN(load, 0, 1);
+  const N = clampN((num(rpm, 800) - 800) / 4200, 0, 1);
+  const shape = 0.10 + 0.90 * L * L;
+  const revs  = 0.55 + 0.75 * N;
+  return SOOT_MAX_RATE * shape * revs * clampN(cycleFactor, 0.2, 2);
+}
+
+/* Passive (NO2-assisted) oxidation. Direction: essentially zero below
+   ~300 C, grows steeply with temperature, saturates by ~500 C. */
+function passiveOxidation(T) {
+  const x = clampN((num(T, 0) - 280) / 220, 0, 1.4);
+  return PASSIVE_MAX * Math.pow(x, 2.2);
+}
+
+/* Active (O2) oxidation. Direction: nothing below ~560 C, then rises
+   quickly with temperature and needs soot present to consume. */
+function activeOxidation(T, soot) {
+  const x = clampN((num(T, 0) - 550) / 130, 0, 1.8);
+  const fuel = clampN(num(soot, 0) / 1.5, 0, 1);
+  return ACTIVE_MAX * Math.pow(x, 1.7) * fuel;
+}
+
+/* Exhaust gas temperature at the filter inlet. Direction: rises with
+   load, rises with rpm, tracks ambient, shifted by the drive cycle. */
+function exhaustGasTemp(load, rpm, ambient, cycleDelta) {
+  const L = clampN(load, 0, 1);
+  const N = clampN((num(rpm, 800) - 800) / 4200, 0, 1);
+  const rise = 430 * L * (0.55 + 0.45 * N) + 70 * N;
+  return clampN(num(ambient, 20) + EGT_IDLE + rise + num(cycleDelta, 0), -30, 900);
+}
+
+/* Back pressure across the block. Direction: rises with soot AND ash
+   loading (both restrict the porous wall) and with the square-ish of
+   exhaust mass flow. ~2.6 kPa clean, >35 kPa when fully loaded. */
+function backpressure(flowNorm, soot, ash) {
+  const f = clampN(flowNorm, 0, 1.2);
+  const loading = 1.35 * (clampN(num(soot, 0), 0, 20) + 1.4 * clampN(num(ash, 0), 0, ASH_MAX));
+  const flow = 0.25 + 1.60 * Math.pow(f, 1.5);
+  return clampN((0.9 + loading) * flow, 0, 120);
+}
+
+/* Filtration efficiency. Direction: a healthy wall-flow filter traps
+   >99 % of solid mass; a crack lets a large fraction bypass the wall.
+   A brand-new (unloaded) filter is marginally less efficient. */
+function filtrationEfficiency(fault, soot) {
+  let e = 0.995;
+  if (fault === 'cracked') e = 0.62;
+  e -= 0.02 * (1 - clampN(num(soot, 0) / 4, 0, 1));
+  return clampN(e, 0.30, 0.999);
+}
+
+/* Drive cycles: thermal offset (C) and soot multiplier. */
+const CYCLES = {
+  urban:    { egt: -55, soot: 1.30, label: 'Urban / short trips' },
+  mixed:    { egt:   0, soot: 1.00, label: 'Mixed' },
+  motorway: { egt: +85, soot: 0.85, label: 'Motorway' }
+};
+
+const FAULT_INFO = {
+  none:           { label: 'None (healthy)',                warn: '' },
+  cracked:        { label: 'Cracked substrate (P2002)',     warn: 'P2002 - particulate filter efficiency below threshold. Exhaust bypasses the porous wall through the crack: filtration collapses while the back pressure actually falls.' },
+  shorttrips:     { label: 'Clogged by short trips (P2463)',warn: 'P2463 - excessive soot accumulation. Short journeys never heat the filter enough for passive regeneration, so soot builds far faster than it burns off.' },
+  dpsensor:       { label: 'Failed dP sensor (P2453)',      warn: 'P2453 - differential pressure sensor circuit range/performance. The ECU sees almost no pressure drop, so automatic regeneration never triggers and soot climbs unseen.' },
+  regeninhibited: { label: 'Regeneration inhibited (P2458)',warn: 'P2458 - regeneration duration. Post-injection is not raising the bed temperature, so every regeneration attempt fails and soot keeps accumulating.' }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXTRA CONTROLS (built here because the runtime only provides one slider)
+   ═══════════════════════════════════════════════════════════════════ */
+const S = {
+  rpm: 1800,
+  ambient: 20,
+  cycle: 'mixed',
+  fault: 'none',
+  regenCmd: false,
+  speed: 1
+};
+
+const panel = document.createElement('div');
+panel.id = 'dpf-panel';
+let faultOptions = '';
+for (const id in FAULT_INFO) {
+  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
+}
+panel.innerHTML =
+  '<div class="dpf-h"><span>DPF simulation</span><button type="button" id="dpf-fold" aria-label="Collapse controls">&#8211;</button></div>' +
+  '<div class="dpf-body">' +
+    '<div class="dpf-w"><label for="dpf-rpm">Engine speed <b id="dpf-rpm-v">1800 rpm</b></label>' +
+      '<input id="dpf-rpm" class="al-range" type="range" min="800" max="5000" step="50" value="1800" aria-label="Engine speed"></div>' +
+    '<div class="dpf-w"><label for="dpf-amb">Ambient air <b id="dpf-amb-v">20 &deg;C</b></label>' +
+      '<input id="dpf-amb" class="al-range" type="range" min="-10" max="45" step="1" value="20" aria-label="Ambient air temperature"></div>' +
+    '<div class="dpf-w"><label for="dpf-cyc">Drive cycle</label>' +
+      '<select id="dpf-cyc" class="al-sel" aria-label="Drive cycle">' +
+        '<option value="urban">Urban / short trips</option>' +
+        '<option value="mixed" selected>Mixed</option>' +
+        '<option value="motorway">Motorway</option>' +
+      '</select></div>' +
+    '<div class="dpf-w"><label for="dpf-fault">Fault injection</label>' +
+      '<select id="dpf-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
+    '<div class="dpf-w"><label>Simulation speed</label>' +
+      '<div class="dpf-btns" id="dpf-speed">' +
+        '<button type="button" data-sp="1" class="on">1&times;</button>' +
+        '<button type="button" data-sp="5">5&times;</button>' +
+        '<button type="button" data-sp="20">20&times;</button>' +
+      '</div></div>' +
+    '<div class="dpf-btns">' +
+      '<button type="button" id="dpf-force">Force regen</button>' +
+      '<button type="button" id="dpf-reset">Reset</button>' +
+    '</div>' +
+    '<div class="dpf-warn" id="dpf-warn"></div>' +
+    '<canvas id="dpf-graph" width="480" height="150" aria-label="Soot load and bed temperature history"></canvas>' +
+    '<div class="dpf-key"><span><i style="background:#e2e8f0"></i>Soot g/L</span><span><i style="background:#f97316"></i>Bed &deg;C</span></div>' +
+  '</div>';
+document.body.appendChild(panel);
+
+const elFold   = document.getElementById('dpf-fold');
+const elRpm    = document.getElementById('dpf-rpm');
+const elRpmV   = document.getElementById('dpf-rpm-v');
+const elAmb    = document.getElementById('dpf-amb');
+const elAmbV   = document.getElementById('dpf-amb-v');
+const elCyc    = document.getElementById('dpf-cyc');
+const elFault  = document.getElementById('dpf-fault');
+const elSpeed  = document.getElementById('dpf-speed');
+const elForce  = document.getElementById('dpf-force');
+const elReset  = document.getElementById('dpf-reset');
+const elWarn   = document.getElementById('dpf-warn');
+const gcv      = document.getElementById('dpf-graph');
+const gctx     = gcv.getContext('2d');
+
+elFold.addEventListener('click', () => {
+  panel.classList.toggle('folded');
+  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
+});
+elRpm.addEventListener('input', () => {
+  S.rpm = Number(elRpm.value) || 800;
+  elRpmV.textContent = S.rpm + ' rpm';
+});
+elAmb.addEventListener('input', () => {
+  S.ambient = Number(elAmb.value) || 0;
+  elAmbV.textContent = S.ambient + ' \u00B0C';
+});
+elCyc.addEventListener('change', () => { S.cycle = elCyc.value; });
+elFault.addEventListener('change', () => { S.fault = elFault.value; });
+elSpeed.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sp]');
+  if (!b) return;
+  S.speed = Number(b.dataset.sp) || 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
+});
+elForce.addEventListener('click', () => {
+  S.regenCmd = !S.regenCmd;
+  elForce.classList.toggle('on', S.regenCmd);
+});
+
+/* ── simulation state (module level so Reset can reach it) ───────── */
+const GRAPH_N = 150;
+const sim = {
+  soot: 1.0,
+  ash: 0.03,
+  Tbed: 45,
+  regenActive: false,
+  lastT: -1,
+  samples: [],
+  lastSample: 0
+};
+
+function resetModel() {
+  sim.soot = 1.0;
+  sim.ash = 0.03;
+  sim.Tbed = S.ambient + 25;
+  sim.regenActive = false;
+  sim.lastT = -1;
+  sim.samples.length = 0;
+  sim.lastSample = 0;
+  S.regenCmd = false;
+  if (elForce) elForce.classList.remove('on');
+}
+function resetAll() {
+  S.rpm = 1800; elRpm.value = 1800; elRpmV.textContent = '1800 rpm';
+  S.ambient = 20; elAmb.value = 20; elAmbV.textContent = '20 \u00B0C';
+  S.cycle = 'mixed'; elCyc.value = 'mixed';
+  S.fault = 'none'; elFault.value = 'none';
+  S.speed = 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
+  resetModel();
+  const ctlEl = document.getElementById('ctl');
+  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+elReset.addEventListener('click', resetAll);
+
+/* ── rolling graph ───────────────────────────────────────────────── */
+function drawGraph() {
+  const W = gcv.width, Hh = gcv.height;
+  gctx.clearRect(0, 0, W, Hh);
+  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
+  gctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = Math.round(Hh * i / 4) + 0.5;
+    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+  }
+  const n = sim.samples.length;
+  if (n < 2) return;
+  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
+  const ySoot = (v) => Hh - clampN(v / 12, 0, 1) * (Hh - 6) - 3;
+  const yTemp = (v) => Hh - clampN(v / 800, 0, 1) * (Hh - 6) - 3;
+
+  gctx.beginPath();
+  gctx.moveTo(xAt(0), Hh);
+  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), ySoot(sim.samples[i].s));
+  gctx.lineTo(xAt(n - 1), Hh);
+  gctx.closePath();
+  gctx.fillStyle = 'rgba(226,232,240,0.16)';
+  gctx.fill();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) { const x = xAt(i), y = ySoot(sim.samples[i].s); if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y); }
+  gctx.strokeStyle = '#e2e8f0'; gctx.lineWidth = 1.6; gctx.stroke();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) { const x = xAt(i), y = yTemp(sim.samples[i].T); if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y); }
+  gctx.strokeStyle = '#f97316'; gctx.lineWidth = 1.6; gctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE SCENE (per-module 3D parts)
+   ═══════════════════════════════════════════════════════════════════ */
 function build(H){
- const {box,cyl,cylX,mat,glass,stream,lc,clamp,root,THREE}=H;
- const steel=mat(0x6b7280,.8,.4);
- cylX(1.0,1.0,3.5,glass(0x94a3b8,.16),0,0,0,null,40,true);
- cylX(.42,1.0,.7,steel,-2.15,0,0); cylX(1.0,.42,.7,steel,2.15,0,0);
- cylX(.42,.42,1.6,steel,-3.3,0,0,null,24,true); cylX(.42,.42,1.6,steel,3.3,0,0,null,24,true);
- function face(inv){ const cv=document.createElement('canvas'); cv.width=cv.height=256; const g=cv.getContext('2d'); g.fillStyle='#c8bfa5'; g.fillRect(0,0,256,256);
-   for(let i=0;i<16;i++)for(let j=0;j<16;j++){ if(((i+j)%2===0)!==inv){ g.fillStyle='#3f3a33'; g.fillRect(i*16+2,j*16+2,12,12);} else { g.fillStyle='#e7dfc6'; g.fillRect(i*16+2,j*16+2,12,12);} }
-   return new THREE.CanvasTexture(cv); }
- const mono=new THREE.MeshStandardMaterial({color:0xb6a98a,roughness:.9,metalness:0,emissive:0xff5a1f,emissiveIntensity:0});
- cylX(.88,.88,2.4,mono,0,0,0);
- const sootM=new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.1,depthWrite:false});
- cylX(.9,.9,2.42,sootM,0,0,0);
- [[-1.202,-Math.PI/2,false],[1.202,Math.PI/2,true]].forEach(f=>{ const m=new THREE.Mesh(new THREE.CircleGeometry(.88,40),new THREE.MeshBasicMaterial({map:face(f[2])})); m.position.x=f[0]; m.rotation.y=f[1]; root.add(m); });
- const rawS=stream([[-4.2,0,0],[-1.25,0,0]],22,0x525252,.13);
- const s1=stream([[-1.15,.25,0],[.3,.25,0]],10,0x525252,.09);
- const s2=stream([[.3,.25,0],[.3,.05,0]],5,0xc8bfa5,.09);
- const s3=stream([[.3,.05,0],[1.2,.05,0]],10,0xa5f3fc,.09);
- const clean=stream([[1.3,0,0],[4.3,0,0]],20,0xa5f3fc,.11);
+ const {box,cyl,cylX,mat,glass,stream,lc,clamp,root,THREE,lowEnd,pipe}=H;
+
+ /* ── housing ───────────────────────────────────────────────────── */
+ const steel = mat(0x6b7280,.8,.4);
+ cylX(1.0,1.0,3.5,glass(0x94a3b8,.16),0,0,0,null,40,true);          /* outer shell (transparent) */
+ cylX(.42,1.0,.7,steel,-2.15,0,0);                                   /* inlet cone  */
+ cylX(1.0,.42,.7,steel, 2.15,0,0);                                   /* outlet cone */
+ cylX(.42,.42,1.6,steel,-3.3,0,0,null,24,true);                      /* inlet pipe  */
+ cylX(.42,.42,1.6,steel, 3.3,0,0,null,24,true);                      /* outlet pipe */
+
+ /* ── plugged end faces ─────────────────────────────────────────── */
+ function face(inv){
+   const cv=document.createElement('canvas'); cv.width=cv.height=256;
+   const g=cv.getContext('2d'); g.fillStyle='#c8bfa5'; g.fillRect(0,0,256,256);
+   for(let i=0;i<16;i++)for(let j=0;j<16;j++){
+     if(((i+j)%2===0)!==inv){ g.fillStyle='#3f3a33'; g.fillRect(i*16+2,j*16+2,12,12); }
+     else { g.fillStyle='#e7dfc6'; g.fillRect(i*16+2,j*16+2,12,12); }
+   }
+   return new THREE.CanvasTexture(cv);
+ }
+ [[-1.202,-Math.PI/2,false],[1.202,Math.PI/2,true]].forEach(f=>{
+   const m=new THREE.Mesh(new THREE.CircleGeometry(.88,40),new THREE.MeshBasicMaterial({map:face(f[2])}));
+   m.position.x=f[0]; m.rotation.y=f[1]; root.add(m);
+ });
+
+ /* ── ceramic monolith: emissive driven by bed temperature ─────── */
+ const mono = new THREE.MeshStandardMaterial({ color:0xb6a98a, roughness:.9, metalness:0, emissive:0x000000, emissiveIntensity:0 });
+ cylX(.88,.88,2.4,mono,0,0,0,null,32);
+
+ /* ── soot cake (grows and shrinks with regeneration) ──────────── */
+ const sootM = new THREE.MeshBasicMaterial({ color:0x05060a, transparent:true, opacity:.1, depthWrite:false });
+ cylX(.925,.925,2.42,sootM,0,0,0,null,32);
+
+ /* ── ash layer: monotonically increasing, never burns off ─────── */
+ const ashM = new THREE.MeshBasicMaterial({ color:0x8a8577, transparent:true, opacity:.03, depthWrite:false });
+ cylX(.895,.895,2.40,ashM,0,0,0,null,32);
+
+ /* ── crack lines (visible only with the cracked-substrate fault) ─ */
+ const crackMat = new THREE.MeshBasicMaterial({ color:0x0b0b0b });
+ const cracks = new THREE.Group();
+ const NC = lowEnd ? 3 : 5;
+ for (let i=0;i<NC;i++){
+   const a = i*(Math.PI*2/NC) + 0.5;
+   const r = 0.895 + 0.010*(i%3);
+   const m = new THREE.Mesh(new THREE.BoxGeometry(2.44,0.055,0.055), crackMat);
+   m.position.set(0, Math.cos(a)*r, Math.sin(a)*r);
+   cracks.add(m);
+ }
+ cracks.visible = false;
+ root.add(cracks);
+
+ /* ── differential-pressure sensor + its two sensing tubes ─────── */
+ const sensorMat = mat(0x334155,.5,.55,{ emissive:0x22d3ee, emissiveIntensity:.9 });
+ box(0.34,0.24,0.28,sensorMat,0,1.22,0);
+ pipe([[-1.55,1.00,0],[-0.55,1.18,0],[-0.06,1.22,0]],0.022,steel);
+ pipe([[ 1.55,1.00,0],[ 0.55,1.18,0],[ 0.06,1.22,0]],0.022,steel);
+
+ /* ── regeneration indicator lamp on the outlet ────────────────── */
+ const regenMat = new THREE.MeshStandardMaterial({ color:0x3a2a20, emissive:0xff6a00, emissiveIntensity:0, metalness:0, roughness:.5 });
+ const regenLight = new THREE.Mesh(new THREE.SphereGeometry(0.085,14,10), regenMat);
+ regenLight.position.set(2.75,1.0,0);
+ root.add(regenLight);
+
+ /* ── particle streams ─────────────────────────────────────────── */
+ const nIn  = lowEnd ? 12 : 22;
+ const nMid = lowEnd ?  6 : 10;
+ const nOut = lowEnd ? 10 : 18;
+ const rawS  = stream([[-4.2,0,0],[-1.25,0,0]],           nIn,  0x6b7280, .13);
+ const s1    = stream([[-1.15,.25,0],[.3,.25,0]],         nMid, 0x525252, .09);
+ const s2    = stream([[.3,.25,0],[.3,.05,0]],            Math.max(3, nMid>>1), 0xc8bfa5, .09);
+ const s3    = stream([[.3,.05,0],[1.2,.05,0]],           nMid, 0xa5f3fc, .09);
+ const clean = stream([[1.3,0,0],[4.3,0,0]],              nOut, 0xa5f3fc, .11);
+ const leak  = stream([[-1.15,.42,.42],[1.22,.42,.42]],   lowEnd ? 8 : 16, 0x94a3b8, .10);
+
+ let lastDom = 0;
+
  return {
-  labels:[['Exhaust in (soot)',[-3.5,.7,0]],['Plugged channels',[-1.2,-1.1,.6]],['Ceramic filter',[0,1.15,0]],['Soot layer',[.6,-1.05,.7]],['Filtered exhaust',[3.5,.7,0]]],
+  labels:[
+    ['Exhaust in (soot)',[-3.5,.78,0]],
+    ['Ceramic filter block',[0,1.30,0]],
+    ['Plugged channel ends',[-1.25,-1.18,.6]],
+    ['Soot cake',[.85,-1.05,.75]],
+    ['Ash layer (permanent)',[-.75,-1.22,-.75]],
+    ['Differential-pressure sensor',[0,1.62,0]],
+    ['Filtered exhaust',[3.5,.78,0]]
+  ],
   update(c){
-   const k=c.k, soot=8*k, bp=4+26*Math.pow(k,1.3), regen=k>.85, glowV=regen?((k-.85)/.15)*(.55+.45*Math.sin(c.t*4)):0;
-   sootM.opacity=.06+.62*k; mono.emissiveIntensity=glowV*1.3;
-   rawS.update(c.t,.14,1); s1.update(c.t,.14,1); s2.update(c.t,.14,1); s3.update(c.t,.14,1); clean.update(c.t,.14,1);
-   const st=k>.95?'REQUIRED – limp mode':k>.8?'Recommended':'Not needed';
-   return {big:bp.toFixed(0),unit:' kPa',bar:bp/30*100,rows:{soot:soot.toFixed(1)+' g/L',regen:st},
-    ro:{soot:[soot.toFixed(1)+' g/L','hi'],bp:[bp.toFixed(0)+' kPa',bp>20?'warn':'ok'],eff:['99.5 %','ok'],regen:[st,k>.95?'crit':k>.8?'warn':'ok'],temp:[regen?'~600 °C':'—','']},
-    status:[regen?'Regenerating':'Loading',true],ctl:soot.toFixed(1)+' g/L'};
-  }};
+   /* ── 1. inputs ─────────────────────────────────────────────── */
+   const dt   = Math.max(0, num(c.dt, 0)) * S.speed;
+   const L    = clamp(c.k, 0, 1);
+   const rpm  = num(S.rpm, 1800);
+   const amb  = num(S.ambient, 20);
+   const fault= S.fault;
+   const cyc  = CYCLES[S.cycle] || CYCLES.mixed;
+
+   /* toolbar Reset rewinds simT -> detect and clear the model */
+   if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) resetModel();
+   sim.lastT = c.t;
+
+   /* ── 2. exhaust mass-flow proxy (0..1.2) ───────────────────── */
+   const flowNorm = clampN(0.10 + 0.85*(0.45*L + 0.55*clampN((rpm-800)/4200,0,1)), 0.05, 1.2);
+   let egt = exhaustGasTemp(L, rpm, amb, cyc.egt);
+
+   /* ── 3. ECU regeneration request ───────────────────────────── */
+   const sensorOk = (fault !== 'dpsensor');
+   const sootSeen = sensorOk ? sim.soot : sim.soot * 0.12;   /* ECU's estimate */
+   const want = S.regenCmd || sootSeen > REGEN_ON;
+   if (want && !sim.regenActive) sim.regenActive = true;
+   if (sim.regenActive && sim.soot < REGEN_OFF) {
+     sim.regenActive = false;
+     if (S.regenCmd) { S.regenCmd = false; if (elForce) elForce.classList.remove('on'); }
+   }
+
+   /* ── 4. bed temperature: post-injection target + thermal lag ─ */
+   let target = egt;
+   if (sim.regenActive && fault !== 'regeninhibited') target = Math.max(egt, REGEN_TEMP);
+   if (dt > 0) {
+     const a = 1 - Math.exp(-dt / TAU_FILTER);
+     sim.Tbed += (target - sim.Tbed) * a;
+   }
+   sim.Tbed = clampN(sim.Tbed, -25, 900);
+
+   /* ── 5. soot & ash mass balance ────────────────────────────── */
+   const sootMul = (fault === 'cracked' ? 0.55 : 1) * (fault === 'shorttrips' ? 1.35 : 1);
+   const passMul = (fault === 'shorttrips' ? 0.15 : 1) * (fault === 'cracked' ? 0.60 : 1);
+   const prod = sootProduction(L, rpm, cyc.soot) * sootMul;
+   const burn = passiveOxidation(sim.Tbed) * passMul
+              + (fault === 'regeninhibited' ? 0 : activeOxidation(sim.Tbed, sim.soot));
+   const dBurn = Math.min(sim.soot, Math.max(0, burn) * dt);
+   sim.soot = clampN(sim.soot + prod*dt - dBurn, 0, 15);
+   sim.ash  = clampN(sim.ash + dBurn*ASH_FROM_SOOT + ASH_WEAR*dt, 0, ASH_MAX);
+
+   /* ── 6. pressures and filtration ───────────────────────────── */
+   const bp     = backpressure(flowNorm, sim.soot, sim.ash);
+   const dpSeen = (fault === 'dpsensor') ? clampN(0.20 + 0.55*flowNorm, 0, 3.5) : bp;
+   const eff    = filtrationEfficiency(fault, sim.soot);
+
+   /* ── 7. derived status strings ─────────────────────────────── */
+   let rstat;
+   if (fault === 'regeninhibited' && sim.regenActive) rstat = 'FAILED - no heat';
+   else if (sim.regenActive && sim.Tbed < 550)        rstat = 'Heating up';
+   else if (sim.regenActive)                          rstat = 'Active regen';
+   else if (sim.Tbed > 330)                           rstat = 'Passive regen';
+   else                                               rstat = 'Loading';
+
+   /* ── 8. 3D visuals ─────────────────────────────────────────── */
+   sootM.opacity = 0.04 + 0.72 * clamp(sim.soot / 10, 0, 1);
+   ashM.opacity  = 0.02 + 0.55 * clamp(sim.ash / ASH_MAX, 0, 1);
+
+   const hot = clamp((sim.Tbed - 240) / 440, 0, 1);
+   mono.emissive.copy(lc(0x140700, 0xff3a00, hot));
+   mono.emissiveIntensity = 0.04 + 1.45 * hot;
+   cracks.visible = (fault === 'cracked');
+
+   const dens = clamp(flowNorm / 1.05, 0.05, 1);
+   const spd  = 0.05 + 0.30 * flowNorm;
+   rawS.update(c.t, spd, dens);
+   s1.update(c.t, spd, dens);
+   s2.update(c.t, spd, dens * 0.9);
+   s3.update(c.t, spd, dens);
+   clean.update(c.t, spd, dens * (0.55 + 0.45 * eff));
+   leak.update(c.t, spd, (fault === 'cracked') ? dens * 0.85 : 0);
+
+   const pulse = 0.5 + 0.5 * Math.sin(c.t * 3.2);
+   if (fault === 'dpsensor') {
+     sensorMat.emissive.setHex(0xef4444);
+     sensorMat.emissiveIntensity = 0.20 + 0.15 * pulse;
+   } else {
+     sensorMat.emissive.setHex(0x22d3ee);
+     sensorMat.emissiveIntensity = 0.35 + 0.95 * clamp(dpSeen / 25, 0, 1);
+   }
+
+   if (sim.regenActive && fault === 'regeninhibited') {
+     regenMat.color.setHex(0xef4444); regenMat.emissive.setHex(0xef4444);
+     regenMat.emissiveIntensity = 0.55 + 0.65 * Math.abs(Math.sin(c.t * 5));
+   } else if (sim.regenActive) {
+     regenMat.color.setHex(0xff6a00); regenMat.emissive.setHex(0xff6a00);
+     regenMat.emissiveIntensity = 0.45 + 1.65 * clamp((sim.Tbed - 500) / 180, 0, 1);
+   } else {
+     regenMat.color.setHex(0x3a2a20); regenMat.emissive.setHex(0xff6a00);
+     regenMat.emissiveIntensity = 0.03 + 0.28 * clamp((sim.Tbed - 320) / 260, 0, 1);
+   }
+
+   /* ── 9. throttled DOM work (graph + warning banner) ────────── */
+   const now = performance.now();
+   if (now - lastDom > 140) {
+     lastDom = now;
+     if (dt > 0) {
+       sim.samples.push({ s: sim.soot, T: sim.Tbed });
+       if (sim.samples.length > GRAPH_N) sim.samples.shift();
+       drawGraph();
+     }
+     let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
+     if (!warn) {
+       if (sim.soot > SOOT_LIMIT)      warn = 'Soot load critical (' + sim.soot.toFixed(1) + ' g/L). Power derate is active - a forced workshop regeneration or a replacement filter is required.';
+       else if (bp > 26)               warn = 'Back pressure ' + bp.toFixed(0) + ' kPa - limp mode imminent.';
+       else if (sim.soot > REGEN_ON)   warn = 'Soot load high - the ECU is requesting an active regeneration.';
+       else if (sim.ash > 1.2)         warn = 'Ash load ' + sim.ash.toFixed(2) + ' g/L - the filter is approaching the end of its service life.';
+     }
+     elWarn.textContent = warn;
+     elWarn.classList.toggle('show', !!warn);
+   }
+
+   /* ── 10. readouts ──────────────────────────────────────────── */
+   const sootState = sim.soot > SOOT_LIMIT ? 'crit' : (sim.soot > REGEN_ON ? 'warn' : 'ok');
+   const bpState   = bp > 26 ? 'crit' : (bp > 15 ? 'warn' : 'ok');
+   const effState  = eff < 0.80 ? 'crit' : (eff < 0.95 ? 'warn' : 'ok');
+   const ashState  = sim.ash > 1.6 ? 'crit' : (sim.ash > 1.0 ? 'warn' : 'ok');
+   const regState  = sim.regenActive ? ((fault === 'regeninhibited') ? 'crit' : 'warn') : 'ok';
+
+   return {
+     big: bp.toFixed(1),
+     unit: ' kPa',
+     bar: clamp(bp / 40, 0, 1) * 100,
+     rows: {
+       soot:  sim.soot.toFixed(2) + ' g/L',
+       regen: rstat
+     },
+     ro: {
+       soot:  [sim.soot.toFixed(2) + ' g/L', sootState],
+       ash:   [sim.ash.toFixed(2) + ' g/L',  ashState],
+       bp:    [bp.toFixed(1) + ' kPa',       bpState],
+       dps:   [dpSeen.toFixed(1) + ' kPa',   fault === 'dpsensor' ? 'crit' : 'ok'],
+       eff:   [(eff * 100).toFixed(1) + ' %', effState],
+       temp:  [sim.Tbed.toFixed(0) + ' \u00B0C', sim.Tbed > 700 ? 'warn' : 'hi'],
+       egt:   [egt.toFixed(0) + ' \u00B0C',  egt > 620 ? 'warn' : ''],
+       flow:  [(flowNorm * 100).toFixed(0) + ' %', ''],
+       regen: [rstat, regState]
+     },
+     status: [rstat, true],
+     ctl: (L * 100).toFixed(0) + ' %'
+   };
+  }
+ };
 }
 
 runGuidedModule(CFG, build);
