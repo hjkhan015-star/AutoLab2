@@ -1,6 +1,6 @@
 {
   "name": "autolab2",
-  "version": "6.1.0",
+  "version": "7.0.0",
   "private": true,
   "description": "Interactive 3D automotive learning lab (static PWA)",
   "scripts": {

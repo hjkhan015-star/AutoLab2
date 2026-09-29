@@ -1,4 +1,4 @@
-# AutoLab2 (Auto Lab v6.0)
+# AutoLab2 (Auto Lab v7.0)
 
 Interactive 3D automotive learning lab (44 modules, installable offline PWA). Static site — no build step.
 
