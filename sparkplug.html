@@ -9,32 +9,190 @@
 <style>
 :root { --al-accent: #facc15; }
 html.light-theme { --al-accent: color-mix(in oklch, #facc15 68%, black); }
-#sp-ui { font: 600 11px/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+
+/* ── Floating panel ── */
+#sp-ui {
+  position: fixed;
+  top: 80px;
+  right: 14px;
+  width: min(258px, calc(100vw - 28px));
+  max-height: min(72vh, 620px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 10px 12px 12px;
+  border-radius: 12px;
+  background: rgba(8, 11, 18, .84);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(148, 163, 184, .22);
+  color: #cbd5e1;
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 9999;
+  font: 600 11px/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, .45), 0 2px 6px rgba(0, 0, 0, .25);
+  transition: opacity .18s ease;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,.35) transparent;
+}
+#sp-ui::-webkit-scrollbar { width: 6px; }
+#sp-ui::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); border-radius: 999px; }
+
+#sp-ui.hidden { display: none; }
+#sp-ui.dragging { box-shadow: 0 18px 44px rgba(0, 0, 0, .55), 0 4px 10px rgba(0, 0, 0, .3); }
+
+/* ── Header / drag handle ── */
+#sp-ui .sp-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: -4px -6px 2px -6px;
+  padding: 5px 6px 5px 8px;
+  border-radius: 8px;
+  cursor: grab;
+  background: rgba(148, 163, 184, .08);
+  touch-action: none;
+  flex-shrink: 0;
+  position: sticky;
+  top: -10px;
+  z-index: 1;
+  backdrop-filter: blur(6px);
+}
+#sp-ui.dragging .sp-header { cursor: grabbing; background: rgba(250, 204, 21, .14); }
+#sp-ui .sp-grip {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 1px;
+}
+#sp-ui.dragging .sp-grip { color: var(--al-accent, #facc15); }
+#sp-ui .sp-title {
+  flex: 1;
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+#sp-ui .sp-icon {
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  color: #94a3b8;
+  font-size: 14px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: background .12s, color .12s;
+}
+#sp-ui .sp-icon:hover { background: rgba(148,163,184,.18); color: #e2e8f0; }
+
+/* ── Body ── */
+#sp-ui .sp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+#sp-ui.sp-collapsed .sp-body { display: none; }
+#sp-ui.sp-collapsed { max-height: 40px; overflow: hidden; }
+
+/* ── Rows ── */
 #sp-ui button { font: inherit; }
 #sp-ui .sp-row { display: flex; gap: 5px; align-items: center; }
-#sp-ui .sp-lab { color: #94a3b8; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; min-width: 54px; }
+#sp-ui .sp-lab {
+  color: #94a3b8; font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; min-width: 54px;
+}
 #sp-ui .sp-btn {
-  cursor: pointer; border: 1px solid rgba(148,163,184,.32);
-  background: rgba(15,23,42,.72); color: #e2e8f0;
-  border-radius: 999px; padding: 4px 9px; font-size: 10.5px;
+  cursor: pointer;
+  border: 1px solid rgba(148, 163, 184, .32);
+  background: rgba(15, 23, 42, .72);
+  color: #e2e8f0;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 10.5px;
   transition: background .15s, border-color .15s, color .15s;
 }
-#sp-ui .sp-btn.on { background: var(--al-accent, #facc15); color: #111827; border-color: transparent; }
+#sp-ui .sp-btn.on {
+  background: var(--al-accent, #facc15);
+  color: #111827;
+  border-color: transparent;
+}
 #sp-ui input[type=range] {
-  -webkit-appearance: none; appearance: none; width: 100%; height: 3px;
-  background: rgba(148,163,184,.28); border-radius: 999px; outline: none;
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 3px;
+  background: rgba(148, 163, 184, .28);
+  border-radius: 999px; outline: none;
 }
 #sp-ui input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
-  background: var(--al-accent, #facc15); cursor: pointer; border: 0;
+  -webkit-appearance: none;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--al-accent, #facc15);
+  cursor: pointer; border: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
 }
 #sp-ui input[type=range]::-moz-range-thumb {
-  width: 12px; height: 12px; border-radius: 50%;
-  background: var(--al-accent, #facc15); cursor: pointer; border: 0;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--al-accent, #facc15);
+  cursor: pointer; border: 0;
 }
 #sp-ui .sp-slider { display: flex; flex-direction: column; gap: 3px; }
-#sp-ui .sp-slider .sp-head { display: flex; justify-content: space-between; color: #94a3b8; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; }
+#sp-ui .sp-slider .sp-head {
+  display: flex; justify-content: space-between;
+  color: #94a3b8; font-size: 9.5px;
+  letter-spacing: .08em; text-transform: uppercase;
+}
 #sp-ui .sp-slider .sp-val { color: #e2e8f0; }
+
+/* ── Toggle FAB ── */
+#sp-ui-toggle {
+  position: fixed;
+  right: 14px;
+  bottom: 84px;
+  z-index: 10000;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: rgba(8, 11, 18, .85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 163, 184, .3);
+  color: var(--al-accent, #facc15);
+  font-size: 17px; line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,.4);
+  transition: transform .15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+#sp-ui-toggle:active { transform: scale(.9); }
+#sp-ui-toggle.hidden { display: none; }
+
+/* ── Mobile tuning ── */
+@media (max-width: 768px) {
+  #sp-ui {
+    top: 68px;
+    right: 10px;
+    width: min(250px, calc(100vw - 20px));
+    padding: 10px 12px 14px;
+    max-height: 66vh;
+    font-size: 11px;
+  }
+  #sp-ui .sp-btn { padding: 6px 12px; font-size: 11.5px; }
+  #sp-ui input[type=range] { height: 4px; }
+  #sp-ui input[type=range]::-webkit-slider-thumb { width: 16px; height: 16px; }
+  #sp-ui input[type=range]::-moz-range-thumb { width: 16px; height: 16px; }
+  #sp-ui .sp-lab { font-size: 10px; }
+  #sp-ui .sp-slider .sp-head { font-size: 10px; }
+  #sp-ui .sp-slider .sp-val { font-size: 11px; }
+  #sp-ui .sp-header { padding: 7px 8px 7px 10px; }
+  #sp-ui .sp-grip { font-size: 15px; }
+  #sp-ui-toggle { bottom: 96px; width: 46px; height: 46px; font-size: 19px; }
+}
 </style>
 </head>
 <body>
@@ -83,7 +241,7 @@ const CFG = {
     ["#ff8a2b", "Combustion"],
     ["#e8e8ea", "Pt / Ir pad"]
   ],
-  "overview": "<div class=\"al-sec\"><h4>Ignition point<\/h4><p>The plug delivers the coil’s high voltage across a small gap. The spark ignites the compressed mixture; the gap, electrode material, compression and heat range decide how reliably.<\/p><p>Use the panel on the right: toggle <b>Cutaway<\/b> to slice the plug open, change the <b>heat range<\/b> to see the insulator nose grow or shrink, pick an <b>electrode material<\/b>, or drag <b>RPM<\/b> and <b>Load<\/b> to watch the coil’s available voltage and the required voltage cross over.<\/p><\/div><div class=\"al-sec\"><h4>Gap<\/h4><ul><li>Small gap – easy to fire but a small flame kernel.<\/li><li>Large gap – bigger kernel but needs more voltage; risk of misfire at high load.<\/li><li>Typical gap is 0.7–1.1 mm (check the engine spec).<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Heat range<\/h4><p>A “hot” plug has a long insulator nose that keeps tip temperature high; a “cold” plug sheds heat faster. Too hot risks pre-ignition; too cold fouls with carbon. The tip self-cleans above about 450&nbsp;°C.<\/p><\/div><div class=\"al-sec\"><h4>Electrode material<\/h4><p>Copper tips are cheap but erode; platinum and iridium last far longer and can be made much thinner, which lowers the required voltage slightly and sharpens the flame kernel.<\/p><\/div>",
+  "overview": "<div class=\"al-sec\"><h4>Ignition point<\/h4><p>The plug delivers the coil’s high voltage across a small gap. The spark ignites the compressed mixture; the gap, electrode material, compression and heat range decide how reliably.<\/p><p>Use the panel: toggle <b>Cutaway<\/b> to slice the plug open, change the <b>heat range<\/b> to see the insulator nose grow or shrink, pick an <b>electrode material<\/b>, or drag <b>RPM<\/b> and <b>Load<\/b> to watch the coil’s available voltage and the required voltage cross over. <b>Drag the panel header to move it anywhere.<\/b><\/p><\/div><div class=\"al-sec\"><h4>Gap<\/h4><ul><li>Small gap – easy to fire but a small flame kernel.<\/li><li>Large gap – bigger kernel but needs more voltage; risk of misfire at high load.<\/li><li>Typical gap is 0.7–1.1 mm (check the engine spec).<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Heat range<\/h4><p>A “hot” plug has a long insulator nose that keeps tip temperature high; a “cold” plug sheds heat faster. Too hot risks pre-ignition; too cold fouls with carbon. The tip self-cleans above about 450&nbsp;°C.<\/p><\/div><div class=\"al-sec\"><h4>Electrode material<\/h4><p>Copper tips are cheap but erode; platinum and iridium last far longer and can be made much thinner, which lowers the required voltage slightly and sharpens the flame kernel.<\/p><\/div>",
   "faults": [
     ["Worn electrodes", "Hard start, misfire under load, poor economy.", "Measure the gap with a feeler gauge; inspect for rounded edges."],
     ["Carbon fouled", "Black dry deposits, weak spark, rough idle.", "Check mixture, air filter and heat range."],
@@ -107,7 +265,7 @@ function build(H) {
   const lerp  = H.lerp  || ((a, b, t) => a + (b - a) * t);
   const frac  = x => x - Math.floor(x);
 
-  /* ─────────────── materials ─────────────── */
+  /* ── materials ── */
   const std = (color, metal, rough) => new THREE.MeshStandardMaterial({
     color, metalness: metal, roughness: rough, side: THREE.DoubleSide
   });
@@ -123,7 +281,6 @@ function build(H) {
     carbon:    std(0x14100d, 0.05, 0.95),
     platinum:  std(0xe8e8ea, 0.98, 0.20),
     iridium:   std(0xd8d2c8, 0.98, 0.22),
-    // cut-face (matte, darker) variants
     cs:        std(0x6f7886, 0.30, 0.65),
     cn:        std(0x8f97a4, 0.30, 0.60),
     cc:        std(0xd6dee9, 0.02, 0.72),
@@ -132,7 +289,7 @@ function build(H) {
     ce:        std(0x8f97a4, 0.30, 0.60)
   };
 
-  /* ─────────────── cross-section profiles (r , y) ─────────────── */
+  /* ── profiles ── */
   const RIB_BASE = 0.244, RIB_AMP = 0.068, RIB_H = 0.32, RIB_N = 4;
 
   const PROFILE = {
@@ -141,17 +298,16 @@ function build(H) {
       [0.300,  0.070], [0.318, -0.010], [0.345, -0.090],
       [0.345, -0.720], [0.315, -0.790], [0.245, -0.790]
     ],
-
     ceramic: (heat) => {
       const noseY = heat === 'hot' ? 0.17 : heat === 'cold' ? 0.54 : 0.36;
       const p = [];
-      p.push([0.076, noseY + 0.12]);          // bore bottom
-      p.push([0.076, 2.620]);                 // bore top
-      p.push([0.190, 2.620]);                 // top face
+      p.push([0.076, noseY + 0.12]);
+      p.push([0.076, 2.620]);
+      p.push([0.190, 2.620]);
       p.push([0.198, 2.540]);
       p.push([0.235, 2.360]);
       p.push([0.268, 2.130]);
-      for (let i = RIB_N - 1; i >= 0; i--) {  // ribs (top → bottom)
+      for (let i = RIB_N - 1; i >= 0; i--) {
         const y0 = 0.78 + i * 0.34;
         for (let j = 10; j >= 0; j--) {
           const f = j / 10;
@@ -159,30 +315,25 @@ function build(H) {
         }
       }
       p.push([0.240, 0.62]);
-      p.push([0.230, noseY]);                 // lower wall
-      p.push([0.150, noseY + 0.03]);          // bottom face
+      p.push([0.230, noseY]);
+      p.push([0.150, noseY + 0.03]);
       p.push([0.076, noseY + 0.12]);
       return p;
     },
-
     terminal: () => [
       [0.000, 1.320], [0.068, 1.320], [0.068, 2.520], [0.115, 2.560],
       [0.115, 2.740], [0.068, 2.780], [0.068, 2.960], [0.000, 2.960]
     ],
-
     seal: () => [
       [0.000, 1.190], [0.074, 1.190], [0.074, 1.330], [0.000, 1.330]
     ],
-
     elec: () => [
       [0.000, -0.800], [0.058, -0.800], [0.070, -0.760], [0.070, 1.200],
       [0.040,  1.200], [0.040, -0.700], [0.000, -0.700]
     ],
-
     core: () => [
       [0.000, -0.680], [0.036, -0.680], [0.036, 1.180], [0.000, 1.180]
     ],
-
     washer: () => {
       const p = [];
       for (let i = 0; i < 16; i++) {
@@ -194,7 +345,7 @@ function build(H) {
     }
   };
 
-  /* ─────────────── real helical threads ─────────────── */
+  /* ── helix threads ── */
   class Helix extends THREE.Curve {
     constructor(r, y0, y1, a0, a1) {
       super(); this.r = r; this.y0 = y0; this.y1 = y1; this.a0 = a0; this.a1 = a1;
@@ -208,10 +359,10 @@ function build(H) {
   const THREAD_R     = 0.345;
   const THREAD_BOT   = -0.795;
   const THREAD_TOP   = -0.085;
-  const THREAD_PITCH = 0.0616;                 // ~1.25 mm at M14 scale
+  const THREAD_PITCH = 0.0616;
   const THREAD_TURNS = (THREAD_TOP - THREAD_BOT) / THREAD_PITCH;
 
-  /* ─────────────── one complete plug ─────────────── */
+  /* ── one plug ── */
   function buildPlug(cut, heat) {
     const g = new THREE.Group();
     const pStart = cut ? Math.PI : 0;
@@ -246,7 +397,6 @@ function build(H) {
     lathe(P_SHELL, M.steel);   sect(P_SHELL, M.cs);
     lathe(P_WASH,  M.steel);   sect(P_WASH,  M.cs);
 
-    /* hex */
     const hexGeo = new THREE.CylinderGeometry(
       0.445, 0.445, 0.52, cut ? 3 : 6, 1, false,
       cut ? Math.PI : 0, cut ? Math.PI : Math.PI * 2
@@ -256,7 +406,6 @@ function build(H) {
     g.add(hex);
     sect([[0, 0.05], [0.445, 0.05], [0.445, 0.57], [0, 0.57]], M.cs);
 
-    /* threads */
     if (!cut) {
       const curve = new Helix(THREAD_R, THREAD_BOT, THREAD_TOP, 0, THREAD_TURNS * Math.PI * 2);
       g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 320, 0.021, 6, false), M.steel));
@@ -270,16 +419,14 @@ function build(H) {
       }
     }
 
-    /* internals */
     lathe(P_CERAM, M.ceramic); sect(P_CERAM, M.cc);
     lathe(P_TERM,  M.nickel);  sect(P_TERM,  M.cn);
     lathe(P_SEAL,  M.glass);   sect(P_SEAL,  M.cg);
     lathe(P_CORE,  M.copper);  sect(P_CORE,  M.ccu);
     lathe(P_ELEC,  M.elec);    sect(P_ELEC,  M.ce);
 
-    /* carbon deposit blobs on the ceramic nose + exposed electrode */
     const carbon = new THREE.Group();
-    const noseY = PROFILE.ceramic(heat)[3][1];         // bottom of the insulator nose
+    const noseY = PROFILE.ceramic(heat)[3][1];
     let seed = 12345;
     const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
     for (let i = 0; i < 26; i++) {
@@ -303,7 +450,6 @@ function build(H) {
     carbon.visible = false;
     g.add(carbon);
 
-    /* centre electrode firing pad (Pt/Ir) */
     const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.012, 20), M.platinum);
     pad.position.y = -0.796;
     pad.visible = false;
@@ -312,7 +458,6 @@ function build(H) {
     return { group: g, carbon, pad };
   }
 
-  /* ─────────────── ground electrode (rebuilds with gap) ─────────────── */
   const T_STRAP = 0.055;
   const W_STRAP = 0.148;
 
@@ -339,7 +484,6 @@ function build(H) {
     place(hz, len / 2 - 0.058, hookY - T_STRAP / 2);
     grp.add(hz);
 
-    /* ground pad */
     const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.012, 20), M.platinum);
     pad.position.set(0, hookY - 0.006, 0);
     pad.visible = false;
@@ -349,7 +493,6 @@ function build(H) {
     return grp;
   }
 
-  /* ─────────────── state ─────────────── */
   const state = {
     gapK: 0.35,
     rpm: 2800,
@@ -364,7 +507,6 @@ function build(H) {
   const PHI_FULL = Math.PI * 0.25;
   const PHI_CUT  = Math.PI * 1.50;
 
-  /* ─────────────── assemble plugs ─────────────── */
   let plugFull = null, plugCut = null;
   let groundFull = null, groundCut = null;
   let carbonRefs = [], padRefs = [];
@@ -388,9 +530,7 @@ function build(H) {
     plugCut.visible  =  state.cut;
 
     root.add(plugFull); root.add(plugCut);
-
-    /* build ground electrodes at current hook position */
-    state.hookY = 999;      // force a rebuild
+    state.hookY = 999;
   }
 
   function updateGround(hookY) {
@@ -407,8 +547,6 @@ function build(H) {
     plugFull.add(groundFull);
     plugCut.add(groundCut);
 
-    /* pick up their pads for material visibility */
-    padRefs[0] = plugFull.userData.pad ? plugFull.userData.pad : padRefs[0];
     padRefs = padRefs.filter(Boolean);
     padRefs.push(groundFull.userData.pad, groundCut.userData.pad);
   }
@@ -416,7 +554,6 @@ function build(H) {
   rebuildPlugs();
   updateGround(-0.89);
 
-  /* ─────────────── spark / flame effects ─────────────── */
   const fx = new THREE.Group();
   root.add(fx);
 
@@ -473,30 +610,57 @@ function build(H) {
   const sparkLight = new THREE.PointLight(0x9fe8ff, 0, 3.2, 2);
   fx.add(sparkLight);
 
-  /* ─────────────── heat-range / material model ─────────────── */
   const HEAT_BASE = { hot: 780, normal: 600, cold: 430 };
   const HEAT_LOAD = { hot: 230, normal: 185, cold: 140 };
   const MAT_FAC   = { copper: 1.00, platinum: 1.08, iridium: 1.15 };
 
-  /* ─────────────── side panel + waveform ─────────────── */
-  let setHeatBtn = null, setMatBtn = null, setViewBtn = null, setFoulBtn = null;
+  /* ══════════════════════════════════════════════════════════════
+     FLOATING DRAGGABLE UI PANEL
+     ══════════════════════════════════════════════════════════════ */
   let rpmRange = null, loadRange = null;
   let rpmVal = null, loadVal = null;
   let waveCanvas = null, wctx = null;
 
   try {
+    /* ── Panel root ── */
     const panel = document.createElement('div');
     panel.id = 'sp-ui';
-    panel.style.cssText = [
-      'position:fixed', 'right:14px', 'bottom:14px', 'z-index:9999',
-      'display:flex', 'flex-direction:column', 'gap:9px',
-      'padding:12px', 'border-radius:12px', 'width:216px',
-      'background:rgba(8,11,18,.72)', 'backdrop-filter:blur(10px)',
-      'border:1px solid rgba(148,163,184,.22)',
-      'color:#cbd5e1', 'user-select:none'
-    ].join(';');
     document.body.appendChild(panel);
 
+    /* ── Header (drag handle) ── */
+    const header = document.createElement('div');
+    header.className = 'sp-header';
+
+    const grip = document.createElement('span');
+    grip.className = 'sp-grip';
+    grip.textContent = '⠿';
+    header.appendChild(grip);
+
+    const title = document.createElement('span');
+    title.className = 'sp-title';
+    title.textContent = 'Spark Plug Controls';
+    header.appendChild(title);
+
+    const collapseBtn = document.createElement('button');
+    collapseBtn.type = 'button';
+    collapseBtn.className = 'sp-icon';
+    collapseBtn.textContent = '—';
+    collapseBtn.title = 'Collapse';
+    collapseBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      panel.classList.toggle('sp-collapsed');
+      collapseBtn.textContent = panel.classList.contains('sp-collapsed') ? '+' : '—';
+    });
+    header.appendChild(collapseBtn);
+
+    panel.appendChild(header);
+
+    /* ── Body ── */
+    const body = document.createElement('div');
+    body.className = 'sp-body';
+    panel.appendChild(body);
+
+    /* ── Control rows ── */
     function makeRow(label, options, initial, onPick) {
       const wrap = document.createElement('div');
       wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px';
@@ -512,7 +676,10 @@ function build(H) {
         b.type = 'button';
         b.className = 'sp-btn';
         b.textContent = text;
-        b.addEventListener('click', () => { onPick(key); select(key); });
+        b.addEventListener('click', e => {
+          e.stopPropagation();
+          onPick(key); select(key);
+        });
         btns[key] = b;
         row.appendChild(b);
       });
@@ -521,27 +688,27 @@ function build(H) {
       }
       select(initial);
       wrap.appendChild(row);
-      panel.appendChild(wrap);
+      body.appendChild(wrap);
       return select;
     }
 
-    setHeatBtn = makeRow('Heat range', [['hot', 'Hot'], ['normal', 'Normal'], ['cold', 'Cold']], 'normal', v => {
+    makeRow('Heat range', [['hot', 'Hot'], ['normal', 'Normal'], ['cold', 'Cold']], 'normal', v => {
       state.heat = v;
       rebuildPlugs();
       updateGround(state.hookY === 999 ? -0.89 : state.hookY);
     });
 
-    setMatBtn = makeRow('Electrode', [['copper', 'Cu'], ['platinum', 'Pt'], ['iridium', 'Ir']], 'copper', v => {
+    makeRow('Electrode', [['copper', 'Cu'], ['platinum', 'Pt'], ['iridium', 'Ir']], 'copper', v => {
       state.material = v;
     });
 
-    setViewBtn = makeRow('View', [['full', 'Full'], ['cut', 'Cutaway']], 'full', v => {
+    makeRow('View', [['full', 'Full'], ['cut', 'Cutaway']], 'full', v => {
       state.cut = (v === 'cut');
       plugFull.visible = !state.cut;
       plugCut.visible  =  state.cut;
     });
 
-    setFoulBtn = makeRow('Condition', [['clean', 'Clean'], ['foul', 'Foul']], 'clean', v => {
+    makeRow('Condition', [['clean', 'Clean'], ['foul', 'Foul']], 'clean', v => {
       state.forceFoul = (v === 'foul');
     });
 
@@ -561,7 +728,7 @@ function build(H) {
         v.textContent = state.rpm + '';
       });
       wrap.appendChild(head); wrap.appendChild(inp);
-      panel.appendChild(wrap);
+      body.appendChild(wrap);
       rpmRange = inp; rpmVal = v;
     })();
 
@@ -581,19 +748,113 @@ function build(H) {
         v.textContent = Math.round(state.load * 100) + '%';
       });
       wrap.appendChild(head); wrap.appendChild(inp);
-      panel.appendChild(wrap);
+      body.appendChild(wrap);
       loadRange = inp; loadVal = v;
     })();
 
-    /* waveform canvas */
+    /* Waveform */
     waveCanvas = document.createElement('canvas');
     waveCanvas.width = 192; waveCanvas.height = 64;
     waveCanvas.style.cssText = 'width:100%;height:64px;border-radius:7px;background:rgba(2,6,16,.7);border:1px solid rgba(148,163,184,.18);display:block';
-    panel.appendChild(waveCanvas);
+    body.appendChild(waveCanvas);
     wctx = waveCanvas.getContext('2d');
+
+    /* ══════ Drag logic (pointer events → mouse + touch) ══════ */
+    (function makeDraggable(el, handle) {
+      let dragging = false;
+      let pid = null;
+      let sx = 0, sy = 0, sl = 0, st = 0;
+      let hasDragged = false;
+
+      handle.addEventListener('pointerdown', e => {
+        // Ignore clicks on inner buttons/inputs
+        if (e.target.closest('button, input, canvas, a, select, textarea')) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        dragging = true;
+        pid = e.pointerId;
+        hasDragged = false;
+
+        const r = el.getBoundingClientRect();
+        sl = r.left;
+        st = r.top;
+        sx = e.clientX;
+        sy = e.clientY;
+
+        // Freeze current position via left/top so dragging is exact
+        el.style.right = 'auto';
+        el.style.left = sl + 'px';
+        el.style.top  = st + 'px';
+        el.classList.add('dragging');
+
+        try { handle.setPointerCapture(pid); } catch (_) {}
+      });
+
+      handle.addEventListener('pointermove', e => {
+        if (!dragging || e.pointerId !== pid) return;
+        e.preventDefault();
+
+        const dx = e.clientX - sx;
+        const dy = e.clientY - sy;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) hasDragged = true;
+
+        const w = el.offsetWidth;
+        const h = el.offsetHeight;
+        let nl = sl + dx;
+        let nt = st + dy;
+
+        // Keep a sliver of the panel on-screen
+        const minVisible = 48;
+        nl = Math.max(-w + minVisible, Math.min(window.innerWidth  - minVisible, nl));
+        nt = Math.max(0, Math.min(window.innerHeight - 32, nt));
+
+        el.style.left = nl + 'px';
+        el.style.top  = nt + 'px';
+      });
+
+      const endDrag = e => {
+        if (!dragging) return;
+        dragging = false;
+        el.classList.remove('dragging');
+        try { handle.releasePointerCapture(pid); } catch (_) {}
+        pid = null;
+      };
+      handle.addEventListener('pointerup', endDrag);
+      handle.addEventListener('pointercancel', endDrag);
+      handle.addEventListener('lostpointercapture', endDrag);
+    })(panel, header);
+
+    /* ══════ Toggle FAB ══════ */
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = 'sp-ui-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '×';
+    toggleBtn.title = 'Hide controls';
+    toggleBtn.addEventListener('click', () => {
+      const hidden = panel.classList.toggle('hidden');
+      toggleBtn.innerHTML = hidden ? '⚙' : '×';
+      toggleBtn.title = hidden ? 'Show controls' : 'Hide controls';
+    });
+    document.body.appendChild(toggleBtn);
+
+    /* ══════ Keep panel inside viewport on resize ══════ */
+    window.addEventListener('resize', () => {
+      if (!panel.style.left) return;            // still anchored right
+      const w = panel.offsetWidth;
+      const h = panel.offsetHeight;
+      let l = parseFloat(panel.style.left) || 0;
+      let t = parseFloat(panel.style.top)  || 0;
+      const minVisible = 48;
+      l = Math.max(-w + minVisible, Math.min(window.innerWidth - minVisible, l));
+      t = Math.max(0, Math.min(window.innerHeight - 32, t));
+      panel.style.left = l + 'px';
+      panel.style.top  = t + 'px';
+    });
+
   } catch (e) { /* overlay is optional */ }
 
-  /* ─────────────── waveform helpers ─────────────── */
+  /* ── waveform helpers ── */
   function voltageAt(ph, misfire, Vreq) {
     if (ph < 0.58) return 0;
     if (ph < 0.62) return Vreq * (ph - 0.58) / 0.04;
@@ -619,7 +880,6 @@ function build(H) {
     const W = waveCanvas.width, H = waveCanvas.height;
     wctx.clearRect(0, 0, W, H);
 
-    /* grid */
     wctx.strokeStyle = 'rgba(148,163,184,0.13)';
     wctx.lineWidth = 1;
     for (let i = 1; i < 4; i++) {
@@ -627,7 +887,6 @@ function build(H) {
       wctx.beginPath(); wctx.moveTo(0, y); wctx.lineTo(W, y); wctx.stroke();
     }
 
-    /* trace */
     const winSec = 2.4;
     const yMax   = Math.max(avail * 1.02, Vreq * 1.12, 20);
     wctx.strokeStyle = '#7dd3fc';
@@ -644,14 +903,12 @@ function build(H) {
     }
     wctx.stroke();
 
-    /* labels */
     wctx.fillStyle = 'rgba(148,163,184,0.7)';
     wctx.font = '600 8px ui-sans-serif,system-ui,sans-serif';
     wctx.fillText('SECONDARY kV', 6, 10);
     wctx.fillText(yMax.toFixed(0), 6, H - 4);
   }
 
-  /* ─────────────── animation state ─────────────── */
   const CYCLE_HZ = 0.85;
   let lastCycle = -1, misfireThisCycle = false;
 
@@ -673,18 +930,15 @@ function build(H) {
       state.gapK = k;
       const t = (typeof c.t === 'number' ? c.t : 0);
 
-      /* keep sliders in sync (framework slider may drive gap only) */
       if (rpmRange)  { state.rpm  = parseFloat(rpmRange.value);  if (rpmVal)  rpmVal.textContent  = state.rpm + ''; }
       if (loadRange) { state.load = parseFloat(loadRange.value) / 100; if (loadVal) loadVal.textContent = Math.round(state.load * 100) + '%'; }
 
-      /* ── tip temperature ── */
       const tipTemp = HEAT_BASE[state.heat]
                     + state.load * HEAT_LOAD[state.heat]
                     + (state.rpm / 6000) * 55;
 
-      /* ── geometry: gap ── */
-      const gapMm = 0.60 + k * 1.00;                // 0.60 – 1.60 mm
-      const gapU  = 0.090 + k * 0.245;              // visual (exaggerated) gap
+      const gapMm = 0.60 + k * 1.00;
+      const gapU  = 0.090 + k * 0.245;
       const tipY  = -0.800;
       const hookY = tipY - gapU;
 
@@ -693,12 +947,10 @@ function build(H) {
         updateGround(hookY);
       }
 
-      /* ── carbon fouling ── */
       const autoFoul = tipTemp < 450;
       const showCarbon = state.forceFoul || autoFoul;
       carbonRefs.forEach(g => { if (g) g.visible = showCarbon; });
 
-      /* ── material / pad visibility ── */
       const usePads = state.material !== 'copper';
       const padMat = state.material === 'iridium' ? M.iridium : M.platinum;
       padRefs.forEach(p => {
@@ -709,14 +961,12 @@ function build(H) {
       if (plugFull) plugFull.traverse(o => { if (o.userData && o.userData.pad) { o.userData.pad.material = padMat; o.userData.pad.visible = usePads; } });
       if (plugCut)  plugCut.traverse(o => { if (o.userData && o.userData.pad) { o.userData.pad.material = padMat; o.userData.pad.visible = usePads; } });
 
-      /* ── electrode glow from tip temperature ── */
       const gn = clamp((tipTemp - 430) / 520, 0, 1);
       M.elec.emissive.setRGB(gn * 1.00, gn * gn * 0.32, gn * gn * gn * 0.05);
       M.elec.emissiveIntensity = gn * 1.15;
       M.groundE.emissive.setRGB(gn * 0.95, gn * gn * 0.28, gn * gn * gn * 0.04);
       M.groundE.emissiveIntensity = gn * 1.05;
 
-      /* ── electrical model ── */
       const loadFactor = 0.85 + state.load * 0.55;
       const matFactor  = MAT_FAC[state.material] || 1;
       const tempVFac   = 1 - clamp((tipTemp - 400) / 1200, 0, 0.25);
@@ -730,16 +980,14 @@ function build(H) {
       const Ifull = 10 * (1 - Math.exp(-7 / tauMs));
       const satRatio = clamp(Ipeak / Ifull, 0, 1);
       const avail = 30 * (0.75 + 0.25 * satRatio);
-      const energy = 0.5 * 1e-3 * Ipeak * Ipeak * 1000;   // mJ
+      const energy = 0.5 * 1e-3 * Ipeak * Ipeak * 1000;
 
       const ratio = Vreq / avail;
       const riskTxt = ratio > 0.58 ? 'High' : ratio > 0.46 ? 'Medium' : 'Low';
       const riskCls = ratio > 0.58 ? 'crit' : ratio > 0.46 ? 'warn' : 'ok';
 
-      /* pre-ignition warning */
       const preIgn = tipTemp > 900;
 
-      /* ── ignition cycle ── */
       const cyc = frac(t * CYCLE_HZ);
       const charging = cyc < 0.58;
       const firing   = cyc >= 0.58 && cyc < 0.80;
@@ -755,7 +1003,6 @@ function build(H) {
       const flicker = Math.sin(t * 92.0) > -0.32;
       const showArc = sparkOn && flicker;
 
-      /* ── arc geometry ── */
       const midY = (tipY + hookY) * 0.5;
       arc.visible = showArc;
       arc2.visible = showArc;
@@ -787,7 +1034,6 @@ function build(H) {
       sparkLight.position.set(0, midY, 0);
       sparkLight.intensity = showArc ? 2.9 : 0;
 
-      /* ── combustion kernel ── */
       if (burning) {
         const f = (cyc - 0.80) / 0.20;
         const r = 0.30 + f * 1.65;
@@ -802,10 +1048,8 @@ function build(H) {
         flameOuterMat.opacity = 0;
       }
 
-      /* ── waveform ── */
       drawWave(t, Vreq, avail, ratio, CYCLE_HZ);
 
-      /* ── HUD ── */
       const burnMs = 1.85 - 0.85 * k;
       const statusText = misfireThisCycle && firing ? 'MISFIRE'
                        : showArc ? 'SPARK'
