@@ -9,6 +9,49 @@
 <style>
 :root { --al-accent: #22c55e; }
 html.light-theme { --al-accent: color-mix(in oklch, #22c55e 68%, black); }
+
+/* ── module-local UI: extra controls + rolling graph ─────────────── */
+#awd-panel{
+  position:fixed; left:12px; top:12px; z-index:30;
+  width:268px; max-width:46vw;
+  padding:10px 12px 12px;
+  border:1px solid var(--border,#333);
+  border-radius:10px;
+  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38);
+  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
+  color:var(--text-dim,#9aa4b2);
+  max-height:calc(100dvh - 24px); overflow:auto;
+}
+#awd-panel.folded .awd-body{ display:none; }
+.awd-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.awd-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
+.awd-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
+.awd-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.awd-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.awd-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-mute,#6b7280); }
+.awd-w b{ color:var(--text,#e5e7eb); font-weight:700; }
+#awd-panel .al-range{ height:22px; }
+#awd-panel .al-sel{ min-height:32px; font-size:11px; }
+.awd-btns{ display:flex; gap:6px; margin-bottom:8px; }
+.awd-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
+.awd-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.awd-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(34,197,94,.14); }
+#awd-cool{ color:#38bdf8; border-color:rgba(56,189,248,.4); }
+#awd-cool:hover{ border-color:#38bdf8; }
+.awd-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
+  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
+  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
+.awd-warn.show{ display:block; }
+#awd-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
+  border-radius:6px; background:rgba(0,0,0,.28); }
+.awd-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
+.awd-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+@media (max-width:700px){ #awd-panel{ width:212px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -29,42 +72,675 @@ html.light-theme { --al-accent: color-mix(in oklch, #22c55e 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "awd", "title": "4WD / AWD Systems", "kicker": "Transmission & Drivetrain", "accent": "#22c55e", "badge": "Centre coupling", "camPos": [1.5, 8.8, 4.6], "target": [0, -0.4, 0], "floorY": -1.6, "ctl": {"label": "Rear torque share", "val": 40, "caption": "Torque split"}, "chipLabel": "Rear torque", "rows": [["front", "Front"], ["clutch", "Clutch clamp"]], "ro": [["front", "Front axle torque"], ["rear", "Rear axle torque"], ["layout", "Bias"], ["clutch", "Coupling clamp"], ["note", "Behaviour"]], "legend": [["#38bdf8", "Front driveshaft"], ["#f97316", "Rear driveshaft"], ["#94a3b8", "Multi-plate clutch"]], "overview": "<div class=\"al-sec\"><h4>Power to all four wheels<\/h4><p>A transfer case or centre coupling splits engine torque between the front and rear axles, improving traction on slippery surfaces.<\/p><\/div><div class=\"al-sec\"><h4>Types<\/h4><ul><li><b>Part-time 4WD<\/b> – locked 50:50 for off-road (not on dry tarmac).<\/li><li><b>Full-time AWD<\/b> – centre differential (with lock) allows different axle speeds.<\/li><li><b>On-demand AWD<\/b> – a multi-plate clutch sends torque to the second axle when slip is detected.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Why a centre diff or clutch?<\/h4><p>Front and rear wheels travel different distances in turns. Without a centre diff or slipping clutch, the driveline would wind up and bind.<\/p><\/div>", "faults": [["Driveline bind (tight-corner braking)", "Hopping, judder on tight turns on tarmac.", "Check tyre sizes match; test the transfer case lock/clutch."], ["Low or old transfer-case oil", "Whine, clutch slip, poor engagement.", "Change the oil to the specified fluid."], ["Failed coupling pump/solenoid", "No rear drive until slip is severe.", "Scan for AWD codes; test coupling operation."]], "quiz": [["Why can’t part-time 4WD be used on dry tarmac in 4H?", ["Axles must turn at different speeds", "Too much grip", "Overheats"], 0, "The locked centre forces both axles to the same speed and causes binding."], ["An on-demand AWD clutch…", ["Locks permanently", "Clamps to send torque rearward when needed", "Removes torque"], 1, "Clamp force sets how much torque reaches the second axle."], ["A centre diff allows…", ["Front and rear to rotate at different speeds", "Only equal speeds", "Free wheel"], 0, "It lets axles travel different arcs in turns."]]};
+const CFG = {
+  "moduleId": "awd",
+  "title": "4WD / AWD Systems",
+  "kicker": "Transmission & Drivetrain",
+  "accent": "#22c55e",
+  "badge": "Centre coupling",
+  "camPos": [1.5, 8.8, 4.6],
+  "target": [0, -0.4, 0],
+  "floorY": -1.6,
+  "ctl": { "label": "Engine load", "val": 60, "caption": "Engine load" },
+  "chipLabel": "Rear torque",
+  "rows": [["fslip", "Front slip"], ["rslip", "Rear slip"]],
+  "ro": [
+    ["front",  "Front axle"],
+    ["rear",   "Rear axle"],
+    ["split",  "Bias"],
+    ["clutch", "Coupling clamp"],
+    ["ctemp",  "Coupling temp"],
+    ["ftemp",  "Transfer fluid"],
+    ["fslip",  "Front slip"],
+    ["rslip",  "Rear slip"],
+    ["windup", "Driveline windup"],
+    ["mu",     "Surface grip"],
+    ["state",  "State"]
+  ],
+  "legend": [
+    ["#38bdf8", "Front driveshaft"],
+    ["#f97316", "Rear driveshaft"],
+    ["#94a3b8", "Multi-plate clutch"],
+    ["#ef4444", "Overheated coupling / windup"],
+    ["#22c55e", "Healthy coupling"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Power to all four wheels<\/h4><p>A transfer case or centre coupling splits engine torque between the front and rear axles, improving traction on slippery surfaces. The <b>split is not fixed<\/b>: a modern AWD system continuously moves torque to whichever axle has grip.<\/p><\/div><div class=\"al-sec\"><h4>Three families<\/h4><ul><li><b>Part-time 4WD<\/b> &mdash; a locked centre sending 50:50 to both axles; great off-road, but the driveline winds up on dry tarmac because the front and rear arcs differ in a turn.<\/li><li><b>Full-time AWD with centre diff<\/b> &mdash; a differential lets the axles turn at different speeds; a lock is available for low grip.<\/li><li><b>On-demand AWD<\/b> &mdash; a multi-plate clutch (Haldex, viscous) sits between the axles and is clamped by the ECU when it detects slip.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>What drives the clutch<\/h4><p>Two inputs: <b>speed difference<\/b> across the coupling (a passive viscous coupling responds to this alone) and <b>driver demand<\/b> (a clutch-pack type is pre-emptively clamped by the ECU when the throttle is opened). Both push torque from the faster axle to the slower one.<\/p><\/div><div class=\"al-sec\"><h4>Heat, fade and windup<\/h4><p>Every newton-metre the coupling transfers while the axles are turning at different speeds becomes <b>heat inside the clutch pack<\/b>. Above about 90&nbsp;&deg;C the clutch fades and rear drive disappears. A <b>locked<\/b> centre diff has the opposite problem &mdash; it cannot slip, so any speed difference the tyres demand (a turn on dry tarmac, mismatched tyre diameters) is absorbed as torsional wind-up in the propshafts.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Leave the coupling on <b>Clutch<\/b>, set load to 80&nbsp;% and drop the surface to <b>Snow<\/b>. Watch the front axle slip, the coupling transfer torque rearward and the coupling temperature climb. Then put the surface back to <b>Dry<\/b> and switch the coupling to <b>Locked<\/b> with the steering slider near 70&nbsp;% &mdash; the driveline windup readout goes red and the car judders on tight turns.<\/p><\/div>",
+  "faults": [
+    ["Worn / overheated coupling", "Rear drive disappears, the car understeers and spins its front wheels. The clutch pack is burnt or its oil has degraded, so it cannot transfer torque even when the ECU clamps it.", "Read AWD/haldex live data; check the coupling oil for a burnt smell and replace the clutch pack if the transfer rate is below spec."],
+    ["Locked centre diff on dry tarmac", "Juddering, hopping and tyre scrub on tight turns - classic 'tight-corner braking'. The driveline winds up because the two axles cannot turn at different speeds.", "Never use 4H or diff-lock on dry tarmac; check tyre sizes match before re-engaging the lock."],
+    ["Low or degraded transfer fluid", "Whine, delayed coupling engagement, high fluid temperature. The oil has lost its friction modifiers so the clutch pack slips and runs hot.", "Change the transfer-case oil to the specified fluid; check for leaks at the output seals."],
+    ["Mismatched tyre diameters", "Constant coupling slip, gradual overheat and eventually clutch damage even on a straight road. A 3-4 mm tread difference is enough to trigger it.", "Measure tread depths on all four tyres; replace as a matched set or shave the new tyre to match."]
+  ],
+  "quiz": [
+    ["Why can\u2019t a locked centre diff be used on dry tarmac in a turn?", ["The front and rear axles want different speeds", "The engine is too powerful", "The brakes overheat"], 0, "A locked centre forces both axles to the same speed; in a turn the tyres are dragged and the driveline winds up."],
+    ["An on-demand AWD clutch sends torque rearward when\u2026", ["The ECU sees a speed difference or a throttle demand", "The engine is off", "The road is dry"], 0, "The ECU clamps the clutch pre-emptively on throttle and reactively on slip."],
+    ["A viscous centre coupling responds to\u2026", ["Speed difference between the axles", "Engine rpm", "Ambient temperature"], 0, "A viscous coupling is passive - it reacts only to the slip across it."],
+    ["Above roughly 90\u00a0\u00b0C the coupling fades because\u2026", ["The clutch pack overheats and loses friction capacity", "The oil cools it down too much", "The ECU disables AWD"], 0, "Heat degrades the friction surfaces and the clutch can no longer transfer its rated torque."],
+    ["A mismatched tyre diameter causes\u2026", ["Constant coupling slip and overheat", "Better traction", "No effect on the coupling"], 0, "The axle turns at a slightly different speed from the others, so the coupling is always slipping - and always heating."],
+    ["A wet road has \u00b5 \u2248 0.70. Compared with dry tarmac that means\u2026", ["Less torque can be transmitted before the tyres slip", "More traction at the rear", "The coupling locks automatically"], 0, "Lower \u00b5 reduces the traction limit on both axles, so the wheels break away at lower torque."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
-function build(H){
- const {box,cyl,cylX,cylZ,mat,glass,clamp,lc,root,THREE}=H;
- const dark=mat(0x374151,.6,.5), steel=mat(0x94a3b8,.85,.3), rub=mat(0x111827,.1,.9);
- box(1.6,.9,1.3,dark,-1.9,.3,0); box(.9,.7,.9,dark,-.95,.25,0);
- box(1.3,.9,1.1,glass(0x64748b,.32),-.15,-.05,0);
- const discs=[]; for(let i=0;i<10;i++) discs.push(cylX(.36,.36,.03,i%2?mat(0xcbd5e1,.8,.3):mat(0xb45309,.5,.6),0,-.05,0));
- const fM=new THREE.MeshStandardMaterial({color:0x38bdf8,metalness:.7,roughness:.35,emissive:0x38bdf8,emissiveIntensity:.3});
- const rM=new THREE.MeshStandardMaterial({color:0xf97316,metalness:.7,roughness:.35,emissive:0xf97316,emissiveIntensity:.3});
- const fs=cylX(.1,.1,2.9,fM,-1.95,-.4,0), rs=cylX(.1,.1,3.9,rM,1.55,-.4,0);
- box(.8,.5,.8,dark,-3.4,-.4,0); box(.8,.5,.8,dark,3.4,-.4,0);
- cylZ(.09,.09,3.6,steel,-3.4,-.4,0); cylZ(.09,.09,3.6,steel,3.4,-.4,0);
- const wheels=[];
- [[-3.4,-1.9],[-3.4,1.9],[3.4,-1.9],[3.4,1.9]].forEach(p=>{
-   const w=new THREE.Group(); w.position.set(p[0],-.4,p[1]); root.add(w);
-   cylZ(.75,.75,.5,rub,0,0,0,w); cylZ(.45,.45,.52,steel,0,0,0,w);
-   for(let i=0;i<5;i++){ const b=box(.12,.8,.06,steel,0,0,p[1]>0?.27:-.27,w); b.rotation.z=i*Math.PI*2/5; }
-   wheels.push(w);
- });
- let a=0;
- return {
-  labels:[['Engine',[-2.2,1.0,0]],['Transfer case / coupling',[-.15,.8,0]],['Front driveshaft',[-2.4,-.7,.6]],['Rear driveshaft',[1.6,-.7,.6]],['Front diff',[-3.4,-.05,.6]],['Rear diff',[3.4,-.05,.6]]],
-  update(c){
-   const r=c.k, f=1-r; a+=c.dt*7;
-   wheels.forEach(w=>w.rotation.z=-a);
-   const sp=.12-.075*r; discs.forEach((d,i)=>d.position.x=-.3+i*sp);
-   fs.scale.set(1,.45+1.5*f,.45+1.5*f); rs.scale.set(1,.45+1.5*r,.45+1.5*r);
-   fM.emissiveIntensity=.15+1.1*f; rM.emissiveIntensity=.15+1.1*r;
-   const lay=r<.3?'Front-biased':r<.7?'Balanced':'Rear-biased', note=r<.05?'Effectively 2WD (FWD)':r>.95?'Effectively RWD':'Torque shared by coupling';
-   return {big:(r*100).toFixed(0),unit:' %',bar:r*100,rows:{front:(f*100).toFixed(0)+' %',clutch:(r*100).toFixed(0)+' %'},
-    ro:{front:[(f*100).toFixed(0)+' %',''],rear:[(r*100).toFixed(0)+' %','hi'],layout:[lay,''],clutch:[(r*100).toFixed(0)+' %',''],note:[note,'']},
-    status:[lay,true],ctl:(r*100).toFixed(0)+' % rear'};
-  }};
+/* ═══════════════════════════════════════════════════════════════════
+   PHYSICS MODEL — pure, named functions.
+   Simplified physical trends, not a dyno/bench lookup table.
+   ═══════════════════════════════════════════════════════════════════ */
+function clampN(x, a, b) {
+  if (!Number.isFinite(x)) return a;
+  return x < a ? a : (x > b ? b : x);
 }
+const num = (x, d) => (Number.isFinite(x) ? x : d);
+
+/* ── named constants ─────────────────────────────────────────────── */
+const WHEEL_RADIUS  = 0.32;   /* m */
+const FRONT_LOAD_N  = 8800;   /* N, static front axle load            */
+const REAR_LOAD_N   = 5900;   /* N, static rear axle load             */
+const GEAR_RATIO    = 5.0;    /* combined gear × final drive          */
+const TAU_COUPLING  = 15;     /* s, coupling thermal time constant    */
+const TAU_FLUID     = 30;     /* s, transfer-fluid time constant      */
+const TAU_WINDUP    = 3.0;    /* s, windup build time constant        */
+const TAU_WINDUP_REL = 1.0;   /* s, windup release                    */
+const AMBIENT       = 20;     /* °C                                   */
+const WINDUP_WARN   = 0.45;   /* windup above this = noticeable bind  */
+const WINDUP_CRIT   = 0.70;   /* windup above this = severe bind      */
+const COUPLE_WARN   = 110;    /* °C, coupling warning                 */
+const COUPLE_CRIT   = 160;    /* °C, coupling danger                  */
+const FLUID_WARN    = 110;    /* °C, transfer-fluid warning           */
+const FLUID_CRIT    = 150;    /* °C, transfer-fluid danger            */
+
+/* Surface friction: direction - less grip means less torque the tyres
+   can transmit before they slip. */
+const SURFACES = {
+  dry:    { mu: 1.00, label: 'Dry tarmac' },
+  wet:    { mu: 0.70, label: 'Wet road'   },
+  gravel: { mu: 0.55, label: 'Gravel'     },
+  snow:   { mu: 0.32, label: 'Snow'       },
+  ice:    { mu: 0.14, label: 'Ice'        }
+};
+
+/* Engine torque (Nm) at the flywheel. Direction: more load and more
+   rpm -> more torque. Simple saturating curve, not a dyno map. */
+function engineTorque(load, rpm) {
+  const L = clampN(load, 0, 1);
+  const N = clampN((num(rpm, 2400) - 800) / 4200, 0, 1);
+  return clampN(60 + 280 * L * (0.55 + 0.45 * N), 20, 400);
+}
+
+/* Axle traction limit (Nm at the axle). Direction: more grip or more
+   axle load -> more torque can be delivered before slipping. */
+function axleTractionLimit(surfaceMu, axleLoadN) {
+  return clampN(num(surfaceMu, 0) * num(axleLoadN, 0) * WHEEL_RADIUS, 0, 5000);
+}
+
+/* Wheel slip ratio (0 = gripped, 1 = spinning freely). Direction:
+   demand above the traction limit -> tyre spins. */
+function axleSlipRatio(torque, tractionLimit) {
+  if (torque <= tractionLimit) return 0;
+  return clampN((torque - tractionLimit) / Math.max(120, tractionLimit), 0, 1);
+}
+
+/* Coupling transfer torque (Nm) from the faster axle to the slower one.
+   Direction: more speed difference, more throttle demand, a cooler
+   coupling and a healthier pack all increase the transfer. Thermal fade
+   above ~90 °C, cap depending on coupling type. */
+function couplingTransfer(speedDiff, couplingType, couplingTemp, throttle, couplingHealth) {
+  const K   = (couplingType === 'viscous') ?  60 :
+              (couplingType === 'clutch')  ? 120 :
+              /* locked uses 50:50 path, not this function */ 3000;
+  const cap = (couplingType === 'viscous') ? 120 :
+              (couplingType === 'clutch')  ? 260 : 500;
+  const tempFade = clampN(1 - (num(couplingTemp, 20) - 90) / 90, 0.05, 1);
+  const thGain   = (couplingType === 'clutch') ? (0.4 + 0.6 * clampN(throttle, 0, 1)) : 1;
+  const health   = clampN(couplingHealth, 0, 1);
+  return clampN(K * Math.abs(speedDiff) * tempFade * thGain * health, 0, cap);
+}
+
+/* ── fault table ─────────────────────────────────────────────────── */
+const FAULT_INFO = {
+  none:          { label: 'None (healthy)',                warn: '' },
+  wornCoupling:  { label: 'Worn / overheated coupling',    warn: 'The centre coupling can no longer transfer its rated torque even when clamped: the pack is burnt or its oil has degraded. Rear drive effectively disappears and the car spins its front wheels.' },
+  lockedDiff:    { label: 'Locked centre diff',            warn: 'Centre diff is locked. Front and rear axles cannot turn at different speeds, so any speed difference the tyres demand builds torsional wind-up in the propshafts - judder and tyre scrub on tight turns.' },
+  lowFluid:      { label: 'Low / degraded transfer fluid', warn: 'Transfer-case fluid is low or has lost its friction modifiers. The coupling slips more, runs hotter and its temperature climbs quickly.' },
+  tyreMismatch:  { label: 'Mismatched tyre diameters',     warn: 'Axle speeds differ even on a straight road, so the coupling is always slipping and always heating. A 3-4 mm tread depth difference is enough to cause it.' }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXTRA CONTROLS (built here; the runtime only provides one slider)
+   ═══════════════════════════════════════════════════════════════════ */
+const S = {
+  rpm: 2400,
+  surface: 'dry',
+  couplingType: 'clutch',
+  steering: 0,
+  fault: 'none',
+  speed: 1
+};
+
+const panel = document.createElement('div');
+panel.id = 'awd-panel';
+let faultOptions = '';
+for (const id in FAULT_INFO) {
+  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
+}
+panel.innerHTML =
+  '<div class="awd-h"><span>AWD simulation</span><button type="button" id="awd-fold" aria-label="Collapse controls">&#8211;</button></div>' +
+  '<div class="awd-body">' +
+    '<div class="awd-w"><label for="awd-rpm">Engine speed <b id="awd-rpm-v">2400 rpm</b></label>' +
+      '<input id="awd-rpm" class="al-range" type="range" min="800" max="5500" step="50" value="2400" aria-label="Engine speed"></div>' +
+    '<div class="awd-w"><label for="awd-surf">Surface</label>' +
+      '<select id="awd-surf" class="al-sel" aria-label="Surface">' +
+        '<option value="dry" selected>Dry tarmac (&#181; 1.00)</option>' +
+        '<option value="wet">Wet road (&#181; 0.70)</option>' +
+        '<option value="gravel">Gravel (&#181; 0.55)</option>' +
+        '<option value="snow">Snow (&#181; 0.32)</option>' +
+        '<option value="ice">Ice (&#181; 0.14)</option>' +
+      '</select></div>' +
+    '<div class="awd-w"><label for="awd-type">Centre coupling</label>' +
+      '<select id="awd-type" class="al-sel" aria-label="Centre coupling">' +
+        '<option value="viscous">Viscous (passive)</option>' +
+        '<option value="clutch" selected>Clutch pack (ECU)</option>' +
+        '<option value="locked">Locked 50:50 (4H)</option>' +
+      '</select></div>' +
+    '<div class="awd-w"><label for="awd-str">Steering input <b id="awd-str-v">0 %</b></label>' +
+      '<input id="awd-str" class="al-range" type="range" min="0" max="100" step="1" value="0" aria-label="Steering input"></div>' +
+    '<div class="awd-w"><label for="awd-fault">Fault injection</label>' +
+      '<select id="awd-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
+    '<div class="awd-w"><label>Simulation speed</label>' +
+      '<div class="awd-btns" id="awd-speed">' +
+        '<button type="button" data-sp="1" class="on">1&times;</button>' +
+        '<button type="button" data-sp="5">5&times;</button>' +
+        '<button type="button" data-sp="20">20&times;</button>' +
+      '</div></div>' +
+    '<div class="awd-btns">' +
+      '<button type="button" id="awd-cool">Cool down</button>' +
+      '<button type="button" id="awd-reset">Reset</button>' +
+    '</div>' +
+    '<div class="awd-warn" id="awd-warn"></div>' +
+    '<canvas id="awd-graph" width="480" height="150" aria-label="Rear torque split and coupling temperature history"></canvas>' +
+    '<div class="awd-key"><span><i style="background:#22c55e"></i>Rear %</span><span><i style="background:#fb923c"></i>Coupling &deg;C</span></div>' +
+  '</div>';
+document.body.appendChild(panel);
+
+const elFold   = document.getElementById('awd-fold');
+const elRpm    = document.getElementById('awd-rpm');
+const elRpmV   = document.getElementById('awd-rpm-v');
+const elSurf   = document.getElementById('awd-surf');
+const elType   = document.getElementById('awd-type');
+const elStr    = document.getElementById('awd-str');
+const elStrV   = document.getElementById('awd-str-v');
+const elFault  = document.getElementById('awd-fault');
+const elSpeed  = document.getElementById('awd-speed');
+const elCool   = document.getElementById('awd-cool');
+const elReset  = document.getElementById('awd-reset');
+const elWarn   = document.getElementById('awd-warn');
+const gcv      = document.getElementById('awd-graph');
+const gctx     = gcv.getContext('2d');
+
+elFold.addEventListener('click', () => {
+  panel.classList.toggle('folded');
+  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
+});
+elRpm.addEventListener('input', () => {
+  S.rpm = Number(elRpm.value) || 800;
+  elRpmV.textContent = S.rpm + ' rpm';
+});
+elSurf.addEventListener('change', () => { S.surface = elSurf.value; });
+elType.addEventListener('change', () => { S.couplingType = elType.value; });
+elStr.addEventListener('input', () => {
+  S.steering = (Number(elStr.value) || 0) / 100;
+  elStrV.textContent = Math.round(S.steering * 100) + ' %';
+});
+elFault.addEventListener('change', () => { S.fault = elFault.value; });
+elSpeed.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sp]');
+  if (!b) return;
+  S.speed = Number(b.dataset.sp) || 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
+});
+elCool.addEventListener('click', () => {
+  sim.couplingTemp = AMBIENT;
+  sim.fluidTemp = AMBIENT;
+});
+
+/* ── simulation state (module level so Reset can reach it) ───────── */
+const GRAPH_N = 150;
+const sim = {
+  couplingTemp: AMBIENT,
+  fluidTemp: AMBIENT,
+  windup: 0,
+  wheelSpinF: 0,
+  wheelSpinR: 0,
+  lastT: -1,
+  samples: []
+};
+
+function resetModel() {
+  sim.couplingTemp = AMBIENT;
+  sim.fluidTemp = AMBIENT;
+  sim.windup = 0;
+  sim.wheelSpinF = 0;
+  sim.wheelSpinR = 0;
+  sim.lastT = -1;
+  sim.samples.length = 0;
+}
+function resetAll() {
+  S.rpm = 2400;        elRpm.value = 2400;  elRpmV.textContent = '2400 rpm';
+  S.surface = 'dry';   elSurf.value = 'dry';
+  S.couplingType = 'clutch'; elType.value = 'clutch';
+  S.steering = 0;      elStr.value = 0;     elStrV.textContent = '0 %';
+  S.fault = 'none';    elFault.value = 'none';
+  S.speed = 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
+  resetModel();
+  const ctlEl = document.getElementById('ctl');
+  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+elReset.addEventListener('click', resetAll);
+
+/* ── rolling graph ───────────────────────────────────────────────── */
+function drawGraph() {
+  const W = gcv.width, Hh = gcv.height;
+  gctx.clearRect(0, 0, W, Hh);
+  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
+  gctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = Math.round(Hh * i / 4) + 0.5;
+    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+  }
+  const n = sim.samples.length;
+  if (n < 2) return;
+  const xAt    = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
+  const yPct   = (v) => Hh - clampN(v, 0, 1) * (Hh - 6) - 3;
+  const yTemp  = (v) => Hh - clampN((v - 10) / 200, 0, 1) * (Hh - 6) - 3;
+
+  /* Rear torque split (filled area) */
+  gctx.beginPath();
+  gctx.moveTo(xAt(0), Hh);
+  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yPct(sim.samples[i].r));
+  gctx.lineTo(xAt(n - 1), Hh);
+  gctx.closePath();
+  gctx.fillStyle = 'rgba(34,197,94,0.20)';
+  gctx.fill();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yPct(sim.samples[i].r);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#22c55e'; gctx.lineWidth = 1.8; gctx.stroke();
+
+  /* Coupling temperature */
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yTemp(sim.samples[i].T);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.6; gctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE SCENE (per-module 3D parts)
+   ═══════════════════════════════════════════════════════════════════ */
+function build(H){
+ const { box, cyl, cylX, cylZ, mat, glass, pipe, stream, lc, clamp, root, THREE, lowEnd, put } = H;
+
+ /* ── base materials ───────────────────────────────────────────── */
+ const dark  = mat(0x374151, 0.60, 0.50);
+ const steel = mat(0x94a3b8, 0.85, 0.30);
+ const rub   = mat(0x111827, 0.10, 0.90);
+
+ /* ── engine + transfer case + housing ────────────────────────── */
+ box(1.6, 0.9, 1.3, dark, -1.9, 0.3, 0);
+ box(0.9, 0.7, 0.9, dark, -0.95, 0.25, 0);
+
+ /* transfer case body: glass so we can see the clutch pack */
+ const tcaseMat = mat(0x4b5563, 0.55, 0.45, { emissive: 0x000000, emissiveIntensity: 0 });
+ box(1.3, 0.9, 1.1, tcaseMat, -0.15, -0.05, 0);
+
+ /* ── 10 clutch discs (spacing reflects clamp) ─────────────────── */
+ const discs = [];
+ const discMatA = mat(0xcbd5e1, 0.80, 0.30);
+ const discMatB = mat(0xb45309, 0.50, 0.60, { emissive: 0x000000, emissiveIntensity: 0 });
+ for (let i = 0; i < 10; i++) {
+   const d = cylX(0.36, 0.36, 0.03, i % 2 ? discMatA : discMatB, 0, -0.05, 0);
+   discs.push(d);
+ }
+
+ /* ── driveshafts ──────────────────────────────────────────────── */
+ const fM = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.70, roughness: 0.35, emissive: 0x38bdf8, emissiveIntensity: 0.3 });
+ const rM = new THREE.MeshStandardMaterial({ color: 0xf97316, metalness: 0.70, roughness: 0.35, emissive: 0xf97316, emissiveIntensity: 0.3 });
+ const fs = cylX(0.10, 0.10, 2.9, fM, -1.95, -0.4, 0);
+ const rs = cylX(0.10, 0.10, 3.9, rM,  1.55, -0.4, 0);
+
+ /* ── differentials ───────────────────────────────────────────── */
+ box(0.8, 0.5, 0.8, dark, -3.4, -0.4, 0);
+ box(0.8, 0.5, 0.8, dark,  3.4, -0.4, 0);
+ cylZ(0.09, 0.09, 3.6, steel, -3.4, -0.4, 0);
+ cylZ(0.09, 0.09, 3.6, steel,  3.4, -0.4, 0);
+
+ /* ── wheels (separate front / rear lists so they can slip
+       at different rates) ─────────────────────────────────────── */
+ const frontWheels = [], rearWheels = [];
+ const wheelSpecs = [
+   { x: -3.4, z: -1.9, axle: 'front' },
+   { x: -3.4, z:  1.9, axle: 'front' },
+   { x:  3.4, z: -1.9, axle: 'rear'  },
+   { x:  3.4, z:  1.9, axle: 'rear'  }
+ ];
+ wheelSpecs.forEach(spec => {
+   const w = new THREE.Group();
+   w.position.set(spec.x, -0.4, spec.z);
+   root.add(w);
+   cylZ(0.75, 0.75, 0.5, rub,   0, 0, 0, w);
+   cylZ(0.45, 0.45, 0.52, steel, 0, 0, 0, w);
+   for (let i = 0; i < 5; i++) {
+     const b = box(0.12, 0.8, 0.06, steel, 0, 0, spec.z > 0 ? 0.27 : -0.27, w);
+     b.rotation.z = i * Math.PI * 2 / 5;
+   }
+   if (spec.axle === 'front') frontWheels.push(w);
+   else                        rearWheels.push(w);
+ });
+
+ /* ── overheat / windup glow patches ──────────────────────────── */
+ const coupleGlowMat = new THREE.MeshBasicMaterial({ color: 0xff3a00, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+ const coupleGlow = new THREE.Mesh(new THREE.SphereGeometry(0.72, 14, 10), coupleGlowMat);
+ coupleGlow.position.set(-0.15, -0.05, 0);
+ root.add(coupleGlow);
+
+ const windupGlowMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+ const windupGlow = new THREE.Mesh(new THREE.SphereGeometry(0.60, 14, 10), windupGlowMat);
+ windupGlow.position.set(-0.95, 0.25, 0);
+ root.add(windupGlow);
+
+ /* ── tyre-mismatch indicator (small bright patch on one wheel) ── */
+ const mismatchPatch = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.06, 6, 20),
+   new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0, depthWrite: false }));
+ mismatchPatch.position.set(3.4, -0.4, 1.9);
+ mismatchPatch.rotation.y = Math.PI / 2;
+ root.add(mismatchPatch);
+
+ /* ── particle stream: torque flow from transfer case rearward ── */
+ const nTorque = lowEnd ? 10 : 18;
+ const torqueS = stream([[-0.15, -0.05, 0], [0.4, -0.4, 0], [1.55, -0.4, 0]], nTorque, 0xf97316, 0.12);
+
+ let lastDom = 0;
+ let frontWheelAngle = 0;
+ let rearWheelAngle  = 0;
+
+ return {
+  labels: [
+    ['Engine',               [-2.2, 1.0, 0]],
+    ['Transfer case',        [-0.15, 0.75, 0]],
+    ['Multi-plate clutch',   [-0.15, -0.75, 0]],
+    ['Front driveshaft',     [-2.4, -0.7, 0.6]],
+    ['Rear driveshaft',      [ 1.6, -0.7, 0.6]],
+    ['Front differential',   [-3.4, -0.05, 0.6]],
+    ['Rear differential',    [ 3.4, -0.05, 0.6]]
+  ],
+  update(c) {
+   /* ── 1. inputs ─────────────────────────────────────────────── */
+   const dt       = Math.max(0, num(c.dt, 0)) * S.speed;
+   const load     = clampN(c.k, 0, 1);
+   const rpm      = num(S.rpm, 2400);
+   const surface  = S.surface in SURFACES ? S.surface : 'dry';
+   const surfaceMu = SURFACES[surface].mu;
+   const fault    = S.fault;
+   const steering = clampN(S.steering, 0, 1);
+
+   /* toolbar Reset rewinds simT -> detect and clear the model */
+   if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) resetModel();
+   sim.lastT = c.t;
+
+   /* fault overrides */
+   let couplingType = S.couplingType;
+   if (fault === 'lockedDiff') couplingType = 'locked';
+   const couplingHealth = (fault === 'wornCoupling') ? 0.15 : 1.0;
+
+   /* ── 2. engine torque and axle traction limits ─────────────── */
+   const T_e = engineTorque(load, rpm);
+   const T_total = T_e * GEAR_RATIO;
+   const ftMax = axleTractionLimit(surfaceMu, FRONT_LOAD_N);
+   const rtMax = axleTractionLimit(surfaceMu, REAR_LOAD_N);
+
+   /* ── 3. torque split ───────────────────────────────────────── */
+   let fTorque, rTorque, transfer = 0;
+   if (couplingType === 'locked') {
+     /* rigid 50:50, but capped by the traction available at each axle */
+     const half = T_total / 2;
+     if (half > ftMax && half > rtMax) { fTorque = ftMax; rTorque = rtMax; }
+     else if (half > ftMax) { fTorque = ftMax; rTorque = T_total - ftMax; }
+     else if (half > rtMax) { rTorque = rtMax; fTorque = T_total - rtMax; }
+     else                   { fTorque = half; rTorque = half; }
+     rTorque = clampN(rTorque, 0, rtMax * 1.5);
+     fTorque = clampN(fTorque, 0, ftMax * 1.5);
+     transfer = 0;
+   } else {
+     const fBase = T_total * 0.60;
+     const rBase = T_total * 0.40;
+
+     /* slips at the base split */
+     const fSlipBase = axleSlipRatio(fBase, ftMax);
+     const rSlipBase = axleSlipRatio(rBase, rtMax);
+
+     /* tyre-mismatch fault adds a permanent speed difference */
+     const mismatch = (fault === 'tyreMismatch') ? 0.22 : 0;
+
+     /* the faster axle drives torque to the slower one */
+     const speedDiffNorm = Math.abs(fSlipBase - rSlipBase) + mismatch;
+
+     transfer = couplingTransfer(speedDiffNorm, couplingType, sim.couplingTemp, load, couplingHealth);
+
+     if (fSlipBase >= rSlipBase) {
+       rTorque = rBase + transfer;
+       fTorque = fBase - transfer;
+     } else {
+       fTorque = fBase + transfer;
+       rTorque = rBase - transfer;
+     }
+     fTorque = clampN(fTorque, 0, ftMax * 1.5);
+     rTorque = clampN(rTorque, 0, rtMax * 1.5);
+   }
+
+   /* ── 4. final slip & delivered torque ──────────────────────── */
+   const fSlip = axleSlipRatio(fTorque, ftMax);
+   const rSlip = axleSlipRatio(rTorque, rtMax);
+   const fDelivered = Math.min(fTorque, ftMax);
+   const rDelivered = Math.min(rTorque, rtMax);
+   const totalDelivered = Math.max(1, fDelivered + rDelivered);
+   const rearShare = clampN(rDelivered / totalDelivered, 0, 1);
+
+   /* ── 5. coupling heat & thermal state ──────────────────────── */
+   const mismatch2 = (fault === 'tyreMismatch') ? 0.22 : 0;
+   const couplingSpeedDiff = Math.abs(fSlip - rSlip) + mismatch2;
+   let heat = 0;
+   if (couplingType !== 'locked') {
+     heat = transfer * couplingSpeedDiff * 0.04;   /* kW */
+   } else {
+     /* a locked diff still generates heat through the windup itself */
+     heat = Math.abs(fSlip - rSlip) * 1.5;
+   }
+   const fluidMultiplier = (fault === 'lowFluid') ? 1.9 : 1;
+   const coupTarget = AMBIENT + heat * 15 * fluidMultiplier;
+   if (dt > 0) {
+     sim.couplingTemp += (coupTarget - sim.couplingTemp) * (1 - Math.exp(-dt / TAU_COUPLING));
+   }
+   sim.couplingTemp = clampN(sim.couplingTemp, AMBIENT - 5, 320);
+
+   /* ── 6. transfer-fluid temperature ─────────────────────────── */
+   const fluidTarget = AMBIENT
+                     + heat * 2.5 * fluidMultiplier
+                     + Math.abs(fTorque - rTorque) * 0.015;
+   if (dt > 0) {
+     sim.fluidTemp += (fluidTarget - sim.fluidTemp) * (1 - Math.exp(-dt / TAU_FLUID));
+   }
+   sim.fluidTemp = clampN(sim.fluidTemp, AMBIENT - 5, 260);
+
+   /* ── 7. driveline windup (locked diff only) ───────────────── */
+   let windupTarget = 0;
+   if (couplingType === 'locked') {
+     windupTarget = clampN(steering * surfaceMu * 1.1 + Math.abs(fSlip - rSlip) * 0.6, 0, 1);
+   }
+   if (dt > 0) {
+     const tau = (windupTarget > sim.windup) ? TAU_WINDUP : TAU_WINDUP_REL;
+     sim.windup += (windupTarget - sim.windup) * (1 - Math.exp(-dt / tau));
+   }
+   sim.windup = clampN(sim.windup, 0, 1);
+
+   /* ── 8. vehicle speed & wheel rotation ────────────────────── */
+   const wheelRps   = rpm / (60 * GEAR_RATIO);
+   const vVehicle   = wheelRps * 2 * Math.PI * WHEEL_RADIUS;      /* m/s */
+   const vKph       = vVehicle * 3.6;
+   /* visual rotation: wheels spin a bit faster when slipping */
+   const baseAngRate = (vVehicle / WHEEL_RADIUS) * 0.35;          /* visual pace */
+   frontWheelAngle += baseAngRate * (1 + 0.8 * fSlip) * dt;
+   rearWheelAngle  += baseAngRate * (1 + 0.8 * rSlip) * dt;
+   frontWheels.forEach(w => { w.rotation.z = -frontWheelAngle; });
+   rearWheels.forEach(w  => { w.rotation.z = -rearWheelAngle;  });
+
+   /* ── 9. 3D visuals ────────────────────────────────────────── */
+   /* driveshaft scale follows its axle torque share */
+   const fScale = 0.45 + 1.55 * clampN(fDelivered / Math.max(1, ftMax), 0.10, 1.0);
+   const rScale = 0.45 + 1.55 * clampN(rDelivered / Math.max(1, rtMax), 0.10, 1.0);
+   fs.scale.set(1, fScale, fScale);
+   rs.scale.set(1, rScale, rScale);
+   fM.emissiveIntensity = 0.15 + 1.10 * clampN(fDelivered / Math.max(1, ftMax), 0, 1);
+   rM.emissiveIntensity = 0.15 + 1.10 * clampN(rDelivered / Math.max(1, rtMax), 0, 1);
+
+   /* clutch discs: tighter pack when clamped hard */
+   const clampNorm = clampN(transfer / 260, 0, 1);
+   const sp = 0.14 - 0.09 * clampNorm;
+   for (let i = 0; i < discs.length; i++) {
+     discs[i].position.x = -0.30 + i * sp + (i % 2 ? 0.006 : -0.006);
+   }
+   /* disc emissive follows coupling temperature */
+   const discHot = clampN((sim.couplingTemp - 90) / 90, 0, 1);
+   discMatB.emissive.setHex(0xff3020);
+   discMatB.emissiveIntensity = discHot * 1.3;
+
+   /* transfer case body glows red when windup is high */
+   const windupV = sim.windup;
+   tcaseMat.emissive.copy(lc(0x000000, 0xff3020, windupV));
+   tcaseMat.emissiveIntensity = windupV * 1.4;
+
+   /* coupling glow: amber when warm, red when hot */
+   const coupleHot = clampN((sim.couplingTemp - 90) / 130, 0, 1);
+   coupleGlowMat.opacity = coupleHot * 0.45;
+   coupleGlowMat.color.copy(lc(0xff8000, 0xff2020, coupleHot));
+
+   /* windup glow patch */
+   windupGlowMat.opacity = windupV * 0.55;
+
+   /* tyre-mismatch indicator only when that fault is active */
+   mismatchPatch.material.opacity = (fault === 'tyreMismatch') ? (0.35 + 0.25 * Math.abs(Math.sin(c.t * 3))) : 0;
+
+   /* shake the whole assembly when there is windup bind */
+   const shakeAmt = windupV * 0.05;
+   root.position.x = shakeAmt * Math.sin(c.t * 32);
+   root.position.z = shakeAmt * 0.6 * Math.sin(c.t * 37 + 1.1);
+   if (sim.windup < 0.01) { root.position.x = 0; root.position.z = 0; }
+
+   /* torque-flow particle stream density and speed follow the transfer */
+   const flowDens  = clampN(0.15 + 0.85 * clampNorm + 0.15 * rearShare, 0, 1.05);
+   const flowSpeed = 0.05 + 0.35 * clampNorm;
+   torqueS.update(c.t, flowSpeed, flowDens);
+   torqueS.mat.color.copy(lc(0x38bdf8, 0xff3020, clampN(sim.couplingTemp / 160, 0, 1)));
+
+   /* ── 10. throttled DOM work (graph + warning) ─────────────── */
+   const now = performance.now();
+   if (now - lastDom > 140) {
+     lastDom = now;
+     if (dt > 0) {
+       sim.samples.push({ r: rearShare, T: sim.couplingTemp });
+       if (sim.samples.length > SIM_GRAPH_CAP) sim.samples.shift();
+       drawGraph();
+     }
+
+     let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
+     if (!warn) {
+       if (sim.windup > WINDUP_CRIT) {
+         warn = 'Driveline wind-up at ' + (sim.windup * 100).toFixed(0) + ' % - the axles cannot turn at different speeds. Releasing the lock on dry tarmac will stop the judder.';
+       } else if (sim.couplingTemp > COUPLE_CRIT) {
+         warn = 'Centre coupling at ' + sim.couplingTemp.toFixed(0) + ' \u00B0C - the clutch pack is overheating and beginning to fade. Reduce load or move to a high-grip surface.';
+       } else if (sim.fluidTemp > FLUID_CRIT) {
+         warn = 'Transfer-case fluid at ' + sim.fluidTemp.toFixed(0) + ' \u00B0C - change the fluid and check for leaks.';
+       } else if (sim.windup > WINDUP_WARN) {
+         warn = 'Tight-corner bind building (' + (sim.windup * 100).toFixed(0) + ' %) - the locked centre diff is scrubbing the tyres.';
+       } else if (sim.couplingTemp > COUPLE_WARN) {
+         warn = 'Centre coupling temperature ' + sim.couplingTemp.toFixed(0) + ' \u00B0C - above the comfort window. Watch for fade.';
+       } else if (sim.fluidTemp > FLUID_WARN) {
+         warn = 'Transfer-case fluid ' + sim.fluidTemp.toFixed(0) + ' \u00B0C - running hot.';
+       } else if (fSlip > 0.35) {
+         warn = 'Front axle slipping ' + (fSlip * 100).toFixed(0) + ' % - lower the load or choose a higher-grip surface.';
+       } else if (rSlip > 0.35) {
+         warn = 'Rear axle slipping ' + (rSlip * 100).toFixed(0) + ' % - the coupling is transferring torque forward.';
+       }
+     }
+     elWarn.textContent = warn;
+     elWarn.classList.toggle('show', !!warn);
+   }
+
+   /* ── 11. derived state ───────────────────────────────────── */
+   let stateTxt;
+   if (couplingType === 'locked' && sim.windup > WINDUP_CRIT)   stateTxt = 'BIND - release lock';
+   else if (couplingType === 'locked' && sim.windup > WINDUP_WARN) stateTxt = 'Tight-corner bind';
+   else if (sim.couplingTemp > COUPLE_CRIT)                     stateTxt = 'Coupling overheated';
+   else if (sim.fluidTemp > FLUID_CRIT)                         stateTxt = 'Fluid overheating';
+   else if (fSlip > 0.55 || rSlip > 0.55)                       stateTxt = 'Wheelspin';
+   else if (fault === 'wornCoupling')                            stateTxt = 'Rear drive lost';
+   else if (fault === 'tyreMismatch')                            stateTxt = 'Mismatched tyres';
+   else if (couplingType === 'locked')                           stateTxt = 'Locked 50:50';
+   else if (rearShare > 0.60)                                    stateTxt = 'Rear-biased';
+   else if (rearShare < 0.45)                                    stateTxt = 'Front-biased';
+   else                                                          stateTxt = 'Balanced';
+
+   /* ── 12. readouts ─────────────────────────────────────────── */
+   const frontPct = (1 - rearShare) * 100;
+   const rearPct  = rearShare * 100;
+   const splitTxt = frontPct.toFixed(0) + ' / ' + rearPct.toFixed(0);
+
+   const cState = sim.couplingTemp > COUPLE_CRIT ? 'crit' : (sim.couplingTemp > COUPLE_WARN ? 'warn' : 'ok');
+   const fState = sim.fluidTemp    > FLUID_CRIT  ? 'crit' : (sim.fluidTemp    > FLUID_WARN  ? 'warn' : 'ok');
+   const wState = sim.windup > WINDUP_CRIT ? 'crit' : (sim.windup > WINDUP_WARN ? 'warn' : 'ok');
+   const fsState = fSlip > 0.50 ? 'crit' : (fSlip > 0.25 ? 'warn' : 'ok');
+   const rsState = rSlip > 0.50 ? 'crit' : (rSlip > 0.25 ? 'warn' : 'ok');
+   const stState = (stateTxt === 'BIND - release lock' || stateTxt === 'Coupling overheated' ||
+                    stateTxt === 'Fluid overheating'  || stateTxt === 'Wheelspin') ? 'crit'
+                 : (stateTxt === 'Tight-corner bind' || stateTxt === 'Rear drive lost' ||
+                    stateTxt === 'Mismatched tyres') ? 'warn'
+                 : 'ok';
+
+   const fluidPct = (1 - clampN((sim.fluidTemp - AMBIENT) / (FLUID_CRIT - AMBIENT), 0, 1)) * 100;
+
+   return {
+     big: rearPct.toFixed(0),
+     unit: ' %',
+     bar: rearPct,
+     rows: {
+       fslip: (fSlip * 100).toFixed(0) + ' %',
+       rslip: (rSlip * 100).toFixed(0) + ' %'
+     },
+     ro: {
+       front:  [fDelivered.toFixed(0) + ' Nm', ''],
+       rear:   [rDelivered.toFixed(0) + ' Nm', 'hi'],
+       split:  [splitTxt, ''],
+       clutch: [transfer.toFixed(0) + ' Nm', ''],
+       ctemp:  [sim.couplingTemp.toFixed(0) + ' \u00B0C', cState],
+       ftemp:  [sim.fluidTemp.toFixed(0) + ' \u00B0C', fState],
+       fslip:  [(fSlip * 100).toFixed(0) + ' %', fsState],
+       rslip:  [(rSlip * 100).toFixed(0) + ' %', rsState],
+       windup: [(sim.windup * 100).toFixed(0) + ' %', wState],
+       mu:     [surfaceMu.toFixed(2), surfaceMu < 0.4 ? 'warn' : 'ok'],
+       state:  [stateTxt, stState]
+     },
+     status: [stateTxt, true],
+     ctl: (load * 100).toFixed(0) + ' %'
+   };
+  }
+ };
+}
+
+/* SIM_GRAPH_CAP is set below (constant hoisting) */
+const SIM_GRAPH_CAP = 150;
 
 runGuidedModule(CFG, build);
 </script>
