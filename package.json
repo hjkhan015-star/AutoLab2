@@ -1,10 +1,10 @@
 {
   "name": "autolab2",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "private": true,
   "description": "Interactive 3D automotive learning lab (static PWA)",
   "scripts": {
     "start": "python3 -m http.server 8080",
-    "test": "node tests/check.mjs"
+    "test": "node tests/check.mjs && node tests/labels.test.mjs"
   }
 }
