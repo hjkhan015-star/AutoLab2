@@ -9,6 +9,49 @@
 <style>
 :root { --al-accent: #38bdf8; }
 html.light-theme { --al-accent: color-mix(in oklch, #38bdf8 68%, black); }
+
+/* ── module-local UI: extra controls + rolling graph ─────────────── */
+#ic-panel{
+  position:fixed; left:12px; top:12px; z-index:30;
+  width:262px; max-width:46vw;
+  padding:10px 12px 12px;
+  border:1px solid var(--border,#333);
+  border-radius:10px;
+  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38);
+  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
+  color:var(--text-dim,#9aa4b2);
+  max-height:calc(100dvh - 24px); overflow:auto;
+}
+#ic-panel.folded .ic-body{ display:none; }
+.ic-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.ic-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
+.ic-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
+.ic-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.ic-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.ic-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-mute,#6b7280); }
+.ic-w b{ color:var(--text,#e5e7eb); font-weight:700; }
+#ic-panel .al-range{ height:22px; }
+#ic-panel .al-sel{ min-height:32px; font-size:11px; }
+.ic-btns{ display:flex; gap:6px; margin-bottom:8px; }
+.ic-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
+.ic-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.ic-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(56,189,248,.14); }
+#ic-cold{ color:#22d3ee; border-color:rgba(34,211,238,.4); }
+#ic-cold:hover{ border-color:#22d3ee; }
+.ic-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
+  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
+  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
+.ic-warn.show{ display:block; }
+#ic-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
+  border-radius:6px; background:rgba(0,0,0,.28); }
+.ic-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
+.ic-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+@media (max-width:700px){ #ic-panel{ width:206px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -29,34 +72,591 @@ html.light-theme { --al-accent: color-mix(in oklch, #38bdf8 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "intercooler", "title": "Intercooler", "kicker": "Air Intake & Boost", "accent": "#38bdf8", "badge": "Air-to-air · Charge cooler", "camPos": [5.6, 3.0, 7.0], "target": [0, 0, 0], "floorY": -2.2, "ctl": {"label": "Boost pressure", "val": 55, "caption": "Turbo boost"}, "chipLabel": "Outlet temp", "rows": [["tin", "Inlet temp"], ["gain", "Density gain"]], "ro": [["boost", "Boost"], ["tin", "Charge in"], ["tout", "Charge out"], ["eff", "Effectiveness"], ["gain", "Density gain"], ["dp", "Pressure loss"]], "legend": [["#ff6b35", "Hot compressed air"], ["#38bdf8", "Cooled charge"], ["#7dd3fc", "Ambient air"]], "overview": "<div class=\"al-sec\"><h4>Why cool the charge?<\/h4><p>Compressing air heats it – often to 120–160 °C. Hot air is less dense, holds less oxygen and raises knock risk. The intercooler removes that heat so more air (and power) fits in each cylinder.<\/p><\/div><div class=\"al-sec\"><h4>How it works<\/h4><ul><li>Hot charge air flows through flat internal tubes between two end tanks.<\/li><li>Ambient air passes across the outside fins at road speed.<\/li><li>Typical effectiveness is 70–80% – outlet temperature lands a little above ambient.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Trade-off<\/h4><p>A bigger core cools better but adds pressure loss and turbo lag. Designers balance core volume, fin density and pipe length.<\/p><\/div>", "faults": [["Leaking charge pipe or core", "Loss of boost, whistling, black smoke, underboost codes (P0299).", "Pressure-test the charge system to ~1.5 bar and soap the joints."], ["Blocked fins", "Higher intake temperatures, heat-soak, power fade in traffic.", "Inspect fins for debris, bent fins or oil film; check the ram-air path."], ["Oil inside the cooler", "Oily pipes are normal in small amounts; puddles mean a failing turbo seal.", "Check the turbo for shaft play and the crankcase breather."]], "quiz": [["Compressed air is hot because…", ["Work is done on it", "It touches the exhaust", "Fuel is added early"], 0, "Compression does work on the gas, raising its temperature (adiabatic heating)."], ["Cooler intake air gives…", ["Lower density", "Higher density and less knock", "No change"], 1, "Cool air is denser – more oxygen per litre – and reduces knock tendency."], ["Which side of an air-to-air intercooler carries road air?", ["Inside the tubes", "Across the outside fins", "Through the tanks"], 1, "Ambient air flows over the fins; the charge air is inside the tubes."]]};
+const CFG = {
+  "moduleId": "intercooler",
+  "title": "Intercooler",
+  "kicker": "Air Intake & Boost",
+  "accent": "#38bdf8",
+  "badge": "Air-to-air · Charge cooler",
+  "camPos": [5.6, 3.0, 7.0],
+  "target": [0, 0, 0],
+  "floorY": -2.2,
+  "ctl": { "label": "Boost pressure", "val": 55, "caption": "Turbo boost" },
+  "chipLabel": "Effectiveness",
+  "rows": [["tin", "Charge in"], ["gain", "Density gain"]],
+  "ro": [
+    ["boost", "Boost (actual)"],
+    ["cmd",   "Boost target"],
+    ["tin",   "Charge in"],
+    ["tout",  "Charge out"],
+    ["eff",   "Effectiveness"],
+    ["gain",  "Density gain"],
+    ["dp",    "Pressure loss"],
+    ["coreT", "Core temp"],
+    ["ram",   "Ram airflow"],
+    ["state", "State"]
+  ],
+  "legend": [
+    ["#ff6b35", "Hot compressed charge"],
+    ["#38bdf8", "Cooled charge air"],
+    ["#7dd3fc", "Ambient air through the core"],
+    ["#ff3a1a", "Heat-soaked core"],
+    ["#6b5238", "Oil-fouled fins"],
+    ["#1a1410", "Clogged / blocked fins"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Why cool the charge?<\/h4><p>Compressing air heats it &mdash; often to 120&ndash;160&nbsp;&deg;C. Hot air is less dense, holds less oxygen and raises knock risk. The intercooler removes that heat so more air (and power) fits in each cylinder.<\/p><\/div><div class=\"al-sec\"><h4>How it works<\/h4><ul><li>Hot charge air flows through flat internal tubes between two end tanks.<\/li><li>Ambient air passes across the outside fins at road speed.<\/li><li>Typical effectiveness is 70&ndash;80&nbsp;% at cruise; the outlet lands a little above ambient.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Heat soak<\/h4><p>Sitting in traffic after a hard drive is the worst case: with little air crossing the fins, the core soaks up heat from the charge air and effectiveness collapses. The brick only cools back down once you start moving again &mdash; that is why the temperature readout lags the load.<\/p><\/div><div class=\"al-sec\"><h4>Faults that matter<\/h4><p>A split coupler dumps boost (P0299). Blocked or oil-soaked fins and internal oil film kill effectiveness, so the ECU pulls timing and the car feels flat. The pressure-drop reading tells you whether a restriction is inside the charge air path or the pipework is leaking.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Set high boost and rpm with the car stopped and watch the core heat-soak (fins glow red, outlet temp rises). Then raise vehicle speed to 100&nbsp;km/h &mdash; ram air cools the core and effectiveness climbs back. Now try the <b>leaking coupler</b> fault and watch actual boost fall away from the target.<\/p><\/div>",
+  "faults": [
+    ["Leaking charge pipe or coupler", "P0299 - turbo underboost. Actual boost sits well below the ECU's target, the car feels flat, and you can often hear a whistle or hiss under load.", "Pressure-test the charge system to ~1.5 bar and soap the joints; check the couplers and the intercooler end tanks."],
+    ["Clogged / blocked fins", "Charge temperatures rise sharply, especially at low speed, and the ECU pulls timing for knock. Mud, leaves, or bent fins block the ram-air path.", "Inspect the fin stack for debris and bent fins; check the ram-air ducting and any front grille shutters."],
+    ["Oil-soaked core", "Turbo seal failure coats the inside of the tubes with oil. Effectiveness drops gradually, the outlet temperature creeps up and the pressure drop rises with the extra oil film.", "Check the compressor for shaft play and the crankcase breather; clean or replace the core if contaminated."]
+  ],
+  "quiz": [
+    ["Compressed air is hot because…", ["Work is done on it", "It touches the exhaust", "Fuel is added early"], 0, "Compression does work on the gas, raising its temperature (adiabatic heating)."],
+    ["Cooler intake air gives…", ["Lower density", "Higher density and less knock", "No change"], 1, "Cool air is denser - more oxygen per litre - and reduces knock tendency."],
+    ["Which side of an air-to-air intercooler carries road air?", ["Inside the tubes", "Across the outside fins", "Through the tanks"], 1, "Ambient air flows over the fins; the charge air is inside the tubes."],
+    ["Effectiveness at a standstill is lowest because…", ["There is little air crossing the fins", "The turbo stops spinning", "The ECU leans the mixture"], 0, "Ram airflow is the biggest lever on effectiveness - at idle, only the fan pulls a little air through."],
+    ["P0299 (underboost) with a hot intercooler usually points at…", ["A leaking charge-air hose or coupler", "A worn clutch", "Low coolant"], 0, "Boost escapes before it reaches the engine; the ECU sees the manifold pressure fall short of its target."],
+    ["Oil inside the intercooler is a problem because…", ["Oil film insulates the tube walls and blocks heat transfer", "It makes the charge air hotter", "It reduces the pressure ratio"], 0, "Oil is a poor thermal conductor; it also slowly raises the charge-air pressure drop across the core."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
-function build(H){
- const {box,cylX,mat,glass,pipe,stream,lc,clamp,THREE}=H;
- const alu=mat(0xc5ccd6,.75,.35), tank=mat(0x64748b,.7,.4), hose=mat(0x1f2937,.2,.8);
- for(let i=0;i<16;i++) box(3.0,.03,1.6,alu,0,-1+i*.13,0);
- box(3.0,2.2,.05,glass(0x94a3b8,.10),0,0,.83);
- box(.5,2.3,1.7,tank,-1.75,0,0); box(.5,2.3,1.7,tank,1.75,0,0);
- pipe([[-2,1,0],[-2.6,1,0],[-3.4,1.6,0],[-4.2,1.6,0]],.24,hose);
- pipe([[2,-1,0],[2.6,-1,0],[3.4,-1.6,0],[4.2,-1.6,0]],.24,hose);
- const hot=stream([[-4.4,1.6,0],[-3.4,1.6,0],[-2.6,1,0],[-1.9,.6,0],[-1.5,.4,0]],22,0xff6b35,.13);
- const mid=stream([[-1.5,.4,0],[0,0,0],[1.5,-.4,0]],16,0xfbbf24,.12);
- const cool=stream([[1.5,-.4,0],[1.9,-.6,0],[2.6,-1,0],[3.4,-1.6,0],[4.4,-1.6,0]],22,0x38bdf8,.13);
- const amb=[]; [[-.8,.5],[.8,.5],[-.8,-.5],[.8,-.5]].forEach(p=>amb.push(stream([[p[0],p[1],2.7],[p[0],p[1],-2.7]],10,0x7dd3fc,.08)));
+/* ═══════════════════════════════════════════════════════════════════
+   PHYSICS MODEL — pure, named functions.
+   Simplified physical trends, not a dyno/bench lookup table.
+   ═══════════════════════════════════════════════════════════════════ */
+
+function clampN(x, a, b) {
+  if (!Number.isFinite(x)) return a;
+  return x < a ? a : (x > b ? b : x);
+}
+const num = (x, d) => (Number.isFinite(x) ? x : d);
+
+/* ── named constants ─────────────────────────────────────────────── */
+const COMP_EFF   = 0.72;   /* compressor isentropic efficiency               */
+const GAMMA      = 0.286;  /* (γ-1)/γ for air                                 */
+const TAU_BOOST  = 1.6;    /* s, turbo spool time constant                    */
+const TAU_CORE   = 22;     /* s, intercooler core thermal time constant       */
+const TAU_OIL    = 45;     /* s, oil soak ramp                                */
+const MAX_BOOST  = 2.0;    /* bar, slider maximum                             */
+const COLD_T     = 25;     /* °C, initial core & outlet temperature           */
+const UNDERBOOST = 0.65;   /* actual/cmd ratio that flags a P0299             */
+
+/* Pressure ratio from gauge boost (bar). Direction: more boost -> higher
+   PR. Both arguments clamped so PR never drops below 1. */
+function pressureRatio(boostBar) {
+  return 1 + clampN(num(boostBar, 0), 0, 3);
+}
+
+/* Compressor outlet temperature. Adiabatic compression with a real
+   efficiency: T_out = T_amb + (T_amb+273)·(PR^γ − 1)/η. Direction:
+   more boost or hotter ambient -> hotter charge air. */
+function compressorOutletTemp(Tamb, boostBar, compEff) {
+  const pr = pressureRatio(boostBar);
+  const ideal = Math.pow(pr, GAMMA) - 1;
+  const rise = (num(Tamb, 20) + 273) * ideal / clampN(compEff, 0.4, 0.9);
+  return clampN(num(Tamb, 20) + rise, -30, 320);
+}
+
+/* Ambient airflow across the core (0..1). Fan pull at a standstill,
+   road speed dominates above ~30 km/h. Direction: faster -> more ram. */
+function ramAirflow(vehicleSpeedKmh) {
+  const v = clampN(num(vehicleSpeedKmh, 0) / 130, 0, 1);
+  return clampN(0.16 + 0.80 * v, 0.10, 1.0);
+}
+
+/* Charge-air mass flow (normalised 0..1.2). Rises with rpm and with
+   charge-air density. Direction: more rpm and more boost -> more flow. */
+function chargeMassFlow(rpm, boostBar) {
+  const N = clampN((num(rpm, 800) - 800) / 4200, 0, 1);
+  const dens = 1 + clampN(boostBar, 0, 3);
+  return clampN(N * dens * 0.55 + 0.08, 0.05, 1.2);
+}
+
+/* Max available boost as a function of engine speed. Direction: a
+   small turbo cannot make full boost at low rpm. */
+function maxBoostAtRpm(rpm) {
+  const N = clampN((num(rpm, 800) - 800) / 3600, 0, 1);
+  return 0.20 + 1.80 * N;
+}
+
+/* Steady-state heat-soak (0 = cold core, 1 = fully soaked). Load term
+   scales with (Tin − Tamb) and charge flow; the cooling term scales
+   with ram airflow. Direction: hot charge at low speed soaks; cool
+   charge at high speed stays cold. */
+function coreSteadyState(Tin, Tamb, chargeFlow, ramAir) {
+  const dT = clampN((num(Tin, 20) - num(Tamb, 20)) / 110, 0, 1.6);
+  const load = 1.6 * dT * clampN(chargeFlow, 0, 1.5);
+  const cooling = 0.25 + 1.20 * clampN(ramAir, 0, 1);
+  return clampN(load / (load + cooling), 0, 1);
+}
+
+/* Intercooler effectiveness. Best-case ~85 % with strong ram airflow
+   and a cold core; ~50 % idling; heat-soak and hardware faults subtract.
+   Direction: more ram and a colder core -> higher effectiveness. */
+function intercoolerEffectiveness(ramAir, coreHot, fault, oilSoak) {
+  let eff = 0.45 + 0.42 * clampN(ramAir, 0, 1);
+  eff -= 0.16 * clampN(coreHot, 0, 1);
+  if (fault === 'clogged') eff *= 0.52;
+  else if (fault === 'oily') eff *= (1 - 0.45 * clampN(oilSoak, 0, 1));
+  return clampN(eff, 0.08, 0.88);
+}
+
+/* Outlet temperature from effectiveness: T_out = Tamb + (Tin − Tamb)·(1−eff).
+   Direction: better effectiveness -> outlet closer to ambient. */
+function intercoolerOutletTemp(Tin, Tamb, eff) {
+  return clampN(num(Tamb, 20) + (num(Tin, 20) - num(Tamb, 20)) * (1 - clampN(eff, 0, 1)), -30, 320);
+}
+
+/* Density gain from cooling. Ideal-gas: (T_in_K / T_out_K) − 1, as %.
+   Direction: more cooling -> more oxygen per litre. Never negative. */
+function densityGain(Tin, Tout) {
+  const ratio = (num(Tin, 20) + 273) / Math.max(1, num(Tout, 20) + 273);
+  return clampN((ratio - 1) * 100, 0, 80);
+}
+
+/* Pressure drop across the core (kPa). Rises with the square of charge
+   flow and with charge-air density (boost). Mechanical faults add a
+   fixed offset. Direction: more flow, more boost and any restriction
+   -> higher Δp. */
+function corePressureDrop(flowNorm, boostBar, fault) {
+  const f = clampN(flowNorm, 0, 1.2);
+  let dp = 2.0 + 6.5 * f * f + 3.0 * clampN(boostBar, 0, 2.5);
+  if (fault === 'clogged') dp += 5.0;
+  else if (fault === 'oily') dp += 1.5;
+  return clampN(dp, 0, 40);
+}
+
+const FAULT_INFO = {
+  none:     { label: 'None (healthy)',                          warn: '' },
+  leaking:  { label: 'Leaking charge pipe / coupler (P0299)',   warn: 'P0299 - turbo underboost. Actual boost is well below the ECU target. Pressure-test the charge system and check the couplers for a split.' },
+  clogged:  { label: 'Clogged / blocked fins',                  warn: 'Charge air temperature is rising sharply because air cannot cross the fins. Inspect the core face for debris, leaves or bent fins.' },
+  oily:     { label: 'Oil-soaked core',                         warn: 'Oil film inside the charge tubes is insulating the core and raising pressure drop. Check the turbo shaft for play and the crankcase breather.' }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXTRA CONTROLS (built here; the runtime only provides one slider)
+   ═══════════════════════════════════════════════════════════════════ */
+const S = {
+  rpm: 1800,
+  speedKmh: 0,
+  ambient: 20,
+  fault: 'none',
+  speed: 1
+};
+
+const panel = document.createElement('div');
+panel.id = 'ic-panel';
+let faultOptions = '';
+for (const id in FAULT_INFO) {
+  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
+}
+panel.innerHTML =
+  '<div class="ic-h"><span>Intercooler simulation</span><button type="button" id="ic-fold" aria-label="Collapse controls">&#8211;</button></div>' +
+  '<div class="ic-body">' +
+    '<div class="ic-w"><label for="ic-rpm">Engine speed <b id="ic-rpm-v">1800 rpm</b></label>' +
+      '<input id="ic-rpm" class="al-range" type="range" min="800" max="5000" step="50" value="1800" aria-label="Engine speed"></div>' +
+    '<div class="ic-w"><label for="ic-kph">Vehicle speed <b id="ic-kph-v">0 km/h</b></label>' +
+      '<input id="ic-kph" class="al-range" type="range" min="0" max="160" step="1" value="0" aria-label="Vehicle speed"></div>' +
+    '<div class="ic-w"><label for="ic-amb">Ambient air <b id="ic-amb-v">20 &deg;C</b></label>' +
+      '<input id="ic-amb" class="al-range" type="range" min="-10" max="45" step="1" value="20" aria-label="Ambient air temperature"></div>' +
+    '<div class="ic-w"><label for="ic-fault">Fault injection</label>' +
+      '<select id="ic-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
+    '<div class="ic-w"><label>Simulation speed</label>' +
+      '<div class="ic-btns" id="ic-speed">' +
+        '<button type="button" data-sp="1" class="on">1&times;</button>' +
+        '<button type="button" data-sp="5">5&times;</button>' +
+        '<button type="button" data-sp="20">20&times;</button>' +
+      '</div></div>' +
+    '<div class="ic-btns">' +
+      '<button type="button" id="ic-cold">Cool core</button>' +
+      '<button type="button" id="ic-reset">Reset</button>' +
+    '</div>' +
+    '<div class="ic-warn" id="ic-warn"></div>' +
+    '<canvas id="ic-graph" width="480" height="150" aria-label="Effectiveness and outlet temperature history"></canvas>' +
+    '<div class="ic-key"><span><i style="background:#38bdf8"></i>Effectiveness %</span><span><i style="background:#fb923c"></i>Outlet &deg;C</span></div>' +
+  '</div>';
+document.body.appendChild(panel);
+
+const elFold  = document.getElementById('ic-fold');
+const elRpm   = document.getElementById('ic-rpm');
+const elRpmV  = document.getElementById('ic-rpm-v');
+const elKph   = document.getElementById('ic-kph');
+const elKphV  = document.getElementById('ic-kph-v');
+const elAmb   = document.getElementById('ic-amb');
+const elAmbV  = document.getElementById('ic-amb-v');
+const elFault = document.getElementById('ic-fault');
+const elSpeed = document.getElementById('ic-speed');
+const elCold  = document.getElementById('ic-cold');
+const elReset = document.getElementById('ic-reset');
+const elWarn  = document.getElementById('ic-warn');
+const gcv     = document.getElementById('ic-graph');
+const gctx    = gcv.getContext('2d');
+
+elFold.addEventListener('click', () => {
+  panel.classList.toggle('folded');
+  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
+});
+elRpm.addEventListener('input', () => {
+  S.rpm = Number(elRpm.value) || 800;
+  elRpmV.textContent = S.rpm + ' rpm';
+});
+elKph.addEventListener('input', () => {
+  S.speedKmh = Number(elKph.value) || 0;
+  elKphV.textContent = S.speedKmh + ' km/h';
+});
+elAmb.addEventListener('input', () => {
+  S.ambient = Number(elAmb.value) || 0;
+  elAmbV.textContent = S.ambient + ' \u00B0C';
+});
+elFault.addEventListener('change', () => { S.fault = elFault.value; });
+elSpeed.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sp]');
+  if (!b) return;
+  S.speed = Number(b.dataset.sp) || 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
+});
+elCold.addEventListener('click', () => {
+  sim.coreHot = 0;
+  sim.oilSoak = 0;
+});
+
+/* ── simulation state (module level so Reset can reach it) ───────── */
+const GRAPH_N = 150;
+const sim = {
+  actualBoost: 0,
+  coreHot: 0,
+  oilSoak: 0,
+  lastT: -1,
+  samples: []
+};
+
+function resetModel() {
+  sim.actualBoost = 0;
+  sim.coreHot = 0;
+  sim.oilSoak = 0;
+  sim.lastT = -1;
+  sim.samples.length = 0;
+}
+function resetAll() {
+  S.rpm = 1800;     elRpm.value = 1800;  elRpmV.textContent = '1800 rpm';
+  S.speedKmh = 0;   elKph.value = 0;     elKphV.textContent = '0 km/h';
+  S.ambient = 20;   elAmb.value = 20;    elAmbV.textContent = '20 \u00B0C';
+  S.fault = 'none'; elFault.value = 'none';
+  S.speed = 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
+  resetModel();
+  const ctlEl = document.getElementById('ctl');
+  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+elReset.addEventListener('click', resetAll);
+
+/* ── rolling graph ───────────────────────────────────────────────── */
+function drawGraph() {
+  const W = gcv.width, Hh = gcv.height;
+  gctx.clearRect(0, 0, W, Hh);
+  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
+  gctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = Math.round(Hh * i / 4) + 0.5;
+    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+  }
+  const n = sim.samples.length;
+  if (n < 2) return;
+  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
+  const yEff = (v) => Hh - clampN(v, 0, 1) * (Hh - 6) - 3;
+  const yT   = (v) => Hh - clampN(v / 150, 0, 1) * (Hh - 6) - 3;
+
+  /* effectiveness filled area */
+  gctx.beginPath();
+  gctx.moveTo(xAt(0), Hh);
+  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yEff(sim.samples[i].e));
+  gctx.lineTo(xAt(n - 1), Hh);
+  gctx.closePath();
+  gctx.fillStyle = 'rgba(56,189,248,0.18)';
+  gctx.fill();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yEff(sim.samples[i].e);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#38bdf8'; gctx.lineWidth = 1.6; gctx.stroke();
+
+  /* outlet temperature line */
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yT(sim.samples[i].T);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.6; gctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE SCENE (per-module 3D parts)
+   ═══════════════════════════════════════════════════════════════════ */
+function build(H) {
+ const { box, cylX, mat, glass, pipe, stream, lc, clamp, root, THREE, lowEnd, put } = H;
+
+ /* ── base materials ────────────────────────────────────────────── */
+ const alu      = mat(0xc5ccd6, 0.75, 0.35);              /* fin aluminium       */
+ const tankHot  = mat(0xd97c4a, 0.70, 0.40);              /* inlet end tank      */
+ const tankCold = mat(0x5b8fa8, 0.70, 0.40);              /* outlet end tank     */
+ const hose     = mat(0x1f2937, 0.20, 0.80);
+
+ /* ── core fins ─────────────────────────────────────────────────── */
+ for (let i = 0; i < 16; i++) box(3.0, 0.03, 1.6, alu, 0, -1 + i * 0.13, 0);
+
+ /* ── glass side panel (X-ray) ─────────────────────────────────── */
+ box(3.0, 2.2, 0.05, glass(0x94a3b8, 0.10), 0, 0, 0.83);
+
+ /* ── end tanks ─────────────────────────────────────────────────── */
+ box(0.5, 2.3, 1.7, tankHot,  -1.75, 0, 0);
+ box(0.5, 2.3, 1.7, tankCold,  1.75, 0, 0);
+
+ /* ── charge pipes ──────────────────────────────────────────────── */
+ pipe([[-2, 1, 0], [-2.6, 1, 0], [-3.4, 1.6, 0], [-4.2, 1.6, 0]], 0.24, hose);
+ pipe([[ 2, -1, 0], [ 2.6, -1, 0], [ 3.4, -1.6, 0], [ 4.2, -1.6, 0]], 0.24, hose);
+
+ /* ── compressor wheel (animated, at the inlet pipe end) ───────── */
+ const compressorWheel = new THREE.Group();
+ const hubMat = mat(0x94a3b8, 0.9, 0.2);
+ const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.05, 16), hubMat);
+ hub.rotation.x = Math.PI / 2;
+ compressorWheel.add(hub);
+ for (let i = 0; i < 8; i++) {
+   const blade = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.20, 0.045), hubMat);
+   const a = i * Math.PI / 4;
+   blade.position.set(Math.cos(a) * 0.11, Math.sin(a) * 0.11, 0);
+   blade.rotation.z = a + 0.55;
+   compressorWheel.add(blade);
+ }
+ compressorWheel.position.set(-4.5, 1.6, 0);
+ root.add(compressorWheel);
+
+ /* ── coupling joint (highlighted on leak fault) ───────────────── */
+ const jointMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.5, roughness: 0.6 });
+ const joint = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.035, 8, 22), jointMat);
+ joint.position.set(-3.4, 1.6, 0);
+ joint.rotation.y = Math.PI / 2;
+ root.add(joint);
+
+ /* ── clog overlay (dark patches on the fins when clogged) ─────── */
+ const clogMat = new THREE.MeshBasicMaterial({ color: 0x1a1410, transparent: true, opacity: 0, depthWrite: false });
+ const clogs = new THREE.Group();
+ for (let i = 0; i < 6; i++) {
+   const c = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.42), clogMat);
+   const row = i % 3;
+   const col = Math.floor(i / 3);
+   c.position.set(-1 + col * 2, -0.75 + row * 0.75, 0.36);
+   clogs.add(c);
+ }
+ clogs.visible = false;
+ root.add(clogs);
+
+ /* ── particle streams ─────────────────────────────────────────── */
+ const nIn  = lowEnd ? 14 : 24;
+ const nMid = lowEnd ?  8 : 16;
+ const nOut = lowEnd ? 14 : 24;
+ const nAmb = lowEnd ?  6 : 10;
+
+ const hotS  = stream([[-4.4, 1.6, 0], [-3.4, 1.6, 0], [-2.6, 1, 0], [-1.9, 0.6, 0], [-1.5, 0.4, 0]], nIn,  0xff6b35, 0.13);
+ const midS  = stream([[-1.5, 0.4, 0], [0, 0, 0], [1.5, -0.4, 0]],                              nMid, 0xfbbf24, 0.12);
+ const coolS = stream([[ 1.5, -0.4, 0], [1.9, -0.6, 0], [2.6, -1, 0], [3.4, -1.6, 0], [4.4, -1.6, 0]], nOut, 0x38bdf8, 0.13);
+
+ const amb = [];
+ [[-0.8, 0.5], [0.8, 0.5], [-0.8, -0.5], [0.8, -0.5]].forEach(p => {
+   amb.push(stream([[p[0], p[1], 2.7], [p[0], p[1], -2.7]], nAmb, 0x7dd3fc, 0.08));
+ });
+
+ const leakS = stream([[-3.4, 1.6, 0.2], [-3.0, 1.4, 1.3], [-2.4, 1.2, 2.4]], lowEnd ? 8 : 14, 0xff6b35, 0.12);
+
+ let lastDom = 0;
+
  return {
-  labels:[['Hot charge in',[-3.6,2.0,0]],['Cooled charge out',[3.6,-1.2,0]],['Core fins',[0,1.25,0]],['End tank',[-1.75,1.4,0]],['Ambient airflow',[0,-1.2,2.4]]],
-  update(c){
-   const boost=.4+1.4*c.k, pr=1+boost;
-   const tin=293*(1+(Math.pow(pr,.286)-1)/.72)-273, eff=.70+.10*(1-c.k), tout=25+(tin-25)*(1-eff);
-   const gain=((273+tin)/(273+tout)-1)*100, sp=.12+.22*c.k;
-   hot.update(c.t,sp,1); mid.update(c.t,sp,1); cool.update(c.t,sp,1);
-   mid.mat.color.copy(lc(0xff6b35,0x38bdf8,.5)); hot.mat.color.copy(lc(0xff6b35,0xffaa55,1-c.k));
-   amb.forEach(a=>a.update(c.t,.3,1));
-   return {big:tout.toFixed(0),unit:' °C',bar:c.k*100,rows:{tin:tin.toFixed(0)+' °C',gain:'+'+gain.toFixed(0)+' %'},
-    ro:{boost:[boost.toFixed(2)+' bar','hi'],tin:[tin.toFixed(0)+' °C','warn'],tout:[tout.toFixed(0)+' °C','ok'],eff:[(eff*100).toFixed(0)+' %',''],gain:['+'+gain.toFixed(0)+' %','ok'],dp:[(3+7*c.k).toFixed(1)+' kPa','']},
-    status:['Cooling charge',true],ctl:boost.toFixed(2)+' bar'};
-  }};
+  labels: [
+    ['Hot charge in', [-3.3, 2.0, 0]],
+    ['Compressor', [-4.5, 2.2, 0]],
+    ['End tank (inlet)', [-1.75, 1.45, 0]],
+    ['Core fins', [0, 1.30, 0]],
+    ['End tank (outlet)', [1.75, 1.45, 0]],
+    ['Cooled charge out', [3.5, -1.3, 0]],
+    ['Ambient airflow', [0, -1.25, 2.4]]
+  ],
+  update(c) {
+   /* ── 1. inputs ─────────────────────────────────────────────── */
+   const dt        = Math.max(0, num(c.dt, 0)) * S.speed;
+   const cmdFrac   = clampN(c.k, 0, 1);
+   const cmdBoost  = cmdFrac * MAX_BOOST;
+   const rpm       = num(S.rpm, 1800);
+   const speedKmh  = num(S.speedKmh, 0);
+   const Tamb      = num(S.ambient, 20);
+   const fault     = S.fault;
+
+   /* toolbar Reset rewinds simT -> detect and clear the model */
+   if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) resetModel();
+   sim.lastT = c.t;
+
+   /* ── 2. turbo spool lag & fault-limited target boost ───────── */
+   const maxB = maxBoostAtRpm(rpm);
+   let targetBoost = Math.min(cmdBoost, maxB);
+   if (fault === 'leaking')       targetBoost *= 0.55;
+   else if (fault === 'clogged')  targetBoost *= 0.96;
+   else if (fault === 'oily')     targetBoost *= 0.98;
+
+   if (dt > 0) {
+     const a = 1 - Math.exp(-dt / TAU_BOOST);
+     sim.actualBoost += (targetBoost - sim.actualBoost) * a;
+   }
+   sim.actualBoost = clampN(sim.actualBoost, 0, 3);
+
+   /* ── 3. oil soak ramps up while the fault is active ────────── */
+   if (fault === 'oily' && dt > 0) {
+     sim.oilSoak = clampN(sim.oilSoak + dt / TAU_OIL, 0, 1);
+   }
+
+   /* ── 4. charge-air temperature out of the compressor ───────── */
+   const Tin = compressorOutletTemp(Tamb, sim.actualBoost, COMP_EFF);
+
+   /* ── 5. ram airflow over the core & charge mass flow ───────── */
+   const ram  = ramAirflow(speedKmh);
+   const flow = chargeMassFlow(rpm, sim.actualBoost);
+
+   /* ── 6. core heat-soak state (first-order lag) ─────────────── */
+   const steadyHot = coreSteadyState(Tin, Tamb, flow, ram);
+   if (dt > 0) {
+     const a = 1 - Math.exp(-dt / TAU_CORE);
+     sim.coreHot += (steadyHot - sim.coreHot) * a;
+   }
+   sim.coreHot = clampN(sim.coreHot, 0, 1);
+
+   /* ── 7. effectiveness, outlet temp, gain, pressure drop ────── */
+   const eff     = intercoolerEffectiveness(ram, sim.coreHot, fault, sim.oilSoak);
+   const tout    = intercoolerOutletTemp(Tin, Tamb, eff);
+   const gain    = densityGain(Tin, tout);
+   const dp      = corePressureDrop(flow, sim.actualBoost, fault);
+   const coreTemp = Tamb + sim.coreHot * (Tin - Tamb) * 0.85;
+
+   /* ── 8. derived state ─────────────────────────────────────── */
+   const underboost = (cmdBoost > 0.4) && (sim.actualBoost < UNDERBOOST * cmdBoost);
+   let stateTxt;
+   if (fault === 'leaking' && underboost) stateTxt = 'Underboost - P0299';
+   else if (tout > 80)                    stateTxt = 'Charge too hot';
+   else if (sim.coreHot > 0.72)           stateTxt = 'Core heat-soaked';
+   else if (eff < 0.55)                   stateTxt = 'Poor cooling';
+   else if (eff > 0.75)                   stateTxt = 'Cooling well';
+   else                                   stateTxt = 'Cooling';
+
+   /* ── 9. 3D visuals ────────────────────────────────────────── */
+   /* fins: glow with core temperature, tint brown when oil-soaked */
+   const hotV = clampN((coreTemp - 35) / 95, 0, 1);
+   alu.color.copy(lc(0xc5ccd6, 0x6b5238, sim.oilSoak * 0.85));
+   alu.emissive.copy(lc(0x000000, 0xff2a00, hotV * 0.7));
+   alu.emissiveIntensity = 0.04 + 1.20 * hotV;
+
+   /* inlet tank reflects the incoming charge temperature */
+   tankHot.color.copy(lc(0xd97c4a, 0xff3a1a, clampN((Tin - 60) / 120, 0, 1)));
+   tankHot.emissive.copy(lc(0x000000, 0xff5a1a, clampN((Tin - 90) / 100, 0, 1)));
+   tankHot.emissiveIntensity = clampN((Tin - 90) / 100, 0, 1) * 0.85;
+
+   /* outlet tank warms slightly when the core is doing badly */
+   tankCold.color.copy(lc(0x5b8fa8, 0x7db8d0, clampN((tout - 35) / 70, 0, 1) * 0.6));
+
+   /* compressor wheel spins faster with boost */
+   const spool = 0.35 + 7.0 * sim.actualBoost;
+   compressorWheel.rotation.z += spool * dt * 4;
+
+   /* clog overlay */
+   clogs.visible = (fault === 'clogged');
+   clogMat.opacity = fault === 'clogged' ? 0.88 : 0;
+
+   /* joint pulses red when the coupler is leaking */
+   if (fault === 'leaking') {
+     jointMat.color.setHex(0xff3030);
+     jointMat.emissive.setHex(0xff2020);
+     jointMat.emissiveIntensity = 0.45 + 0.45 * Math.abs(Math.sin(c.t * 6));
+   } else {
+     jointMat.color.setHex(0x1f2937);
+     jointMat.emissive.setHex(0x000000);
+     jointMat.emissiveIntensity = 0;
+   }
+
+   /* streams: density follows flow; colours follow temperature */
+   const chargeDens = clampN(flow / 1.1, 0.05, 1.05);
+   const chargeSpd  = 0.10 + 0.30 * flow;
+   hotS.update(c.t, chargeSpd, chargeDens);
+   midS.update(c.t, chargeSpd, chargeDens);
+   coolS.update(c.t, chargeSpd, chargeDens);
+   hotS.mat.color.copy(lc(0xffaa55, 0xff5020, clampN((Tin - 70) / 100, 0, 1)));
+   midS.mat.color.copy(lc(0xfbbf24, 0x38bdf8, eff));
+   coolS.mat.color.copy(lc(0x7dd3fc, 0x38bdf8, clampN(1 - (tout - 25) / 70, 0, 1)));
+
+   const ambSpd = 0.22 + 0.45 * (speedKmh / 130);
+   for (let i = 0; i < amb.length; i++) amb[i].update(c.t, ambSpd, ram);
+
+   leakS.update(c.t, 0.42, fault === 'leaking' ? 0.85 : 0);
+
+   /* ── 10. throttled DOM work (graph + warning banner) ───────── */
+   const now = performance.now();
+   if (now - lastDom > 140) {
+     lastDom = now;
+     if (dt > 0) {
+       sim.samples.push({ e: eff, T: tout });
+       if (sim.samples.length > GRAPH_N) sim.samples.shift();
+       drawGraph();
+     }
+     let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
+     if (!warn) {
+       if (underboost) {
+         warn = 'P0299 - underboost. Actual ' + sim.actualBoost.toFixed(2) + ' bar vs target ' + cmdBoost.toFixed(2) + ' bar.';
+       } else if (tout > 85) {
+         warn = 'Charge air at ' + tout.toFixed(0) + ' \u00B0C after the intercooler - the ECU will pull timing to protect the engine.';
+       } else if (sim.coreHot > 0.80) {
+         warn = 'Intercooler core heat-soaked (' + coreTemp.toFixed(0) + ' \u00B0C). Effectiveness will recover once ram airflow cools it down.';
+       } else if (dp > 20) {
+         warn = 'Pressure loss across the intercooler is ' + dp.toFixed(0) + ' kPa - boost response is suffering.';
+       }
+     }
+     elWarn.textContent = warn;
+     elWarn.classList.toggle('show', !!warn);
+   }
+
+   /* ── 11. readouts ─────────────────────────────────────────── */
+   const boostState = underboost ? 'crit' : 'hi';
+   const tinState   = Tin > 150 ? 'crit' : (Tin > 115 ? 'warn' : 'ok');
+   const toutState  = tout > 80 ? 'crit' : (tout > 60 ? 'warn' : 'ok');
+   const effState   = eff < 0.45 ? 'crit' : (eff < 0.60 ? 'warn' : 'ok');
+   const gainState  = gain < 10 ? 'crit' : (gain < 16 ? 'warn' : 'ok');
+   const dpState    = dp > 20 ? 'crit' : (dp > 13 ? 'warn' : 'ok');
+   const coreState  = coreTemp > 100 ? 'crit' : (coreTemp > 75 ? 'warn' : 'ok');
+   const stState    = (tout > 80 || underboost || sim.coreHot > 0.85) ? 'crit'
+                    : (tout > 60 || eff < 0.55 || sim.coreHot > 0.65) ? 'warn'
+                    : 'ok';
+
+   return {
+     big: (eff * 100).toFixed(0),
+     unit: ' %',
+     bar: clampN(eff * 100, 0, 100),
+     rows: {
+       tin:  Tin.toFixed(0) + ' \u00B0C',
+       gain: '+' + gain.toFixed(0) + ' %'
+     },
+     ro: {
+       boost: [sim.actualBoost.toFixed(2) + ' bar', boostState],
+       cmd:   [cmdBoost.toFixed(2) + ' bar', ''],
+       tin:   [Tin.toFixed(0) + ' \u00B0C', tinState],
+       tout:  [tout.toFixed(0) + ' \u00B0C', toutState],
+       eff:   [(eff * 100).toFixed(0) + ' %', effState],
+       gain:  ['+' + gain.toFixed(0) + ' %', gainState],
+       dp:    [dp.toFixed(1) + ' kPa', dpState],
+       coreT: [coreTemp.toFixed(0) + ' \u00B0C', coreState],
+       ram:   [(ram * 100).toFixed(0) + ' %', ''],
+       state: [stateTxt, stState]
+     },
+     status: [stateTxt, true],
+     ctl: cmdBoost.toFixed(2) + ' bar'
+   };
+  }
+ };
 }
 
 runGuidedModule(CFG, build);
