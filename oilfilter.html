@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Oil Filters — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #eab308; }
+html.light-theme { --al-accent: color-mix(in oklch, #eab308 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "oilfilter", "title": "Oil Filters", "kicker": "Lubrication", "accent": "#eab308", "badge": "Full-flow spin-on", "camPos": [4.6, 2.6, 5.8], "target": [0, -0.2, 0], "floorY": -2.6, "ctl": {"label": "Element clogging", "val": 20, "caption": "Filter loading"}, "chipLabel": "Pressure drop", "rows": [["thru", "Via element"], ["state", "State"]], "ro": [["dp", "Pressure drop"], ["thru", "Flow via element"], ["byp", "Bypass valve"], ["fil", "Oil quality"], ["life", "Life used"]], "legend": [["#92653a", "Dirty oil"], ["#fbbf24", "Clean oil"], ["#f5e9c8", "Filter media"]], "overview": "<div class=\"al-sec\"><h4>How it filters<\/h4><p>Oil enters through holes around the base, flows up the outside of the element, passes <b>inward<\/b> through the pleated media and leaves down the centre tube to the engine.<\/p><\/div><div class=\"al-sec\"><h4>Valves<\/h4><ul><li><b>Anti-drain back valve<\/b> – keeps the filter full so oil pressure returns instantly at start-up.<\/li><li><b>Bypass valve<\/b> – opens when the element is blocked or the oil is cold, protecting bearings from oil starvation (unfiltered oil beats no oil).<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Service<\/h4><p>Replace the filter with every oil change – a clogged element eventually forces the bypass open.<\/p><\/div>", "faults": [["Clogged element", "Bypass opens, unfiltered oil reaches bearings and wear rises.", "Change interval; check for sludge or metal in the old element."], ["Leaking gasket", "Oil drips, low oil level.", "Ensure the old gasket came off; hand-tighten a new one ¾ turn."], ["Failed anti-drain valve", "Rattle for a few seconds at cold start.", "Fit a quality filter with a silicone diaphragm valve."]], "quiz": [["Oil flows through the element…", ["Outside to inside", "Inside to outside", "Along the pleats"], 0, "It surrounds the element and flows inward, exiting via the centre tube."], ["The bypass valve opens when…", ["Oil is clean", "Element restriction is too high", "Engine is off"], 1, "It lets oil bypass a blocked or cold-thick element to avoid starvation."], ["Anti-drain valve purpose:", ["Reduce pressure", "Keep the filter full when parked", "Cool the oil"], 1, "A full filter gives immediate oil pressure at start."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,mat,glass,stream,lc,clamp,root,THREE}=H;
+ const dark=mat(0x374151,.6,.5), steel=mat(0x9aa3b2,.85,.3), cu=mat(0xd4a34a,.8,.3);
+ cyl(1.35,1.35,.22,dark,0,-1.7,0);
+ cyl(1.16,1.16,2.9,glass(0x3b82f6,.2),0,-.15,0,null,40,true);
+ cyl(1.0,1.16,.18,glass(0x3b82f6,.3),0,1.4,0);
+ for(let i=0;i<8;i++){ const a=i/8*Math.PI*2; cyl(.07,.07,.26,steel,Math.cos(a)*1.02,-1.7,Math.sin(a)*1.02); }
+ const fm=mat(0xf5e9c8,0,.9), pl=new THREE.Group(); root.add(pl); const N=28;
+ for(let i=0;i<N;i++){ const a=i/N*Math.PI*2, b=box(.52,1.7,.06,fm,Math.cos(a)*.72,0,Math.sin(a)*.72,pl); b.rotation.y=-a; }
+ cyl(.97,.97,.1,dark,0,.9,0); cyl(.97,.97,.1,dark,0,-.9,0);
+ cyl(.22,.22,1.9,glass(0x94a3b8,.5),0,0,0,null,16,true);
+ const valve=cyl(.2,.2,.14,cu,0,1.05,0);
+ const A=stream([[1.06,-1.6,0],[1.06,.85,0]],14,0x92653a,.1);
+ const B=stream([[1.0,0,0],[.4,0,0]],10,0x92653a,.08);
+ const C=stream([[0,.75,0],[0,-1.5,0],[0,-2.5,0]],14,0xfbbf24,.1);
+ const Bp=stream([[1.06,.9,0],[.5,1.1,0],[0,.95,0],[0,.5,0]],10,0x92653a,.1);
+ return {
+  labels:[['Base plate & inlet holes',[1.3,-1.85,0]],['Pleated media',[.9,.35,.7]],['Centre tube (clean out)',[0,-2.5,0]],['Bypass valve',[0,1.5,0]],['Canister',[-1.3,.9,0]]],
+  update(c){
+   const k=c.k, dp=.15+k*k*1.45, byp=clamp((dp-1)/.3), thru=1-byp;
+   fm.color.copy(lc(0xf5e9c8,0x3a2a18,k)); valve.position.y=1.05+byp*.18;
+   const sp=.14+.06*(1-k*.4);
+   A.update(c.t,sp,1); B.update(c.t,sp*thru,thru*(1-.5*k)+.02); C.update(c.t,sp,1); Bp.update(c.t,sp,byp);
+   C.mat.color.copy(lc(0xfbbf24,0x92653a,byp*.85+k*.2));
+   const q=byp>.05?'Unfiltered leak':k>.6?'Loaded':'Good';
+   return {big:dp.toFixed(2),unit:' bar',bar:dp/1.6*100,rows:{thru:(thru*100).toFixed(0)+' %',state:q},
+    ro:{dp:[dp.toFixed(2)+' bar',dp>1?'crit':dp>.7?'warn':'ok'],thru:[(thru*100).toFixed(0)+' %',''],byp:[byp>.05?'OPEN':'Closed',byp>.05?'crit':'ok'],fil:[q,byp>.05?'crit':k>.6?'warn':'ok'],life:[Math.round(k*100)+' %','']},
+    status:[byp>.05?'Bypass open':'Filtering',true],ctl:Math.round(k*100)+' % loaded'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

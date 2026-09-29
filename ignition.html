@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d13">
+<title>Ignition System — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  /* ═══════════════════════════════════════════════════════════
+     PANEL READOUT INTERIOR — live rows, timing curve, cycle bar
+     ═══════════════════════════════════════════════════════════ */
+  #ign-readout { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  #ign-readout .ig-rows {
+    display: flex; flex-direction: column; gap: 5px;
+    font-size: 11.5px; color: var(--text-dim, #94a3b8);
+  }
+  #ign-readout .ig-row {
+    display: flex; justify-content: space-between; gap: 10px;
+    font-family: var(--font-mono);
+  }
+  #ign-readout .ig-row > span:first-child {
+    font-family: var(--font-sans);
+    font-weight: 500;
+  }
+  #ign-readout .ig-row b {
+    color: var(--text, #e5e7eb); font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  html.light-theme #ign-readout .ig-row b { color: #0a0d13; }
+
+  #adv-curve {
+    display: block; width: 100%; height: 78px;
+    margin-top: 4px;
+    border-radius: 6px;
+    background: rgba(0,0,0,.28);
+  }
+  html.light-theme #adv-curve { background: rgba(15,23,42,.05); }
+
+  #cycle-bar {
+    position: relative; height: 12px;
+    margin-top: 8px;
+    background: rgba(0,0,0,.32);
+    border: 1px solid var(--border, rgba(255,255,255,.10));
+    border-radius: 8px; overflow: visible;
+  }
+  #cycle-progress {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: linear-gradient(90deg, #38bdf8, #f59e0b);
+    border-radius: 8px; width: 0%;
+    transition: width .06s linear;
+    box-shadow: 0 0 12px rgba(245,158,11,.55);
+  }
+  .cyc-marker {
+    position: absolute; top: -6px; bottom: -6px;
+    width: 2px; background: #f59e0b;
+    box-shadow: 0 0 8px rgba(245,158,11,.85);
+    pointer-events: none; transition: box-shadow .08s, background .08s;
+  }
+  .cyc-marker > span {
+    position: absolute; top: -15px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px; font-weight: 800;
+    color: #cbd5e1;
+    font-family: var(--font-mono);
+    transition: color .08s;
+  }
+  .cyc-marker.firing { background: #ffd166; box-shadow: 0 0 18px rgba(255,209,102,1); }
+  .cyc-marker.firing > span { color: #ffd166; }
+  #cycle-labels {
+    display: flex; justify-content: space-between;
+    margin-top: 8px;
+    font-size: 10px; color: #64748b;
+    font-family: var(--font-mono);
+    letter-spacing: .05em;
+  }
+  html.light-theme #cycle-labels { color: #94a3b8; }
+
+  .ig-legend {
+    display: flex; flex-wrap: wrap; gap: 6px 12px;
+    margin-top: 10px;
+    font-size: 10px; color: var(--text-dim, #9aa3b2);
+  }
+  .ig-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .ig-legend i {
+    width: 8px; height: 8px; border-radius: 50%;
+    display: inline-block; flex: 0 0 auto;
+  }
+</style>
+</head>
+<body>
+  <div id="canvas-wrap"></div>
+  <div id="labels-root"></div>
+
+  <script src="guard.js"></script>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  } }
+  </script>
+
+  <script type="module">
+  import * as THREE from 'three';
+  import * as Base from './kit.js';
+  import { UI } from './kit.js';
+
+  /* ═══════════════════════════════════════════════════════════
+     BOOTSTRAP
+     ═══════════════════════════════════════════════════════════ */
+  const isCoarse = matchMedia('(pointer: coarse)').matches;
+  const cores    = navigator.hardwareConcurrency || 4;
+  const mem      = navigator.deviceMemory || 4;
+  const isLowEnd = cores <= 4 || mem <= 2;
+
+  const CYL_SEGS    = isLowEnd ? 20 : 28;
+  const SPARK_COUNT = isLowEnd ? 40 : 72;
+  const TAU = Base.TAU;
+  const DEG = Base.DEG;
+
+  const { scene, camera, renderer, controls, wrap, viewManager } = Base.buildScene({
+    fov: 40,
+    camPos: isCoarse ? [1.6, 1.9, 5.4] : [1.85, 2.15, 6.0],
+    target: [-0.15, 0.05, 0],
+    floorY: -2.15,
+    fogDensity: 0.022
+  });
+  Base.attachResize(camera, renderer, wrap, 40);
+
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
+
+  const particleTex = Base.createParticleTexture();
+  const labels = Base.createLabelSystem();
+  const state  = Base.createUIState();
+
+  /* ═══════════════════════════════════════════════════════════
+     ENVIRONMENT + AMBIENT PARTICLES
+     ═══════════════════════════════════════════════════════════ */
+  /* Key light — warm from upper-right */
+  const keyLight = new THREE.DirectionalLight(0xfff0dc, 2.2);
+  keyLight.position.set(4, 6, 5);
+  scene.add(keyLight);
+
+  /* Cool rim from behind-left */
+  const rimLight = new THREE.DirectionalLight(0x74a8ff, 1.4);
+  rimLight.position.set(-6, 3, -5);
+  scene.add(rimLight);
+
+  /* Ambient fill so nothing is pure black */
+  scene.add(new THREE.HemisphereLight(0x8899bb, 0x0a0c12, 0.55));
+
+  /* Ambient dust motes — atmospheric depth */
+  const DUST_N = isLowEnd ? 80 : 180;
+  const dustGeo = new THREE.BufferGeometry();
+  const dustPos = new Float32Array(DUST_N * 3);
+  const dustVel = [];
+  for (let i = 0; i < DUST_N; i++) {
+    dustPos[i*3]   = (Math.random() - 0.5) * 8;
+    dustPos[i*3+1] = (Math.random() - 0.5) * 5;
+    dustPos[i*3+2] = (Math.random() - 0.5) * 6;
+    dustVel.push({
+      vx: (Math.random() - 0.5) * 0.02,
+      vy: 0.01 + Math.random() * 0.03,
+      vz: (Math.random() - 0.5) * 0.02
+    });
+  }
+  dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+  const dustMat = new THREE.PointsMaterial({
+    map: particleTex, size: 0.045, sizeAttenuation: true,
+    color: 0x9bb6cc, transparent: true, opacity: 0.35,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  const dustPoints = new THREE.Points(dustGeo, dustMat);
+  dustPoints.frustumCulled = false;
+  scene.add(dustPoints);
+
+  /* ═══════════════════════════════════════════════════════════
+     MATERIALS — richer palette, more contrast
+     ═══════════════════════════════════════════════════════════ */
+  const M = {
+    steel:       new THREE.MeshStandardMaterial({ color: 0xb8c2ce, metalness: 0.92, roughness: 0.22 }),
+    steelDark:   new THREE.MeshStandardMaterial({ color: 0x1e2530, metalness: 0.72, roughness: 0.50 }),
+    alum:        new THREE.MeshStandardMaterial({ color: 0xcbd3de, metalness: 0.88, roughness: 0.24, envMapIntensity: 1.3 }),
+    brass:       new THREE.MeshStandardMaterial({ color: 0xe0ae4a, metalness: 0.94, roughness: 0.18, envMapIntensity: 1.5 }),
+    copper:      new THREE.MeshStandardMaterial({ color: 0xd47e35, metalness: 0.92, roughness: 0.24, envMapIntensity: 1.4 }),
+    batteryBlk:  new THREE.MeshStandardMaterial({ color: 0x121620, metalness: 0.42, roughness: 0.58 }),
+    batteryRed:  new THREE.MeshStandardMaterial({ color: 0xd52a38, metalness: 0.55, roughness: 0.38, emissive: 0x3a0a10, emissiveIntensity: 0.4 }),
+    batteryDk:   new THREE.MeshStandardMaterial({ color: 0x0a0d14, metalness: 0.58, roughness: 0.42 }),
+    coilBody:    new THREE.MeshStandardMaterial({ color: 0x1a1e28, metalness: 0.65, roughness: 0.45, emissive: 0x0a0d18, emissiveIntensity: 0.4 }),
+    coilTower:   new THREE.MeshStandardMaterial({ color: 0x0c1018, metalness: 0.32, roughness: 0.72 }),
+    coilWinding: new THREE.MeshStandardMaterial({ color: 0xcf8a3a, metalness: 0.85, roughness: 0.35, emissive: 0x8a4a10, emissiveIntensity: 0.4 }),
+    distCap:     new THREE.MeshPhysicalMaterial({
+      color: 0xa01d1d, metalness: 0.35, roughness: 0.45,
+      transmission: 0.3, transparent: true, opacity: 0.72,
+      clearcoat: 0.8, clearcoatRoughness: 0.2
+    }),
+    distBase:    new THREE.MeshStandardMaterial({ color: 0xb0b8be, metalness: 0.9, roughness: 0.26 }),
+    plugCeramic: new THREE.MeshStandardMaterial({ color: 0xf8f4ea, metalness: 0.04, roughness: 0.42, emissive: 0x221a10, emissiveIntensity: 0.2 }),
+    plugHex:     new THREE.MeshStandardMaterial({ color: 0xbcc4d0, metalness: 0.92, roughness: 0.22 }),
+    plugThread:  new THREE.MeshStandardMaterial({ color: 0x8a94a5, metalness: 0.94, roughness: 0.28 }),
+    electrode:   new THREE.MeshStandardMaterial({
+      color: 0xd4a24a, metalness: 0.9, roughness: 0.22,
+      emissive: 0xffa020, emissiveIntensity: 0
+    }),
+    ecuBody:     new THREE.MeshStandardMaterial({ color: 0x0e121a, metalness: 0.38, roughness: 0.58, emissive: 0x0a2a1a, emissiveIntensity: 0.2 }),
+    ecuConn:     new THREE.MeshStandardMaterial({ color: 0x0a0d14, metalness: 0.45, roughness: 0.55 }),
+    groundBar:   new THREE.MeshStandardMaterial({ color: 0x2f3744, metalness: 0.88, roughness: 0.32 }),
+    block:       new THREE.MeshStandardMaterial({ color: 0x485260, metalness: 0.78, roughness: 0.40 }),
+    blockCut:    new THREE.MeshStandardMaterial({ color: 0xd86838, metalness: 0.20, roughness: 0.65, side: THREE.DoubleSide, emissive: 0x3a1206, emissiveIntensity: 0.5 }),
+    bore:        new THREE.MeshStandardMaterial({ color: 0x10151c, metalness: 0.75, roughness: 0.50, side: THREE.DoubleSide }),
+    piston:      new THREE.MeshStandardMaterial({ color: 0xd8dfe8, metalness: 0.88, roughness: 0.20 }),
+    rod:         new THREE.MeshStandardMaterial({ color: 0x9aa4b2, metalness: 0.88, roughness: 0.26 }),
+    crank:       new THREE.MeshStandardMaterial({ color: 0x8a94a5, metalness: 0.92, roughness: 0.24 }),
+    wireRed:     new THREE.MeshStandardMaterial({ color: 0xe0303c, metalness: 0.35, roughness: 0.48, emissive: 0xe0303c, emissiveIntensity: 0 }),
+    wireBlue:    new THREE.MeshStandardMaterial({ color: 0x3a7fe0, metalness: 0.35, roughness: 0.48, emissive: 0x3a7fe0, emissiveIntensity: 0 }),
+    wireBlack:   new THREE.MeshStandardMaterial({ color: 0x14171d, metalness: 0.32, roughness: 0.62 }),
+    wireSignal:  new THREE.MeshStandardMaterial({ color: 0x1ac078, metalness: 0.32, roughness: 0.48, emissive: 0x1ac078, emissiveIntensity: 0 }),
+    spark:       new THREE.MeshBasicMaterial({ color: 0xfff5a0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }),
+    arc:         new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+  };
+
+  const system = new THREE.Group();
+  scene.add(system);
+
+  /* ═══════════════════════════════════════════════════════════
+     HELPERS
+     ═══════════════════════════════════════════════════════════ */
+  function makeLabelTexture(text, opts = {}) {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 128;
+    const g = c.getContext('2d');
+    if (opts.bg) { g.fillStyle = opts.bg; g.fillRect(0, 0, 512, 128); }
+    g.fillStyle = opts.fg || '#e5e7eb';
+    g.font = `bold ${opts.size || 56}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(text, 256, 64);
+    const t = new THREE.CanvasTexture(c);
+    t.anisotropy = 4;
+    return t;
+  }
+  function makeLabelPlane(text, w, h, opts = {}) {
+    const tex = makeLabelTexture(text, opts);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+    return new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  }
+  function makeSymbolTexture(sym, color = '#ffffff') {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = color;
+    g.font = 'bold 56px -apple-system, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(sym, 32, 34);
+    return new THREE.CanvasTexture(c);
+  }
+  function makeSymbolPlane(sym, size, color) {
+    const tex = makeSymbolTexture(sym, color);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+    return new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
+  }
+
+  function buildManhattanPoints(waypoints, fillet = 0.045) {
+    const pts = [];
+    for (let i = 0; i < waypoints.length; i++) {
+      const curr = waypoints[i];
+      if (i === 0 || i === waypoints.length - 1) { pts.push(curr.clone()); continue; }
+      const prev = waypoints[i - 1];
+      const next = waypoints[i + 1];
+      const toPrev = new THREE.Vector3().subVectors(prev, curr);
+      const toNext = new THREE.Vector3().subVectors(next, curr);
+      const dPrev = toPrev.length();
+      const dNext = toNext.length();
+      if (dPrev < 1e-5 || dNext < 1e-5) { pts.push(curr.clone()); continue; }
+      toPrev.divideScalar(dPrev);
+      toNext.divideScalar(dNext);
+      const cosA = toPrev.dot(toNext);
+      if (cosA > 0.9995) { pts.push(curr.clone()); continue; }
+      const r = Math.min(fillet, dPrev * 0.4, dNext * 0.4);
+      const p1 = curr.clone().addScaledVector(toPrev, r);
+      const p2 = curr.clone().addScaledVector(toNext, r);
+      const SEGS = 5;
+      for (let s = 0; s <= SEGS; s++) {
+        const t = s / SEGS, mt = 1 - t;
+        pts.push(new THREE.Vector3()
+          .copy(p1).multiplyScalar(mt * mt)
+          .addScaledVector(curr, 2 * mt * t)
+          .addScaledVector(p2, t * t));
+      }
+    }
+    return pts;
+  }
+
+  function makeManhattanWire(waypoints, radius, mat, fillet = 0.045) {
+    const pts = buildManhattanPoints(waypoints, fillet);
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+    const geo = new THREE.TubeGeometry(
+      curve, Math.max(24, pts.length * 2), radius, isLowEnd ? 6 : 10, false
+    );
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    return { mesh, curve };
+  }
+
+  /* Lightning arc between two points — the visceral spark effect */
+  function makeLightningArc(a, b, color, jitter = 0.055, segs = 9, thickness = 0.010) {
+    const pts = [];
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      const p = a.clone().lerp(b, t);
+      if (i > 0 && i < segs) {
+        p.x += (Math.random() - 0.5) * jitter;
+        p.y += (Math.random() - 0.5) * jitter;
+        p.z += (Math.random() - 0.5) * jitter;
+      }
+      pts.push(p);
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const geo = new THREE.TubeGeometry(curve, segs * 3, thickness, 5, false);
+    const mat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 1,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 10;
+    return { mesh, mat };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     LAYOUT
+     ═══════════════════════════════════════════════════════════ */
+  const BAT  = new THREE.Vector3(-2.20, -0.65, 0);
+  const SW   = new THREE.Vector3(-2.20,  0.80, 0);
+  const FUSE = new THREE.Vector3(-1.15,  1.35, 0);
+  const COIL = new THREE.Vector3(-0.30,  0.50, 0);
+  const DIST = new THREE.Vector3( 1.20,  0.55, 0);
+  const ECU  = new THREE.Vector3(-1.30, -0.90, 0.35);
+  const GND  = new THREE.Vector3(-2.20, -1.30, 0);
+  const PLUG_Y  = -0.90;
+  const PLUG_XS = [0.55, 1.10, 1.65, 2.20];
+
+  /* ═══════════════════════════════════════════════════════════
+     BATTERY
+     ═══════════════════════════════════════════════════════════ */
+  const batGroup = new THREE.Group();
+  batGroup.position.copy(BAT);
+  system.add(batGroup);
+
+  const batBody = new THREE.Mesh(new THREE.BoxGeometry(0.80, 0.55, 0.48), M.batteryBlk);
+  batBody.castShadow = true; batBody.receiveShadow = true;
+  batGroup.add(batBody);
+
+  const batTop = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.02, 0.50), M.steelDark);
+  batTop.position.y = 0.285;
+  batGroup.add(batTop);
+
+  for (let i = -1; i <= 1; i++) {
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.44), M.steelDark);
+    rib.position.set(i * 0.22, 0.30, 0);
+    batGroup.add(rib);
+  }
+
+  const posTerm = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.058, 0.11, 14), M.batteryRed);
+  posTerm.position.set(0.23, 0.32, 0);
+  posTerm.castShadow = true;
+  batGroup.add(posTerm);
+  const posTermTip = new THREE.Vector3(BAT.x + 0.23, BAT.y + 0.375, BAT.z);
+
+  const negTerm = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.09, 14), M.batteryDk);
+  negTerm.position.set(-0.23, 0.31, 0);
+  negTerm.castShadow = true;
+  batGroup.add(negTerm);
+  const negTermTip = new THREE.Vector3(BAT.x - 0.23, BAT.y + 0.36, BAT.z);
+
+  const plusSym = makeSymbolPlane('+', 0.12, '#ff5566');
+  plusSym.position.set(0.23, 0.46, 0.06);
+  plusSym.rotation.x = -Math.PI / 4;
+  batGroup.add(plusSym);
+  const minusSym = makeSymbolPlane('−', 0.12, '#aab4c3');
+  minusSym.position.set(-0.23, 0.45, 0.06);
+  minusSym.rotation.x = -Math.PI / 4;
+  batGroup.add(minusSym);
+
+  const batLabel = makeLabelPlane('12V', 0.44, 0.12, { fg: '#e5e7eb', size: 72 });
+  batLabel.position.set(0, 0.02, 0.245);
+  batGroup.add(batLabel);
+  const batSub = makeLabelPlane('BATTERY', 0.50, 0.08, { fg: '#94a3b8', size: 48 });
+  batSub.position.set(0, -0.16, 0.245);
+  batGroup.add(batSub);
+
+  /* ═══════════════════════════════════════════════════════════
+     IGNITION SWITCH
+     ═══════════════════════════════════════════════════════════ */
+  const swGroup = new THREE.Group();
+  swGroup.position.copy(SW);
+  system.add(swGroup);
+
+  const swPlate = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.06, 28), M.steelDark);
+  swPlate.rotation.x = Math.PI / 2;
+  swPlate.castShadow = true;
+  swGroup.add(swPlate);
+
+  const swRing = new THREE.Mesh(new THREE.TorusGeometry(0.20, 0.018, 8, 28), M.alum);
+  swRing.position.z = 0.03;
+  swGroup.add(swRing);
+
+  const swKnobGroup = new THREE.Group();
+  swKnobGroup.position.z = 0.10;
+  swGroup.add(swKnobGroup);
+  const swKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.10, 22), M.steel);
+  swKnob.rotation.x = Math.PI / 2;
+  swKnob.castShadow = true;
+  swKnobGroup.add(swKnob);
+  const swSlot = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.07, 0.015), M.batteryDk);
+  swSlot.position.z = 0.055;
+  swKnobGroup.add(swSlot);
+
+  const swRingGlow = new THREE.Mesh(
+    new THREE.TorusGeometry(0.235, 0.012, 8, 32),
+    new THREE.MeshBasicMaterial({ color: 0xffb030, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  swRingGlow.position.z = 0.03;
+  swGroup.add(swRingGlow);
+
+  const swPostL = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.06, 10), M.brass);
+  swPostL.rotation.z = Math.PI / 2;
+  swPostL.position.set(-0.22, 0, 0);
+  swGroup.add(swPostL);
+
+  const swPostR = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.06, 10), M.brass);
+  swPostR.rotation.z = Math.PI / 2;
+  swPostR.position.set(0.22, 0, 0);
+  swGroup.add(swPostR);
+
+  const swConnL = new THREE.Vector3(SW.x - 0.25, SW.y, SW.z);
+  const swConnR = new THREE.Vector3(SW.x + 0.25, SW.y, SW.z);
+
+  /* ═══════════════════════════════════════════════════════════
+     INLINE FUSE
+     ═══════════════════════════════════════════════════════════ */
+  const fuseGroup = new THREE.Group();
+  fuseGroup.position.copy(FUSE);
+  system.add(fuseGroup);
+
+  const fuseGlass = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.075, 0.24, 20, 1, true),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xd6e6ff, transmission: 0.65, transparent: true, opacity: 0.55,
+      depthWrite: false, side: THREE.DoubleSide, roughness: 0.15, metalness: 0.05
+    })
+  );
+  fuseGlass.rotation.z = Math.PI / 2;
+  fuseGroup.add(fuseGlass);
+
+  [-1, 1].forEach(s => {
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.082, 0.082, 0.08, 18), M.brass);
+    cap.rotation.z = Math.PI / 2;
+    cap.position.x = s * 0.15;
+    cap.castShadow = true;
+    fuseGroup.add(cap);
+    const nub = new THREE.Mesh(new THREE.CylinderGeometry(0.030, 0.030, 0.06, 12), M.brass);
+    nub.rotation.z = Math.PI / 2;
+    nub.position.x = s * 0.22;
+    fuseGroup.add(nub);
+  });
+
+  const fuseFilament = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.006, 0.006, 0.20, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffd070, transparent: true, opacity: 0.5 })
+  );
+  fuseFilament.rotation.z = Math.PI / 2;
+  fuseGroup.add(fuseFilament);
+
+  const fuseGlow = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.095, 0.095, 0.28, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffb030, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  fuseGlow.rotation.z = Math.PI / 2;
+  fuseGroup.add(fuseGlow);
+
+  const fuseConnL = new THREE.Vector3(FUSE.x - 0.22, FUSE.y, FUSE.z);
+  const fuseConnR = new THREE.Vector3(FUSE.x + 0.22, FUSE.y, FUSE.z);
+
+  /* ═══════════════════════════════════════════════════════════
+     IGNITION COIL — with visible windings + magnetic halo
+     ═══════════════════════════════════════════════════════════ */
+  const coilGroup = new THREE.Group();
+  coilGroup.position.copy(COIL);
+  system.add(coilGroup);
+
+  const coilCan = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.62, CYL_SEGS), M.coilBody);
+  coilCan.castShadow = true;
+  coilGroup.add(coilCan);
+
+  /* Copper windings visible on the can */
+  for (let i = 0; i < 9; i++) {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.185, 0.010, 6, 32),
+      M.coilWinding
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = -0.24 + i * 0.06;
+    coilGroup.add(ring);
+  }
+
+  const coilTopRing = new THREE.Mesh(new THREE.CylinderGeometry(0.185, 0.185, 0.03, CYL_SEGS), M.steelDark);
+  coilTopRing.position.y = 0.31;
+  coilGroup.add(coilTopRing);
+  const coilBotRing = coilTopRing.clone();
+  coilBotRing.position.y = -0.31;
+  coilGroup.add(coilBotRing);
+
+  const coilLabel = makeLabelPlane('IGNITION COIL', 0.36, 0.10, { fg: '#ffd58a', size: 40 });
+  coilLabel.position.set(0, 0.02, 0.19);
+  coilGroup.add(coilLabel);
+
+  const coilTower = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.22, 18), M.coilTower);
+  coilTower.position.y = 0.42;
+  coilTower.castShadow = true;
+  coilGroup.add(coilTower);
+
+  const coilTowerCap = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.05, 18), M.steelDark);
+  coilTowerCap.position.y = 0.55;
+  coilGroup.add(coilTowerCap);
+
+  const coilTermPos = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.08, 10), M.brass);
+  coilTermPos.rotation.z = Math.PI / 2;
+  coilTermPos.position.set(0.19, 0.12, 0.06);
+  coilGroup.add(coilTermPos);
+  const coilConnPos = new THREE.Vector3(COIL.x + 0.23, COIL.y + 0.12, COIL.z + 0.06);
+
+  const coilTermNeg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.08, 10), M.brass);
+  coilTermNeg.rotation.z = Math.PI / 2;
+  coilTermNeg.position.set(0.19, -0.12, 0.06);
+  coilGroup.add(coilTermNeg);
+  const coilConnNeg = new THREE.Vector3(COIL.x + 0.23, COIL.y - 0.12, COIL.z + 0.06);
+
+  const coilConnHV = new THREE.Vector3(COIL.x, COIL.y + 0.575, COIL.z);
+
+  /* Coil glow — pulses on charge */
+  const coilGlow = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.20, 0.20, 0.66, CYL_SEGS),
+    new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  coilGroup.add(coilGlow);
+
+  /* Magnetic field halo — 3 pulsing rings around the coil */
+  const coilHalo = [];
+  for (let i = 0; i < 3; i++) {
+    const h = new THREE.Mesh(
+      new THREE.TorusGeometry(0.24 + i * 0.03, 0.005, 6, 40),
+      new THREE.MeshBasicMaterial({
+        color: 0x66aaff, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      })
+    );
+    h.rotation.x = Math.PI / 2;
+    h.position.y = 0;
+    coilGroup.add(h);
+    coilHalo.push(h);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     DISTRIBUTOR — with glowing contacts + arc from rotor
+     ═══════════════════════════════════════════════════════════ */
+  const distGroup = new THREE.Group();
+  distGroup.position.copy(DIST);
+  system.add(distGroup);
+
+  const distBody = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.22, 0.34, CYL_SEGS), M.distBase);
+  distBody.castShadow = true;
+  distGroup.add(distBody);
+
+  const distCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.12, 18), M.steelDark);
+  distCollar.position.y = -0.23;
+  distGroup.add(distCollar);
+
+  const distCapMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.20, CYL_SEGS), M.distCap);
+  distCapMesh.position.y = 0.27;
+  distCapMesh.castShadow = true;
+  distCapMesh.renderOrder = 3;
+  distGroup.add(distCapMesh);
+
+  const distCapRim = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.02, 8, 30), M.steelDark);
+  distCapRim.rotation.x = Math.PI / 2;
+  distCapRim.position.y = 0.17;
+  distGroup.add(distCapRim);
+
+  const distCenterPost = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.08, 12), M.coilTower);
+  distCenterPost.position.y = 0.40;
+  distGroup.add(distCenterPost);
+  const distConnHV = new THREE.Vector3(DIST.x, DIST.y + 0.44, DIST.z);
+
+  /* 4 posts — glowing brass with emissive tips */
+  const POST_R = 0.16;
+  const POST_ANG = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
+  const distPosts = [];
+  const distPostMeshes = [];
+  POST_ANG.forEach((a) => {
+    const px = Math.cos(a) * POST_R;
+    const pz = Math.sin(a) * POST_R;
+
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.042, 0.08, 10), M.coilTower);
+    post.position.set(px, 0.36, pz);
+    distGroup.add(post);
+
+    const nub = new THREE.Mesh(
+      new THREE.SphereGeometry(0.030, 10, 8),
+      new THREE.MeshStandardMaterial({
+        color: 0xe0ae4a, metalness: 0.9, roughness: 0.2,
+        emissive: 0xffb020, emissiveIntensity: 0.4
+      })
+    );
+    nub.position.set(px, 0.41, pz);
+    distGroup.add(nub);
+    distPostMeshes.push(nub);
+
+    distPosts.push(new THREE.Vector3(DIST.x + px, DIST.y + 0.41, DIST.z + pz));
+  });
+
+  const rotorPivot = new THREE.Group();
+  rotorPivot.position.y = 0.27;
+  distGroup.add(rotorPivot);
+
+  const rotorBlade = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.028, 0.06), M.copper);
+  rotorBlade.position.x = 0.07;
+  rotorPivot.add(rotorBlade);
+
+  const rotorTip = new THREE.Mesh(
+    new THREE.SphereGeometry(0.030, 14, 10),
+    new THREE.MeshStandardMaterial({
+      color: 0xffd070, emissive: 0xffb030, emissiveIntensity: 0.9,
+      metalness: 0.85, roughness: 0.15
+    })
+  );
+  rotorTip.position.set(0.16, 0, 0);
+  rotorPivot.add(rotorTip);
+
+  /* ═══════════════════════════════════════════════════════════
+     ENGINE BLOCK — with live pistons + crank
+     ═══════════════════════════════════════════════════════════ */
+  const BLOCK_W = 2.10, BLOCK_H = 0.55, BLOCK_D = 0.60, BLOCK_WALL = 0.06;
+  const BLOCK_CX = (PLUG_XS[0] + PLUG_XS[3]) / 2;
+  const BLOCK_CY = PLUG_Y - 0.60;
+
+  const blockGroup = new THREE.Group();
+  blockGroup.position.set(BLOCK_CX, BLOCK_CY, 0);
+  system.add(blockGroup);
+
+  const blockBack = new THREE.Mesh(new THREE.BoxGeometry(BLOCK_W, BLOCK_H, BLOCK_WALL), M.block);
+  blockBack.position.set(0, 0, -BLOCK_D / 2 + BLOCK_WALL / 2);
+  blockBack.castShadow = true; blockBack.receiveShadow = true;
+  blockGroup.add(blockBack);
+
+  const blockLeft = new THREE.Mesh(new THREE.BoxGeometry(BLOCK_WALL, BLOCK_H, BLOCK_D), M.block);
+  blockLeft.position.set(-BLOCK_W / 2 + BLOCK_WALL / 2, 0, 0);
+  blockLeft.castShadow = true;
+  blockGroup.add(blockLeft);
+
+  const blockRight = new THREE.Mesh(new THREE.BoxGeometry(BLOCK_WALL, BLOCK_H, BLOCK_D), M.block);
+  blockRight.position.set(BLOCK_W / 2 - BLOCK_WALL / 2, 0, 0);
+  blockRight.castShadow = true;
+  blockGroup.add(blockRight);
+
+  const blockBottom = new THREE.Mesh(new THREE.BoxGeometry(BLOCK_W, BLOCK_WALL, BLOCK_D), M.block);
+  blockBottom.position.set(0, -BLOCK_H / 2 + BLOCK_WALL / 2, 0);
+  blockBottom.castShadow = true; blockBottom.receiveShadow = true;
+  blockGroup.add(blockBottom);
+
+  const deckGaps = PLUG_XS.map(x => x - BLOCK_CX).sort((a, b) => a - b);
+  const deckSegs = [];
+  let cursor = -BLOCK_W / 2 + BLOCK_WALL / 2;
+  const GAP_HALF = 0.10;
+  deckGaps.forEach(gx => {
+    const a = gx - GAP_HALF, b = gx + GAP_HALF;
+    if (a - cursor > 0.01) deckSegs.push([cursor, a]);
+    cursor = b;
+  });
+  if (BLOCK_W / 2 - BLOCK_WALL / 2 - cursor > 0.01) {
+    deckSegs.push([cursor, BLOCK_W / 2 - BLOCK_WALL / 2]);
+  }
+  deckSegs.forEach(([a, b]) => {
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(b - a, BLOCK_WALL, BLOCK_D), M.block);
+    seg.position.set((a + b) / 2, BLOCK_H / 2 - BLOCK_WALL / 2, 0);
+    seg.castShadow = true;
+    blockGroup.add(seg);
+  });
+
+  const blockCutBack = new THREE.Mesh(
+    new THREE.PlaneGeometry(BLOCK_W - BLOCK_WALL * 2, BLOCK_H - BLOCK_WALL), M.blockCut);
+  blockCutBack.position.set(0, BLOCK_WALL / 2, -BLOCK_D / 2 + BLOCK_WALL + 0.001);
+  blockGroup.add(blockCutBack);
+
+  const blockCutLeft = new THREE.Mesh(
+    new THREE.PlaneGeometry(BLOCK_D - BLOCK_WALL, BLOCK_H - BLOCK_WALL), M.blockCut);
+  blockCutLeft.rotation.y = Math.PI / 2;
+  blockCutLeft.position.set(-BLOCK_W / 2 + BLOCK_WALL + 0.001, BLOCK_WALL / 2, 0);
+  blockGroup.add(blockCutLeft);
+
+  const blockCutRight = new THREE.Mesh(
+    new THREE.PlaneGeometry(BLOCK_D - BLOCK_WALL, BLOCK_H - BLOCK_WALL), M.blockCut);
+  blockCutRight.rotation.y = -Math.PI / 2;
+  blockCutRight.position.set(BLOCK_W / 2 - BLOCK_WALL - 0.001, BLOCK_WALL / 2, 0);
+  blockGroup.add(blockCutRight);
+
+  const blockCutBottom = new THREE.Mesh(
+    new THREE.PlaneGeometry(BLOCK_W - BLOCK_WALL * 2, BLOCK_D - BLOCK_WALL), M.blockCut);
+  blockCutBottom.rotation.x = -Math.PI / 2;
+  blockCutBottom.position.set(0, -BLOCK_H / 2 + BLOCK_WALL + 0.001, 0);
+  blockGroup.add(blockCutBottom);
+
+  const BORE_R = 0.075;
+  const BORE_H = BLOCK_H - BLOCK_WALL * 2 - 0.02;
+  const boreGeo = new THREE.CylinderGeometry(BORE_R, BORE_R, BORE_H, 20, 1, true);
+  const boreRimGeo = new THREE.TorusGeometry(BORE_R, 0.008, 6, 20);
+
+  /* Pistons — 4 visible, moving with the crank */
+  const pistons = [];
+  const pistonRodGeo = new THREE.BoxGeometry(0.014, 0.14, 0.014);
+  const pistonBodyGeo = new THREE.CylinderGeometry(BORE_R * 0.86, BORE_R * 0.86, 0.075, 16);
+  const pistonRingGeo = new THREE.TorusGeometry(BORE_R * 0.87, 0.005, 5, 16);
+
+  PLUG_XS.forEach(px => {
+    const rx = px - BLOCK_CX;
+    const bore = new THREE.Mesh(boreGeo, M.bore);
+    bore.position.set(rx, -BLOCK_WALL / 2 + 0.02, 0);
+    blockGroup.add(bore);
+
+    const rim = new THREE.Mesh(boreRimGeo, M.steelDark);
+    rim.rotation.x = Math.PI / 2;
+    rim.position.set(rx, BLOCK_H / 2 - BLOCK_WALL - 0.005, 0);
+    blockGroup.add(rim);
+
+    /* Piston body */
+    const pGroup = new THREE.Group();
+    pGroup.position.set(rx, 0, 0);
+    blockGroup.add(pGroup);
+
+    const pBody = new THREE.Mesh(pistonBodyGeo, M.piston);
+    pBody.castShadow = true;
+    pGroup.add(pBody);
+
+    const pRing1 = new THREE.Mesh(pistonRingGeo, M.steelDark);
+    pRing1.rotation.x = Math.PI / 2; pRing1.position.y = 0.025; pGroup.add(pRing1);
+    const pRing2 = pRing1.clone(); pRing2.position.y = 0.010; pGroup.add(pRing2);
+
+    /* Rod */
+    const rod = new THREE.Mesh(pistonRodGeo, M.rod);
+    rod.position.y = -0.10;
+    rod.castShadow = true;
+    pGroup.add(rod);
+
+    pistons.push({ group: pGroup, rod });
+  });
+
+  /* Crankshaft — visible below the pistons */
+  const crankGroup = new THREE.Group();
+  crankGroup.position.y = -BLOCK_H / 2 + 0.10;
+  blockGroup.add(crankGroup);
+
+  const crankShaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.022, 0.022, BLOCK_W * 0.85, 16),
+    M.crank
+  );
+  crankShaft.rotation.z = Math.PI / 2;
+  crankGroup.add(crankShaft);
+
+  const crankThrows = [];
+  PLUG_XS.forEach(px => {
+    const rx = px - BLOCK_CX;
+    const t = new THREE.Group();
+    t.position.x = rx;
+    crankGroup.add(t);
+
+    const pin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.030, 0.030, 0.055, 14),
+      M.steel
+    );
+    pin.rotation.x = Math.PI / 2;
+    pin.position.y = 0.075;
+    t.add(pin);
+
+    const web = new THREE.Mesh(
+      new THREE.BoxGeometry(0.014, 0.16, 0.045),
+      M.crank
+    );
+    t.add(web);
+
+    crankThrows.push({ group: t, pin });
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     SPARK PLUGS
+     ═══════════════════════════════════════════════════════════ */
+  function makeSparkPlug() {
+    const g = new THREE.Group();
+
+    const ceramic = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.038, 0.26, 16), M.plugCeramic);
+    ceramic.position.y = 0.20;
+    ceramic.castShadow = true;
+    g.add(ceramic);
+
+    for (let i = 0; i < 3; i++) {
+      const rib = new THREE.Mesh(new THREE.TorusGeometry(0.042, 0.006, 6, 14), M.plugCeramic);
+      rib.rotation.x = Math.PI / 2;
+      rib.position.y = 0.13 + i * 0.055;
+      g.add(rib);
+    }
+
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.055, 0.06, 14), M.plugHex);
+    collar.position.y = 0.02;
+    g.add(collar);
+
+    const hex = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.09, 6), M.plugHex);
+    hex.position.y = -0.06;
+    hex.rotation.y = Math.PI / 6;
+    hex.castShadow = true;
+    g.add(hex);
+
+    const thread = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.16, 14), M.plugThread);
+    thread.position.y = -0.185;
+    g.add(thread);
+
+    for (let i = 0; i < 4; i++) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.053, 0.003, 5, 12), M.steelDark);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = -0.12 - i * 0.035;
+      g.add(ring);
+    }
+
+    const electrodeMat = M.electrode.clone();
+    const electrode = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.012, 0.06, 8), electrodeMat);
+    electrode.position.y = -0.295;
+    g.add(electrode);
+
+    const ground1 = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.05, 0.008), M.plugThread);
+    ground1.position.set(0.030, -0.315, 0);
+    g.add(ground1);
+    const ground2 = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.008, 0.008), M.plugThread);
+    ground2.position.set(0.016, -0.340, 0);
+    g.add(ground2);
+
+    const flash = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), M.spark.clone());
+    flash.position.y = -0.330;
+    g.add(flash);
+
+    /* Shockwave ring — expands outward on fire */
+    const shockwave = new THREE.Mesh(
+      new THREE.RingGeometry(0.05, 0.08, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0xffe080, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+      })
+    );
+    shockwave.rotation.x = Math.PI / 2;
+    shockwave.position.y = -0.330;
+    g.add(shockwave);
+
+    const arcSprite = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.16), M.arc.clone());
+    arcSprite.position.y = -0.330;
+    g.add(arcSprite);
+
+    /* Flash light — illuminates the scene */
+    const sparkLight = new THREE.PointLight(0xffb040, 0, 2.2, 2);
+    sparkLight.position.y = -0.330;
+    g.add(sparkLight);
+
+    return { group: g, flash, arcSprite, electrodeMat, shockwave, sparkLight };
+  }
+
+  const plugs = [];
+  PLUG_XS.forEach(x => {
+    const p = makeSparkPlug();
+    p.group.position.set(x, PLUG_Y, 0);
+    system.add(p.group);
+    plugs.push(p);
+  });
+
+  const plugTopY = PLUG_Y + 0.33;
+  const plugTopPositions = PLUG_XS.map(x => new THREE.Vector3(x, plugTopY, 0));
+  const plugSparkY = PLUG_Y - 0.330;
+
+  /* ═══════════════════════════════════════════════════════════
+     ECU
+     ═══════════════════════════════════════════════════════════ */
+  const ecuGroup = new THREE.Group();
+  ecuGroup.position.copy(ECU);
+  system.add(ecuGroup);
+
+  const ecuBox = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.42, 0.30), M.ecuBody);
+  ecuBox.castShadow = true;
+  ecuGroup.add(ecuBox);
+
+  const ecuLid = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.02, 0.28), M.steelDark);
+  ecuLid.position.y = 0.22;
+  ecuGroup.add(ecuLid);
+
+  const ecuConn1 = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.06, 0.06), M.ecuConn);
+  ecuConn1.position.set(0, -0.10, 0.17);
+  ecuGroup.add(ecuConn1);
+
+  for (let i = 0; i < 6; i++) {
+    const pin = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.025, 0.03), M.brass);
+    pin.position.set(-0.16 + i * 0.065, -0.10, 0.21);
+    ecuGroup.add(pin);
+  }
+
+  const ecuConn2 = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.05, 0.05), M.ecuConn);
+  ecuConn2.position.set(0, -0.19, 0.17);
+  ecuGroup.add(ecuConn2);
+
+  const ecuLabel = makeLabelPlane('ECU', 0.30, 0.10, { fg: '#8effb0', size: 64 });
+  ecuLabel.rotation.x = -Math.PI / 2;
+  ecuLabel.position.set(0, 0.222, 0);
+  ecuGroup.add(ecuLabel);
+
+  const ecuConnPt = new THREE.Vector3(ECU.x + 0.30, ECU.y + 0.21, ECU.z + 0.05);
+  const ecuConnLeft = new THREE.Vector3(ECU.x - 0.30, ECU.y - 0.05, ECU.z + 0.10);
+
+  const ecuLed = new THREE.Mesh(
+    new THREE.SphereGeometry(0.024, 12, 8),
+    new THREE.MeshBasicMaterial({ color: 0x18b070 })
+  );
+  ecuLed.position.set(0.28, 0.20, 0.11);
+  ecuGroup.add(ecuLed);
+
+  /* ═══════════════════════════════════════════════════════════
+     GROUND
+     ═══════════════════════════════════════════════════════════ */
+  const gndGroup = new THREE.Group();
+  gndGroup.position.copy(GND);
+  system.add(gndGroup);
+
+  const gndStub = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.18, 8), M.steelDark);
+  gndStub.position.y = 0.09;
+  gndGroup.add(gndStub);
+
+  const barWidths = [0.42, 0.28, 0.14];
+  barWidths.forEach((w, i) => {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(w, 0.02, 0.03), M.groundBar);
+    bar.position.y = -0.02 - i * 0.05;
+    gndGroup.add(bar);
+  });
+
+  const gndConnPt = new THREE.Vector3(GND.x, GND.y + 0.18, GND.z);
+
+  /* ═══════════════════════════════════════════════════════════
+     WIRES + FLOW PARTICLES
+     ═══════════════════════════════════════════════════════════ */
+  const wireMeshes = [];
+  const wireFlows = [];
+
+  function addWire(waypoints, radius, mat, glowColor, cylIndex, flowColor) {
+    const { mesh, curve } = makeManhattanWire(waypoints, radius, mat, 0.045);
+    system.add(mesh);
+
+    let glowMat = null;
+    if (glowColor !== undefined) {
+      glowMat = new THREE.MeshBasicMaterial({
+        color: glowColor, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      });
+      const glowMesh = new THREE.Mesh(mesh.geometry, glowMat);
+      glowMesh.scale.setScalar(1.5);
+      system.add(glowMesh);
+    }
+
+    /* Flow particles inside the wire */
+    let flow = null;
+    if (flowColor !== undefined) {
+      const COUNT = isLowEnd ? 4 : 8;
+      const fGeo = new THREE.BufferGeometry();
+      const fPos = new Float32Array(COUNT * 3);
+      fGeo.setAttribute('position', new THREE.BufferAttribute(fPos, 3));
+      const fMat = new THREE.PointsMaterial({
+        map: particleTex, size: 0.055, sizeAttenuation: true,
+        color: flowColor, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      });
+      const fPoints = new THREE.Points(fGeo, fMat);
+      fPoints.frustumCulled = false;
+      fPoints.renderOrder = 6;
+      system.add(fPoints);
+      const fData = [];
+      for (let i = 0; i < COUNT; i++) fData.push({ t: i / COUNT });
+      flow = { geo: fGeo, points: fPoints, data: fData, curve, count: COUNT, mat: fMat };
+      wireFlows.push(flow);
+    }
+
+    wireMeshes.push({ mesh, glowMat, cylIndex: cylIndex ?? null });
+    return mesh;
+  }
+
+  /* 1. Battery + → Switch left post */
+  addWire([
+    posTermTip.clone(),
+    new THREE.Vector3(posTermTip.x, SW.y - 0.38, SW.z),
+    new THREE.Vector3(swConnL.x, SW.y - 0.38, SW.z),
+    swConnL.clone()
+  ], 0.024, M.wireRed, 0xff4455, null, 0xff5050);
+
+  /* 2. Switch right → Fuse left */
+  addWire([
+    swConnR.clone(),
+    new THREE.Vector3(FUSE.x - 0.40, SW.y, SW.z),
+    new THREE.Vector3(FUSE.x - 0.40, FUSE.y, SW.z),
+    fuseConnL.clone()
+  ], 0.024, M.wireRed, 0xff4455, null, 0xff5050);
+
+  /* 3. Fuse right → Coil primary + */
+  addWire([
+    fuseConnR.clone(),
+    new THREE.Vector3(coilConnPos.x + 0.20, FUSE.y, coilConnPos.z),
+    new THREE.Vector3(coilConnPos.x + 0.20, coilConnPos.y, coilConnPos.z),
+    coilConnPos.clone()
+  ], 0.024, M.wireRed, 0xff4455, null, 0xff5050);
+
+  /* 4. Coil primary − → ECU (signal) */
+  addWire([
+    coilConnNeg.clone(),
+    new THREE.Vector3(coilConnNeg.x, coilConnNeg.y, 0.30),
+    new THREE.Vector3(ecuConnPt.x, coilConnNeg.y, 0.30),
+    new THREE.Vector3(ecuConnPt.x, ecuConnPt.y, 0.30),
+    ecuConnPt.clone()
+  ], 0.020, M.wireSignal, 0x18ff88, null, 0x30ffa0);
+
+  /* 5. Coil HV tower → Distributor HV post */
+  addWire([
+    coilConnHV.clone(),
+    new THREE.Vector3(coilConnHV.x, 1.40, coilConnHV.z),
+    new THREE.Vector3(distConnHV.x, 1.40, distConnHV.z),
+    distConnHV.clone()
+  ], 0.034, M.wireBlue, 0x4a8fff, null, 0x6ab0ff);
+
+  /* 6. Distributor posts → each plug */
+  const POST_TO_PLUG = [0, 1, 3, 2];
+  distPosts.forEach((post, i) => {
+    const plugIdx = POST_TO_PLUG[i];
+    const plugX = PLUG_XS[plugIdx];
+    const plugTop = plugTopPositions[plugIdx];
+    const overY = DIST.y + 0.55 + i * 0.06;
+
+    addWire([
+      post.clone(),
+      new THREE.Vector3(post.x, overY, post.z),
+      new THREE.Vector3(plugX, overY, post.z),
+      new THREE.Vector3(plugX, plugTop.y + 0.20, post.z),
+      new THREE.Vector3(plugX, plugTop.y + 0.20, 0),
+      new THREE.Vector3(plugX, plugTop.y + 0.10, 0),
+      plugTop.clone()
+    ], 0.022, M.wireBlue, 0x4a8fff, plugIdx, 0x6ab0ff);
+  });
+
+  /* 7. Battery − → Ground */
+  addWire([
+    negTermTip.clone(),
+    new THREE.Vector3(negTermTip.x, negTermTip.y, 0.30),
+    new THREE.Vector3(GND.x - 0.35, negTermTip.y, 0.30),
+    new THREE.Vector3(GND.x - 0.35, GND.y - 0.15, 0.30),
+    new THREE.Vector3(GND.x, GND.y - 0.15, 0.30),
+    new THREE.Vector3(GND.x, GND.y - 0.15, 0),
+    gndConnPt.clone()
+  ], 0.022, M.wireBlack, undefined, null, 0x5588aa);
+
+  /* 8. ECU → Ground */
+  addWire([
+    ecuConnLeft.clone(),
+    new THREE.Vector3(ecuConnLeft.x, ecuConnLeft.y, 0.30),
+    new THREE.Vector3(ecuConnLeft.x, GND.y - 0.15, 0.30),
+    new THREE.Vector3(GND.x + 0.20, GND.y - 0.15, 0.30),
+    new THREE.Vector3(GND.x + 0.20, GND.y - 0.15, 0.02),
+    gndConnPt.clone()
+  ], 0.018, M.wireBlack, undefined, null, 0x5588aa);
+
+  /* ═══════════════════════════════════════════════════════════
+     LIGHTNING ARC POOL — arcs are created on demand and fade out
+     ═══════════════════════════════════════════════════════════ */
+  const activeArcs = [];
+  const coilToDistHV = { a: coilConnHV.clone(), b: distConnHV.clone() };
+
+  function spawnArc(a, b, color, jitter, thickness, life) {
+    const arc = makeLightningArc(a, b, color, jitter, 8, thickness);
+    system.add(arc.mesh);
+    activeArcs.push({ ...arc, life, maxLife: life });
+  }
+
+  function updateArcs(dt) {
+    for (let i = activeArcs.length - 1; i >= 0; i--) {
+      const a = activeArcs[i];
+      a.life -= dt;
+      a.mat.opacity = Math.max(0, a.life / a.maxLife);
+      if (a.life <= 0) {
+        system.remove(a.mesh);
+        a.mesh.geometry.dispose();
+        a.mat.dispose();
+        activeArcs.splice(i, 1);
+      }
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SPARK PARTICLES
+     ═══════════════════════════════════════════════════════════ */
+  const sparkGeo = new THREE.BufferGeometry();
+  const sparkPos = new Float32Array(SPARK_COUNT * 3);
+  const sparkCol = new Float32Array(SPARK_COUNT * 3);
+  sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+  sparkGeo.setAttribute('color',    new THREE.BufferAttribute(sparkCol, 3));
+
+  const sparkMat = new THREE.PointsMaterial({
+    map: particleTex, size: 0.10, sizeAttenuation: true,
+    vertexColors: true, transparent: true, opacity: 0.95,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  const sparkParticles = new THREE.Points(sparkGeo, sparkMat);
+  sparkParticles.visible = false;
+  sparkParticles.renderOrder = 5;
+  system.add(sparkParticles);
+
+  const sparkData = [];
+  for (let i = 0; i < SPARK_COUNT; i++) {
+    sparkData.push({ life: 0, maxLife: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 });
+  }
+
+  const plugFlash = [0, 0, 0, 0];
+  const shockwaveAnim = [0, 0, 0, 0];
+
+  function spawnSparkBurst(plugIdx) {
+    const x0 = PLUG_XS[plugIdx];
+    const y0 = plugSparkY;
+    let placed = 0;
+    for (let i = 0; i < SPARK_COUNT && placed < 16; i++) {
+      const s = sparkData[i];
+      if (s.life > 0) continue;
+      const a = Math.random() * TAU;
+      const r = 0.5 + Math.random() * 1.4;
+      s.x = x0; s.y = y0; s.z = 0;
+      s.vx = Math.cos(a) * r;
+      s.vy = 1.1 + Math.random() * 1.8;
+      s.vz = Math.sin(a) * r;
+      s.maxLife = 0.22 + Math.random() * 0.30;
+      s.life = s.maxLife;
+      placed++;
+    }
+  }
+
+  function updateSparkBurst(dt) {
+    let anyAlive = false;
+    for (let i = 0; i < SPARK_COUNT; i++) {
+      const s = sparkData[i];
+      const i3 = i * 3;
+      if (s.life > 0) {
+        anyAlive = true;
+        s.life -= dt;
+        s.vy -= 9 * dt;
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+        s.z += s.vz * dt;
+        const f = Math.max(0, s.life / s.maxLife);
+        sparkPos[i3]     = s.x;
+        sparkPos[i3 + 1] = s.y;
+        sparkPos[i3 + 2] = s.z;
+        sparkCol[i3]     = 1.0;
+        sparkCol[i3 + 1] = 0.72 + 0.28 * f;
+        sparkCol[i3 + 2] = 0.15 * f;
+      } else {
+        sparkPos[i3 + 1] = -100;
+        sparkCol[i3] = sparkCol[i3 + 1] = sparkCol[i3 + 2] = 0;
+      }
+    }
+    sparkGeo.attributes.position.needsUpdate = true;
+    sparkGeo.attributes.color.needsUpdate = true;
+    sparkParticles.visible = anyAlive && state.showGas !== false;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     LABELS
+     ═══════════════════════════════════════════════════════════ */
+  const labelDefs = [
+    { id:'bat',    text:'12V Battery',      pos: new THREE.Vector3(BAT.x, BAT.y - 0.45, BAT.z) },
+    { id:'switch', text:'Ignition switch',  pos: new THREE.Vector3(SW.x, SW.y + 0.35, SW.z) },
+    { id:'fuse',   text:'Fuse',             pos: new THREE.Vector3(FUSE.x, FUSE.y + 0.24, FUSE.z) },
+    { id:'coil',   text:'Ignition coil',    pos: new THREE.Vector3(COIL.x - 0.40, COIL.y + 0.60, COIL.z) },
+    { id:'dist',   text:'Distributor',      pos: new THREE.Vector3(DIST.x, DIST.y + 1.05, DIST.z) },
+    { id:'ecu',    text:'ECU',              pos: new THREE.Vector3(ECU.x, ECU.y - 0.42, ECU.z) },
+    { id:'gnd',    text:'Ground (frame)',   pos: new THREE.Vector3(GND.x - 0.10, GND.y - 0.32, GND.z) },
+    { id:'plug1',  text:'Spark plug 1',     pos: new THREE.Vector3(PLUG_XS[0], PLUG_Y - 1.25, 0) },
+    { id:'plug2',  text:'Spark plug 2',     pos: new THREE.Vector3(PLUG_XS[1], PLUG_Y - 1.25, 0) },
+    { id:'plug3',  text:'Spark plug 3',     pos: new THREE.Vector3(PLUG_XS[2], PLUG_Y - 1.25, 0) },
+    { id:'plug4',  text:'Spark plug 4',     pos: new THREE.Vector3(PLUG_XS[3], PLUG_Y - 1.25, 0) }
+  ];
+  labelDefs.forEach(d => labels.add(d.id, d.text));
+
+  /* ═══════════════════════════════════════════════════════════
+     TIMING MODEL
+     ═══════════════════════════════════════════════════════════ */
+  let crankAngle = 0;
+  let prevCrankAngle = 0;
+  let currentRPM = 800;
+
+  const FIRING_ANGLE = [0, 540, 180, 360];
+  /* Piston phase — cyl 1&4 move together, cyl 2&3 move together */
+  const PISTON_PHASE = [0, Math.PI, Math.PI, 0];
+
+  function timingAdvance(rpm) {
+    const r = Math.max(600, Math.min(6000, rpm));
+    if (r < 1500) return 10 + (r - 600) / 900 * 5;
+    if (r < 3000) return 15 + (r - 1500) / 1500 * 10;
+    if (r < 5000) return 25 + (r - 3000) / 2000 * 7;
+    return 32;
+  }
+  function dwellMs(rpm) {
+    const r = Math.max(400, Math.min(6500, rpm));
+    return Math.max(1.4, 4.5 - (r - 400) / 6500 * 3.0);
+  }
+  function angleCrossed(prev, curr, target) {
+    const delta = (curr - prev + 720) % 720;
+    const rel   = (target - prev + 720) % 720;
+    return delta > 0 && rel < delta;
+  }
+  function rpmFromSlider(s) {
+    const t = Math.max(0, Math.min(1, (s - 0.15) / (2.5 - 0.15)));
+    return 800 + t * 5200;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     UI — kit chrome + readout with timing curve + cycle bar
+     ═══════════════════════════════════════════════════════════ */
+  const ui = UI.create({
+    moduleId: 'ignition',
+
+    panel: {
+      kicker: 'Electrical',
+      title:  'Ignition System & Spark Timing',
+      badge:  { text: 'Ignition', color: '#f59e0b' },
+      readout: `
+        <div id="ign-readout">
+          <div class="ig-rows">
+            <div class="ig-row"><span>Engine speed</span><b data-ig="rpm">800 rpm</b></div>
+            <div class="ig-row"><span>Timing advance</span><b data-ig="adv">10° BTDC</b></div>
+            <div class="ig-row"><span>Coil dwell</span><b data-ig="dwell">3.2 ms</b></div>
+            <div class="ig-row"><span>Firing order</span><b>1–3–4–2</b></div>
+          </div>
+          <canvas id="adv-curve" width="360" height="78"></canvas>
+          <div id="cycle-bar">
+            <div id="cycle-progress"></div>
+            <div class="cyc-marker" data-marker="0" style="left:0%"><span>1</span></div>
+            <div class="cyc-marker" data-marker="1" style="left:25%"><span>3</span></div>
+            <div class="cyc-marker" data-marker="2" style="left:50%"><span>4</span></div>
+            <div class="cyc-marker" data-marker="3" style="left:75%"><span>2</span></div>
+          </div>
+          <div id="cycle-labels">
+            <span>0°</span><span>180°</span><span>360°</span><span>540°</span><span>720°</span>
+          </div>
+          <div class="ig-legend">
+            <span><i style="background:#e0303c;box-shadow:0 0 6px #e0303c88"></i>Battery +</span>
+            <span><i style="background:#3a7fe0;box-shadow:0 0 6px #3a7fe088"></i>High voltage</span>
+            <span><i style="background:#1ac078;box-shadow:0 0 6px #1ac07888"></i>ECU signal</span>
+            <span><i style="background:#14171d;box-shadow:0 0 6px #14171d88;border:1px solid #555"></i>Ground</span>
+          </div>
+        </div>
+      `,
+      desc: `<strong>Ignition.</strong> The ignition coil is a transformer — 12 V from the battery flows through its
+             primary winding, building a magnetic field. When the ECU breaks that circuit, the field collapses and
+             induces 20,000–40,000 V in the secondary winding. That high voltage jumps the spark plug gap, igniting
+             the air–fuel mixture.
+             <br><br>
+             <strong>Timing matters.</strong> The mixture doesn't burn instantly. So the spark must fire <em>before</em>
+             the piston reaches TDC. At idle this is ~10° BTDC; as RPM rises, that lead must grow. This is the
+             <em>timing advance curve</em>. Modern systems use <strong>coil-on-plug</strong> — one coil per cylinder,
+             no distributor.`
+    },
+
+    chip: {
+      label: 'Live firing',
+      value: 'Idle',
+      unit:  '',
+      bar:   true,
+      rows: [
+        { id: 'adv', label: 'Advance', value: '10° BTDC' },
+        { id: 'rpm', label: 'RPM',     value: '800' }
+      ],
+      status: { text: 'Ready' }
+    },
+
+    toolbar: {
+      play: true, reset: true,
+      speed: { label: 'Engine RPM', min: 0.15, max: 2.5, step: 0.05, value: 0.15 },
+      labels: true, gas: true
+    }
+  });
+
+  /* Panel readout refs */
+  const panelBody = ui.panel.body;
+  const elRpm    = panelBody ? panelBody.querySelector('[data-ig="rpm"]')   : null;
+  const elAdv    = panelBody ? panelBody.querySelector('[data-ig="adv"]')   : null;
+  const elDwell  = panelBody ? panelBody.querySelector('[data-ig="dwell"]') : null;
+  const cycleProgEl = panelBody ? panelBody.querySelector('#cycle-progress') : null;
+  const advCanvas = panelBody ? panelBody.querySelector('#adv-curve') : null;
+  const advCtx    = advCanvas ? advCanvas.getContext('2d') : null;
+  const markerEls = panelBody ? Array.from(panelBody.querySelectorAll('.cyc-marker')) : [];
+  const strokeDescEl = document.getElementById('stroke-desc');
+
+  /* ═══════════════════════════════════════════════════════════
+     ADVANCE CURVE CHART
+     ═══════════════════════════════════════════════════════════ */
+  const RPM_MAX = 6500, ADV_MAX = 35;
+  function drawAdvanceCurve(rpm, advance) {
+    if (!advCtx || !advCanvas) return;
+    const W = advCanvas.width, H = advCanvas.height;
+    const padL = 30, padR = 10, padT = 8, padB = 22;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    advCtx.clearRect(0, 0, W, H);
+
+    /* Grid */
+    advCtx.strokeStyle = 'rgba(148,163,184,.12)';
+    advCtx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + plotH * i / 4;
+      advCtx.beginPath(); advCtx.moveTo(padL, y); advCtx.lineTo(padL + plotW, y); advCtx.stroke();
+    }
+    for (let i = 0; i <= 6; i++) {
+      const x = padL + plotW * i / 6;
+      advCtx.beginPath(); advCtx.moveTo(x, padT); advCtx.lineTo(x, padT + plotH); advCtx.stroke();
+    }
+
+    /* Curve fill */
+    advCtx.beginPath();
+    for (let r = 600; r <= RPM_MAX; r += 100) {
+      const a = timingAdvance(r);
+      const x = padL + (r / RPM_MAX) * plotW;
+      const y = padT + plotH - (a / ADV_MAX) * plotH;
+      if (r === 600) advCtx.moveTo(x, y); else advCtx.lineTo(x, y);
+    }
+    advCtx.strokeStyle = '#f59e0b';
+    advCtx.lineWidth = 2.4;
+    advCtx.shadowColor = '#f59e0b';
+    advCtx.shadowBlur = 6;
+    advCtx.stroke();
+    advCtx.shadowBlur = 0;
+
+    /* Live dot */
+    const lx = padL + (Math.min(rpm, RPM_MAX) / RPM_MAX) * plotW;
+    const ly = padT + plotH - (Math.min(advance, ADV_MAX) / ADV_MAX) * plotH;
+    advCtx.beginPath(); advCtx.arc(lx, ly, 6, 0, Math.PI * 2);
+    advCtx.fillStyle = '#fff'; advCtx.fill();
+    advCtx.strokeStyle = '#f59e0b'; advCtx.lineWidth = 2; advCtx.stroke();
+
+    const t = performance.now() * 0.004;
+    const rr = 9 + Math.sin(t) * 3;
+    advCtx.beginPath(); advCtx.arc(lx, ly, rr, 0, Math.PI * 2);
+    advCtx.strokeStyle = 'rgba(245,158,11,.6)'; advCtx.lineWidth = 1.2; advCtx.stroke();
+
+    /* Labels */
+    advCtx.fillStyle = 'rgba(148,163,184,.85)';
+    advCtx.font = 'bold 9px ui-monospace, monospace';
+    advCtx.textAlign = 'right'; advCtx.textBaseline = 'middle';
+    advCtx.fillText('32°', padL - 4, padT + 2);
+    advCtx.fillText('0°',  padL - 4, padT + plotH);
+    advCtx.textAlign = 'center'; advCtx.textBaseline = 'top';
+    advCtx.fillText('0', padL, padT + plotH + 3);
+    advCtx.fillText('6500', padL + plotW, padT + plotH + 3);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SIM STATE
+     ═══════════════════════════════════════════════════════════ */
+  const ORDER = [0, 2, 3, 1];
+  const VIS_SLOW = 0.08;
+  const CHARGE_WIN_DEG = 64;
+  const START_CRANK = 690;
+
+  let advNow = timingAdvance(currentRPM);
+  let ignitionOn = true;
+  let coilFlash = 0, rotorFlash = 0, ecuBlink = 0, wirePulseShared = 0;
+  let lastFireCyl = -1, lastFireAt = -1e9;
+  let chargeLevel = 0, nextFireCyl = 0;
+  const wirePulseCyl = [0, 0, 0, 0];
+  const markerPulse  = [0, 0, 0, 0];
+  const flameLevel   = [0, 0, 0, 0];
+
+  crankAngle = START_CRANK;
+  prevCrankAngle = START_CRANK;
+
+  const markerForCyl = [null, null, null, null];
+  if (markerEls.length === 4) {
+    ORDER.forEach((cyl, k) => { markerForCyl[cyl] = markerEls[k]; });
+  }
+
+  /* Flame kernel inside each bore */
+  const flameMeshes = PLUG_XS.map(x => {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.062, 14, 10),
+      new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    m.position.set(x, PLUG_Y - 0.62, 0);
+    m.renderOrder = 4;
+    system.add(m);
+    return m;
+  });
+
+  /* Extra point light at the combustion chamber — lights the whole block on fire */
+  const combustionLights = PLUG_XS.map(x => {
+    const l = new THREE.PointLight(0xffaa40, 0, 2.0, 2);
+    l.position.set(x, PLUG_Y - 0.62, 0);
+    system.add(l);
+    return l;
+  });
+
+  /* Arc texture for spark plugs */
+  function makeArcTexture() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d');
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    const bolt = () => {
+      g.beginPath();
+      g.moveTo(66, 10); g.lineTo(56, 38); g.lineTo(73, 52);
+      g.lineTo(55, 82); g.lineTo(66, 118); g.stroke();
+      g.beginPath(); g.moveTo(56, 38); g.lineTo(38, 46); g.stroke();
+      g.beginPath(); g.moveTo(73, 52); g.lineTo(92, 62); g.stroke();
+      g.beginPath(); g.moveTo(55, 82); g.lineTo(40, 92); g.stroke();
+    };
+    g.strokeStyle = 'rgba(255,214,120,.85)'; g.lineWidth = 9;
+    g.shadowColor = '#ffc248'; g.shadowBlur = 16; bolt();
+    g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.shadowBlur = 5; bolt();
+    return new THREE.CanvasTexture(c);
+  }
+  const arcTexture = makeArcTexture();
+  plugs.forEach(p => {
+    p.arcSprite.material.map = arcTexture;
+    p.arcSprite.material.needsUpdate = true;
+    p.arcSprite.userData.rot = 0;
+    p.arcSprite.scale.setScalar(0.6);
+  });
+
+  const ECU_ON  = new THREE.Color(0x18b070);
+  const ECU_OFF = new THREE.Color(0x0e2f1e);
+  const ECU_HOT = new THREE.Color(0x9dffc8);
+
+  const fireAngle = i => (((FIRING_ANGLE[i] - advNow) % 720) + 720) % 720;
+
+  function fireCyl(i) {
+    plugFlash[i] = 1;
+    flameLevel[i] = 1;
+    shockwaveAnim[i] = 1;
+    wirePulseCyl[i] = 1;
+    wirePulseShared = 1;
+    coilFlash = 1;
+    rotorFlash = 1;
+    ecuBlink = 1;
+    markerPulse[i] = 1;
+    lastFireCyl = i;
+    lastFireAt = performance.now();
+    plugs[i].arcSprite.userData.rot = Math.random() * TAU;
+    spawnSparkBurst(i);
+
+    /* Lightning arcs on fire:
+       a) Coil secondary → distributor tower (HV surge)
+       b) Distributor rotor tip → nearest post
+       c) Plug electrode → ground strap */
+    spawnArc(coilConnHV.clone(), distConnHV.clone(), 0x8ac8ff, 0.05, 0.012, 0.14);
+
+    /* Which post does the rotor fire next? */
+    const postAng = POST_ANG.map(a => (a + advNow * DEG));
+    const rotorAng = (crankAngle / 2 + advNow / 2) * DEG;
+    /* Simplest: find nearest post to rotor tip */
+    let nearest = 0, bestD = Infinity;
+    for (let k = 0; k < 4; k++) {
+      const a = POST_ANG[k];
+      const rAng = rotorAng;
+      let d = Math.abs(((a - rAng) % TAU + TAU) % TAU);
+      if (d > Math.PI) d = TAU - d;
+      if (d < bestD) { bestD = d; nearest = k; }
+    }
+    const rotorTipWorld = new THREE.Vector3();
+    rotorTip.getWorldPosition(rotorTipWorld);
+    const postWorld = distPosts[nearest];
+    spawnArc(rotorTipWorld, postWorld.clone(), 0xffd060, 0.04, 0.009, 0.12);
+
+    /* Plug electrode arc */
+    const electrodePos = new THREE.Vector3(PLUG_XS[i], plugSparkY + 0.02, 0);
+    const groundPos    = new THREE.Vector3(PLUG_XS[i] + 0.02, plugSparkY - 0.005, 0);
+    spawnArc(electrodePos, groundPos, 0xfff0a0, 0.02, 0.008, 0.10);
+  }
+
+  function updateNextFire() {
+    let best = Infinity;
+    for (let i = 0; i < 4; i++) {
+      const d = ((fireAngle(i) - crankAngle) % 720 + 720) % 720;
+      if (d < best) { best = d; nextFireCyl = i; }
+    }
+    chargeLevel = ignitionOn ? 1 - Math.min(1, best / CHARGE_WIN_DEG) : 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     IGNITION KEY PICK (3D raycast)
+     ═══════════════════════════════════════════════════════════ */
+  const raycaster = new THREE.Raycaster();
+  const pointerNDC = new THREE.Vector2();
+  let pdownX = 0, pdownY = 0, pdownT = 0;
+  const canvasEl = renderer.domElement;
+
+  function pickSwitch(e) {
+    const r = canvasEl.getBoundingClientRect();
+    pointerNDC.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    raycaster.setFromCamera(pointerNDC, camera);
+    return raycaster.intersectObject(swGroup, true).length > 0;
+  }
+  function setIgnition(on) {
+    ignitionOn = on;
+    swRingGlow.material.color.setHex(on ? 0xffb030 : 0xff4455);
+    if (!on) {
+      plugFlash.fill(0);
+      flameLevel.fill(0);
+      shockwaveAnim.fill(0);
+      wirePulseCyl.fill(0);
+      wirePulseShared = 0;
+      coilFlash = 0; rotorFlash = 0; ecuBlink = 0;
+      ui.chip.setStatus('Off', false);
+    }
+  }
+  canvasEl.addEventListener('pointerdown', e => { pdownX = e.clientX; pdownY = e.clientY; pdownT = performance.now(); });
+  canvasEl.addEventListener('pointerup', e => {
+    if (performance.now() - pdownT > 450) return;
+    const dx = e.clientX - pdownX, dy = e.clientY - pdownY;
+    if (dx * dx + dy * dy > 36) return;
+    if (pickSwitch(e)) setIgnition(!ignitionOn);
+  });
+  canvasEl.addEventListener('pointermove', e => {
+    canvasEl.style.cursor = pickSwitch(e) ? 'pointer' : '';
+  });
+  swKnobGroup.rotation.z = -0.95;
+
+  /* ═══════════════════════════════════════════════════════════
+     RESET
+     ═══════════════════════════════════════════════════════════ */
+  function resetSim() {
+    crankAngle = START_CRANK;
+    prevCrankAngle = START_CRANK;
+    currentRPM = 0;
+    if (!ignitionOn) setIgnition(true);
+    advNow = timingAdvance(currentRPM);
+    plugFlash.fill(0);
+    flameLevel.fill(0);
+    shockwaveAnim.fill(0);
+    wirePulseCyl.fill(0);
+    markerPulse.fill(0);
+    wirePulseShared = 0;
+    coilFlash = 0; rotorFlash = 0; ecuBlink = 0;
+    lastFireCyl = -1; lastFireAt = -1e9; chargeLevel = 0;
+    if (markerEls.length) markerEls.forEach(el => el.classList.remove('firing'));
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     READOUTS
+     ═══════════════════════════════════════════════════════════ */
+  function updateReadouts() {
+    let shownRpm = currentRPM;
+    if (currentRPM > 30 && currentRPM < 1200) {
+      const t = performance.now() / 1000;
+      shownRpm += Math.sin(t * 17) * 9 + Math.sin(t * 7.3 + 2) * 7;
+    }
+    shownRpm = Math.max(0, Math.round(shownRpm));
+    const a = Math.round(advNow);
+
+    if (elRpm)   elRpm.textContent   = `${shownRpm} rpm`;
+    if (elAdv)   elAdv.textContent   = `${a}° BTDC`;
+    if (elDwell) elDwell.textContent = `${dwellMs(currentRPM).toFixed(1)} ms`;
+
+    ui.chip.setBig(
+      ignitionOn ? `Cyl ${(lastFireCyl >= 0 ? lastFireCyl : nextFireCyl) + 1}` : 'OFF',
+      ''
+    );
+    ui.chip.setColor(ignitionOn ? '#f59e0b' : '#ff5566');
+    ui.chip.setBar(
+      ignitionOn ? Math.max(0, Math.min(100, chargeLevel * 100)) : 0,
+      '#f59e0b'
+    );
+    ui.chip.set('adv', `${a}° BTDC`);
+    ui.chip.set('rpm', String(shownRpm));
+
+    if (!ignitionOn) {
+      ui.chip.setStatus('Ignition OFF', false);
+    } else if (performance.now() - lastFireAt < 340 && lastFireCyl >= 0) {
+      ui.chip.setStatus(`Cyl ${lastFireCyl + 1} spark`, true);
+    } else if (chargeLevel > 0.03) {
+      ui.chip.setStatus(`Cyl ${nextFireCyl + 1} charging…`, false);
+    } else {
+      ui.chip.setStatus(`Next: Cyl ${nextFireCyl + 1}`, false);
+    }
+
+    ui.toolbar.setRpmLabel('~' + Math.round(rpmFromSlider(state.speedMul)) + ' rpm');
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     BRIDGE
+     ═══════════════════════════════════════════════════════════ */
+  const bridge = ui.wireBridge({
+    viewManager,
+    state,
+    onCommand: (d) => {
+      switch (d.action) {
+        case 'reset':      resetSim(); break;
+        case 'setIgnition': setIgnition(!!d.value); break;
+      }
+    }
+  });
+  bridge.ready();
+  bridge.setStatus('Ignition', '#f59e0b');
+
+  /* ═══════════════════════════════════════════════════════════
+     MAIN LOOP
+     ═══════════════════════════════════════════════════════════ */
+  const clock = new THREE.Clock();
+  const _camQ = new THREE.Quaternion();
+  let uiAcc = 0;
+
+  function tick() {
+    requestAnimationFrame(tick);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    controls.update();
+
+    const simDt = state.playing !== false ? dt : 0;
+
+    if (simDt > 0) {
+      const sliderVal = state.speedMul;
+      const targetRPM = rpmFromSlider(sliderVal);
+      currentRPM += (targetRPM - currentRPM) * (1 - Math.exp(-simDt * (targetRPM > currentRPM ? 3.0 : 1.8)));
+      if (currentRPM < 25 && targetRPM < 25) currentRPM = targetRPM;
+
+      advNow += (timingAdvance(currentRPM) - advNow) * (1 - Math.exp(-simDt * 2.5));
+
+      prevCrankAngle = crankAngle;
+      crankAngle = (crankAngle + Math.max(0, currentRPM) * 6 * VIS_SLOW * simDt) % 720;
+      if (ignitionOn) {
+        for (let i = 0; i < 4; i++) {
+          if (angleCrossed(prevCrankAngle, crankAngle, fireAngle(i))) fireCyl(i);
+        }
+      }
+
+      coilFlash       = Math.max(0, coilFlash - simDt * 6.5);
+      rotorFlash      = Math.max(0, rotorFlash - simDt * 5);
+      ecuBlink        = Math.max(0, ecuBlink - simDt * 9);
+      wirePulseShared = Math.max(0, wirePulseShared - simDt * 4.5);
+      for (let i = 0; i < 4; i++) {
+        wirePulseCyl[i]  = Math.max(0, wirePulseCyl[i] - simDt * 4.5);
+        plugFlash[i]     = Math.max(0, plugFlash[i] - simDt * 4.2);
+        flameLevel[i]    = Math.max(0, flameLevel[i] - simDt * 3.2);
+        markerPulse[i]   = Math.max(0, markerPulse[i] - simDt * 2.6);
+        shockwaveAnim[i] = Math.max(0, shockwaveAnim[i] - simDt * 3.5);
+      }
+    }
+
+    updateNextFire();
+
+    /* Ambient dust drift */
+    for (let i = 0; i < DUST_N; i++) {
+      const v = dustVel[i];
+      dustPos[i*3]   += v.vx * dt;
+      dustPos[i*3+1] += v.vy * dt;
+      dustPos[i*3+2] += v.vz * dt;
+      if (dustPos[i*3+1] > 2.5) dustPos[i*3+1] = -2.5;
+      if (dustPos[i*3] > 4) dustPos[i*3] = -4;
+      if (dustPos[i*3] < -4) dustPos[i*3] = 4;
+    }
+    dustGeo.attributes.position.needsUpdate = true;
+
+    /* Rotor — mechanical advance */
+    rotorPivot.rotation.y = THREE.MathUtils.degToRad(crankAngle / 2 + advNow / 2);
+    rotorTip.material.emissiveIntensity = 0.9 + rotorFlash * 3.2;
+
+    /* Post nubs — brighten when firing near */
+    const rotorAng = rotorPivot.rotation.y;
+    distPostMeshes.forEach((nub, k) => {
+      const a = POST_ANG[k];
+      let d = Math.abs(((a - rotorAng) % TAU + TAU) % TAU);
+      if (d > Math.PI) d = TAU - d;
+      const nearness = 1 - Math.min(1, d / (Math.PI / 4));
+      nub.material.emissiveIntensity = 0.4 + nearness * 2.2;
+    });
+
+    /* Pistons + crank */
+    PLUG_XS.forEach((_, i) => {
+      const phase = PISTON_PHASE[i];
+      const crankRad = (crankAngle * DEG) + phase;
+      const y = Math.cos(crankRad) * 0.11;
+      pistons[i].group.position.y = y;
+      /* Rod tilts slightly */
+      pistons[i].rod.position.y = -0.10 + y * 0.15;
+    });
+    crankGroup.rotation.x = crankAngle * DEG;
+    crankThrows.forEach((t) => {
+      /* crank throw pins rotate with crank */
+      t.pin.position.y = 0.075;
+      t.group.rotation.x = 0;
+    });
+
+    /* Ignition key knob */
+    swKnobGroup.rotation.z += ((ignitionOn ? 0.85 : -0.85) - swKnobGroup.rotation.z) * (1 - Math.exp(-dt * 10));
+
+    /* Coil glow + magnetic halo */
+    coilGlow.material.opacity     = ignitionOn ? Math.min(0.95, 0.07 + chargeLevel * 0.40 + coilFlash * 0.65) : 0;
+    fuseGlow.material.opacity     = ignitionOn ? Math.min(0.85, 0.08 + (currentRPM / 6000) * 0.28 + wirePulseShared * 0.35) : 0;
+    fuseFilament.material.opacity = ignitionOn ? 0.35 + chargeLevel * 0.65 : 0.12;
+    swRingGlow.material.opacity   = ignitionOn ? 0.16 + chargeLevel * 0.30 : 0.14;
+
+    /* Magnetic field halo rings — expand outward while charging */
+    const t = performance.now() * 0.001;
+    for (let i = 0; i < coilHalo.length; i++) {
+      const h = coilHalo[i];
+      const phase = (t * 1.5 + i * 0.4) % 1;
+      const scale = 0.9 + phase * 0.6;
+      h.scale.set(scale, scale, scale);
+      h.material.opacity = ignitionOn ? (1 - phase) * chargeLevel * 0.55 : 0;
+      h.rotation.z = t * 0.8;
+    }
+
+    /* ECU LED */
+    ecuLed.material.color.copy(ignitionOn ? ECU_ON : ECU_OFF).lerp(ECU_HOT, Math.min(1, ecuBlink));
+    ecuLed.scale.setScalar(1 + ecuBlink * 0.55);
+
+    /* Wire glow pulses */
+    for (const w of wireMeshes) {
+      if (!w.glowMat) continue;
+      if (!ignitionOn) { w.glowMat.opacity = 0; continue; }
+      const p = w.cylIndex === null ? wirePulseShared : wirePulseCyl[w.cylIndex];
+      w.glowMat.opacity = Math.min(1, (w.cylIndex === null ? 0.06 : 0) + p * 1.0);
+    }
+
+    /* Flow particles inside wires */
+    for (const f of wireFlows) {
+      if (!ignitionOn) {
+        f.mat.opacity = 0;
+        continue;
+      }
+      f.mat.opacity = 0.55 + (currentRPM / 6000) * 0.35;
+      const flowSpeed = 0.15 + (currentRPM / 6000) * 0.9;
+      for (let i = 0; i < f.count; i++) {
+        const p = f.data[i];
+        p.t = (p.t + dt * flowSpeed) % 1;
+        const v = f.curve.getPoint(p.t);
+        f.geo.attributes.position.setXYZ(i, v.x, v.y, v.z);
+      }
+      f.geo.attributes.position.needsUpdate = true;
+    }
+
+    /* Spark plugs + flame kernels + shockwaves + lights */
+    const gasOn = state.showGas !== false;
+    _camQ.copy(camera.quaternion);
+    for (let i = 0; i < 4; i++) {
+      const p = plugs[i];
+      const f = gasOn ? plugFlash[i] : 0;
+      p.electrodeMat.emissiveIntensity = f * 4.0;
+      p.flash.material.opacity = f * 1.0;
+      p.flash.scale.setScalar(0.5 + f * 1.1);
+
+      /* Shockwave ring expanding */
+      const sw = shockwaveAnim[i];
+      if (sw > 0.02) {
+        p.shockwave.visible = true;
+        const s = 0.5 + (1 - sw) * 3.5;
+        p.shockwave.scale.setScalar(s);
+        p.shockwave.material.opacity = sw * 0.85;
+      } else {
+        p.shockwave.visible = false;
+      }
+
+      const a = p.arcSprite;
+      if (f > 0.02) {
+        a.visible = true;
+        a.material.opacity = Math.min(1, f * 1.6);
+        a.scale.setScalar(0.55 + f * 0.7);
+        a.quaternion.copy(_camQ);
+        a.rotateZ(a.userData.rot || 0);
+      } else {
+        a.visible = false;
+      }
+
+      /* Flash light */
+      p.sparkLight.intensity = f * 4.5;
+
+      const fl = flameMeshes[i], fv = gasOn ? flameLevel[i] : 0;
+      fl.material.opacity = fv * 0.85;
+      fl.scale.setScalar(0.6 + (1 - fv) * 1.5);
+
+      /* Combustion chamber light */
+      combustionLights[i].intensity = fv * 3.0;
+    }
+
+    updateSparkBurst(simDt);
+    updateArcs(simDt);
+
+    /* 720° cycle bar */
+    if (cycleProgEl) cycleProgEl.style.width = (crankAngle / 7.2).toFixed(2) + '%';
+    for (let i = 0; i < 4; i++) {
+      const el = markerForCyl[i];
+      if (!el) continue;
+      el.classList.toggle('firing', markerPulse[i] > 0.3);
+    }
+
+    /* HUD at 10 Hz */
+    uiAcc += dt;
+    if (uiAcc >= 0.1) {
+      uiAcc = 0;
+      updateReadouts();
+      drawAdvanceCurve(currentRPM, advNow);
+    }
+
+    /* Labels */
+    if (state.showLabels && frame % 2 === 0) {
+      labelDefs.forEach(d => labels.project(d.id, d.pos, camera, wrap));
+    } else if (!state.showLabels) {
+      labels.hideAll();
+    }
+
+    frame++;
+    renderer.render(scene, camera);
+  }
+
+  let frame = 0;
+
+  /* ═══════════════════════════════════════════════════════════
+     INIT
+     ═══════════════════════════════════════════════════════════ */
+  updateNextFire();
+  updateReadouts();
+  drawAdvanceCurve(currentRPM, advNow);
+  tick();
+  </script>
+</body>
+</html>

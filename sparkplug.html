@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spark Plugs — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #facc15; }
+html.light-theme { --al-accent: color-mix(in oklch, #facc15 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "sparkplug", "title": "Spark Plugs", "kicker": "Ignition", "accent": "#facc15", "badge": "Gap · Voltage · Heat range", "camPos": [3.6, 2.0, 4.8], "target": [0, 0.8, 0], "floorY": -1.2, "ctl": {"label": "Electrode gap", "val": 35, "caption": "Plug gap"}, "chipLabel": "Required voltage", "rows": [["gap", "Gap"], ["burn", "Burn time"]], "ro": [["gap", "Gap"], ["req", "Required voltage"], ["avail", "Coil available"], ["burn", "Spark duration"], ["risk", "Misfire risk"]], "legend": [["#f1f5f9", "Ceramic insulator"], ["#e8a05a", "Centre electrode"], ["#a5f3fc", "Spark"]], "overview": "<div class=\"al-sec\"><h4>Ignition point<\/h4><p>The plug delivers the coil’s high voltage across a small gap. The spark ignites the compressed mixture; the gap, electrode material and heat range decide how reliably.<\/p><\/div><div class=\"al-sec\"><h4>Gap<\/h4><ul><li>Small gap – easy to fire but a small flame kernel.<\/li><li>Large gap – bigger kernel but needs more voltage; risk of misfire at high load.<\/li><li>Typical gap is 0.7–1.1 mm (check the engine spec).<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Heat range<\/h4><p>A “hot” plug has a long insulator nose that keeps tip temperature high; a “cold” plug sheds heat faster. Too hot risks pre-ignition; too cold fouls with carbon.<\/p><\/div>", "faults": [["Worn electrodes", "Hard start, misfire under load, poor economy.", "Measure the gap with a feeler gauge; inspect for rounded edges."], ["Carbon fouled", "Black dry deposits, weak spark, rough idle.", "Check mixture, air filter and heat range."], ["Oil fouled or cracked insulator", "Wet black tip, tracking on the ceramic.", "Inspect valve seals and rings; replace the plug."]], "quiz": [["A larger plug gap needs…", ["Less voltage", "More voltage", "Same voltage"], 1, "Breaking down a wider gap needs a higher voltage from the coil."], ["A “cold” plug…", ["Holds heat in", "Sheds heat faster", "Has no electrode"], 1, "It has a short insulator nose and conducts heat away quickly."], ["Carbon deposits usually mean…", ["Plug too cold or rich mixture", "Perfect running", "Plug too hot"], 0, "Low tip temperature or a rich mixture leaves soot on the insulator."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,sph,tor,mat,glow,clamp,root,THREE,lerp}=H;
+ const steel=mat(0x9aa3b2,.85,.3), cer=mat(0xf1f5f9,.05,.35), cu=mat(0xe8a05a,.8,.3);
+ cyl(.08,.08,.5,steel,0,2.4,0); cyl(.16,.16,.16,steel,0,2.1,0);
+ cyl(.26,.26,.9,cer,0,1.55,0); [1.3,1.6,1.9].forEach(y=>cyl(.32,.32,.09,cer,0,y,0));
+ cyl(.42,.42,.4,steel,0,.95,0,null,6); cyl(.3,.24,.9,cer,0,.5,0);
+ cyl(.34,.34,.8,steel,0,.25,0); for(let i=0;i<7;i++) H.put(new THREE.Mesh(new THREE.TorusGeometry(.34,.025,6,24),steel),0,-.1+i*.11,0).rotation.x=Math.PI/2;
+ cyl(.06,.05,.55,cu,0,-.05,0);
+ const strap=box(.07,1,.09,steel,.3,0,0), hook=box(.34,.07,.1,steel,.13,0,0);
+ const pts=new Float32Array(14*3), g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pts,3));
+ const arc=new THREE.Line(g,new THREE.LineBasicMaterial({color:0xa5f3fc})); arc.frustumCulled=false; root.add(arc);
+ const flash=sph(.16,new THREE.MeshBasicMaterial({color:0xa5f3fc,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}),0,0,0);
+ return {
+  labels:[['Terminal',[0,2.8,0]],['Ceramic insulator',[.5,1.6,0]],['Hex shell',[.5,.95,0]],['Centre electrode',[-.35,-.1,0]],['Ground electrode',[.45,-.6,0]],['Gap',[-.3,-.55,.2]]],
+  update(c){
+   const gapMm=.6+c.k*1.0, gap=.12+.3*c.k, tipY=-.325, hookY=tipY-gap;
+   hook.position.y=hookY; strap.scale.y=(-.05-hookY); strap.position.y=(-.05+hookY)/2;
+   const req=6+(gapMm-.6)*11, avail=28, u=(c.t*2)%1, on=u<.24;
+   const risk=req>16?'High':req>13?'Medium':'Low';
+   const miss=req>16&&Math.sin(c.t*13)>.3;
+   const show=on&&!miss;
+   for(let i=0;i<14;i++){ const f=i/13, j=(i===0||i===13)?0:.05; pts[i*3]=(Math.random()-.5)*j*2; pts[i*3+1]=lerp(tipY,hookY+.035,f); pts[i*3+2]=(Math.random()-.5)*j*2; }
+   g.attributes.position.needsUpdate=true; arc.visible=show;
+   flash.position.set(0,(tipY+hookY)/2,0); flash.material.opacity=show?.55:0;
+   function lerp(a,b,t){return a+(b-a)*t;}
+   return {big:req.toFixed(1),unit:' kV',bar:req/avail*100,rows:{gap:gapMm.toFixed(2)+' mm',burn:(1.2+.6*c.k).toFixed(1)+' ms'},
+    ro:{gap:[gapMm.toFixed(2)+' mm','hi'],req:[req.toFixed(1)+' kV',''],avail:[avail+' kV',''],burn:[(1.2+.6*c.k).toFixed(1)+' ms',''],risk:[risk,risk==='High'?'crit':risk==='Medium'?'warn':'ok']},
+    status:[show?'Spark':miss?'Misfire':'Charging',show],ctl:gapMm.toFixed(2)+' mm'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

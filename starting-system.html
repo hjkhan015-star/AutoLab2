@@ -1,0 +1,1768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d13">
+<title>Starting System — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  /* ═══════ PANEL READOUT INTERIOR ═══════ */
+  #ss-readout {
+    display: flex; flex-direction: column; gap: 5px;
+    margin-top: 6px;
+    font-size: 11.5px; color: var(--text-dim, #94a3b8);
+  }
+  #ss-readout .ss-row {
+    display: flex; justify-content: space-between; gap: 10px;
+    font-family: var(--font-mono);
+  }
+  #ss-readout .ss-row > span:first-child {
+    font-family: var(--font-sans);
+    font-weight: 500;
+  }
+  #ss-readout .ss-row b {
+    color: var(--text, #e5e7eb); font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  html.light-theme #ss-readout .ss-row b { color: #0a0d13; }
+
+  /* ═══════ WIDGET — key panel (bottom-left) ═══════ */
+  #key-panel {
+    display: flex; flex-direction: column; gap: 8px;
+    background: rgba(10,14,20,.90);
+    border: 1px solid var(--border, rgba(255,255,255,.10));
+    border-radius: 14px; padding: 10px 12px;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 10px 28px rgba(0,0,0,.5);
+    min-width: 230px; color: var(--text, #e5e7eb);
+    pointer-events: auto;
+  }
+  html.light-theme #key-panel {
+    background: rgba(255,255,255,.95);
+    border-color: rgba(15,23,42,.14); color: #0a0d13;
+  }
+  #key-panel .kp-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 10px; font-weight: 800; letter-spacing: .10em;
+    text-transform: uppercase; color: #64748b;
+  }
+  #key-panel .kp-led {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #334155; transition: background .2s, box-shadow .2s;
+  }
+  #key-panel .kp-led.on { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+
+  #key-visual {
+    position: relative; height: 64px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 10px;
+    background: radial-gradient(circle at 50% 50%,
+      rgba(148,163,184,.08) 0%, rgba(148,163,184,.03) 45%, transparent 70%);
+    overflow: hidden;
+  }
+  #key-visual .dial {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #key-visual .dial-dot {
+    position: absolute;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: rgba(148,163,184,.30);
+    transition: background .18s, box-shadow .18s;
+  }
+  #key-visual .dial-dot.active { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+  #key-visual .dial-dot[data-i="0"]{ transform: rotate(-135deg) translateY(-22px); }
+  #key-visual .dial-dot[data-i="1"]{ transform: rotate(-45deg)  translateY(-22px); }
+  #key-visual .dial-dot[data-i="2"]{ transform: rotate(45deg)   translateY(-22px); }
+  #key-visual .dial-dot[data-i="3"]{ transform: rotate(135deg)  translateY(-22px); }
+
+  #key-blade {
+    position: relative; width: 38px; height: 38px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #e2e8f0 0%, #94a3b8 55%, #475569 100%);
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,.35), 0 4px 10px rgba(0,0,0,.45);
+    display: grid; place-items: center;
+    transition: transform .28s cubic-bezier(.34,1.56,.64,1);
+    z-index: 2;
+  }
+  #key-blade::after {
+    content: ""; width: 5px; height: 16px; border-radius: 2px;
+    background: #0f172a; transform: translateY(-9px);
+    box-shadow: inset 0 0 2px rgba(0,0,0,.6);
+  }
+  #key-blade.turn-0 { transform: rotate(-135deg); }
+  #key-blade.turn-1 { transform: rotate(-45deg); }
+  #key-blade.turn-2 { transform: rotate(45deg); }
+  #key-blade.turn-3 { transform: rotate(135deg); }
+
+  #key-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; }
+  .key-btn {
+    padding: 8px 2px; border-radius: 8px;
+    border: 1px solid var(--border, rgba(255,255,255,.10));
+    background: rgba(255,255,255,.04); color: var(--text-dim, #94a3b8);
+    font-size: 10px; font-weight: 800; letter-spacing: .05em;
+    text-transform: uppercase; cursor: pointer;
+    transition: all .18s; font-family: inherit; line-height: 1;
+  }
+  .key-btn:hover { color: var(--text, #e5e7eb); border-color: rgba(255,255,255,.25); }
+  .key-btn.active[data-key="0"]{ background:#475569; color:#fff; border-color:transparent; }
+  .key-btn.active[data-key="1"]{ background:#f59e0b; color:#0a0d13; border-color:transparent; box-shadow:0 3px 12px rgba(245,158,11,.35); }
+  .key-btn.active[data-key="2"]{ background:#22c55e; color:#0a1a0e; border-color:transparent; box-shadow:0 3px 12px rgba(34,197,94,.35); }
+  .key-btn.active[data-key="3"]{
+    background: linear-gradient(135deg,#ef4444,#f87171);
+    color: #fff; border-color: transparent;
+    box-shadow: 0 0 16px rgba(239,68,68,.7);
+    animation: crank-pulse .5s ease-in-out infinite alternate;
+  }
+  @keyframes crank-pulse {
+    from { box-shadow: 0 0 12px rgba(239,68,68,.55); }
+    to   { box-shadow: 0 0 22px rgba(239,68,68,.9); }
+  }
+  html.light-theme .key-btn { background: rgba(15,23,42,.05); border-color: rgba(15,23,42,.12); color: #475569; }
+
+  #key-meters { display: flex; gap: 6px; }
+  #key-meters .meter {
+    flex: 1; display: flex; flex-direction: column; gap: 3px;
+    padding: 6px 8px; background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.06); border-radius: 7px;
+  }
+  html.light-theme #key-meters .meter { background: rgba(15,23,42,.04); border-color: rgba(15,23,42,.08); }
+  #key-meters .meter .lbl {
+    font-size: 10px; font-weight: 800; letter-spacing: .08em;
+    text-transform: uppercase; color: #64748b;
+  }
+  #key-meters .meter .val {
+    font-size: 14px; font-weight: 800;
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  #key-meters .meter .val span {
+    font-size: 10px; font-weight: 700; opacity: .65; margin-left: 2px;
+  }
+  #rpm-strip {
+    width: 100%; height: 52px; border-radius: 6px;
+    background: rgba(0,0,0,.35); display: block;
+  }
+  html.light-theme #rpm-strip { background: rgba(15,23,42,.06); }
+  #strip-label {
+    display: flex; justify-content: space-between;
+    font-size: 10px; letter-spacing: .08em; color: #64748b;
+    text-transform: uppercase; font-weight: 800; margin-bottom: 1px;
+  }
+
+  /* ═══════ Toolbar extras config switcher ═══════ */
+  .cfg-group {
+    display: flex; align-items: center; gap: 4px;
+    padding-left: 8px; margin-left: 4px;
+    border-left: 1px solid var(--border, rgba(255,255,255,.10));
+  }
+  .cfg-arrow {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: none; background: rgba(255,255,255,.08);
+    color: var(--text, #e5e7eb); font-size: 14px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-family: inherit; padding: 0;
+    transition: background .15s, color .15s;
+  }
+  .cfg-arrow:hover, .cfg-arrow:active {
+    background: var(--accent, #38bdf8); color: #0b0e14;
+  }
+  #cfg-label {
+    min-width: 80px; text-align: center; white-space: nowrap;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .02em;
+    color: var(--text, #e5e7eb);
+    font-family: var(--font-mono);
+  }
+  html.light-theme .cfg-arrow { background: rgba(15,23,42,.08); color: #0a0d13; }
+  html.light-theme #cfg-label { color: #0a0d13; }
+  @media (max-width: 640px) {
+    #key-panel { min-width: 200px; padding: 8px 10px; gap: 6px; }
+    #key-panel #key-visual { height: 52px; }
+    #key-blade { width: 32px; height: 32px; }
+    #key-blade::after { height: 13px; transform: translateY(-7px); }
+    #key-meters .meter .val { font-size: 12px; }
+    #rpm-strip { height: 40px; }
+    .cfg-arrow { width: 19px; height: 19px; font-size: 12px; }
+    #cfg-label { min-width: 66px; font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+  <div id="canvas-wrap"></div>
+  <div id="labels-root"></div>
+
+  <script src="guard.js"></script>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  } }
+  </script>
+
+  <script type="module">
+  import * as THREE from 'three';
+  import * as Base from './kit.js';
+import { Parts } from './components.js';
+  import { UI } from './kit.js';
+
+  const TAU = Base.TAU;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  const TUNING = {
+    batteryNominal:     12.6,
+    batteryOpenCircuit: 12.6,
+    batteryUnderLoad:    9.6,
+    starterFreeRpm:     5400,
+    starterLoadedRpm:   4200,
+    pinionTeeth:        9,
+    ringTeeth:          108,
+    get gearRatio() { return this.ringTeeth / this.pinionTeeth; },
+    pinionExtendTime:    0.18,
+    pinionRetractTime:   0.28,
+    crankRpmThreshold:   180,
+    crankTimeToFire:     0.9,
+    idleRpm:             820,
+    redlineRpm:          6200,
+    starterAmps:         210,
+    ignitionAmps:         25
+  };
+
+  const isCoarse = matchMedia('(pointer: coarse)').matches;
+  const cores    = navigator.hardwareConcurrency || 4;
+  const mem      = navigator.deviceMemory || 4;
+  const isLowEnd = cores <= 4 || mem <= 2;
+
+  const { scene, camera, renderer, controls, wrap, viewManager } = Base.buildScene({
+    fov: 42,
+    camPos: isCoarse ? [1.8, 1.8, 9.6] : [1.8, 1.6, 9.2],
+    target: [0, 0.4, -0.5], floorY: -2.4
+  });
+  Base.attachResize(camera, renderer, wrap, 42);
+  const particleTex = Base.createParticleTexture();
+  const labels = Base.createLabelSystem();
+  const state = Base.createUIState();
+
+  let time = 0;
+
+  /* ═══════════════════════════════════════════════════════════
+     MATERIALS
+     ═══════════════════════════════════════════════════════════ */
+  const M = {
+    steel:      new THREE.MeshStandardMaterial({ color:0x9aa4b2, metalness:0.88, roughness:0.32 }),
+    steelDark:  new THREE.MeshStandardMaterial({ color:0x3a4250, metalness:0.78, roughness:0.45 }),
+    castIron:   new THREE.MeshStandardMaterial({ color:0x4a5260, metalness:0.55, roughness:0.72 }),
+    brass:      new THREE.MeshStandardMaterial({
+      color:0xd4a34a, metalness:0.85, roughness:0.28,
+      emissive:new THREE.Color(0xff8800), emissiveIntensity:0 }),
+    copper:     new THREE.MeshStandardMaterial({
+      color:0xb87333, metalness:0.88, roughness:0.30,
+      emissive:new THREE.Color(0xff5500), emissiveIntensity:0 }),
+    copperBright:new THREE.MeshStandardMaterial({
+      color:0xe09050, metalness:0.90, roughness:0.20,
+      emissive:new THREE.Color(0xff5500), emissiveIntensity:0 }),
+    carbon:     new THREE.MeshStandardMaterial({
+      color:0x1a1a20, metalness:0.25, roughness:0.85,
+      emissive:new THREE.Color(0x331100), emissiveIntensity:0 }),
+    rubber:     new THREE.MeshStandardMaterial({ color:0x121417, metalness:0.05, roughness:0.90 }),
+    wireRed:    new THREE.MeshStandardMaterial({
+      color:0xdc2626, metalness:0.20, roughness:0.55,
+      emissive:new THREE.Color(0xff2200), emissiveIntensity:0 }),
+    wireBlack:  new THREE.MeshStandardMaterial({ color:0x0f172a, metalness:0.20, roughness:0.55 }),
+    wireGreen:  new THREE.MeshStandardMaterial({
+      color:0x22c55e, metalness:0.20, roughness:0.55,
+      emissive:new THREE.Color(0x22c55e), emissiveIntensity:0 }),
+    wireBlue:   new THREE.MeshStandardMaterial({
+      color:0x3b82f6, metalness:0.20, roughness:0.55,
+      emissive:new THREE.Color(0x3b82f6), emissiveIntensity:0 }),
+    batteryCase:new THREE.MeshStandardMaterial({ color:0x1e293b, metalness:0.30, roughness:0.72 }),
+    batteryRed: new THREE.MeshStandardMaterial({ color:0xb91c1c, metalness:0.55, roughness:0.42 }),
+    batteryBlack:new THREE.MeshStandardMaterial({ color:0x0f172a, metalness:0.55, roughness:0.42 }),
+    glass:      new THREE.MeshStandardMaterial({
+      color:0xaebfd2, metalness:0.30, roughness:0.20,
+      transparent:true, opacity:0.14, side:THREE.DoubleSide, depthWrite:false }),
+    fire:       new THREE.MeshBasicMaterial({
+      color:0xff5c1a, transparent:true, opacity:0.55,
+      blending:THREE.AdditiveBlending, depthWrite:false })
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     GEOMETRY HELPERS
+     ═══════════════════════════════════════════════════════════ */
+  const rootGroup = new THREE.Group();
+  scene.add(rootGroup);
+
+  const circuitView = new THREE.Group();
+  const starterView = new THREE.Group();
+  const meshView    = new THREE.Group();
+  const crankView   = new THREE.Group();
+  rootGroup.add(circuitView, starterView, meshView, crankView);
+
+  function makeCyl(r, len, mat, orient = 'x') {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 24), mat);
+    if (orient === 'x') m.rotation.z = Math.PI / 2;
+    else if (orient === 'z') m.rotation.x = Math.PI / 2;
+    return m;
+  }
+  const tubeBetween = Parts.tubeBetween;
+  const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
+  /* Manhattan cable — adapted from ignition.html (buildManhattanPoints): tight fillet at every 90° turn.
+     Rebuilt as line + quadratic pieces so long runs stay perfectly straight (spline version bowed). */
+  function wireRoute(pts, r, mat, fillet = 0.06) {
+    const g = new THREE.Group(), path = new THREE.CurvePath();
+    const add = (c, segs) => { path.add(c); g.add(new THREE.Mesh(new THREE.TubeGeometry(c, segs, r, 10, false), mat)); };
+    let cur = pts[0].clone();
+    for (let i = 1; i < pts.length - 1; i++) {
+      const c = pts[i];
+      const tp = new THREE.Vector3().subVectors(pts[i-1], c), tn = new THREE.Vector3().subVectors(pts[i+1], c);
+      const dp = tp.length(), dn = tn.length(); tp.normalize(); tn.normalize();
+      const rad = Math.min(fillet, dp * 0.4, dn * 0.4);
+      const p1 = c.clone().addScaledVector(tp, rad), p2 = c.clone().addScaledVector(tn, rad);
+      add(new THREE.LineCurve3(cur, p1), 1);
+      add(new THREE.QuadraticBezierCurve3(p1, c.clone(), p2), 8);
+      cur = p2;
+    }
+    add(new THREE.LineCurve3(cur, pts[pts.length - 1].clone()), 1);
+    for (const i of [0, pts.length - 1]) {   /* terminal lugs */
+      const lug = new THREE.Mesh(new THREE.SphereGeometry(r * 1.5, 10, 8), M.brass);
+      lug.position.copy(pts[i]); g.add(lug);
+    }
+    g.userData.path = path;
+    return g;
+  }
+
+  const _toothGeoCaches = new Map();
+  function buildGearTeeth({ count, innerR, outerR, depth, mat, group }) {
+    const toothW = (TAU * innerR) / count * 0.60;
+    const toothH = outerR - innerR;
+    const key = `${toothW.toFixed(4)}_${toothH.toFixed(4)}_${depth.toFixed(4)}`;
+    let geo = _toothGeoCaches.get(key);
+    if (!geo) {
+      const s = new THREE.Shape();
+      s.moveTo(-toothW * 0.50, 0);
+      s.lineTo(-toothW * 0.34, toothH);
+      s.lineTo( toothW * 0.34, toothH);
+      s.lineTo( toothW * 0.50, 0);
+      s.closePath();
+      geo = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 1 });
+      geo.translate(0, 0, -depth / 2);
+      _toothGeoCaches.set(key, geo);
+    }
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * TAU;
+      const t = new THREE.Mesh(geo, mat);
+      t.position.set(Math.cos(a) * innerR, Math.sin(a) * innerR, 0);
+      t.rotation.z = a - Math.PI / 2;
+      group.add(t);
+    }
+    return group;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     STATE MACHINE
+     ═══════════════════════════════════════════════════════════ */
+  const sys = {
+    key: 0, keyPrev: 0,
+    pinionExtend: 0, pinionAngle: 0, starterRpm: 0,
+    engineRpm: 0, engineAngle: 0, engineRunning: false,
+    combustion: 0, coolantTemp: 20,
+    batteryVolts: TUNING.batteryOpenCircuit,
+    batteryCharge: 1, currentDraw: 0,
+    crankElapsed: 0, hasCaught: false, lastCatchAt: 0,
+    _fuelPulse: 0, _pendingClack: false, _sputtered: false
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     VIEW 1 — CIRCUIT
+     ═══════════════════════════════════════════════════════════ */
+  const circuitGroup = new THREE.Group();
+  circuitView.add(circuitGroup);
+
+  const batGroup = new THREE.Group();
+  batGroup.position.set(-3.0, 0.0, 0);
+  circuitGroup.add(batGroup);
+  batGroup.add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 1.0), M.batteryCase));
+  const batTop = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.10, 1.02), M.batteryCase);
+  batTop.position.y = 0.45; batGroup.add(batTop);
+  const batPosT = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.16, 16), M.batteryRed);
+  batPosT.position.set(0.55, 0.58, 0.30); batGroup.add(batPosT);
+  const batNegT = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.16, 16), M.batteryBlack);
+  batNegT.position.set(-0.55, 0.58, 0.30); batGroup.add(batNegT);
+
+  for (let i = -1; i <= 1; i++) {                       /* cell-cap ribs — from ignition.html */
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.94), M.steelDark);
+    rib.position.set(i * 0.5, 0.51, 0); batGroup.add(rib);
+  }
+  for (const [x, mat] of [[0.55, M.batteryRed], [-0.55, M.batteryBlack]]) {   /* terminal clamps */
+    const clamp_ = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.06, 0.26), mat);
+    clamp_.position.set(x, 0.52, 0.30); batGroup.add(clamp_);
+  }
+  labels.add('bat-lbl', '12 V · 60 Ah');
+  labels.add('bat-pos', '+', 2);
+  labels.add('bat-neg', '−', 2);
+
+  const keyGroup = new THREE.Group();
+  keyGroup.position.set(-3.0, 2.0, 0);
+  circuitGroup.add(keyGroup);
+  const keyBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.30, 0.28, 20), M.steelDark);
+  keyBarrel.rotation.x = Math.PI / 2; keyGroup.add(keyBarrel);
+  const keyRing = new THREE.Mesh(new THREE.TorusGeometry(0.30, 0.04, 8, 24), M.brass);
+  keyRing.position.z = 0.14; keyGroup.add(keyRing);
+
+  const keyBladeGroup = new THREE.Group();
+  keyBladeGroup.position.z = 0.28;
+  keyGroup.add(keyBladeGroup);
+  const keyBlade = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.55, 0.020), M.steel);
+  keyBlade.position.y = -0.27; keyBladeGroup.add(keyBlade);
+  const keyHead = new THREE.Mesh(new THREE.TorusGeometry(0.10, 0.03, 8, 16), M.brass);
+  keyBladeGroup.add(keyHead);
+  const keyTip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.020), M.steel);
+  keyTip.position.set(0, -0.52, 0); keyBladeGroup.add(keyTip);
+
+  const keyGlow = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.014, 8, 40),
+    new THREE.MeshBasicMaterial({ color: 0xffb030, transparent: true, opacity: 0.1,
+      blending: THREE.AdditiveBlending, depthWrite: false }));
+  keyGlow.position.z = 0.14; keyGroup.add(keyGlow);
+  labels.add('key-lbl', 'Ignition switch');
+
+  /* Layout (declared early — used by the starter group below): pinion meshes with the ring at −55° (lower right); starter sits behind the flywheel plane */
+  const FLY_C = { x: 2.4, y: 0.55 }, MESH_D = 1.0, MESH_A = -55 * Math.PI / 180;
+  const PIN_XY = { x: FLY_C.x + Math.cos(MESH_A) * MESH_D, y: FLY_C.y + Math.sin(MESH_A) * MESH_D };
+  const PIN_SLIDE = 0.36, ST_Z0 = -(0.80 + PIN_SLIDE);
+  const starterGroup = new THREE.Group();
+  starterGroup.position.set(PIN_XY.x, PIN_XY.y, ST_Z0); starterGroup.rotation.y = -Math.PI / 2;
+  circuitGroup.add(starterGroup);
+  const starterBody = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.30, 0.90, 24), M.steel);
+  starterBody.rotation.z = Math.PI / 2; starterGroup.add(starterBody);
+  const starterCap = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.24, 0.20, 24), M.steelDark);
+  starterCap.rotation.z = Math.PI / 2; starterCap.position.x = -0.55; starterGroup.add(starterCap);
+
+  const solenoidGroup = new THREE.Group();
+  solenoidGroup.position.set(-0.25, 0.34, 0); starterGroup.add(solenoidGroup);
+  const solenoidBody = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.55, 18), M.steelDark);
+  solenoidBody.rotation.z = Math.PI / 2; solenoidGroup.add(solenoidBody);
+  const solenoidStripe = new THREE.Mesh(new THREE.CylinderGeometry(0.161, 0.161, 0.10, 18), M.brass);
+  solenoidStripe.rotation.z = Math.PI / 2; solenoidStripe.position.x = -0.15; solenoidGroup.add(solenoidStripe);
+  const solenoidPlunger = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.22, 14), M.steel);
+  solenoidPlunger.rotation.z = Math.PI / 2; solenoidPlunger.position.x = 0.30; solenoidGroup.add(solenoidPlunger);
+
+  const pinionGroup = new THREE.Group();
+  pinionGroup.position.set(0.62, 0, 0); starterGroup.add(pinionGroup);
+  const pinionCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.20, 16), M.steelDark);
+  pinionCollar.rotation.z = Math.PI / 2; pinionGroup.add(pinionCollar);
+  const pinionAxis = new THREE.Group();      /* local z → starter shaft (x) */
+  pinionAxis.position.x = 0.18; pinionAxis.rotation.y = Math.PI / 2; pinionGroup.add(pinionAxis);
+  const pinionGearGroup = new THREE.Group(); pinionAxis.add(pinionGearGroup);
+  const pinionHub = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.14, 16), M.brass);
+  pinionHub.rotation.x = Math.PI / 2; pinionGearGroup.add(pinionHub);
+  buildGearTeeth({ count: 9, innerR: 0.11, outerR: 0.155, depth: 0.14, mat: M.steel, group: pinionGearGroup });
+
+  labels.add('start-lbl', 'Starter motor');
+  labels.add('sol-lbl', 'Solenoid', 2);
+  labels.add('pin-lbl', 'Pinion');
+
+  const flyGroup = new THREE.Group();
+  flyGroup.position.set(FLY_C.x, FLY_C.y, 0); circuitGroup.add(flyGroup);
+  const flySpinGroupCircuit = new THREE.Group(); flyGroup.add(flySpinGroupCircuit);
+
+  const flyDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.15, 40), M.castIron);
+  flyDisc.rotation.x = Math.PI / 2; flySpinGroupCircuit.add(flyDisc);
+  const flyRingTeeth = new THREE.Group(); flySpinGroupCircuit.add(flyRingTeeth);
+  buildGearTeeth({ count: 80, innerR: 0.85, outerR: 0.955, depth: 0.15, mat: M.steel, group: flyRingTeeth });
+  const flyRim = new THREE.Mesh(new THREE.TorusGeometry(0.87, 0.045, 8, 56), M.steelDark);
+  flySpinGroupCircuit.add(flyRim);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * TAU;
+    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.06, 10), M.steelDark);
+    bolt.rotation.x = Math.PI / 2;
+    bolt.position.set(Math.cos(a) * 0.42, Math.sin(a) * 0.42, 0.10);
+    flySpinGroupCircuit.add(bolt);
+  }
+  labels.add('fly-lbl', 'Flywheel + ring gear');
+
+  const circuitMeshGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.08, 14, 10),
+    new THREE.MeshBasicMaterial({ color: 0xffcc33, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  circuitMeshGlow.position.set(PIN_XY.x - 0.02, PIN_XY.y + 0.12, 0.1);
+  circuitGroup.add(circuitMeshGlow);
+
+  /* Orthogonal routes (world coords inside circuitGroup) */
+  const SX = PIN_XY.x, SY = PIN_XY.y, SZ = ST_Z0;
+  const ROUTES = {
+    red:   [v3(-2.45,0.58,0.30), v3(-2.45,0.95,0.30), v3(-1.60,0.95,0.30), v3(-1.60,-1.00,0.30),
+            v3(-1.60,-1.00,SZ-0.62), v3(SX,-1.00,SZ-0.62), v3(SX,SY-0.30,SZ-0.62)],
+    green: [v3(-2.45,0.58,0.30), v3(-2.45,0.58,0.62), v3(-2.45,2.00,0.62), v3(-2.72,2.00,0.62), v3(-2.72,2.00,0.10)],
+    blue:  [v3(-3.00,2.30,0.10), v3(-3.00,2.80,0.10), v3(4.30,2.80,0.10), v3(4.30,2.80,SZ-0.25),
+            v3(4.30,SY+0.52,SZ-0.25), v3(SX,SY+0.52,SZ-0.25), v3(SX,SY+0.34,SZ-0.25)],
+    black: [v3(-3.55,0.58,0.30), v3(-3.55,1.20,0.30), v3(-4.40,1.20,0.30), v3(-4.40,-1.60,0.30),
+            v3(-4.40,-1.60,SZ+0.20), v3(SX-0.45,-1.60,SZ+0.20), v3(SX-0.45,SY-0.02,SZ+0.20)]
+  };
+  const WIRES = {
+    red:   wireRoute(ROUTES.red,   0.055, M.wireRed),
+    green: wireRoute(ROUTES.green, 0.040, M.wireGreen),
+    blue:  wireRoute(ROUTES.blue,  0.035, M.wireBlue),
+    black: wireRoute(ROUTES.black, 0.050, M.wireBlack),
+    blackRev: wireRoute(ROUTES.black.slice().reverse(), 0.001, M.wireBlack)   /* path only, for return-current flow */
+  };
+  WIRES.blackRev.visible = false;
+  for (const k in WIRES) circuitGroup.add(WIRES[k]);
+
+  const flowPtGeo = new THREE.BufferGeometry();
+  const FLOW_N = isLowEnd ? 40 : 80;
+  const flowPos = new Float32Array(FLOW_N * 3);
+  const flowCol = new Float32Array(FLOW_N * 3);
+  flowPtGeo.setAttribute('position', new THREE.BufferAttribute(flowPos, 3));
+  flowPtGeo.setAttribute('color',    new THREE.BufferAttribute(flowCol, 3));
+  const flowPts = new THREE.Points(flowPtGeo, new THREE.PointsMaterial({
+    map: particleTex, size: 0.14, sizeAttenuation: true,
+    vertexColors: true, transparent: true, opacity: 0.95,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  flowPts.frustumCulled = false; circuitGroup.add(flowPts);
+
+  const flowDefs = [
+    { path:WIRES.red.userData.path,                          col:new THREE.Color(0xff3b3b), active:() => sys.currentDraw > 60 },
+    { path:WIRES.green.userData.path,                        col:new THREE.Color(0x4ade80), active:() => sys.key >= 2 },
+    { path:WIRES.blue.userData.path,                         col:new THREE.Color(0x60a5fa), active:() => sys.key === 3 },
+    { path:WIRES.blackRev.userData.path,      col:new THREE.Color(0x94a3b8), active:() => sys.currentDraw > 10 }
+  ];
+  const _fp = new THREE.Vector3();
+  const pointOnRoute = (d, t, out) => d.path.getPointAt(clamp(t, 0, 1), out);
+  const flowData = [];
+  for (let i = 0; i < FLOW_N; i++) {
+    flowData.push({ wire: i % flowDefs.length, t: Math.random(), speed: 0.35 + Math.random() * 0.35, j: Math.random() });
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     VIEW 2 — STARTER INTERNALS
+     ═══════════════════════════════════════════════════════════ */
+  const ST_LEN = 2.4, ST_R = 0.42;
+  const stGroup = new THREE.Group();
+  starterView.add(stGroup);
+
+  stGroup.add(new THREE.Mesh(
+    new THREE.CylinderGeometry(ST_R, ST_R, ST_LEN, 32, 1, true, Math.PI * 0.30, Math.PI * 1.55),
+    M.steel
+  ));
+  const stCapL = new THREE.Mesh(new THREE.CylinderGeometry(ST_R, ST_R * 0.85, 0.16, 32), M.steelDark);
+  stCapL.rotation.z = Math.PI / 2; stCapL.position.x = -ST_LEN / 2 - 0.08; stGroup.add(stCapL);
+  const stCapR = new THREE.Mesh(new THREE.CylinderGeometry(ST_R, ST_R * 0.85, 0.16, 32), M.steelDark);
+  stCapR.rotation.z = Math.PI / 2; stCapR.position.x = ST_LEN / 2 + 0.08; stGroup.add(stCapR);
+
+  const fieldGroup = new THREE.Group();
+  stGroup.add(fieldGroup);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * TAU + Math.PI / 4;
+    const r = ST_R * 0.75;
+    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.028, 8, 24), M.copper);
+    coil.position.set((i - 1.5) * 0.42, Math.sin(a) * r, Math.cos(a) * r);
+    coil.rotation.y = a;
+    fieldGroup.add(coil);
+  }
+  labels.add('field-lbl', 'Field coils');
+
+  const armGroup = new THREE.Group();
+  stGroup.add(armGroup);
+  const armCore = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, ST_LEN * 0.85, 20), M.steel);
+  armCore.rotation.z = Math.PI / 2; armGroup.add(armCore);
+  const ARM_SLOTS = 10;
+  for (let i = 0; i < ARM_SLOTS; i++) {
+    const a = (i / ARM_SLOTS) * TAU;
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(ST_LEN * 0.85, 0.02, 0.05), M.copperBright);
+    rib.position.set(0, Math.sin(a) * 0.145, Math.cos(a) * 0.145);
+    rib.rotation.x = a;
+    armGroup.add(rib);
+  }
+  const commGroup = new THREE.Group();
+  commGroup.position.x = -ST_LEN / 2 + 0.42; armGroup.add(commGroup);
+  const commHub = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.22, 16), M.carbon);
+  commHub.rotation.z = Math.PI / 2; commGroup.add(commHub);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * TAU;
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.035, 0.055), M.copper);
+    seg.position.set(0, Math.sin(a) * 0.105, Math.cos(a) * 0.105);
+    seg.rotation.x = a;
+    commGroup.add(seg);
+  }
+  labels.add('arm-lbl', 'Armature');
+  labels.add('comm-lbl', 'Commutator', 2);
+
+  const brush1 = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, 0.055), M.carbon);
+  brush1.position.set(-ST_LEN / 2 + 0.42, 0.16, 0); stGroup.add(brush1);
+  const brush2 = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, 0.055), M.carbon);
+  brush2.position.set(-ST_LEN / 2 + 0.42, -0.16, 0); stGroup.add(brush2);
+  labels.add('brush-lbl', 'Brushes', 2);
+
+  const solGroup = new THREE.Group();
+  solGroup.position.set(-0.30, ST_R + 0.20, 0); stGroup.add(solGroup);
+  solGroup.add(makeCyl(0.16, 0.65, M.steelDark));
+  const solCapA = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.06, 20), M.brass);
+  solCapA.rotation.z = Math.PI / 2; solCapA.position.x = -0.30; solGroup.add(solCapA);
+  const plunger = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.30, 16), M.steel);
+  plunger.rotation.z = Math.PI / 2; solGroup.add(plunger);
+  const plungerHead = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.06, 16), M.steelDark);
+  plungerHead.rotation.z = Math.PI / 2; plungerHead.position.x = 0.15; solGroup.add(plungerHead);
+  labels.add('sol2-lbl', 'Solenoid · coil + plunger', 2);
+
+  const lever = new THREE.Group();
+  lever.position.set(-ST_LEN / 2 + 0.90, 0.20, 0); stGroup.add(lever);
+  const leverBar = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.40, 0.04), M.steelDark);
+  leverBar.position.y = -0.20; lever.add(leverBar);
+
+  const outShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.55, 16), M.steel);
+  outShaft.rotation.z = Math.PI / 2;
+  outShaft.position.x = ST_LEN / 2 + 0.28; stGroup.add(outShaft);
+
+  const pinionInternalsGroup = new THREE.Group();
+  pinionInternalsGroup.position.x = ST_LEN / 2 + 0.45; stGroup.add(pinionInternalsGroup);
+  const pinHub = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.16, 16), M.brass);
+  pinHub.rotation.z = Math.PI / 2; pinionInternalsGroup.add(pinHub);
+  buildGearTeeth({ count: 9, innerR: 0.14, outerR: 0.195, depth: 0.16, mat: M.steel, group: pinionInternalsGroup });
+  labels.add('pin2-lbl', 'Pinion');
+
+  /* ═══════════════════════════════════════════════════════════
+     VIEW 3 — GEAR MESH
+     ═══════════════════════════════════════════════════════════ */
+  const meshGroup = new THREE.Group();
+  meshView.add(meshGroup);
+
+  const FLY_R = 1.20;
+  const FLY_TOOTH_OUT = 1.32;
+  const RING_TEETH = 108;
+
+  const flywheelGroup = new THREE.Group();
+  flywheelGroup.position.set(0, 0.55, 0); meshGroup.add(flywheelGroup);
+  const flySpinGroup = new THREE.Group(); flywheelGroup.add(flySpinGroup);
+
+  const flyDisc2 = new THREE.Mesh(new THREE.CylinderGeometry(FLY_R, FLY_R, 0.12, 48), M.castIron);
+  flyDisc2.rotation.x = Math.PI / 2; flySpinGroup.add(flyDisc2);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * TAU;
+    const h = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.14, 16), M.steelDark);
+    h.rotation.x = Math.PI / 2;
+    h.position.set(Math.cos(a) * 0.55, Math.sin(a) * 0.55, 0);
+    flySpinGroup.add(h);
+  }
+  const flyHub = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.18, 24), M.steelDark);
+  flyHub.rotation.x = Math.PI / 2; flySpinGroup.add(flyHub);
+
+  const ringTeethGroup = new THREE.Group(); flySpinGroup.add(ringTeethGroup);
+  buildGearTeeth({ count: RING_TEETH, innerR: FLY_R, outerR: FLY_TOOTH_OUT, depth: 0.12, mat: M.steel, group: ringTeethGroup });
+  const ringRim = new THREE.Mesh(new THREE.TorusGeometry(FLY_R + 0.02, 0.06, 8, 60), M.steelDark);
+  flySpinGroup.add(ringRim);
+
+  const PINION_TEETH = 9;
+  const PINION_R = 0.12;
+  const PINION_TOOTH_OUT = 0.165;
+  const pinionMeshGroup = new THREE.Group();
+  pinionMeshGroup.position.set(0, -0.85, 0); meshGroup.add(pinionMeshGroup);
+  const pinHub2 = new THREE.Mesh(new THREE.CylinderGeometry(PINION_R, PINION_R, 0.14, 20), M.brass);
+  pinHub2.rotation.x = Math.PI / 2; pinionMeshGroup.add(pinHub2);
+  buildGearTeeth({ count: PINION_TEETH, innerR: PINION_R, outerR: PINION_TOOTH_OUT, depth: 0.14, mat: M.steel, group: pinionMeshGroup });
+
+  const PINION_MESH_Y = flywheelGroup.position.y - FLY_R - PINION_R + 0.02;
+  const meshGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.09, 16, 12),
+    new THREE.MeshBasicMaterial({ color: 0xffcc33, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  meshGroup.add(meshGlow);
+  labels.add('ring-lbl', 'Ring gear · 108 teeth');
+  labels.add('pin3-lbl', 'Pinion · 9 teeth');
+  labels.add('ratio-lbl', 'Ratio 12:1', 2);
+
+  /* ═══════════════════════════════════════════════════════════
+     VIEW 4 — CRANK VIEW
+     ═══════════════════════════════════════════════════════════ */
+  const crankGroup = new THREE.Group();
+  crankView.add(crankGroup);
+
+  const engBlock = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.4, 1.0), M.castIron);
+  engBlock.position.set(-0.6, 0.85, 0); crankGroup.add(engBlock);
+
+  const cylCut = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.55, 1.1),
+    new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.30, roughness: 0.60, side: THREE.DoubleSide })
+  );
+  cylCut.position.set(-0.6, 0.85, 0.505); crankGroup.add(cylCut);
+
+  const pistonGroup = new THREE.Group();
+  pistonGroup.position.set(-0.6, 0.85, 0); crankGroup.add(pistonGroup);
+  const piston = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.30, 20), M.steel);
+  pistonGroup.add(piston);
+  const pistonPin = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.30, 12), M.steelDark);
+  pistonPin.rotation.z = Math.PI / 2; pistonPin.position.y = -0.06; pistonGroup.add(pistonPin);
+  labels.add('piston-lbl', 'Piston');
+
+  const conRod = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.60, 0.10), M.steel);
+  crankGroup.add(conRod);
+  labels.add('rod-lbl', 'Connecting rod', 2);
+
+  const crankShaft = new THREE.Group();
+  crankShaft.position.set(-0.6, -0.30, 0); crankGroup.add(crankShaft);
+  const crankMain = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.8, 20), M.steel);
+  crankMain.rotation.z = Math.PI / 2; crankShaft.add(crankMain);
+  const crankPin = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.20, 16), M.steel);
+  crankPin.rotation.z = Math.PI / 2; crankPin.position.set(0.35, 0.18, 0); crankShaft.add(crankPin);
+  const crankWeb = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.40, 0.14), M.steelDark);
+  crankWeb.position.set(0.35, 0.09, 0); crankShaft.add(crankWeb);
+  labels.add('crank-lbl', 'Crankshaft');
+
+  const crankFlySpin = new THREE.Group();
+  crankFlySpin.position.set(-2.20, 0.30, 0); crankGroup.add(crankFlySpin);
+  const crankFlyGroup = new THREE.Group();
+  crankFlyGroup.rotation.z = Math.PI / 2; crankFlySpin.add(crankFlyGroup);
+  const crankFlyDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.14, 40), M.castIron);
+  crankFlyGroup.add(crankFlyDisc);
+  buildGearTeeth({ count: 72, innerR: 0.72, outerR: 0.80, depth: 0.14, mat: M.steel, group: crankFlyGroup });
+  labels.add('flywheel-lbl', 'Flywheel + ring gear');
+
+  const crankStarterGroup = new THREE.Group();
+  crankStarterGroup.position.set(-1.55, -0.40, 0); crankGroup.add(crankStarterGroup);
+  const csBody = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.70, 20), M.steel);
+  csBody.rotation.z = Math.PI / 2; crankStarterGroup.add(csBody);
+  const csSol = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.42, 16), M.steelDark);
+  csSol.rotation.z = Math.PI / 2; csSol.position.set(-0.05, 0.24, 0); crankStarterGroup.add(csSol);
+  labels.add('crank-starter-lbl', 'Starter motor', 2);
+
+  const coilGroup = new THREE.Group();
+  coilGroup.position.set(0.15, 1.85, 0); crankGroup.add(coilGroup);
+  coilGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.42, 0.24), M.batteryCase));
+  const coilTower = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.14, 12), M.rubber);
+  coilTower.position.y = 0.28; coilGroup.add(coilTower);
+  crankGroup.add(tubeBetween(v3(0.15, 2.05, 0), v3(-0.30, 1.60, 0.30), 0.02, M.rubber, 6));
+  labels.add('coil-lbl', 'Ignition coil', 2);
+
+  const catchFlash = new THREE.Mesh(
+    new THREE.PlaneGeometry(14, 9),
+    new THREE.MeshBasicMaterial({
+      color: 0x9be7ff, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    })
+  );
+  catchFlash.position.z = -3;
+  catchFlash.visible = false;
+  circuitView.add(catchFlash);
+
+  function triggerCatchFlash() {
+    catchFlash.visible = true;
+    catchFlash.material.opacity = 0.55;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     AUDIO ENGINE
+     ═══════════════════════════════════════════════════════════ */
+  const SND = { ready:false, ctx:null, on:false, master:null };
+
+  function bandlimitedWave(ctx, harmonics, rolloff) {
+    const real = new Float32Array(harmonics + 1);
+    const imag = new Float32Array(harmonics + 1);
+    for (let i = 1; i <= harmonics; i++) imag[i] = (1 / i) * Math.pow(1 / i, rolloff - 1);
+    return ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+  }
+  function noiseBuffer(ctx, seconds) {
+    const n = ctx.sampleRate * seconds;
+    const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < n; i++) {
+      const w = Math.random() * 2 - 1;
+      last = (last + 0.03 * w) / 1.03;
+      d[i] = last * 3.0 + w * 0.25;
+    }
+    return buf;
+  }
+
+  function initAudio() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    SND.ctx = ctx;
+
+    SND.master = ctx.createGain(); SND.master.gain.value = 0.42;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.ratio.value = 4;
+    SND.master.connect(comp); comp.connect(ctx.destination);
+
+    SND.starterOsc = ctx.createOscillator();
+    SND.starterOsc.setPeriodicWave(bandlimitedWave(ctx, 8, 0.7));
+    SND.starterOsc2 = ctx.createOscillator();
+    SND.starterOsc2.setPeriodicWave(bandlimitedWave(ctx, 6, 0.6));
+    const sOsc2Gain = ctx.createGain(); sOsc2Gain.gain.value = 0.4;
+    SND.starterBP = ctx.createBiquadFilter();
+    SND.starterBP.type = 'bandpass';
+    SND.starterBP.frequency.value = 1400;
+    SND.starterBP.Q.value = 1.6;
+    SND.starterHP = ctx.createBiquadFilter();
+    SND.starterHP.type = 'highpass';
+    SND.starterHP.frequency.value = 400;
+    SND.starterGain = ctx.createGain(); SND.starterGain.gain.value = 0;
+    SND.starterOsc.connect(SND.starterBP);
+    SND.starterOsc2.connect(sOsc2Gain); sOsc2Gain.connect(SND.starterBP);
+    SND.starterBP.connect(SND.starterHP); SND.starterHP.connect(SND.starterGain);
+    SND.starterGain.connect(SND.master);
+
+    SND.crankNoise = ctx.createBufferSource();
+    SND.crankNoise.buffer = noiseBuffer(ctx, 2); SND.crankNoise.loop = true;
+    SND.crankBP = ctx.createBiquadFilter();
+    SND.crankBP.type = 'lowpass'; SND.crankBP.frequency.value = 220; SND.crankBP.Q.value = 0.9;
+    SND.crankGate = ctx.createGain(); SND.crankGate.gain.value = 0.35;
+    SND.crankGain = ctx.createGain(); SND.crankGain.gain.value = 0;
+    SND.crankMod = ctx.createOscillator();
+    SND.crankMod.type = 'sine'; SND.crankMod.frequency.value = 20;
+    const crankModDepth = ctx.createGain(); crankModDepth.gain.value = 0.35;
+    SND.crankMod.connect(crankModDepth); crankModDepth.connect(SND.crankGate.gain);
+    SND.crankNoise.connect(SND.crankBP); SND.crankBP.connect(SND.crankGate);
+    SND.crankGate.connect(SND.crankGain); SND.crankGain.connect(SND.master);
+
+    SND.engineOsc = ctx.createOscillator();
+    SND.engineOsc.setPeriodicWave(bandlimitedWave(ctx, 10, 0.9));
+    SND.engineSub = ctx.createOscillator(); SND.engineSub.type = 'triangle';
+    const engSubGain = ctx.createGain(); engSubGain.gain.value = 0.4;
+    SND.engineLP = ctx.createBiquadFilter();
+    SND.engineLP.type = 'lowpass'; SND.engineLP.frequency.value = 700; SND.engineLP.Q.value = 0.6;
+    SND.engineGain = ctx.createGain(); SND.engineGain.gain.value = 0;
+    const engOscGain = ctx.createGain(); engOscGain.gain.value = 0.6;
+    SND.engineOsc.connect(engOscGain); engOscGain.connect(SND.engineLP);
+    SND.engineSub.connect(engSubGain); engSubGain.connect(SND.engineLP);
+    SND.engineLP.connect(SND.engineGain); SND.engineGain.connect(SND.master);
+
+    SND.starterOsc.start(); SND.starterOsc2.start();
+    SND.crankMod.start(); SND.crankNoise.start();
+    SND.engineOsc.start(); SND.engineSub.start();
+    SND.ready = true;
+  }
+
+  function ensureAudio() {
+    try {
+      if (!SND.ready || (SND.ctx && SND.ctx.state === 'closed')) {
+        SND.ready = false; SND.on = false;
+        initAudio();
+      }
+      if (SND.ready && SND.ctx && SND.ctx.state === 'suspended') SND.ctx.resume();
+      SND.on = SND.ready;
+    } catch (e) {
+      console.warn('[StartingSystem] audio init failed:', e);
+    }
+  }
+
+  function playClack() {
+    if (!SND.ready) return;
+    try {
+      const ctx = SND.ctx, now = ctx.currentTime;
+      const buf = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++)
+        d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.010));
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 550; lp.Q.value = 0.9;
+      const gain = ctx.createGain(); gain.gain.value = 0.55;
+      src.connect(lp); lp.connect(gain); gain.connect(SND.master);
+      src.start(now);
+    } catch(_) {}
+  }
+  function playPinionRetract() {
+    if (!SND.ready) return;
+    try {
+      const ctx = SND.ctx, now = ctx.currentTime;
+      const buf = ctx.createBuffer(1, ctx.sampleRate * 0.06, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++)
+        d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.008));
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 2;
+      const gain = ctx.createGain(); gain.gain.value = 0.22;
+      src.connect(bp); bp.connect(gain); gain.connect(SND.master);
+      src.start(now);
+    } catch(_) {}
+  }
+  function playFuelPrime() {
+    if (!SND.ready) return;
+    try {
+      const ctx = SND.ctx, now = ctx.currentTime;
+      const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 90;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.10, now + 0.04);
+      gain.gain.setValueAtTime(0.10, now + 0.55);
+      gain.gain.linearRampToValueAtTime(0, now + 0.75);
+      osc.connect(gain); gain.connect(SND.master);
+      osc.start(now); osc.stop(now + 0.8);
+    } catch(_) {}
+  }
+  function playGrind() {
+    if (!SND.ready) return;
+    try {
+      const ctx = SND.ctx, now = ctx.currentTime;
+      const buf = ctx.createBuffer(1, ctx.sampleRate * 0.30, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++)
+        d[i] = (Math.random() * 2 - 1) * (0.5 + 0.5 * Math.sin(i * 0.05));
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 4;
+      const gain = ctx.createGain(); gain.gain.value = 0.20;
+      src.connect(bp); bp.connect(gain); gain.connect(SND.master);
+      src.start(now);
+    } catch(_) {}
+  }
+  function playEngineCatch() {
+    if (!SND.ready) return;
+    try {
+      const ctx = SND.ctx, now = ctx.currentTime;
+      const osc = ctx.createOscillator(); osc.type = 'sine';
+      osc.frequency.setValueAtTime(60, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.35);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.30, now + 0.05);
+      gain.gain.linearRampToValueAtTime(0.0, now + 0.55);
+      osc.connect(gain); gain.connect(SND.master);
+      osc.start(now); osc.stop(now + 0.6);
+    } catch(_) {}
+  }
+  function playSputter() {
+    if (!SND.ready) return;
+    try {
+      const ctx = SND.ctx, now = ctx.currentTime;
+      const osc = ctx.createOscillator(); osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(45, now + 0.35);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.22, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      osc.connect(g); g.connect(SND.master);
+      osc.start(now); osc.stop(now + 0.45);
+    } catch(_) {}
+  }
+  function playEngineShutoff() {
+    if (!SND.ready) return;
+    try {
+      const ctx = SND.ctx, now = ctx.currentTime;
+      const osc = ctx.createOscillator(); osc.type = 'triangle';
+      const startHz = clamp(sys.engineRpm / 30, 15, 200);
+      osc.frequency.setValueAtTime(startHz, now);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(8, startHz * 0.35), now + 0.5);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.16, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      osc.connect(g); g.connect(SND.master);
+      osc.start(now); osc.stop(now + 0.6);
+    } catch(_) {}
+  }
+
+  function updateAudio() {
+    if (!SND.ready || !SND.on) return;
+    try {
+      const ctx = SND.ctx, now = ctx.currentTime;
+      const tf = 0.05;
+      const starterHz = 120 + (sys.starterRpm / TUNING.starterFreeRpm) * 1400;
+      SND.starterOsc.frequency.setTargetAtTime(starterHz, now, tf);
+      SND.starterOsc2.frequency.setTargetAtTime(starterHz * 2.02, now, tf);
+      SND.starterGain.gain.setTargetAtTime(
+        sys.starterRpm > 60 ? 0.14 + (sys.starterRpm / 5000) * 0.10 : 0, now, 0.10);
+      const crankFiringHz = clamp(sys.engineRpm / 15, 5, 90);
+      SND.crankMod.frequency.setTargetAtTime(crankFiringHz, now, tf);
+      SND.crankGain.gain.setTargetAtTime(
+        (!sys.engineRunning && sys.starterRpm > 300) ? 0.22
+          : (sys.engineRunning ? 0.10 : 0), now, 0.10);
+      const engHz = clamp(sys.engineRpm / 30, 15, 200);
+      SND.engineOsc.frequency.setTargetAtTime(engHz, now, tf);
+      SND.engineSub.frequency.setTargetAtTime(engHz * 0.5, now, tf);
+      SND.engineGain.gain.setTargetAtTime(
+        sys.engineRunning ? 0.06 + (sys.engineRpm / TUNING.redlineRpm) * 0.14 : 0, now, 0.15);
+      SND.engineLP.frequency.setTargetAtTime(
+        500 + (sys.engineRpm / TUNING.redlineRpm) * 2400, now, 0.15);
+    } catch(_) {}
+  }
+
+  let _sndWasOn = false;
+  document.addEventListener('visibilitychange', () => {
+    const c = SND.ctx; if (!c || c.state === 'closed') return;
+    if (document.hidden) { _sndWasOn = c.state === 'running'; if (_sndWasOn) c.suspend().catch(() => {}); }
+    else if (_sndWasOn) c.resume().catch(() => {});
+  });
+  window.addEventListener('pagehide', () => {
+    try { SND.ctx && SND.ctx.close(); } catch(_) {}
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     WIDGET REFS — declared BEFORE UI.create so widget onMount
+     (which runs synchronously) can safely assign them.
+     ═══════════════════════════════════════════════════════════ */
+  let keyBladeUI = null, kpLedEl = null;
+  let keyButtons = [], dialDots = [];
+  let mVoltsEl = null, mAmpsEl = null;
+  let rpmStripEl = null, rpmStripCtx = null, stripNoteEl = null;
+
+  /* Strip-chart state — must live above UI.create: onMount calls sizeStrip() synchronously */
+  const HISTORY_LEN = 240;
+  const history = new Array(HISTORY_LEN).fill(null).map(() => ({ e: 0, s: 0 }));
+  let histWrite = 0, stripW = 0, stripH = 0;
+
+  /* ═══════════════════════════════════════════════════════════
+     UI — kit chrome + key widget
+     ═══════════════════════════════════════════════════════════ */
+  const ui = UI.create({
+    moduleId: 'starting',
+
+    panel: {
+      kicker: 'Starting & Ignition',
+      title:  'Starting System · Circuit',
+      badge:  { text: 'Wiring · Power Path', color: '#818cf8' },
+      readout: `
+        <div id="ss-readout">
+          <div class="ss-row"><span data-ss="r1l">Key</span><b data-ss="r1">OFF</b></div>
+          <div class="ss-row"><span data-ss="r2l">Battery</span><b data-ss="r2">12.6 V</b></div>
+          <div class="ss-row"><span data-ss="r3l">Starter motor</span><b data-ss="r3">0 rpm</b></div>
+        </div>
+      `,
+      desc: `<strong>The starter is a high-current device.</strong> It draws 150–250 amps. That's why it has its own thick red cable straight from the battery, and why the battery sags to ~10 V the moment it engages.
+             <br><br>
+             <strong>OFF → ACC</strong> wakes up the accessories. <strong>ACC → ON</strong> charges the ignition coils and injectors. <strong>ON → START</strong> closes the solenoid — the plunger shoves the pinion into the flywheel's ring gear <em>and</em> closes the motor contactor in one motion.`
+    },
+
+    chip: {
+      label: 'Engine speed',
+      value: 0,
+      unit:  'rpm',
+      bar:   true,
+      rows: [
+        { id: 'key', label: 'Key',      value: 'OFF' },
+        { id: 'bat', label: 'Battery',  value: '12.6 V' }
+      ],
+      status: { text: 'Off', on: false }
+    },
+
+    toolbar: {
+      play: true, reset: true,
+      speed: { label: 'Throttle', min: 0.15, max: 2.5, step: 0.05, value: 0.15 },
+      labels: true, gas: true
+    },
+
+    widgets: {
+      bl: {
+        caption: 'Ignition switch',
+        html: `
+          <div id="key-panel">
+            <div class="kp-head">
+              <span>Ignition Switch</span>
+              <span class="kp-led" id="kp-led"></span>
+            </div>
+            <div id="key-visual" aria-hidden="true">
+              <div class="dial">
+                <div class="dial-dot" data-i="0"></div>
+                <div class="dial-dot" data-i="1"></div>
+                <div class="dial-dot" data-i="2"></div>
+                <div class="dial-dot" data-i="3"></div>
+              </div>
+              <div id="key-blade" class="turn-0"></div>
+            </div>
+            <div id="key-buttons" role="radiogroup" aria-label="Ignition switch">
+              <button class="key-btn active" data-key="0" aria-pressed="true">Off</button>
+              <button class="key-btn" data-key="1" aria-pressed="false">Acc</button>
+              <button class="key-btn" data-key="2" aria-pressed="false">On</button>
+              <button class="key-btn" data-key="3" aria-pressed="false">Start</button>
+            </div>
+            <div id="key-meters">
+              <div class="meter">
+                <span class="lbl">Battery</span>
+                <span class="val" id="m-volts">12.6<span>V</span></span>
+              </div>
+              <div class="meter">
+                <span class="lbl">Current</span>
+                <span class="val" id="m-amps">0<span>A</span></span>
+              </div>
+            </div>
+            <div>
+              <div id="strip-label"><span>Speed trace</span><span id="strip-note">—</span></div>
+              <canvas id="rpm-strip" aria-label="Engine and starter RPM trace"></canvas>
+            </div>
+          </div>
+        `,
+        onMount: (el) => wireKeyWidget(el)
+      }
+    }
+  });
+
+  /* Panel readout refs */
+  const panelBody = ui.panel.body;
+  const ssR1l = panelBody ? panelBody.querySelector('[data-ss="r1l"]') : null;
+  const ssR2l = panelBody ? panelBody.querySelector('[data-ss="r2l"]') : null;
+  const ssR3l = panelBody ? panelBody.querySelector('[data-ss="r3l"]') : null;
+  const ssR1  = panelBody ? panelBody.querySelector('[data-ss="r1"]')  : null;
+  const ssR2  = panelBody ? panelBody.querySelector('[data-ss="r2"]')  : null;
+  const ssR3  = panelBody ? panelBody.querySelector('[data-ss="r3"]')  : null;
+
+  const badgeEl       = document.getElementById('stroke-badge');
+  const badgeTextEl   = document.getElementById('badge-text');
+  const moduleTitleEl = document.getElementById('module-title');
+  const moduleKickerEl= document.getElementById('module-kicker');
+  const strokeDescEl  = document.getElementById('stroke-desc');
+
+  function wireKeyWidget(root) {
+    keyBladeUI = root.querySelector('#key-blade');
+    kpLedEl    = root.querySelector('#kp-led');
+    keyButtons = Array.from(root.querySelectorAll('.key-btn'));
+    dialDots   = Array.from(root.querySelectorAll('.dial-dot'));
+    mVoltsEl   = root.querySelector('#m-volts');
+    mAmpsEl    = root.querySelector('#m-amps');
+    rpmStripEl = root.querySelector('#rpm-strip');
+    stripNoteEl= root.querySelector('#strip-note');
+    rpmStripCtx = rpmStripEl ? rpmStripEl.getContext('2d') : null;
+
+    keyButtons.forEach(b => {
+      b.addEventListener('click', () => {
+        setKey(+b.dataset.key);
+        try { ensureAudio(); } catch(_) {}
+      });
+    });
+
+    if (rpmStripEl && window.ResizeObserver) new ResizeObserver(sizeStrip).observe(rpmStripEl);
+    sizeStrip();
+    updateKeyUI();
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     Config switcher — toolbar extras
+     ═══════════════════════════════════════════════════════════ */
+  (function buildConfigSwitcher() {
+    const extras = document.getElementById('toolbar-extras');
+    if (!extras) return;
+    const cfgGroup = document.createElement('div');
+    cfgGroup.className = 'cfg-group';
+    cfgGroup.setAttribute('role', 'group');
+    cfgGroup.setAttribute('aria-label', 'Starting system view');
+    cfgGroup.innerHTML = `
+      <button class="cfg-arrow" id="cfg-prev" type="button" aria-label="Previous view">‹</button>
+      <span id="cfg-label">Circuit</span>
+      <button class="cfg-arrow" id="cfg-next" type="button" aria-label="Next view">›</button>
+    `;
+    extras.appendChild(cfgGroup);
+  })();
+
+  const cfgLabelEl = document.getElementById('cfg-label');
+  const cfgPrevEl  = document.getElementById('cfg-prev');
+  const cfgNextEl  = document.getElementById('cfg-next');
+
+  const CONFIG_ORDER = ['circuit', 'starter', 'mesh', 'crank'];
+  const CONFIG_LABELS = {
+    circuit: 'Circuit', starter: 'Starter', mesh: 'Mesh', crank: 'Crank'
+  };
+
+  const MODE_INFO = {
+    circuit: {
+      badge: 'Wiring · Power Path', badgeColor: '#ef4444',
+      title: 'Starting System · Circuit',
+      desc: `<strong>The starter is a high-current device.</strong> It draws 150–250 amps — twenty times what a headlight uses. That's why it has its own thick red cable straight from the battery, and why the battery sags to ~10 V the moment it engages.
+             <br><br>
+             <strong>OFF → ACC</strong> wakes up accessories (fuel pump primes). <strong>ACC → ON</strong> charges coils and injectors. <strong>ON → START</strong> closes the solenoid — the plunger shoves the pinion into mesh <em>and</em> closes the motor contactor in one motion.
+             <br><br>
+             Watch the current particles: none until ACC, thin green while running, and a torrent of red through the fat cable the instant you turn the key.`
+    },
+    starter: {
+      badge: 'Starter Motor · Internals', badgeColor: '#22c55e',
+      title: 'Starting System · Inside the Starter',
+      desc: `<strong>A starter motor is a series-wound DC motor.</strong> Current enters through the brushes → commutator → armature coils, then exits through the field windings to ground. In a series motor the field current <em>is</em> the armature current, which is why the starter produces enormous torque at zero rpm.
+             <br><br>
+             The <strong>solenoid</strong> on top does double duty: its plunger pulls a shift lever that <em>engages the pinion</em>, and a copper disc on the plunger <em>closes the motor contactor</em> the moment the pinion is fully meshed.`
+    },
+    mesh: {
+      badge: 'Gear Mesh · 12 : 1', badgeColor: '#f59e0b',
+      title: 'Starting System · Gear Engagement',
+      desc: `<strong>9 teeth on the pinion, 108 on the ring gear — a 12:1 reduction.</strong> The starter spins at ~5000 rpm at the motor shaft; after the reduction it turns the flywheel at ~420 rpm.
+             <br><br>
+             The pinion lives on a helical spline. When the solenoid pushes the shift lever, the pinion screws itself into engagement <em>as it spins up</em>. A <em>sprag clutch</em> inside the pinion lets it freewheel once the engine catches.`
+    },
+    crank: {
+      badge: 'Cranking · Engine Fire', badgeColor: '#38bdf8',
+      title: 'Starting System · Cranking Sequence',
+      desc: `<strong>Three stages, one second apart.</strong>
+             <br><br>
+             <strong>1 · Solenoid clack (0 – 150 ms).</strong> Plunger throws the pinion into mesh.
+             <br>
+             <strong>2 · Cranking (150 – 900 ms).</strong> Starter spins at ~4200 rpm under load. The engine turns at 300–350 rpm — enough for the ECU to sync the crank sensor.
+             <br>
+             <strong>3 · Catch (900 – 1500 ms).</strong> The first combustion events push the piston harder than compression resists. Engine speed <em>crosses</em> the starter's cranking speed. RPM settles to idle.`
+    }
+  };
+
+  let mode = 'circuit';
+  let camTween = null;
+  let bridge = null;
+
+  function animateCamera(pos, tgt) {
+    camTween = {
+      t: 0, dur: 0.95,
+      p0: camera.position.clone(), p1: v3(pos[0], pos[1], pos[2]),
+      t0: controls.target.clone(), t1: v3(tgt[0], tgt[1], tgt[2])
+    };
+  }
+  if (controls.addEventListener) controls.addEventListener('start', () => { camTween = null; });
+
+  function applyMode(m, force = false) {
+    if (m === mode && !force) return;
+    mode = m;
+    circuitView.visible = (m === 'circuit');
+    starterView.visible = (m === 'starter');
+    meshView.visible    = (m === 'mesh');
+    crankView.visible   = (m === 'crank');
+
+    if (cfgLabelEl) cfgLabelEl.textContent = CONFIG_LABELS[m];
+
+    const info = MODE_INFO[m];
+    if (badgeTextEl) badgeTextEl.textContent = info.badge;
+    if (badgeEl) {
+      badgeEl.style.background = `color-mix(in oklch, ${info.badgeColor} 18%, transparent)`;
+      badgeEl.style.color = info.badgeColor;
+      const dot = badgeEl.querySelector('.dot');
+      if (dot) dot.style.background = info.badgeColor;
+    }
+    if (moduleTitleEl) moduleTitleEl.textContent = info.title;
+    if (strokeDescEl) strokeDescEl.innerHTML = info.desc;
+
+    if (bridge) bridge.setStatus(info.badge, info.badgeColor);
+
+    labels.hideAll();
+
+    if (m === 'circuit')      animateCamera([1.8, 1.6, 9.2], [0, 0.4, -0.5]);
+    else if (m === 'starter') animateCamera([2.4, 1.0, 3.2], [0, 0, 0]);
+    else if (m === 'mesh')    animateCamera([1.4, -0.2, 2.4], [0, -0.2, 0]);
+    else                      animateCamera([4.5, 2.5, 6.5], [0.2, 0.3, 0]);
+  }
+
+  function stepConfig(dir) {
+    const i = CONFIG_ORDER.indexOf(mode);
+    applyMode(CONFIG_ORDER[(i + dir + CONFIG_ORDER.length) % CONFIG_ORDER.length]);
+  }
+  if (cfgPrevEl) cfgPrevEl.addEventListener('click', () => stepConfig(-1));
+  if (cfgNextEl) cfgNextEl.addEventListener('click', () => stepConfig(1));
+
+  /* ═══════════════════════════════════════════════════════════
+     KEY UI
+     ═══════════════════════════════════════════════════════════ */
+  function updateKeyUI() {
+    keyButtons.forEach(b => {
+      const active = +b.dataset.key === sys.key;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    dialDots.forEach(d => d.classList.toggle('active', +d.dataset.i === sys.key));
+    if (keyBladeUI) {
+      keyBladeUI.classList.remove('turn-0','turn-1','turn-2','turn-3');
+      keyBladeUI.classList.add('turn-' + sys.key);
+    }
+    if (kpLedEl) kpLedEl.classList.toggle('on', sys.key >= 2);
+  }
+
+  function setKey(k) {
+    if (k === sys.key) return;
+    sys.keyPrev = sys.key;
+    sys.key = k;
+
+    if (k === 3) {
+      if (!sys.engineRunning) {
+        sys.crankElapsed = 0;
+        sys.hasCaught = false;
+        sys._pendingClack = true;
+        sys._sputtered = false;
+        ensureAudio();
+      } else {
+        playGrind();
+      }
+    }
+    if (sys.keyPrev === 3 && k !== 3) playPinionRetract();
+    if (k >= 2 && sys.keyPrev < 2) {
+      playFuelPrime();
+      sys._fuelPulse = 1;
+    }
+    updateKeyUI();
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     PHYSICS
+     ═══════════════════════════════════════════════════════════ */
+  function updateSystem(dt) {
+    if (sys._fuelPulse > 0) sys._fuelPulse = Math.max(0, sys._fuelPulse - dt * 1.4);
+
+    const wantExtend = !sys.engineRunning && ((sys.key === 3) || (sys.starterRpm > 200));  /* slides away once the engine fires */
+    const extendRate = wantExtend ? 1 / TUNING.pinionExtendTime : 1 / TUNING.pinionRetractTime;
+    sys.pinionExtend += (wantExtend ? 1 : -1) * extendRate * dt;
+    sys.pinionExtend = clamp(sys.pinionExtend, 0, 1);
+
+    if (sys._pendingClack && sys.pinionExtend > 0.92) {
+      sys._pendingClack = false;
+      playClack();
+    }
+
+    let starterTarget = 0;
+    if (sys.key === 3 && sys.pinionExtend > 0.85 && !sys.engineRunning)
+      starterTarget = TUNING.starterLoadedRpm;
+    else if (sys.key === 3 && sys.pinionExtend > 0.85 && sys.engineRunning)
+      starterTarget = TUNING.starterFreeRpm;
+    sys.starterRpm += (starterTarget - sys.starterRpm) * Math.min(1, dt * 5);
+    sys.pinionAngle += dt * (sys.starterRpm / 60) * TAU;
+
+    if (sys.engineRunning && sys.key < 2) {
+      sys.engineRunning = false;
+      sys.combustion = 0;
+      sys._sputtered = false;
+      playEngineShutoff();
+    }
+
+    let engineTarget;
+    if (sys.engineRunning) {
+      const slider = clamp((state.speedMul - 0.15) / (2.5 - 0.15), 0, 1);
+      engineTarget = TUNING.idleRpm + slider * (TUNING.redlineRpm - TUNING.idleRpm);
+      if (time - sys.lastCatchAt < 3) engineTarget += 220;
+    } else if (sys.starterRpm > 100 && sys.pinionExtend > 0.9) {
+      engineTarget = sys.starterRpm / TUNING.gearRatio;
+    } else engineTarget = 0;
+    const accel = sys.engineRunning ? 1.8 : 3.5;
+    sys.engineRpm += (engineTarget - sys.engineRpm) * Math.min(1, dt * accel);
+
+    const cranking = sys.key === 3 && sys.pinionExtend > 0.9 && sys.starterRpm > 500;
+    const canFire = sys.key >= 2 && sys.engineRpm > TUNING.crankRpmThreshold;
+    let combTarget = 0;
+    if (sys.engineRunning) combTarget = 1;
+    else if (cranking && canFire)
+      combTarget = clamp(sys.crankElapsed / TUNING.crankTimeToFire, 0, 1);
+    sys.combustion += (combTarget - sys.combustion) * Math.min(1, dt * 1.7);
+
+    if (!sys.engineRunning && sys.combustion > 0.35 && sys.engineRpm > 200) {
+      sys.engineRunning = true;
+      sys.hasCaught = true;
+      sys.lastCatchAt = time;
+      playEngineCatch();
+      triggerCatchFlash();
+      setTimeout(() => { if (sys.key === 3) setKey(2); }, 260);
+    }
+
+    if (!sys.engineRunning && sys.key !== 3 &&
+        sys.combustion > 0.05 && sys.combustion < 0.35) {
+      if (!sys._sputtered) { sys._sputtered = true; playSputter(); }
+      sys.combustion = 0;
+      sys.crankElapsed = 0;
+    }
+
+    if (sys.key === 3 && !sys.hasCaught) sys.crankElapsed += dt;
+
+    let draw = 0;
+    if (sys.key >= 1) draw += 2;
+    if (sys.key >= 2) draw += TUNING.ignitionAmps;
+    if (sys.starterRpm > 100) {
+      const l = sys.starterRpm / TUNING.starterFreeRpm;
+      draw += TUNING.starterAmps * l * l * 1.15;
+    }
+    sys.currentDraw += (draw - sys.currentDraw) * Math.min(1, dt * 6);
+
+    if (sys.starterRpm > 100)
+      sys.batteryCharge = Math.max(0, sys.batteryCharge - dt * 0.0009);
+    else if (sys.engineRunning)
+      sys.batteryCharge = Math.min(1, sys.batteryCharge + dt * 0.004);
+
+    const effOCV = TUNING.batteryOpenCircuit * (0.85 + 0.15 * sys.batteryCharge);
+    const vTarget = effOCV - (sys.currentDraw / 400) * (effOCV - TUNING.batteryUnderLoad);
+    sys.batteryVolts += (vTarget - sys.batteryVolts) * Math.min(1, dt * 4);
+
+    sys.engineAngle += dt * (sys.engineRpm / 60) * TAU;
+
+    if (sys.engineRunning) sys.coolantTemp += dt * (90 - sys.coolantTemp) * 0.02;
+    else sys.coolantTemp += dt * (20 - sys.coolantTemp) * 0.05;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     VIEW UPDATES
+     ═══════════════════════════════════════════════════════════ */
+  const KEY_ANGLE_PER_STATE = [-Math.PI * 0.75, -Math.PI * 0.25, Math.PI * 0.25, Math.PI * 0.75];
+
+  function updateCircuit(dt) {
+    const target = KEY_ANGLE_PER_STATE[sys.key];
+    keyBladeGroup.rotation.z += (target - keyBladeGroup.rotation.z) * Math.min(1, dt * 12);
+
+    keyGlow.material.opacity = sys.key >= 2 ? 0.28 + 0.12 * Math.sin(time * 6) : 0.08;
+    keyGlow.material.color.setHex(sys.key === 3 ? 0x60a5fa : 0xffb030);
+    for (let i = 0; i < FLOW_N; i++) {
+      const p = flowData[i];
+      const wire = flowDefs[p.wire];
+      const active = wire.active();
+      p.t += dt * p.speed * (active ? (1.0 + sys.currentDraw / 300) : 0.25);
+      if (p.t > 1) p.t -= 1;
+      pointOnRoute(wire, p.t, _fp);
+      flowPos[i * 3]     = _fp.x;
+      flowPos[i * 3 + 1] = _fp.y;
+      flowPos[i * 3 + 2] = _fp.z;
+      const alpha = active ? 1 : 0.12;
+      flowCol[i * 3]     = wire.col.r * alpha;
+      flowCol[i * 3 + 1] = wire.col.g * alpha;
+      flowCol[i * 3 + 2] = wire.col.b * alpha;
+    }
+    flowPtGeo.attributes.position.needsUpdate = true;
+    flowPtGeo.attributes.color.needsUpdate = true;
+    flowPts.material.size = 0.10 + clamp(sys.currentDraw / 300, 0, 1) * 0.10;
+
+    M.wireRed.emissiveIntensity   = sys.currentDraw > 60 ? 0.30 : 0;
+    M.wireBlue.emissiveIntensity  = sys.key === 3 ? 0.30 : 0;
+    M.wireGreen.emissiveIntensity = sys._fuelPulse > 0 ? 0.55 * sys._fuelPulse : (sys.key >= 2 ? 0.22 : 0);
+    M.brass.emissiveIntensity     = sys.key === 3 ? 0.35 : 0;
+
+    solenoidPlunger.position.x = 0.30 + sys.pinionExtend * 0.16;
+    pinionGroup.position.x = 0.62 + sys.pinionExtend * PIN_SLIDE;
+
+    const omegaPinion = (sys.starterRpm / 60) * TAU;
+    pinionGearGroup.rotation.z += omegaPinion * dt;
+    const omegaFly = sys.engineRunning
+      ? (sys.engineRpm / 60) * TAU
+      : (sys.starterRpm > 100 && sys.pinionExtend > 0.85
+          ? (sys.starterRpm / 60) * TAU / TUNING.gearRatio : 0);
+    flySpinGroupCircuit.rotation.z += omegaFly * dt;
+
+    const meshed = sys.pinionExtend > 0.85;
+    const glowTarget = meshed ? (0.35 + 0.30 * Math.abs(Math.sin(time * 12))) : 0;
+    circuitMeshGlow.material.opacity += (glowTarget - circuitMeshGlow.material.opacity) * Math.min(1, dt * 8);
+    circuitMeshGlow.scale.setScalar(0.8 + 0.4 * Math.abs(Math.sin(time * 18)));
+
+    if (catchFlash.visible) {
+      catchFlash.material.opacity *= Math.exp(-dt * 4);
+      if (catchFlash.material.opacity < 0.01) {
+        catchFlash.visible = false;
+        catchFlash.material.opacity = 0;
+      }
+    }
+  }
+
+  function updateStarter(dt) {
+    const omega = (sys.starterRpm / 60) * TAU;
+    armGroup.rotation.x += omega * dt;
+    const plungerOffset = sys.pinionExtend * 0.16;
+    plunger.position.x = plungerOffset;
+    plungerHead.position.x = 0.15 + plungerOffset;
+    lever.rotation.z = -sys.pinionExtend * 0.55;
+    pinionInternalsGroup.position.x = ST_LEN / 2 + 0.45 + sys.pinionExtend * 0.12;
+    pinionInternalsGroup.rotation.x += omega * dt;
+    const brushCurrent = clamp(sys.currentDraw / 250, 0, 1);
+    M.carbon.emissiveIntensity       = brushCurrent * 0.25;
+    M.copper.emissiveIntensity       = brushCurrent * 0.18;
+    M.copperBright.emissiveIntensity = brushCurrent * 0.35;
+  }
+
+  function updateMesh(dt) {
+    const meshY = PINION_MESH_Y;
+    const restY = -0.85;
+    pinionMeshGroup.position.y = restY + (meshY - restY) * sys.pinionExtend;
+
+    const omegaPinion = (sys.starterRpm / 60) * TAU;
+    const omegaRing = -omegaPinion * (TUNING.pinionTeeth / TUNING.ringTeeth);
+    flySpinGroup.rotation.z += omegaRing * dt;
+    pinionMeshGroup.rotation.z += omegaPinion * dt;
+
+    const meshed = sys.pinionExtend > 0.85;
+    const contactY = flywheelGroup.position.y - (FLY_R + PINION_R * 0.95);
+    meshGlow.position.set(0, contactY, 0);
+    const targetOpacity = meshed ? (0.35 + 0.30 * Math.abs(Math.sin(time * 12))) : 0;
+    meshGlow.material.opacity += (targetOpacity - meshGlow.material.opacity) * Math.min(1, dt * 8);
+    meshGlow.scale.setScalar(0.8 + 0.4 * Math.abs(Math.sin(time * 18)));
+  }
+
+  function updateCrank(dt) {
+    const omegaFly = sys.engineRunning
+      ? (sys.engineRpm / 60) * TAU
+      : (sys.starterRpm > 100 && sys.pinionExtend > 0.85
+          ? -(sys.starterRpm / 60) * TAU * (TUNING.pinionTeeth / TUNING.ringTeeth) : 0);
+    crankFlySpin.rotation.x += omegaFly * dt;
+
+    const crankAngle = sys.engineAngle;
+    const throwR = 0.18;
+    const pistonY = 0.85 + Math.cos(crankAngle) * throwR * 1.6;
+    piston.position.y = (pistonY - 0.85) * 0.55;
+    const pistonWorldY = 0.85 + piston.position.y - 0.15;
+    const crankPinWorldY = -0.30 + Math.cos(crankAngle) * throwR;
+    const crankPinWorldX = -0.6 + Math.sin(crankAngle) * throwR * 0.3;
+    const rodMid = v3(-0.6, (pistonWorldY + crankPinWorldY) / 2, 0);
+    conRod.position.copy(rodMid);
+    conRod.position.x = crankPinWorldX * 0.5;
+    conRod.rotation.z = Math.atan2(crankPinWorldX - (-0.6), pistonWorldY - crankPinWorldY) * -1;
+
+    if (sys.combustion > 0.1) {
+      const fireIntensity = sys.combustion * (0.4 + 0.6 * (0.5 + 0.5 * Math.cos(crankAngle)));
+      M.fire.opacity = 0.25 + fireIntensity * 0.55;
+    } else {
+      M.fire.opacity = 0.55 * 0.6;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     RPM STRIP
+     ═══════════════════════════════════════════════════════════ */
+
+  function sizeStrip() {
+    if (!rpmStripEl) return;
+    const r = rpmStripEl.getBoundingClientRect();
+    if (r.width < 4 || r.height < 4) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    rpmStripEl.width  = Math.round(r.width * dpr);
+    rpmStripEl.height = Math.round(r.height * dpr);
+    rpmStripCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    stripW = r.width; stripH = r.height;
+  }
+
+  let histAccum = 0;
+  function pushHistory(dt) {
+    histAccum += dt;
+    if (histAccum < 0.03) return;
+    histAccum = 0;
+    history[histWrite].e = sys.engineRpm;
+    history[histWrite].s = sys.starterRpm / 12;
+    histWrite = (histWrite + 1) % HISTORY_LEN;
+  }
+
+  function drawStrip() {
+    if (!rpmStripCtx) return;
+    if (!stripW || !stripH) sizeStrip();
+    if (!stripW || !stripH) return;
+    const ctx = rpmStripCtx;
+    ctx.clearRect(0, 0, stripW, stripH);
+
+    ctx.strokeStyle = 'rgba(148,163,184,.10)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      const y = (stripH / 4) * i;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(stripW, y); ctx.stroke();
+    }
+    const maxRpm = TUNING.redlineRpm;
+    const stepX = stripW / (HISTORY_LEN - 1);
+
+    ctx.beginPath();
+    for (let i = 0; i < HISTORY_LEN; i++) {
+      const idx = (histWrite + i) % HISTORY_LEN;
+      const v = clamp(history[idx].e / maxRpm, 0, 1);
+      const x = i * stepX;
+      const y = stripH - v * (stripH - 4) - 2;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = 'rgba(56,189,248,0.95)';
+    ctx.lineWidth = 1.6; ctx.stroke();
+
+    ctx.beginPath();
+    for (let i = 0; i < HISTORY_LEN; i++) {
+      const idx = (histWrite + i) % HISTORY_LEN;
+      const v = clamp(history[idx].s / maxRpm, 0, 1);
+      const x = i * stepX;
+      const y = stripH - v * (stripH - 4) - 2;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = 'rgba(239,68,68,0.70)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (stripNoteEl) {
+      stripNoteEl.textContent = sys.engineRunning ? 'idle'
+        : (sys.key === 3 ? 'cranking'
+        : (sys.key === 2 ? 'armed' : 'off'));
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     LIVE PANEL
+     ═══════════════════════════════════════════════════════════ */
+  const KEY_NAMES = ['OFF', 'ACC', 'ON', 'START'];
+
+  function updateLivePanel() {
+    const rpm = Math.round(sys.engineRpm);
+    ui.toolbar.setRpmLabel(`~${Math.round(sys.engineRpm / 50) * 50} rpm`);
+
+    if (mode === 'circuit') {
+      if (ssR1l) ssR1l.textContent = 'Key';
+      if (ssR2l) ssR2l.textContent = 'Battery';
+      if (ssR3l) ssR3l.textContent = 'Starter';
+      if (ssR1)  ssR1.textContent = KEY_NAMES[sys.key];
+      if (ssR2)  ssR2.textContent = sys.batteryVolts.toFixed(1) + ' V';
+      if (ssR3)  ssR3.textContent = Math.round(sys.starterRpm) + ' rpm';
+      ui.chip.setBig(Math.round(sys.currentDraw), 'A');
+      ui.chip.setColor('#ef4444');
+      ui.chip.setBar(Math.min(100, (sys.currentDraw / 300) * 100), '#ef4444');
+      ui.chip.set('key', KEY_NAMES[sys.key]);
+      ui.chip.set('bat', sys.batteryVolts.toFixed(1) + ' V');
+      ui.chip.setStatus(KEY_NAMES[sys.key], sys.key >= 2);
+    } else if (mode === 'starter') {
+      if (ssR1l) ssR1l.textContent = 'Key';
+      if (ssR2l) ssR2l.textContent = 'Solenoid';
+      if (ssR3l) ssR3l.textContent = 'Pinion';
+      if (ssR1)  ssR1.textContent = KEY_NAMES[sys.key];
+      if (ssR2)  ssR2.textContent = (sys.pinionExtend * 100).toFixed(0) + ' %';
+      if (ssR3)  ssR3.textContent = sys.pinionExtend > 0.85 ? 'MESHED' : 'RETRACTED';
+      ui.chip.setBig(Math.round(sys.starterRpm), 'rpm');
+      ui.chip.setColor('#22c55e');
+      ui.chip.setBar(Math.min(100, (sys.starterRpm / TUNING.starterFreeRpm) * 100), '#22c55e');
+      ui.chip.set('key', KEY_NAMES[sys.key]);
+      ui.chip.set('bat', sys.batteryVolts.toFixed(1) + ' V');
+      ui.chip.setStatus(sys.pinionExtend > 0.85 ? 'Meshed' : 'Clear', sys.pinionExtend > 0.85);
+    } else if (mode === 'mesh') {
+      const ringRpm = sys.starterRpm / TUNING.gearRatio;
+      if (ssR1l) ssR1l.textContent = 'Ratio';
+      if (ssR2l) ssR2l.textContent = 'Pinion';
+      if (ssR3l) ssR3l.textContent = 'Mesh state';
+      if (ssR1)  ssR1.textContent = `${TUNING.ringTeeth}:${TUNING.pinionTeeth} → 12:1`;
+      if (ssR2)  ssR2.textContent = Math.round(sys.starterRpm) + ' rpm';
+      if (ssR3)  ssR3.textContent = sys.pinionExtend > 0.85 ? 'ENGAGED' : 'CLEAR';
+      ui.chip.setBig(Math.round(ringRpm), 'rpm');
+      ui.chip.setColor('#f59e0b');
+      ui.chip.setBar(Math.min(100, (ringRpm / 500) * 100), '#f59e0b');
+      ui.chip.set('key', KEY_NAMES[sys.key]);
+      ui.chip.set('bat', sys.batteryVolts.toFixed(1) + ' V');
+      ui.chip.setStatus(sys.pinionExtend > 0.85 ? 'Engaged' : 'Clear', sys.pinionExtend > 0.85);
+    } else {
+      if (ssR1l) ssR1l.textContent = 'State';
+      if (ssR2l) ssR2l.textContent = 'Combustion';
+      if (ssR3l) ssR3l.textContent = 'Coolant';
+      if (ssR1)  ssR1.textContent = sys.engineRunning ? 'RUNNING' : (sys.key === 3 ? 'CRANKING' : 'STOPPED');
+      if (ssR2)  ssR2.textContent = Math.round(sys.combustion * 100) + ' %';
+      if (ssR3)  ssR3.textContent = Math.round(sys.coolantTemp) + ' °C';
+      ui.chip.setBig(rpm, 'rpm');
+      ui.chip.setColor(sys.engineRunning ? '#22c55e' : '#38bdf8');
+      ui.chip.setBar(Math.min(100, (rpm / TUNING.redlineRpm) * 100), sys.engineRunning ? '#22c55e' : '#38bdf8');
+      ui.chip.set('key', KEY_NAMES[sys.key]);
+      ui.chip.set('bat', sys.batteryVolts.toFixed(1) + ' V');
+      ui.chip.setStatus(sys.engineRunning ? 'Running' : (sys.key === 3 ? 'Cranking' : 'Stopped'), sys.engineRunning);
+    }
+
+    if (mVoltsEl) mVoltsEl.innerHTML = sys.batteryVolts.toFixed(1) + '<span>V</span>';
+    if (mAmpsEl)  mAmpsEl.innerHTML  = Math.round(sys.currentDraw) + '<span>A</span>';
+    if (kpLedEl)  kpLedEl.classList.toggle('on', sys.key >= 2 || sys.engineRunning);
+  }
+
+  function resetSim() {
+    sys.key = 0;
+    sys.keyPrev = 0;
+    sys.pinionExtend = 0;
+    sys.pinionAngle = 0;
+    sys.starterRpm = 0;
+    sys.engineRpm = 0;
+    sys.engineAngle = 0;
+    sys.engineRunning = false;
+    sys.combustion = 0;
+    sys.batteryVolts = TUNING.batteryOpenCircuit;
+    sys.batteryCharge = 1;
+    sys.currentDraw = 0;
+    sys.crankElapsed = 0;
+    sys.hasCaught = false;
+    sys.coolantTemp = 20;
+    sys._fuelPulse = 0;
+    sys._pendingClack = false;
+    sys._sputtered = false;
+    keyBladeGroup.rotation.z = KEY_ANGLE_PER_STATE[0];
+    catchFlash.visible = false;
+    catchFlash.material.opacity = 0;
+    for (let i = 0; i < HISTORY_LEN; i++) { history[i].e = 0; history[i].s = 0; }
+    histWrite = 0;
+    updateKeyUI();
+    applyMode(mode, true);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     BRIDGE
+     ═══════════════════════════════════════════════════════════ */
+  bridge = ui.wireBridge({
+    viewManager,
+    state,
+    onCommand: (d) => {
+      switch (d.action) {
+        case 'reset': resetSim(); break;
+        case 'setConfig':
+          if (CONFIG_ORDER.indexOf(d.value) >= 0) applyMode(d.value);
+          break;
+        case 'setKey':
+          if (d.value >= 0 && d.value <= 3) { ensureAudio(); setKey(+d.value); }
+          break;
+      }
+    }
+  });
+  bridge.ready();
+  bridge.setStatus('Starting System', '#ef4444');
+
+  applyMode('circuit', true);
+  updateKeyUI();
+
+  /* ═══════════════════════════════════════════════════════════
+     MAIN LOOP
+     ═══════════════════════════════════════════════════════════ */
+  const clock = new THREE.Clock();
+  let liveT = 0, stripT = 0;
+  let _frameErrorLogged = false;
+
+  function animate() {
+    requestAnimationFrame(animate);
+    try {
+      const dt = Math.min(clock.getDelta(), 0.05);
+      const sim = state.playing ? dt : 0;
+      time += sim;
+
+      updateSystem(sim);
+
+      if (camTween) {
+        camTween.t += dt / camTween.dur;
+        const k = camTween.t >= 1 ? 1 : 1 - Math.pow(1 - camTween.t, 3);
+        camera.position.lerpVectors(camTween.p0, camTween.p1, k);
+        controls.target.lerpVectors(camTween.t0, camTween.t1, k);
+        if (camTween.t >= 1) camTween = null;
+      }
+      controls.update();
+
+      if (sim > 0) {
+        if (circuitView.visible) updateCircuit(sim);
+        if (starterView.visible) updateStarter(sim);
+        if (meshView.visible)    updateMesh(sim);
+        if (crankView.visible)   updateCrank(sim);
+        pushHistory(sim);
+      }
+
+      if (state.showLabels) {
+        if (mode === 'circuit') {
+          labels.project('bat-lbl',  v3(-3.0, 0.0, -0.60), camera, wrap);
+          labels.project('bat-pos',  v3(-2.45, 0.85, 0.30), camera, wrap);
+          labels.project('bat-neg',  v3(-3.55, 0.85, 0.30), camera, wrap);
+          labels.project('key-lbl',  v3(-3.0, 3.10, 0), camera, wrap);
+          labels.project('start-lbl',v3(PIN_XY.x, PIN_XY.y - 0.55, ST_Z0 - 0.3), camera, wrap);
+          labels.project('sol-lbl',  v3(PIN_XY.x, PIN_XY.y + 0.75, ST_Z0 - 0.25), camera, wrap);
+          labels.project('pin-lbl',  v3(PIN_XY.x + 0.55, PIN_XY.y - 0.30, -0.2), camera, wrap);
+          labels.project('fly-lbl',  v3(FLY_C.x, FLY_C.y + 1.30, 0), camera, wrap);
+        } else if (mode === 'starter') {
+          labels.project('field-lbl', v3(-0.55, 0.50, 0), camera, wrap);
+          labels.project('arm-lbl',   v3(0, 0.35, 0.35), camera, wrap);
+          labels.project('comm-lbl',  v3(-0.85, -0.30, 0.35), camera, wrap);
+          labels.project('brush-lbl', v3(-0.90, 0.55, 0.35), camera, wrap);
+          labels.project('sol2-lbl',  v3(-0.30, 1.10, 0.35), camera, wrap);
+          labels.project('pin2-lbl',  v3(ST_LEN/2 + 0.75, 0.30, 0), camera, wrap);
+        } else if (mode === 'mesh') {
+          labels.project('ring-lbl',  v3(0, FLY_R + 0.45, 0.4), camera, wrap);
+          labels.project('pin3-lbl',  v3(0, PINION_MESH_Y - 0.35, 0.4), camera, wrap);
+          labels.project('ratio-lbl', v3(-FLY_R - 0.30, 0, 0), camera, wrap);
+        } else {
+          labels.hideAll();
+        }
+      } else {
+        labels.hideAll();
+      }
+
+      liveT += dt;
+      if (liveT > 0.12) { liveT = 0; updateLivePanel(); updateAudio(); }
+
+      stripT += dt;
+      if (stripT > 0.05) { stripT = 0; drawStrip(); }
+
+      renderer.render(scene, camera);
+    } catch (err) {
+      if (!_frameErrorLogged) {
+        _frameErrorLogged = true;
+        console.error('[StartingSystem] frame error:', err);
+      }
+    }
+  }
+  animate();
+  </script>
+</body>
+</html>

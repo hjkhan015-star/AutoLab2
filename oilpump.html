@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Oil Pump Types — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #84cc16; }
+html.light-theme { --al-accent: color-mix(in oklch, #84cc16 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "oilpump", "title": "Oil Pump Types", "kicker": "Lubrication", "accent": "#84cc16", "badge": "External gear pump", "camPos": [4.6, 2.4, 6.8], "target": [0.6, 0, 0], "floorY": -3.1, "ctl": {"label": "Pump speed", "val": 35, "caption": "Crank rpm"}, "chipLabel": "Oil pressure", "rows": [["flow", "Flow"], ["relief", "Relief valve"]], "ro": [["rpm", "Pump speed"], ["press", "Oil pressure"], ["flow", "Flow"], ["relief", "Relief valve"], ["type", "Type"]], "legend": [["#fbbf24", "Engine oil"], ["#94a3b8", "Gears"], ["#a3e635", "Relief valve"]], "overview": "<div class=\"al-sec\"><h4>Making flow, not pressure<\/h4><p>The pump only delivers <b>flow<\/b>. Pressure builds because oil has to squeeze through bearing clearances. The relief valve caps the maximum so cold, thick oil cannot burst the filter.<\/p><\/div><div class=\"al-sec\"><h4>Pump types<\/h4><ul><li><b>External gear<\/b> – two meshing gears carry oil round the outer walls (shown).<\/li><li><b>Gerotor<\/b> – inner rotor with one tooth fewer than the outer; compact and often crank-driven.<\/li><li><b>Vane<\/b> – variable-displacement versions save fuel by cutting flow at low load.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Relief valve<\/h4><p>A spring-loaded plunger. Above the set pressure (about 4–5 bar) it lifts and dumps oil back to the sump.<\/p><\/div>", "faults": [["Worn pump gears", "Low pressure when hot, low-oil-pressure light at idle.", "Measure oil pressure at idle and 3000 rpm with a gauge; inspect gear end-float."], ["Stuck relief valve", "Too high pressure (open failure = low pressure).", "Remove and check the plunger moves freely; check the spring length."], ["Blocked pickup strainer", "Pump cavitation, noise, low pressure.", "Drop the sump and clean the strainer; check for sludge."]], "quiz": [["Oil pump directly creates…", ["Pressure", "Flow", "Viscosity"], 1, "The pump moves a volume; resistance to that flow creates pressure."], ["The relief valve opens to…", ["Increase flow", "Limit maximum pressure", "Cool the oil"], 1, "It bleeds oil back to the sump, protecting the filter and seals."], ["A gerotor pump has…", ["Two equal gears", "An inner rotor with one tooth fewer than the outer", "Vanes only"], 1, "The tooth-count difference creates the expanding and collapsing chambers."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylZ,mat,glass,pipe,stream,lc,clamp,root,THREE,Base}=H;
+ const steel=mat(0x94a3b8,.85,.3), gm=mat(0xb8c0cc,.85,.3), dark=mat(0x3d4555,.6,.5), N=10;
+ box(2.6,1.9,.12,dark,0,0,-.55); box(2.6,1.9,.9,glass(0x94a3b8,.2),0,0,0);
+ function gear(x){ const w=new THREE.Group(); w.position.set(x,0,0); root.add(w); const g=Base.makeCog(.42,.6,N,.16,.14,gm,gm); g.rotation.x=Math.PI/2; w.add(g); cylZ(.1,.1,1.4,steel,0,0,0,w); return w; }
+ const gA=gear(-.5), gB=gear(.5);
+ box(3.6,.5,2.0,glass(0xf59e0b,.36),0,-2.75,0); cyl(.38,.38,.35,mat(0x64748b,.4,.6),0,-2.3,0);
+ pipe([[0,-2.3,0],[0,-.85,0]],.16,dark); pipe([[0,.85,0],[0,1.7,0],[2.6,1.7,0]],.16,dark);
+ cyl(.3,.3,1.0,glass(0x64748b,.35),2.0,1.05,0); cyl(.36,.36,.14,dark,2.0,.5,0);
+ const plunger=cyl(.2,.2,.3,mat(0xa3e635,.6,.4),2.0,.75,0);
+ const spring=H.put(Base.makeHelixSpring(.14,.025,7,1,mat(0x9aa3b2,.8,.3),40),2.0,0,0); 
+ const inL=stream([[0,-2.3,0],[0,-.9,0]],10,0xfbbf24,.11);
+ const L=stream([[0,-.9,0],[-.75,-.75,0],[-.95,0,0],[-.75,.75,0],[0,.9,0]],12,0xfbbf24,.1);
+ const R=stream([[0,-.9,0],[.75,-.75,0],[.95,0,0],[.75,.75,0],[0,.9,0]],12,0xfbbf24,.1);
+ const out=stream([[0,.9,0],[0,1.7,0],[2.6,1.7,0],[3.6,1.7,0]],16,0xfbbf24,.11);
+ let a=0;
+ return {
+  labels:[['Drive gear',[-.5,.85,.5]],['Driven gear',[.5,-.85,.5]],['Inlet strainer',[0,-2.0,.6]],['Outlet to galleries',[3.0,2.05,0]],['Relief valve',[2.0,1.7,.5]],['Sump',[-1.7,-2.5,1]]],
+  update(c){
+   const rpm=800+5200*c.k, raw=.8+rpm*.0012, P=Math.min(raw,4.5+.3*(raw-4.5)), flow=rpm*.0065;
+   a+=c.dt*(rpm/60)*.9; gA.rotation.z=-a; gB.rotation.z=a+Math.PI/N;
+   const lift=clamp((raw-4.5)/2.0)*.3, py=.75+lift;
+   plunger.position.y=py; spring.position.y=py+.15; spring.scale.y=Math.max(.15,(1.55-(py+.15)));
+   const sp=.05+.35*(rpm/6000);
+   inL.update(c.t,sp,1); L.update(c.t,sp,1); R.update(c.t,sp,1); out.update(c.t,sp,1);
+   const relief=raw>4.5;
+   return {big:P.toFixed(1),unit:' bar',bar:P/5*100,rows:{flow:flow.toFixed(0)+' L/min',relief:relief?'Open':'Closed'},
+    ro:{rpm:[rpm.toFixed(0),'hi'],press:[P.toFixed(1)+' bar',P<1.2?'crit':'ok'],flow:[flow.toFixed(0)+' L/min',''],relief:[relief?'Bypassing':'Closed',relief?'warn':'ok'],type:['External gear','']},
+    status:[relief?'Relief open':'Pumping',true],ctl:rpm.toFixed(0)+' rpm'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

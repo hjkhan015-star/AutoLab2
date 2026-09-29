@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OBD-II · Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #22d3ee; }
+html.light-theme { --al-accent: #0891b2; }
+.al-pins{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font:500 11px/1.5 var(--font-mono);}
+.al-pins .p{color:var(--al-accent);font-weight:700;}
+.al-pins .d{color:var(--text-dim);}
+.al-w{display:flex;flex-direction:column;gap:6px;min-width:160px;}
+.ui-tb-btn.active{outline:2px solid var(--al-accent);color:var(--al-accent);}
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import * as Base from './kit.js';
+import { Widgets } from './components.js';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CONFIG
+   ═══════════════════════════════════════════════════════════════════════ */
+const CFG = {
+  moduleId: 'obd2',
+  accent:   '#22d3ee',
+  busHz:    0.55          // CAN message cycles per second at speedMul = 1
+};
+
+const DTCS = [
+  { code: 'P0301', name: 'Misfire cylinder 1',       sys: 'Powertrain', mil: true },
+  { code: 'P0420', name: 'Catalyst efficiency low',  sys: 'Powertrain', mil: true },
+  { code: 'P0171', name: 'System too lean bank 1',   sys: 'Powertrain', mil: true },
+  { code: 'U0100', name: 'Lost comms with ECM',      sys: 'Network',    mil: true },
+  { code: '—',     name: 'No codes stored',          sys: '—',          mil: false }
+];
+
+const state = Base.createUIState();
+state.dtcIndex = 0;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SCENE
+   ═══════════════════════════════════════════════════════════════════════ */
+const built = Base.buildScene({
+  fov: 42,
+  camPos: [4.6, 3.8, 7.6],
+  target: [0, 0.60, 0],
+  floorY: -1.5,
+  fogDensity: 0.030
+});
+const { scene, camera, renderer, controls, wrap, viewManager, quality } = built;
+Base.attachResize(camera, renderer, wrap, built.baseFov);
+
+const lowEnd = quality.isLowEnd;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MATERIALS
+   ═══════════════════════════════════════════════════════════════════════ */
+const M = Base.createMaterials();
+const root = new THREE.Group();
+scene.add(root);
+
+const shellMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.62, metalness: 0.35 });
+const pinGrey  = new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.42, metalness: 0.70 });
+const pinGnd   = new THREE.MeshStandardMaterial({ color: 0x9aa3b2, roughness: 0.42, metalness: 0.70 });
+const pinCanH  = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.35, metalness: 0.60 });
+const pinCanL  = new THREE.MeshStandardMaterial({ color: 0xffb020, roughness: 0.35, metalness: 0.60 });
+const pinBat   = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.35, metalness: 0.60 });
+const cableMat = new THREE.MeshStandardMaterial({ color: 0x232a33, roughness: 0.80, metalness: 0.10 });
+
+/* --- helper: smooth tube through points --- */
+function cable(points, r, mat) {
+  const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(p[0], p[1], p[2])));
+  const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, lowEnd ? 16 : 28, r, lowEnd ? 6 : 8, false), mat);
+  root.add(mesh);
+  return mesh;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GEOMETRY — ECU (left) · DLC connector (centre) · scan tool (right)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* --- vehicle ECU --- */
+const ecuBox = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.55, 1.1), M.matMetalDark);
+ecuBox.position.set(-3.1, 0.34, 0);
+ecuBox.castShadow = true;
+ecuBox.receiveShadow = true;
+root.add(ecuBox);
+
+/* --- harness ECU → DLC --- */
+const harnessPts = [
+  [-2.35, 0.42, 0.10],
+  [-1.70, 0.48, -0.45],
+  [-0.80, 0.52, -0.58],
+  [-0.05, 0.55, -0.28]
+];
+cable(harnessPts, 0.055, cableMat);
+
+/* --- DLC connector shell (J1962) --- */
+const dlcGroup = new THREE.Group();
+dlcGroup.position.set(0, 0.55, 0);
+root.add(dlcGroup);
+
+const shell = new THREE.Mesh(new THREE.BoxGeometry(1.00, 0.36, 0.46), shellMat);
+shell.castShadow = true;
+dlcGroup.add(shell);
+
+const keyRim = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.30, 0.06), shellMat);
+keyRim.position.z = 0.25;
+dlcGroup.add(keyRim);
+
+/* --- 16 pins, colour-coded by function --- */
+const PIN_META = {
+  4:  { mat: pinGnd,  r: 0.034, label: 'Chassis ground' },
+  5:  { mat: pinGnd,  r: 0.034, label: 'Signal ground' },
+  6:  { mat: pinCanH, r: 0.040, label: 'CAN-H' },
+  14: { mat: pinCanL, r: 0.040, label: 'CAN-L' },
+  16: { mat: pinBat,  r: 0.038, label: 'Battery +12 V' }
+};
+
+const pinGeoCache = {};
+function pinGeo(r) {
+  const k = r.toFixed(3);
+  if (!pinGeoCache[k]) pinGeoCache[k] = new THREE.CylinderGeometry(r, r, 0.20, lowEnd ? 6 : 10);
+  return pinGeoCache[k];
+}
+
+const pinPositions = {};
+for (let i = 0; i < 16; i++) {
+  const num = i + 1;
+  const col = i % 8;
+  const row = i < 8 ? 0 : 1;
+  const x = -0.35 + col * 0.10;
+  const y = row === 0 ? 0.085 : -0.085;
+  const meta = PIN_META[num];
+  const mat = meta ? meta.mat : pinGrey;
+  const r = meta ? meta.r : 0.028;
+
+  const pin = new THREE.Mesh(pinGeo(r), mat);
+  pin.rotation.x = Math.PI / 2;
+  pin.position.set(x, y, 0.34);
+  dlcGroup.add(pin);
+
+  pinPositions[num] = new THREE.Vector3(x, 0.55 + y, 0.34);
+}
+
+/* --- scan tool --- */
+const toolGroup = new THREE.Group();
+toolGroup.position.set(3.0, 0.95, 0);
+toolGroup.rotation.y = -0.30;
+root.add(toolGroup);
+
+const toolBody = new THREE.Mesh(new THREE.BoxGeometry(1.20, 0.86, 0.32), M.matMetalDark);
+toolBody.castShadow = true;
+toolGroup.add(toolBody);
+
+/* screen with live canvas texture */
+const scCanvas = document.createElement('canvas');
+scCanvas.width = 256;
+scCanvas.height = 160;
+const sctx = scCanvas.getContext('2d');
+const scTex = new THREE.CanvasTexture(scCanvas);
+scTex.colorSpace = THREE.SRGBColorSpace;
+
+const screenMat = new THREE.MeshBasicMaterial({ map: scTex });
+const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 0.58), screenMat);
+screen.position.set(0, 0.10, 0.17);
+toolGroup.add(screen);
+
+/* buttons */
+const btnMat = new THREE.MeshStandardMaterial({ color: 0x3d4555, roughness: 0.55, metalness: 0.30 });
+[-0.34, 0, 0.34].forEach(x => {
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.05, lowEnd ? 8 : 14), btnMat);
+  b.rotation.x = Math.PI / 2;
+  b.position.set(x, -0.30, 0.17);
+  toolGroup.add(b);
+});
+
+/* MIL lamp on the tool */
+const milMat = new THREE.MeshBasicMaterial({ color: 0x4a3a10 });
+const milLamp = new THREE.Mesh(new THREE.SphereGeometry(0.055, lowEnd ? 8 : 12, lowEnd ? 6 : 8), milMat);
+milLamp.position.set(0.50, 0.32, 0.18);
+toolGroup.add(milLamp);
+
+/* --- cable DLC → scan tool --- */
+cable([
+  [-0.02, 0.55, -0.26],
+  [0.80, 0.30, -0.60],
+  [2.10, 0.45, -0.48],
+  [2.90, 0.72, -0.20]
+], 0.045, cableMat);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SIGNAL PARTICLES (CAN traffic)
+   ═══════════════════════════════════════════════════════════════════════ */
+const lines = [];
+const pGeo = new THREE.SphereGeometry(0.045, lowEnd ? 6 : 10, lowEnd ? 5 : 8);
+
+function makeLink(a, b, colour) {
+  const parts = [];
+  const n = lowEnd ? 2 : 4;
+  for (let i = 0; i < n; i++) {
+    const p = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({ color: colour }));
+    root.add(p);
+    parts.push(p);
+  }
+  const rec = { a: a.clone(), b: b.clone(), parts };
+  lines.push(rec);
+  return rec;
+}
+
+makeLink(new THREE.Vector3(-2.35, 0.42, 0.10), new THREE.Vector3(-0.05, 0.55, -0.28), 0x38bdf8);
+makeLink(new THREE.Vector3(0.02, 0.55, -0.26),  new THREE.Vector3(2.90, 0.72, -0.20), 0x22d3ee);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LABELS
+   ═══════════════════════════════════════════════════════════════════════ */
+const labels = Base.createLabelSystem();
+labels.add('ecu',  'ECU');
+labels.add('dlc',  'DLC · J1962 16-pin');
+labels.add('tool', 'Scan tool');
+labels.add('p4',   '4 · chassis gnd');
+labels.add('p5',   '5 · signal gnd');
+labels.add('p6',   '6 · CAN-H');
+labels.add('p14',  '14 · CAN-L');
+labels.add('p16',  '16 · battery +');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SCREEN RENDERING
+   ═══════════════════════════════════════════════════════════════════════ */
+function drawScreen() {
+  const dtc = DTCS[state.dtcIndex];
+
+  sctx.fillStyle = '#04121a';
+  sctx.fillRect(0, 0, 256, 160);
+  sctx.strokeStyle = '#12414f';
+  sctx.lineWidth = 4;
+  sctx.strokeRect(4, 4, 248, 152);
+
+  sctx.fillStyle = '#22d3ee';
+  sctx.font = 'bold 20px monospace';
+  sctx.fillText('OBD-II', 16, 34);
+
+  sctx.fillStyle = '#7dd3fc';
+  sctx.font = '13px monospace';
+  sctx.fillText('ISO 15765-4 CAN', 16, 55);
+
+  sctx.fillStyle = '#e2e8f0';
+  sctx.font = 'bold 30px monospace';
+  sctx.fillText(dtc.code, 16, 100);
+
+  sctx.fillStyle = '#94a3b8';
+  sctx.font = '13px monospace';
+  sctx.fillText(dtc.name.slice(0, 28), 16, 122);
+
+  sctx.fillStyle = dtc.mil ? '#f59e0b' : '#4b5563';
+  sctx.font = 'bold 12px monospace';
+  sctx.fillText(dtc.mil ? 'MIL ON' : 'MIL OFF', 16, 144);
+
+  scTex.needsUpdate = true;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   UI
+   ═══════════════════════════════════════════════════════════════════════ */
+const TABS = {
+  overview: () => `
+    <div class="al-sec">
+      <h4>What it is</h4>
+      <p>OBD-II is the legislated diagnostics standard fitted to every petrol car sold since
+      roughly 2001 and every diesel since roughly 2004. One 16-pin socket under the dash gives
+      access to fault codes, freeze-frame data and live sensor values.</p>
+    </div>
+    <div class="al-sec">
+      <h4>Key pins</h4>
+      <div class="al-pins">
+        <span class="p">4</span><span class="d">Chassis ground</span>
+        <span class="p">5</span><span class="d">Signal ground</span>
+        <span class="p">6</span><span class="d">CAN-H (ISO 15765-4)</span>
+        <span class="p">14</span><span class="d">CAN-L</span>
+        <span class="p">16</span><span class="d">Battery positive, always live</span>
+      </div>
+    </div>
+    <div class="al-sec">
+      <h4>Code families</h4>
+      <ul>
+        <li><b>P</b> — powertrain (engine, transmission)</li>
+        <li><b>C</b> — chassis (ABS, steering)</li>
+        <li><b>B</b> — body (airbags, climate)</li>
+        <li><b>U</b> — network / communication</li>
+      </ul>
+      <p>The first digit after the letter tells you whether the code is generic
+      (<b>0</b>) or manufacturer-specific (<b>1</b>).</p>
+    </div>
+    <div class="al-sec">
+      <h4>Live data and monitors</h4>
+      <p>Mode 01 streams PIDs such as rpm, coolant temperature, calculated load and fuel trim.
+      Readiness monitors report whether the self-tests have completed since the last clear —
+      they must be "ready" before an emissions test.</p>
+    </div>`,
+  faults: () => `
+    <div class="al-sec"><h4>Working with codes</h4></div>
+    <div class="al-fault">
+      <div class="t">No communication with the tool</div>
+      <div class="s">Tool powers up but will not connect to any module.</div>
+      <div class="c">Check: pin 16 battery voltage, pins 4 and 5 grounds, 60 Ω across pins 6–14.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Multiple U-codes at once</div>
+      <div class="s">Several modules offline, instrument pack dark, intermittent starting.</div>
+      <div class="c">Check: CAN-H ≈ 2.5 V and CAN-L ≈ 2.5 V at rest, for chafed harness near the bulkhead.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Code returns immediately after clearing</div>
+      <div class="s">MIL comes back within one drive cycle.</div>
+      <div class="c">The fault is still present — clear only after repairing, then run the readiness monitors.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Monitors stuck "not ready"</div>
+      <div class="s">No codes stored but the emissions test fails.</div>
+      <div class="c">The ECU needs a specific drive cycle (cold start, cruise, decel) before the monitors complete.</div>
+    </div>`,
+  quiz: () => `
+    <div class="al-q" data-a="1">
+      <div class="q">1. Which pins carry the CAN bus on a standard OBD-II socket?</div>
+      <button class="al-opt">Pins 2 and 10</button>
+      <button class="al-opt">Pins 6 and 14</button>
+      <button class="al-opt">Pins 4 and 5</button>
+      <div class="al-exp">CAN-H is pin 6, CAN-L is pin 14. Pins 4 and 5 are the two grounds.</div>
+    </div>
+    <div class="al-q" data-a="2">
+      <div class="q">2. What does a P1xxx code tell you?</div>
+      <button class="al-opt">It is a body code</button>
+      <button class="al-opt">It is a network code</button>
+      <button class="al-opt">It is a manufacturer-specific powertrain code</button>
+      <div class="al-exp">The letter gives the system (P = powertrain); the first digit 1 means the definition is set by the manufacturer rather than by the standard.</div>
+    </div>
+    <div class="al-q" data-a="0">
+      <div class="q">3. What is freeze-frame data?</div>
+      <button class="al-opt">A snapshot of sensor values captured when the fault was set</button>
+      <button class="al-opt">The ECU's permanent memory of the last service</button>
+      <button class="al-opt">A live stream of every sensor at once</button>
+      <div class="al-exp">Freeze frame records rpm, load, speed, temperature and fuel trim at the moment the DTC was stored — it is the single most useful diagnostic clue.</div>
+    </div>`
+};
+
+function readoutHTML() {
+  return `<div class="al-read">
+    <span class="k">Protocol</span><span class="v hi" id="ro-proto">—</span>
+    <span class="k">Modules online</span><span class="v" id="ro-mods">—</span>
+    <span class="k">Codes stored</span><span class="v" id="ro-count">—</span>
+    <span class="k">Active code</span><span class="v" id="ro-code">—</span>
+    <span class="k">Freeze rpm</span><span class="v" id="ro-frpm">—</span>
+    <span class="k">Freeze coolant</span><span class="v" id="ro-fcool">—</span>
+    <span class="k">Malfunction lamp</span><span class="v" id="ro-mil">—</span>
+  </div>`;
+}
+
+const ui = Base.UI.create({
+  moduleId: CFG.moduleId,
+  panel: {
+    kicker: 'Sensors & Control',
+    title:  'OBD-II diagnostics',
+    tabs: [
+      { id: 'overview', label: 'Overview' },
+      { id: 'faults',   label: 'Codes' },
+      { id: 'quiz',     label: 'Self-check' }
+    ],
+    onTab: renderTab,
+    badge: { text: 'No codes', color: CFG.accent },
+    readout: readoutHTML()
+  },
+  chip: {
+    label: 'Bus',
+    value: '—',
+    unit: ' kbit/s',
+    bar: true,
+    rows: [
+      { id: 'dtc',  label: 'DTCs',    value: '—' },
+      { id: 'mil',  label: 'MIL',     value: '—' }
+    ],
+    status: { text: 'Connected' }
+  },
+  toolbar: {
+    play: true,
+    reset: true,
+    speed: { label: 'Bus rate', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
+    labels: true,
+    extras: [
+      { id: 'btn-clear', label: 'CLEAR', title: 'Clear stored codes', onClick: clearCodes }
+    ]
+  },
+  widgets: {
+    bl: {
+      html: `<div class="al-w">
+        <label for="dtc-sel">Stored code</label>
+        <select id="dtc-sel" class="al-sel" aria-label="Select a stored fault code">
+          ${DTCS.map((d, i) => `<option value="${i}">${d.code} · ${d.name}</option>`).join('')}
+        </select>
+      </div>`,
+      caption: 'Fault simulation',
+      onMount: mountDtcWidget
+    },
+    br: {
+      html: `<div class="al-legend">
+        <span><i style="background:#38bdf8"></i>Request frame</span>
+        <span><i style="background:#22d3ee"></i>Response frame</span>
+        <span><i style="background:#ffb020"></i>CAN-L</span>
+        <span><i style="background:#ef4444"></i>Battery +</span>
+      </div>`,
+      caption: 'Legend'
+    }
+  }
+});
+
+const tabHost = document.createElement('div');
+tabHost.id = 'al-tabs';
+tabHost.className = 'al-tabs';
+ui.panel.body.appendChild(tabHost);
+
+Widgets.wireQuiz(tabHost);
+
+function renderTab(id) {
+  tabHost.innerHTML = (TABS[id] || TABS.overview)();
+}
+renderTab('overview');
+
+function mountDtcWidget(el) {
+  const sel = el.querySelector('#dtc-sel');
+  if (!sel) return;
+  sel.value = String(state.dtcIndex);
+  sel.addEventListener('change', () => {
+    state.dtcIndex = Number(sel.value);
+    drawScreen();
+    applyCodeVisuals();
+    updateReadouts();
+  });
+}
+
+function clearCodes() {
+  state.dtcIndex = DTCS.length - 1;
+  const sel = document.getElementById('dtc-sel');
+  if (sel) sel.value = String(state.dtcIndex);
+  drawScreen();
+  applyCodeVisuals();
+  updateReadouts();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CODE VISUALS
+   ═══════════════════════════════════════════════════════════════════════ */
+function applyCodeVisuals() {
+  const dtc = DTCS[state.dtcIndex];
+  milMat.color.setHex(dtc.mil ? 0xffb020 : 0x4a3a10);
+
+  const badge = document.getElementById('stroke-badge');
+  const text  = document.getElementById('badge-text');
+  const col   = dtc.mil ? '#f59e0b' : CFG.accent;
+  if (badge) {
+    badge.style.background = `color-mix(in oklch, ${col} 18%, transparent)`;
+    badge.style.color = col;
+  }
+  if (text) text.textContent = dtc.mil ? `${dtc.code} stored` : 'No codes';
+}
+drawScreen();
+applyCodeVisuals();
+
+/* ═══════════════════════════════════════════════════════════════════════
+   READOUTS
+   ═══════════════════════════════════════════════════════════════════════ */
+const ro = {
+  proto: document.getElementById('ro-proto'),
+  mods:  document.getElementById('ro-mods'),
+  count: document.getElementById('ro-count'),
+  code:  document.getElementById('ro-code'),
+  frpm:  document.getElementById('ro-frpm'),
+  fcool: document.getElementById('ro-fcool'),
+  mil:   document.getElementById('ro-mil')
+};
+
+function updateReadouts() {
+  const dtc = DTCS[state.dtcIndex];
+  const kbit = Math.round(250 + state.speedMul * 250);
+
+  if (ro.proto) ro.proto.textContent = 'ISO 15765-4 CAN';
+  if (ro.mods)  ro.mods.textContent  = dtc.mil ? '6 of 7' : '7 of 7';
+  if (ro.count) {
+    ro.count.textContent = dtc.mil ? '1' : '0';
+    ro.count.className = 'v ' + (dtc.mil ? 'warn' : 'ok');
+  }
+  if (ro.code) {
+    ro.code.textContent = dtc.code;
+    ro.code.className = 'v ' + (dtc.mil ? 'crit' : '');
+  }
+  if (ro.frpm)  ro.frpm.textContent  = dtc.mil ? '2 140 rpm' : '—';
+  if (ro.fcool) ro.fcool.textContent = dtc.mil ? '78 °C' : '—';
+  if (ro.mil) {
+    ro.mil.textContent = dtc.mil ? 'ON' : 'OFF';
+    ro.mil.className = 'v ' + (dtc.mil ? 'warn' : 'ok');
+  }
+
+  ui.chip.setBig(kbit, ' kbit/s');
+  ui.chip.set('dtc', dtc.mil ? '1' : '0');
+  ui.chip.set('mil', dtc.mil ? 'ON' : 'OFF');
+  ui.chip.setBar((state.speedMul / 2.5) * 100, dtc.mil ? 'var(--warn)' : 'var(--al-accent)');
+  ui.chip.setStatus(dtc.mil ? 'Fault stored' : 'All clear', !dtc.mil);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MESSAGING
+   ═══════════════════════════════════════════════════════════════════════ */
+const bridge = ui.wireBridge({
+  viewManager,
+  state,
+  onCommand: (d) => {
+    if (d.action === 'reset') clearCodes();
+  }
+});
+bridge.ready();
+bridge.setStatus('Bus active', '#22d3ee');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ANIMATION
+   ═══════════════════════════════════════════════════════════════════════ */
+let t = 0;
+let last = performance.now();
+let raf = 0;
+let roClock = 0;
+
+const tmp = new THREE.Vector3();
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function frame(now) {
+  raf = requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  const sp = state.playing ? state.speedMul : 0;
+  t += dt * sp;
+
+  /* --- CAN frames --- */
+  for (const L of lines) {
+    const n = L.parts.length;
+    for (let i = 0; i < n; i++) {
+      const p = L.parts[i];
+      let u = (t * CFG.busHz + i / n) % 1;
+      if (u < 0) u += 1;
+      p.position.lerpVectors(L.a, L.b, u);
+      p.scale.setScalar(0.5 + 0.6 * Math.sin(Math.PI * u));
+    }
+  }
+
+  /* --- MIL blink while a code is stored --- */
+  const dtc = DTCS[state.dtcIndex];
+  if (dtc.mil) {
+    const on = Math.sin(t * 4.0) > -0.2;
+    milLamp.scale.setScalar(on ? 1.35 : 1.0);
+  } else {
+    milLamp.scale.setScalar(1.0);
+  }
+
+  /* --- labels --- */
+  labels.hideAll();
+  if (state.showLabels) {
+    labels.project('ecu',  tmp.set(-3.1, 0.95, 0), camera, wrap);
+    labels.project('dlc',  tmp.set(0, 1.05, 0), camera, wrap);
+    labels.project('tool', tmp.set(3.0, 1.72, 0), camera, wrap);
+    labels.project('p4',   pinPositions[4],  camera, wrap);
+    labels.project('p5',   pinPositions[5],  camera, wrap);
+    labels.project('p6',   pinPositions[6],  camera, wrap);
+    labels.project('p14',  pinPositions[14], camera, wrap);
+    labels.project('p16',  pinPositions[16], camera, wrap);
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+
+  roClock += dt;
+  if (roClock > 0.15) { roClock = 0; updateReadouts(); }
+}
+
+if (reduced) {
+  setInterval(() => renderer.render(scene, camera), 120);
+} else {
+  raf = requestAnimationFrame(frame);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (reduced) return;
+  if (document.hidden) {
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+  } else if (!raf) {
+    last = performance.now();
+    raf = requestAnimationFrame(frame);
+  }
+});
+
+updateReadouts();
+</script>
+</body>
+</html>

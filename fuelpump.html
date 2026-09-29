@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fuel Pump &amp; Tank — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #10b981; }
+html.light-theme { --al-accent: color-mix(in oklch, #10b981 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "fuelpump", "title": "Fuel Pump & Tank", "kicker": "Fuel Supply", "accent": "#10b981", "badge": "In-tank electric pump", "camPos": [5.6, 3.4, 7.2], "target": [1.2, 0, 0], "floorY": -1.6, "ctl": {"label": "Engine demand", "val": 40, "caption": "Load"}, "chipLabel": "Fuel pressure", "rows": [["flow", "Flow"], ["cur", "Pump current"]], "ro": [["press", "Rail pressure"], ["flow", "Pump flow"], ["cur", "Pump current"], ["lvl", "Tank level"], ["ret", "Return flow"]], "legend": [["#f59e0b", "Fuel"], ["#38bdf8", "Filter"], ["#a3e635", "Regulator"]], "overview": "<div class=\"al-sec\"><h4>Job of the system<\/h4><p>The tank stores fuel; the electric pump lifts it and pushes it through the filter to the fuel rail at a steady pressure (about 3–4 bar for port injection).<\/p><\/div><div class=\"al-sec\"><h4>Parts<\/h4><ul><li><b>Tank &amp; baffles<\/b> – stop fuel surging away from the pickup.<\/li><li><b>In-tank pump<\/b> – cooled and lubricated by the fuel.<\/li><li><b>Filter<\/b> – traps particles down to ~10 µm.<\/li><li><b>Regulator<\/b> – returns surplus fuel to hold rail pressure.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Demand<\/h4><p>Higher load needs more flow; the pump runs harder and draws more current. A weak pump shows up as pressure dropping under load.<\/p><\/div>", "faults": [["Weak pump", "Loss of power under load, hesitation, long cranking.", "Measure rail pressure at idle and under load; check pump current draw."], ["Clogged filter", "Starving at high speed, low pressure.", "Compare pressure before and after the filter."], ["Stuck regulator", "Rich (pressure high) or lean (pressure low) running.", "Watch pressure while pinching the return line (carefully) or use the regulator vacuum test."]], "quiz": [["Why is the pump inside the tank?", ["To save space only", "Fuel cools and lubricates it", "To heat the fuel"], 1, "Submerged, the pump is cooled and lubricated by the fuel – running low can overheat it."], ["What does the regulator do?", ["Filters dirt", "Holds rail pressure by returning surplus", "Measures fuel level"], 1, "It bleeds off surplus so pressure stays constant regardless of flow."], ["A clogged filter typically causes…", ["Low pressure under load", "Higher octane", "Colder intake"], 0, "Restriction limits flow so pressure falls when the engine needs most fuel."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylX,cylZ,mat,glass,pipe,stream,clamp,THREE}=H;
+ const steel=mat(0x8a93a5,.8,.3), blue=mat(0x38bdf8,.5,.4), hose=mat(0x1f2937,.2,.8), grn=mat(0xa3e635,.5,.4);
+ box(3.4,1.4,2.2,glass(0x94a3b8,.16),0,0,0);
+ const fuel=box(3.3,1.3,2.1,glass(0xf59e0b,.42),0,0,0);
+ const pump=cyl(.34,.34,.9,glass(0x64748b,.45),-.9,-.15,0);
+ const imp=new THREE.Group(); imp.position.set(-.9,-.15,0); H.root.add(imp);
+ for(let i=0;i<6;i++){ const v=box(.3,.7,.04,mat(0xf97316,.4,.4),0,0,0,imp); v.rotation.y=i*Math.PI/6; }
+ cyl(.36,.36,.14,steel,-.9,.37,0);
+ cyl(.35,.35,1.2,blue,2.0,.5,0);
+ cylZ(.15,.15,2.2,steel,4.0,-.25,0); [-.8,-.27,.27,.8].forEach(z=>cyl(.08,.08,.5,steel,4.0,-.55,z));
+ cyl(.2,.2,.5,grn,3.2,-.6,.95);
+ pipe([[-.9,.4,0],[-.9,1.5,0],[2,1.5,0],[2,1.1,0]],.07,hose);
+ pipe([[2,-.1,0],[2,-.6,0],[3.2,-.6,0],[4,-.6,0]],.07,hose);
+ pipe([[4,-.3,.95],[3.2,-.3,.95],[2.6,-.3,.95],[1.4,-.3,.95]],.06,hose);
+ const sA=stream([[-.9,.4,0],[-.9,1.5,0],[2,1.5,0],[2,1.1,0]],18,0xf59e0b,.11);
+ const sB=stream([[2,-.1,0],[2,-.6,0],[3.2,-.6,0],[4,-.6,0]],14,0xf59e0b,.11);
+ const sC=stream([[4,-.3,.95],[3.2,-.3,.95],[2.6,-.3,.95],[1.4,-.3,.95]],12,0xf59e0b,.09);
+ let ang=0;
+ return {
+  labels:[['Fuel tank',[-1.3,.95,1.1]],['In-tank pump',[-.9,.75,0]],['Fuel filter',[2.0,1.25,0]],['Fuel rail',[4.0,.05,0]],['Regulator',[3.2,-.2,.95]],['Return line',[1.9,-.05,.95]]],
+  update(c){
+   const k=c.k, rpm=.5+2.6*(.35+k); ang+=c.dt*rpm*8; imp.rotation.y=ang;
+   const lvl=.92-((c.t*.012*(.4+k))%.75);
+   fuel.scale.y=lvl; fuel.position.y=-.65+1.3*lvl/2;
+   const flow=40+130*k, press=3.0-.3*k, cur=3+5.5*k, ret=1-k*.85;
+   sA.update(c.t,.1+.35*k,1); sB.update(c.t,.1+.35*k,1); sC.update(c.t,.1+.3*(1-k*.5),clamp(ret*.9+.1));
+   return {big:press.toFixed(1),unit:' bar',bar:k*100,rows:{flow:flow.toFixed(0)+' L/h',cur:cur.toFixed(1)+' A'},
+    ro:{press:[press.toFixed(1)+' bar','hi'],flow:[flow.toFixed(0)+' L/h',''],cur:[cur.toFixed(1)+' A',cur>7?'warn':'ok'],lvl:[(lvl*100).toFixed(0)+' %',lvl<.25?'warn':''],ret:[(ret*100).toFixed(0)+' %','']},
+    status:[k>.85?'High demand':'Delivering',true],ctl:Math.round(k*100)+' % load'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

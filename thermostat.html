@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Thermostat — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #f59e0b; }
+html.light-theme { --al-accent: color-mix(in oklch, #f59e0b 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "thermostat", "title": "Thermostat", "kicker": "Cooling", "accent": "#f59e0b", "badge": "Wax-pellet valve", "camPos": [4.6, 3.2, 6.2], "target": [0.4, 0.6, 0], "floorY": -1.6, "ctl": {"label": "Coolant temperature", "val": 45, "caption": "Engine temp"}, "chipLabel": "Coolant", "rows": [["open", "Valve lift"], ["rad", "To radiator"]], "ro": [["temp", "Coolant temp"], ["open", "Valve lift"], ["rad", "Flow to radiator"], ["byp", "Bypass flow"], ["mode", "Mode"]], "legend": [["#38bdf8", "Cold coolant"], ["#f97316", "Hot coolant"], ["#d4a34a", "Wax capsule"]], "overview": "<div class=\"al-sec\"><h4>Temperature-controlled valve<\/h4><p>A sealed capsule filled with wax sits in the coolant. As temperature rises the wax melts and expands, pushing a rod that opens the valve. Typical opening begins near 82–88 °C.<\/p><\/div><div class=\"al-sec\"><h4>Why it matters<\/h4><ul><li>Cold start – valve closed, coolant recirculates through the bypass so the engine warms quickly.<\/li><li>Warm – valve modulates to hold about 90–95 °C.<\/li><li>Hot – fully open, all coolant goes through the radiator.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Efficiency<\/h4><p>Running too cool wastes fuel and increases wear; too hot risks detonation and head damage.<\/p><\/div>", "faults": [["Stuck closed", "Rapid overheating, top hose cold while engine hot.", "Feel the hoses at warm-up; test the thermostat in hot water."], ["Stuck open", "Slow warm-up, weak heater, engine never reaches temp.", "Check the temperature gauge and the ECU coolant PID."], ["Sluggish opening", "Temperature swings.", "Compare opening temperature to the stamped rating."]], "quiz": [["What makes the thermostat open?", ["A motor", "Wax expanding as it heats", "Oil pressure"], 1, "The wax pellet melts and expands, pushing the valve rod."], ["Stuck-closed thermostat causes…", ["Overheating", "Fast warm-up", "Cold cabin only"], 0, "No coolant reaches the radiator, so the engine overheats."], ["During warm-up coolant goes…", ["Through the radiator", "Through the bypass", "Nowhere"], 1, "The closed valve sends coolant through the bypass to warm up faster."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylX,mat,glass,pipe,stream,lc,clamp,root,THREE,Base}=H;
+ const steel=mat(0x9aa3b2,.85,.3), dark=mat(0x3d4555,.6,.5);
+ cyl(1.0,1.0,1.6,glass(0x64748b,.24),0,.3,0,null,40,true);
+ cylX(.4,.4,1.4,steel,-1.7,0,0,null,24,true); cyl(.4,.4,1.0,steel,0,1.6,0,null,24,true); cylX(.3,.3,1.4,steel,1.7,-.8,0,null,24,true);
+ cyl(.9,.9,.08,dark,0,-.65,0);
+ const capMat=mat(0xd4a34a,.7,.35); const cap=cyl(.26,.26,.9,capMat,0,-.15,0);
+ const seat=H.put(new THREE.Mesh(new THREE.TorusGeometry(.62,.08,10,32),steel),0,.6,0); seat.rotation.x=Math.PI/2;
+ const disc=cyl(.75,.75,.08,steel,0,.5,0); const rod=cyl(.05,.05,.5,steel,0,.72,0);
+ const spring=H.put(Base.makeHelixSpring(.5,.03,7,1,mat(0x9aa3b2,.8,.3),60),0,-.6,0);
+ const eng=stream([[-2.5,0,0],[-1,0,0],[0,0,0]],12,0x38bdf8,.11);
+ const rad=stream([[0,0,0],[0,.9,0],[0,1.9,0],[1.6,1.9,0],[3.1,1.9,0]],14,0x38bdf8,.11);
+ const byp=stream([[-1,0,0],[0,-.3,0],[.9,-.8,0],[2.4,-.8,0]],12,0x38bdf8,.11);
+ return {
+  labels:[['From engine',[-2.5,.55,0]],['To radiator',[1.0,2.2,0]],['Bypass',[2.4,-.4,0]],['Valve disc',[.9,.35,0]],['Wax capsule',[-.5,-.3,.3]],['Return spring',[.7,-.55,.3]]],
+  update(c){
+   const T=60+50*c.k, op=clamp((T-82)/13), lift=op*8;
+   disc.position.y=.5-op*.55; rod.position.y=.72-op*.55; spring.position.y=-.6; spring.scale.y=Math.max(.2,(disc.position.y-.04+.6));
+   capMat.color.copy(lc(0x8fb0d8,0xe0523a,c.k)); cap.scale.y=1+.1*op;
+   const col=lc(0x38bdf8,0xf97316,c.k); eng.mat.color.copy(col); rad.mat.color.copy(col); byp.mat.color.copy(col);
+   const sp=.14; eng.update(c.t,sp,1); rad.update(c.t,sp*op,op); byp.update(c.t,sp,1-op*.9);
+   const mode=T<82?'Closed – warming up':T<95?'Modulating':'Fully open';
+   return {big:T.toFixed(0),unit:' °C',bar:c.k*100,rows:{open:lift.toFixed(1)+' mm',rad:(op*100).toFixed(0)+' %'},
+    ro:{temp:[T.toFixed(0)+' °C','hi'],open:[lift.toFixed(1)+' mm',''],rad:[(op*100).toFixed(0)+' %',''],byp:[((1-op*.9)*100).toFixed(0)+' %',''],mode:[mode,T>105?'crit':T<82?'warn':'ok']},
+    status:[mode,true],ctl:T.toFixed(0)+' °C'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

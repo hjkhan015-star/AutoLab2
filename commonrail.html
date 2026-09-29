@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diesel Common Rail — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #f97316; }
+html.light-theme { --al-accent: color-mix(in oklch, #f97316 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "commonrail", "title": "Diesel Common Rail", "kicker": "Fuel Supply", "accent": "#f97316", "badge": "Up to 2000 bar", "camPos": [5.6, 3.0, 7.4], "target": [0.2, 0.2, 0], "floorY": -1.4, "ctl": {"label": "Rail pressure", "val": 60, "caption": "Common rail"}, "chipLabel": "Rail pressure", "rows": [["vel", "Spray speed"], ["ev", "Injection"]], "ro": [["press", "Rail pressure"], ["vel", "Spray speed"], ["drop", "Droplet size"], ["ev", "Events / cycle"], ["inj", "Firing cylinder"]], "legend": [["#86efac", "Low-pressure feed"], ["#f97316", "High-pressure rail"], ["#ffb347", "Fuel spray"]], "overview": "<div class=\"al-sec\"><h4>One rail, many injectors<\/h4><p>A high-pressure pump fills a shared rail; the ECU opens each injector with a solenoid or piezo actuator. Because pressure is independent of engine speed, injection timing and quantity are fully flexible.<\/p><\/div><div class=\"al-sec\"><h4>Why high pressure?<\/h4><p>Higher pressure atomises diesel into finer droplets that mix faster – cleaner combustion, less noise and better economy. Modern systems reach 1800–2500 bar.<\/p><\/div><div class=\"al-sec\"><h4>Multiple injections<\/h4><ul><li><b>Pilot<\/b> – small early shot to soften combustion noise.<\/li><li><b>Main<\/b> – delivers most of the torque.<\/li><li><b>Post<\/b> – helps regenerate the DPF.<\/li><\/ul><\/div>", "faults": [["Injector leak-off or stuck open", "Hard start, misfire, smoke, fuel in oil.", "Return-flow test per injector and compare correction values."], ["Rail pressure sensor / regulator", "Limp mode, low power, rail pressure codes.", "Compare desired vs actual pressure with a scan tool."], ["Contaminated fuel", "Pump and injector wear, poor starting.", "Inspect the filter and water separator; drain water regularly."]], "quiz": [["Why is rail pressure independent of engine speed?", ["A shared rail stores pressurised fuel", "Each injector has its own pump", "The turbo supplies it"], 0, "The rail acts as an accumulator, so pressure can be set freely and injection timed separately."], ["A pilot injection is used to…", ["Increase noise", "Soften combustion and reduce noise", "Clean the DPF"], 1, "A small early shot starts combustion gently, cutting the sharp diesel knock."], ["Higher pressure produces…", ["Larger droplets", "Finer droplets and cleaner burn", "Lower fuel economy"], 1, "Finer atomisation mixes better with air and burns more completely."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylX,cylZ,mat,pipe,stream,lc,clamp,THREE,glass}=H;
+ const steel=mat(0x94a3b8,.85,.28), dark=mat(0x374151,.5,.5), blue=mat(0x2563eb,.5,.4);
+ cylX(.16,.16,4.4,steel,0,.9,0);
+ cylZ(.55,.55,1.1,blue,-3.4,.9,0);
+ [-.35,0,.35].forEach(z=>cyl(.1,.1,.5,steel,-3.4,1.5,z));
+ pipe([[-2.85,.9,0],[-2.4,.9,0],[-2.1,.9,0]],.07,steel);
+ const inj=[], cones=[];
+ [-1.5,-.5,.5,1.5].forEach(x=>{
+   cyl(.12,.12,.9,steel,x,.35,0); cyl(.12,.035,.25,mat(0xe5e7eb,.9,.2),x,-.25,0);
+   box(.75,.3,.75,glass(0x64748b,.25),x,-.6,0);
+   const cm=new THREE.MeshBasicMaterial({color:0xffb347,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending});
+   const cone=cyl(.03,.32,.5,cm,x,-.5,0); cones.push(cone); inj.push(cm);
+ });
+ const feed=stream([[-4.3,-.2,0],[-4,.9,0],[-3.4,.9,0]],10,0x86efac,.1);
+ const rail=stream([[-2.7,.9,0],[2.1,.9,0]],22,0xf97316,.12);
+ const order=[0,2,3,1];
+ return {
+  labels:[['HP pump',[-3.4,1.6,0]],['Common rail',[0,1.25,0]],['Injector',[-.5,.95,.4]],['Spray',[.5,-.95,0]],['Feed from tank',[-4.2,.3,0]]],
+  update(c){
+   const k=c.k, P=300+1700*k, p=(c.t*1.6)%1, slot=Math.floor(p*4), u=p*4-slot, active=order[slot];
+   feed.update(c.t,.2,1); rail.update(c.t,.03+.05*k,.4+.6*k);
+   let ev='—';
+   for(let i=0;i<4;i++){
+     let o=0;
+     if(i===active){ const pilot=k>.35&&u<.1?1:0, main=(u>.32&&u<.68)?1:0; o=Math.max(pilot*.7,main); if(pilot)ev='Pilot'; if(main)ev=k>.35?'Main':'Main'; }
+     inj[i].opacity=o*.75; const L=.6+.9*k; cones[i].scale.set(1,L*Math.max(o,.01),1); cones[i].position.y=-.4-.25*L*Math.max(o,.01);
+   }
+   const vel=.7*Math.sqrt(2*(P-50)*1e5/830), drop=Math.round(45-27*k);
+   return {big:P.toFixed(0),unit:' bar',bar:k*100,rows:{vel:vel.toFixed(0)+' m/s',ev:k>.35?'Pilot+Main':'Main'},
+    ro:{press:[P.toFixed(0)+' bar','hi'],vel:[vel.toFixed(0)+' m/s',''],drop:['~'+drop+' µm','ok'],ev:[k>.35?'2 (pilot + main)':'1 (main)',''],inj:['#'+(active+1)+' (1-3-4-2)','']},
+    status:[ev==='—'?'Between injections':ev+' injection',ev!=='—'],ctl:P.toFixed(0)+' bar'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

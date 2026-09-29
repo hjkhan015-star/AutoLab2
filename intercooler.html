@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Intercooler — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #38bdf8; }
+html.light-theme { --al-accent: color-mix(in oklch, #38bdf8 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "intercooler", "title": "Intercooler", "kicker": "Air Intake & Boost", "accent": "#38bdf8", "badge": "Air-to-air · Charge cooler", "camPos": [5.6, 3.0, 7.0], "target": [0, 0, 0], "floorY": -2.2, "ctl": {"label": "Boost pressure", "val": 55, "caption": "Turbo boost"}, "chipLabel": "Outlet temp", "rows": [["tin", "Inlet temp"], ["gain", "Density gain"]], "ro": [["boost", "Boost"], ["tin", "Charge in"], ["tout", "Charge out"], ["eff", "Effectiveness"], ["gain", "Density gain"], ["dp", "Pressure loss"]], "legend": [["#ff6b35", "Hot compressed air"], ["#38bdf8", "Cooled charge"], ["#7dd3fc", "Ambient air"]], "overview": "<div class=\"al-sec\"><h4>Why cool the charge?<\/h4><p>Compressing air heats it – often to 120–160 °C. Hot air is less dense, holds less oxygen and raises knock risk. The intercooler removes that heat so more air (and power) fits in each cylinder.<\/p><\/div><div class=\"al-sec\"><h4>How it works<\/h4><ul><li>Hot charge air flows through flat internal tubes between two end tanks.<\/li><li>Ambient air passes across the outside fins at road speed.<\/li><li>Typical effectiveness is 70–80% – outlet temperature lands a little above ambient.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Trade-off<\/h4><p>A bigger core cools better but adds pressure loss and turbo lag. Designers balance core volume, fin density and pipe length.<\/p><\/div>", "faults": [["Leaking charge pipe or core", "Loss of boost, whistling, black smoke, underboost codes (P0299).", "Pressure-test the charge system to ~1.5 bar and soap the joints."], ["Blocked fins", "Higher intake temperatures, heat-soak, power fade in traffic.", "Inspect fins for debris, bent fins or oil film; check the ram-air path."], ["Oil inside the cooler", "Oily pipes are normal in small amounts; puddles mean a failing turbo seal.", "Check the turbo for shaft play and the crankcase breather."]], "quiz": [["Compressed air is hot because…", ["Work is done on it", "It touches the exhaust", "Fuel is added early"], 0, "Compression does work on the gas, raising its temperature (adiabatic heating)."], ["Cooler intake air gives…", ["Lower density", "Higher density and less knock", "No change"], 1, "Cool air is denser – more oxygen per litre – and reduces knock tendency."], ["Which side of an air-to-air intercooler carries road air?", ["Inside the tubes", "Across the outside fins", "Through the tanks"], 1, "Ambient air flows over the fins; the charge air is inside the tubes."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cylX,mat,glass,pipe,stream,lc,clamp,THREE}=H;
+ const alu=mat(0xc5ccd6,.75,.35), tank=mat(0x64748b,.7,.4), hose=mat(0x1f2937,.2,.8);
+ for(let i=0;i<16;i++) box(3.0,.03,1.6,alu,0,-1+i*.13,0);
+ box(3.0,2.2,.05,glass(0x94a3b8,.10),0,0,.83);
+ box(.5,2.3,1.7,tank,-1.75,0,0); box(.5,2.3,1.7,tank,1.75,0,0);
+ pipe([[-2,1,0],[-2.6,1,0],[-3.4,1.6,0],[-4.2,1.6,0]],.24,hose);
+ pipe([[2,-1,0],[2.6,-1,0],[3.4,-1.6,0],[4.2,-1.6,0]],.24,hose);
+ const hot=stream([[-4.4,1.6,0],[-3.4,1.6,0],[-2.6,1,0],[-1.9,.6,0],[-1.5,.4,0]],22,0xff6b35,.13);
+ const mid=stream([[-1.5,.4,0],[0,0,0],[1.5,-.4,0]],16,0xfbbf24,.12);
+ const cool=stream([[1.5,-.4,0],[1.9,-.6,0],[2.6,-1,0],[3.4,-1.6,0],[4.4,-1.6,0]],22,0x38bdf8,.13);
+ const amb=[]; [[-.8,.5],[.8,.5],[-.8,-.5],[.8,-.5]].forEach(p=>amb.push(stream([[p[0],p[1],2.7],[p[0],p[1],-2.7]],10,0x7dd3fc,.08)));
+ return {
+  labels:[['Hot charge in',[-3.6,2.0,0]],['Cooled charge out',[3.6,-1.2,0]],['Core fins',[0,1.25,0]],['End tank',[-1.75,1.4,0]],['Ambient airflow',[0,-1.2,2.4]]],
+  update(c){
+   const boost=.4+1.4*c.k, pr=1+boost;
+   const tin=293*(1+(Math.pow(pr,.286)-1)/.72)-273, eff=.70+.10*(1-c.k), tout=25+(tin-25)*(1-eff);
+   const gain=((273+tin)/(273+tout)-1)*100, sp=.12+.22*c.k;
+   hot.update(c.t,sp,1); mid.update(c.t,sp,1); cool.update(c.t,sp,1);
+   mid.mat.color.copy(lc(0xff6b35,0x38bdf8,.5)); hot.mat.color.copy(lc(0xff6b35,0xffaa55,1-c.k));
+   amb.forEach(a=>a.update(c.t,.3,1));
+   return {big:tout.toFixed(0),unit:' °C',bar:c.k*100,rows:{tin:tin.toFixed(0)+' °C',gain:'+'+gain.toFixed(0)+' %'},
+    ro:{boost:[boost.toFixed(2)+' bar','hi'],tin:[tin.toFixed(0)+' °C','warn'],tout:[tout.toFixed(0)+' °C','ok'],eff:[(eff*100).toFixed(0)+' %',''],gain:['+'+gain.toFixed(0)+' %','ok'],dp:[(3+7*c.k).toFixed(1)+' kPa','']},
+    status:['Cooling charge',true],ctl:boost.toFixed(2)+' bar'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

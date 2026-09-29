@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d13">
+<title>Hydraulic Braking System — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  .br-readout {
+    display: flex; flex-direction: column;
+    gap: 5px;
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .br-readout .row { display: flex; justify-content: space-between; gap: 10px; }
+  .br-readout b {
+    color: var(--text); font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+  }
+
+  .br-pascal {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: var(--r-sm);
+    background: color-mix(in oklch, var(--accent) 8%, transparent);
+    border: 1px solid color-mix(in oklch, var(--accent) 22%, transparent);
+    font-family: var(--font-mono);
+  }
+  .br-pascal .label {
+    font-size: 10px; letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-mute);
+    font-family: var(--font-sans);
+    font-weight: 700; margin-bottom: 4px;
+  }
+  .br-pascal .eq {
+    font-size: 12px; font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .br-pascal .row {
+    display: flex; justify-content: space-between; gap: 10px;
+    font-size: 11px; color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .br-pascal .row b {
+    color: var(--text); font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .br-pascal .mult {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid color-mix(in oklch, var(--accent) 20%, transparent);
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--text-dim);
+  }
+  .br-pascal .mult b { color: var(--ok); font-weight: 900; }
+
+  .cfg-group {
+    display: flex; align-items: center; gap: 4px;
+    padding-left: 8px; margin-left: 4px;
+    border-left: 1px solid var(--border);
+  }
+  .cfg-arrow {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: var(--surface-3);
+    color: var(--text);
+    font-size: 14px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-family: inherit; padding: 0;
+    transition: background var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out);
+  }
+  .cfg-arrow:hover, .cfg-arrow:active {
+    background: var(--accent); color: #0b0e14;
+  }
+  #cfg-label {
+    min-width: 92px; text-align: center; white-space: nowrap;
+    font-size: 10.5px; font-weight: 700;
+    letter-spacing: .02em;
+    color: var(--text);
+    font-family: var(--font-mono);
+  }
+
+  .br-toggle {
+    padding: 0 10px; height: 30px;
+    border-radius: var(--r-sm);
+    background: var(--surface-3);
+    color: var(--text-dim);
+    font-size: 10px; font-weight: 800;
+    letter-spacing: .05em; text-transform: uppercase;
+    border: 1px solid var(--border);
+    cursor: pointer; font-family: inherit;
+    transition: background var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out),
+                box-shadow var(--dur-fast) var(--ease-out);
+  }
+  .br-toggle:hover { color: var(--text); }
+  .br-toggle.active {
+    background: color-mix(in oklch, var(--crit) 22%, transparent);
+    color: var(--crit);
+    border-color: color-mix(in oklch, var(--crit) 45%, transparent);
+    box-shadow: 0 0 10px color-mix(in oklch, var(--crit) 35%, transparent);
+  }
+
+  .br-pedal {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 6px;
+  }
+  .br-pedal-track {
+    position: relative;
+    width: 62px; height: 148px;
+    pointer-events: auto; cursor: pointer;
+    touch-action: none;
+    user-select: none; -webkit-user-select: none;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / .03),
+                0 10px 24px oklch(0 0 0 / .35);
+    transition: border-color var(--dur-fast) var(--ease-out);
+  }
+  .br-pedal-track.active { border-color: color-mix(in oklch, var(--crit) 60%, transparent); }
+  .br-pedal-fill {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 0%;
+    background: linear-gradient(180deg, #dc2626, #f87171);
+    transition: height var(--dur-fast) linear;
+  }
+  .br-pedal-pad {
+    position: absolute;
+    left: -6px; right: -6px;
+    bottom: 0%; height: 42px;
+    transform: translateY(50%);
+    filter: drop-shadow(0 6px 10px oklch(0 0 0 / .55));
+    transition: bottom var(--dur-fast) linear,
+                filter var(--dur-fast) var(--ease-out);
+  }
+  .br-pedal-track.active .br-pedal-pad {
+    filter: drop-shadow(0 0 12px color-mix(in oklch, var(--crit) 55%, transparent))
+            drop-shadow(0 6px 10px oklch(0 0 0 / .55));
+  }
+  .br-pedal-pad svg { width: 100%; height: 100%; display: block; }
+  .br-pedal-pad .plate {
+    fill: var(--surface-3);
+    stroke: color-mix(in oklch, var(--text) 40%, transparent);
+    stroke-width: 1.4;
+  }
+  .br-pedal-pad .grip { fill: color-mix(in oklch, var(--text) 28%, transparent); }
+  .br-pedal-track.active .br-pedal-pad .plate { stroke: var(--crit); }
+
+  @media (max-width: 600px) {
+    .br-pedal-track { width: 48px; height: 118px; }
+    .br-pedal-pad { height: 34px; }
+    .cfg-arrow { width: 19px; height: 19px; font-size: 12px; }
+    #cfg-label { min-width: 72px; font-size: 10px; }
+    .br-toggle { padding: 0 8px; height: 26px; font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+  <div id="canvas-wrap"></div>
+  <div id="labels-root"></div>
+
+  <script src="guard.js"></script>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  } }
+  </script>
+
+  <script type="module">
+  import * as THREE from 'three';
+  import * as Base from './kit.js';
+import { Parts } from './components.js';
+  import { UI } from './kit.js';
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ADAPTIVE QUALITY
+     ═══════════════════════════════════════════════════════════════════ */
+  const isCoarse = matchMedia('(pointer: coarse)').matches;
+  const cores    = navigator.hardwareConcurrency || 4;
+  const mem      = navigator.deviceMemory || 4;
+  const isLowEnd = cores <= 4 || mem <= 2;
+  const isMidEnd = !isLowEnd && (cores <= 6 || isCoarse);
+
+  const CYL_SEGS    = isLowEnd ? 20 : 32;
+  const FLUID_COUNT = isLowEnd ? 40 : isMidEnd ? 70 : 100;
+  const AIR_COUNT   = isLowEnd ? 20 : isMidEnd ? 32 : 44;
+  const SHIMMER_N   = isLowEnd ? 12 : isMidEnd ? 20 : 30;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     BOOTSTRAP
+     ═══════════════════════════════════════════════════════════════════ */
+  const { scene, camera, renderer, controls, wrap, viewManager } = Base.buildScene({
+    fov: 44,
+    camPos: isCoarse ? [3.0, 2.0, 4.0] : [3.4, 2.2, 4.6],
+    target: [-0.3, 0.05, 0],
+    floorY: -2.15
+  });
+  Base.attachResize(camera, renderer, wrap, 44);
+  const particleTex = Base.createParticleTexture();
+  const labels = Base.createLabelSystem();
+  const state  = Base.createUIState();
+  state.abs = false;
+  state.circuitFail = false;
+  state.airBubble = false;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     LIGHTING
+     ═══════════════════════════════════════════════════════════════════ */
+  scene.add(new THREE.AmbientLight(0xaebbd0, 0.55));
+  scene.add(new THREE.HemisphereLight(0xdce8ff, 0x0b0e14, 0.45));
+
+  const mechKey = new THREE.DirectionalLight(0xffffff, 1.1);
+  mechKey.position.set(2.6, 3.4, 2.2);
+  mechKey.target.position.set(1.10, -0.1, 0);
+  scene.add(mechKey);
+  scene.add(mechKey.target);
+
+  const mechRim = new THREE.DirectionalLight(0x9fc4ff, 0.5);
+  mechRim.position.set(-1.5, 1.8, -3.0);
+  scene.add(mechRim);
+
+  const discSpot = new THREE.PointLight(0xffffff, 1.4, 5.5, 2);
+  discSpot.position.set(1.80, 0.9, 1.60);
+  scene.add(discSpot);
+
+  const drumSpot = new THREE.PointLight(0xffffff, 1.3, 5.5, 2);
+  drumSpot.position.set(1.80, 0.9, -1.60);
+  scene.add(drumSpot);
+
+  /* ═══════════════════════════════════════════════════════════════════
+     MATERIALS
+     ═══════════════════════════════════════════════════════════════════ */
+  const M = {
+    steel:     new THREE.MeshStandardMaterial({ color:0x9aa3b0, metalness:0.88, roughness:0.28 }),
+    steelDark: new THREE.MeshStandardMaterial({ color:0x4b5563, metalness:0.80, roughness:0.38 }),
+    alum:      new THREE.MeshStandardMaterial({ color:0xc5ccd6, metalness:0.82, roughness:0.28 }),
+    brass:     new THREE.MeshStandardMaterial({ color:0xd4a34a, metalness:0.88, roughness:0.28, transparent:true, opacity:0.55 }),
+    fluidGlass: new THREE.MeshPhysicalMaterial({
+      color:0x60a5fa, metalness:0.10, roughness:0.20,
+      transmission:0.55, transparent:true, opacity:0.55,
+      depthWrite:false, side:THREE.DoubleSide
+    }),
+    fluid:     new THREE.MeshStandardMaterial({
+      color:0x3b82f6, emissive:0x60a5fa, emissiveIntensity:0.35,
+      transparent:true, opacity:0.75, roughness:0.20, metalness:0.10
+    }),
+    pad:       new THREE.MeshStandardMaterial({ color:0x4a3520, metalness:0.20, roughness:0.85 }),
+    shoe:      new THREE.MeshStandardMaterial({ color:0x5a3a20, metalness:0.15, roughness:0.92 }),
+    rotor:     new THREE.MeshStandardMaterial({
+      color:0x8a94a4, metalness:0.90, roughness:0.30,
+      emissive:0xff4000, emissiveIntensity:0
+    }),
+    drum:      new THREE.MeshStandardMaterial({
+      color:0x8a94a4, metalness:0.85, roughness:0.35,
+      emissive:0xff4000, emissiveIntensity:0,
+      transparent:true, opacity:0.55, side:THREE.DoubleSide
+    }),
+    tire:      new THREE.MeshStandardMaterial({ color:0x181c22, metalness:0.10, roughness:0.92 }),
+    hub:       new THREE.MeshStandardMaterial({ color:0xb8c1d2, metalness:0.92, roughness:0.18 }),
+    red:       new THREE.MeshStandardMaterial({ color:0xdc2626, metalness:0.30, roughness:0.40 }),
+    lineBlue:  new THREE.MeshStandardMaterial({ color:0x38bdf8, metalness:0.5, roughness:0.35, emissive:0x0c4a6e, emissiveIntensity:0.35 }),
+    lineRed:   new THREE.MeshStandardMaterial({ color:0xef4444, metalness:0.5, roughness:0.35, emissive:0x7f1d1d, emissiveIntensity:0.35 }),
+    booster:   new THREE.MeshStandardMaterial({ color:0x2a2f38, metalness:0.55, roughness:0.42 }),
+    vacuum:    new THREE.MeshStandardMaterial({ color:0x1a1f28, metalness:0.30, roughness:0.65 }),
+    /* Marker materials for the spin-group (bright, asymmetric) */
+    markerA:   new THREE.MeshBasicMaterial({ color:0x38bdf8 }),
+    markerB:   new THREE.MeshBasicMaterial({ color:0xf59e0b })
+  };
+
+  /* ═══════════════════════════════════════════════════════════════════
+     GROUND GRID
+     ═══════════════════════════════════════════════════════════════════ */
+  /* Ground grid comes from the kit (same height) — a second one here caused shimmer. */
+
+  /* ═══════════════════════════════════════════════════════════════════
+     HELPERS
+     ═══════════════════════════════════════════════════════════════════ */
+  function makeLineCurve(parent, points, mat, thickness) {
+    const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p)));
+    const tubeGeo = new THREE.TubeGeometry(curve, 48, thickness, 8, false);
+    const mesh = new THREE.Mesh(tubeGeo, mat);
+    mesh.castShadow = true;
+    parent.add(mesh);
+    return { curve, mesh };
+  }
+  function makeParticleStream(parent, count, size, color, opacity = 0.95) {
+    const { geo, pts } = Parts.additivePoints(particleTex, count, size, opacity, { parent });
+    return { geo, pts, baseColor: new THREE.Color(color) };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     HYDRAULIC FRONTEND
+     ═══════════════════════════════════════════════════════════════════ */
+  function buildHydraulicFrontend() {
+    const g = new THREE.Group();
+
+    const pedalPivotX = -2.45, pedalPivotY = 0.30;
+    const pedalGroup = new THREE.Group();
+    pedalGroup.position.set(pedalPivotX, pedalPivotY, 0);
+    g.add(pedalGroup);
+
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.85, 0.10), M.steelDark);
+    arm.position.set(0, -0.42, 0);
+    arm.castShadow = true;
+    pedalGroup.add(arm);
+
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.10, 0.42), M.pad);
+    pad.position.set(0.06, -0.86, 0);
+    pad.castShadow = true;
+    pedalGroup.add(pad);
+
+    const pivot = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 12), M.steel);
+    pivot.rotation.x = Math.PI / 2;
+    pedalGroup.add(pivot);
+
+    const pushrod = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.38, 10), M.steel);
+    pushrod.rotation.z = Math.PI / 2;
+    pushrod.position.set(0.24, -0.60, 0);
+    pushrod.castShadow = true;
+    pedalGroup.add(pushrod);
+
+    const boosterX = -1.95, boosterY = -0.30;
+    const boosterGroup = new THREE.Group();
+    boosterGroup.position.set(boosterX, boosterY, 0);
+    g.add(boosterGroup);
+
+    const boosterShell = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.26, 0.26, 0.30, isLowEnd ? 24 : 40, 1, true),
+      M.booster
+    );
+    boosterShell.rotation.z = Math.PI / 2;
+    boosterShell.castShadow = true;
+    boosterGroup.add(boosterShell);
+
+    [-0.15, 0.15].forEach(x => {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.14, 0.26, 24), M.steel);
+      ring.rotation.y = x > 0 ? Math.PI / 2 : -Math.PI / 2;
+      ring.position.x = x;
+      boosterGroup.add(ring);
+    });
+
+    const boosterHub = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.34, 20), M.steelDark);
+    boosterHub.rotation.z = Math.PI / 2;
+    boosterGroup.add(boosterHub);
+
+    const vacPort = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.06, 10), M.steel);
+    vacPort.position.set(-0.05, 0.28, 0.10);
+    boosterGroup.add(vacPort);
+
+    const vacHose = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.95, 8), M.vacuum);
+    vacHose.position.set(boosterX - 0.05, 0.72, 0.10);
+    vacHose.rotation.z = 0.08;
+    g.add(vacHose);
+
+    const vacCap = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 12), M.brass);
+    vacCap.position.set(boosterX - 0.05, 1.18, 0.10);
+    g.add(vacCap);
+
+    const linkRod = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.45, 8), M.steel);
+    linkRod.rotation.z = Math.PI / 2;
+    linkRod.position.set(-2.20, -0.30, 0);
+    g.add(linkRod);
+
+    const mcX = -1.20, mcY = -0.30;
+    const mcGroup = new THREE.Group();
+    mcGroup.position.set(mcX, mcY, 0);
+    g.add(mcGroup);
+
+    const mcBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.13, 0.13, 0.72, CYL_SEGS, 1, true),
+      M.fluidGlass
+    );
+    mcBody.rotation.z = Math.PI / 2;
+    mcGroup.add(mcBody);
+
+    [-0.38, 0.38].forEach(x => {
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.05, CYL_SEGS), M.alum);
+      cap.rotation.z = Math.PI / 2;
+      cap.position.x = x;
+      mcGroup.add(cap);
+    });
+
+    const pistonF = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.09, CYL_SEGS), M.steel);
+    pistonF.rotation.z = Math.PI / 2;
+    pistonF.position.x = -0.20;
+    mcGroup.add(pistonF);
+
+    const pistonR = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.09, CYL_SEGS), M.steel);
+    pistonR.rotation.z = Math.PI / 2;
+    pistonR.position.x = 0.14;
+    mcGroup.add(pistonR);
+
+    const mcFluid = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.60, CYL_SEGS), M.fluid);
+    mcFluid.rotation.z = Math.PI / 2;
+    mcFluid.position.x = 0.16;
+    mcGroup.add(mcFluid);
+
+    const reservoir = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.28, CYL_SEGS), M.fluidGlass);
+    reservoir.position.set(-0.02, 0.22, 0);
+    mcGroup.add(reservoir);
+
+    const reservoirFluid = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.18, CYL_SEGS), M.fluid);
+    reservoirFluid.position.set(-0.02, 0.18, 0);
+    mcGroup.add(reservoirFluid);
+
+    const reservoirCap = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.04, CYL_SEGS), M.steel);
+    reservoirCap.position.set(-0.02, 0.38, 0);
+    mcGroup.add(reservoirCap);
+
+    const outletFront = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.08, 10), M.brass);
+    outletFront.position.set(0.30, 0.14, 0);
+    mcGroup.add(outletFront);
+
+    const outletRear = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.08, 10), M.brass);
+    outletRear.position.set(0.30, -0.14, 0);
+    mcGroup.add(outletRear);
+
+    return {
+      group: g,
+      pedalGroup, boosterGroup, mcGroup,
+      pistonF, pistonR, mcFluid,
+      pedalPivotX, pedalPivotY,
+      boosterX, boosterY, mcX, mcY
+    };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     SPIN GROUP — child of the disc that actually rotates
+     ═══════════════════════════════════════════════════════════════════ */
+  function makeSpinGroup() {
+    const sg = new THREE.Group();
+    /* Marker bolts so rotation is visually obvious at any speed */
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      const bolt = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.02, 0.02, 0.06, 8),
+        i === 0 ? M.markerA : M.markerB
+      );
+      bolt.rotation.z = Math.PI / 2;
+      bolt.position.set(0, Math.cos(a) * 0.30, Math.sin(a) * 0.30);
+      sg.add(bolt);
+    }
+    return sg;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     DISC BRAKE UNIT — with proper spin group
+     ═══════════════════════════════════════════════════════════════════ */
+  const ROTOR_R = 0.48;
+  const ROTOR_T = 0.055;
+  const WHEEL_R = 0.72;
+
+  function buildDiscBrakeUnit() {
+    const g = new THREE.Group();
+
+    /* Spin group — everything that rotates lives here */
+    const spin = makeSpinGroup();
+    g.add(spin);
+
+    const rotor = new THREE.Mesh(
+      new THREE.CylinderGeometry(ROTOR_R, ROTOR_R, ROTOR_T, isLowEnd ? 24 : 48),
+      M.rotor.clone()
+    );
+    rotor.rotation.z = Math.PI / 2;
+    rotor.castShadow = true;
+    spin.add(rotor);
+
+    /* Cross-drilled holes */
+    const holeMat = new THREE.MeshStandardMaterial({ color:0x14181f, metalness:0.4, roughness:0.7 });
+    const holeGeo = new THREE.CylinderGeometry(0.018, 0.018, ROTOR_T + 0.004, 8);
+    const holeCount = isLowEnd ? 16 : 24;
+    for (let i = 0; i < holeCount; i++) {
+      const a = (i / holeCount) * Math.PI * 2;
+      const hole = new THREE.Mesh(holeGeo, holeMat);
+      hole.rotation.z = Math.PI / 2;
+      hole.position.set(0, Math.cos(a) * ROTOR_R * 0.65, Math.sin(a) * ROTOR_R * 0.65);
+      spin.add(hole);
+    }
+
+    /* Slot grooves */
+    const slotMat = new THREE.MeshStandardMaterial({ color:0x5a6472, metalness:0.9, roughness:0.5 });
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const slot = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.28, 0.012), slotMat);
+      slot.position.set(0, Math.cos(a) * ROTOR_R * 0.42, Math.sin(a) * ROTOR_R * 0.42);
+      slot.rotation.x = a;
+      spin.add(slot);
+    }
+
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.14, CYL_SEGS), M.hub);
+    hub.rotation.z = Math.PI / 2;
+    spin.add(hub);
+
+    /* Wheel — inside the spin group so tire+rim+spokes rotate together */
+    const wheel = new THREE.Mesh(
+      new THREE.CylinderGeometry(WHEEL_R, WHEEL_R, 0.28, isLowEnd ? 24 : 40, 1, true),
+      M.tire
+    );
+    wheel.rotation.z = Math.PI / 2;
+    wheel.position.x = 0.02;
+    wheel.castShadow = true;
+    spin.add(wheel);
+
+    const rimRing = new THREE.Mesh(
+      new THREE.TorusGeometry(WHEEL_R * 0.62, 0.028, 8, isLowEnd ? 28 : 40),
+      M.hub
+    );
+    rimRing.rotation.y = Math.PI / 2;
+    rimRing.position.x = -0.10;
+    spin.add(rimRing);
+
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.035, WHEEL_R * 0.7, 0.07), M.steelDark);
+      spoke.position.set(-0.10, Math.cos(a) * (WHEEL_R * 0.32), Math.sin(a) * (WHEEL_R * 0.32));
+      spoke.rotation.x = a;
+      spin.add(spoke);
+    }
+
+    /* Caliper — NOT in spin group (fixed to the hub carrier) */
+    const caliperGroup = new THREE.Group();
+    g.add(caliperGroup);
+
+    const caliperBack = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.72, 0.18), M.steelDark);
+    caliperBack.position.set(0.05, 0, 0);
+    caliperBack.castShadow = true;
+    caliperGroup.add(caliperBack);
+
+    [-0.31, 0.31].forEach(y => {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.18), M.steelDark);
+      arm.position.set(-0.05, y, 0);
+      caliperGroup.add(arm);
+    });
+
+    const calPiston1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.10, CYL_SEGS), M.alum);
+    calPiston1.rotation.z = Math.PI / 2;
+    calPiston1.position.set(-0.05, 0.12, 0);
+    caliperGroup.add(calPiston1);
+
+    const calPiston2 = calPiston1.clone();
+    calPiston2.position.y = -0.12;
+    caliperGroup.add(calPiston2);
+
+    const padMat = M.pad.clone();
+    padMat.emissive = new THREE.Color(0xff4000);
+    padMat.emissiveIntensity = 0;
+
+    const padFront = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.44, 0.24), padMat);
+    padFront.position.set(-0.10, 0, 0);
+    padFront.castShadow = true;
+    caliperGroup.add(padFront);
+
+    const padBack = padFront.clone();
+    padBack.position.x = 0.10;
+    caliperGroup.add(padBack);
+
+    return { group: g, spin, rotor, padFront, padBack, calPiston1, calPiston2 };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     DRUM BRAKE UNIT — with proper spin group
+     ═══════════════════════════════════════════════════════════════════ */
+  const DRUM_R = 0.42;
+  const DRUM_D = 0.22;
+
+  function buildDrumBrakeUnit() {
+    const g = new THREE.Group();
+
+    const backingPlate = new THREE.Mesh(
+      new THREE.CylinderGeometry(DRUM_R + 0.02, DRUM_R + 0.02, 0.02, isLowEnd ? 24 : 40),
+      M.steelDark
+    );
+    backingPlate.rotation.z = Math.PI / 2;
+    backingPlate.position.x = -DRUM_D / 2;
+    g.add(backingPlate);
+
+    const spin = makeSpinGroup();
+    g.add(spin);
+
+    const drumShell = new THREE.Mesh(
+      new THREE.CylinderGeometry(DRUM_R, DRUM_R, DRUM_D, isLowEnd ? 24 : 40, 1, true),
+      M.drum.clone()
+    );
+    drumShell.rotation.z = Math.PI / 2;
+    spin.add(drumShell);
+
+    const drumRing = new THREE.Mesh(
+      new THREE.TorusGeometry(DRUM_R, 0.025, 8, isLowEnd ? 28 : 40),
+      M.steel
+    );
+    drumRing.rotation.y = Math.PI / 2;
+    drumRing.position.x = DRUM_D / 2;
+    spin.add(drumRing);
+
+    const drumHub = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.14, CYL_SEGS), M.hub);
+    drumHub.rotation.z = Math.PI / 2;
+    drumHub.position.x = 0.02;
+    spin.add(drumHub);
+
+    /* Rear wheel — spin group */
+    const drumWheel = new THREE.Mesh(
+      new THREE.CylinderGeometry(WHEEL_R, WHEEL_R, 0.28, isLowEnd ? 24 : 40, 1, true),
+      M.tire
+    );
+    drumWheel.rotation.z = Math.PI / 2;
+    drumWheel.position.x = 0.02;
+    drumWheel.castShadow = true;
+    spin.add(drumWheel);
+
+    const drumRimRing = new THREE.Mesh(
+      new THREE.TorusGeometry(WHEEL_R * 0.62, 0.028, 8, isLowEnd ? 28 : 40),
+      M.hub
+    );
+    drumRimRing.rotation.y = Math.PI / 2;
+    drumRimRing.position.x = -0.10;
+    spin.add(drumRimRing);
+
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.035, WHEEL_R * 0.7, 0.07), M.steelDark);
+      spoke.position.set(-0.10, Math.cos(a) * (WHEEL_R * 0.32), Math.sin(a) * (WHEEL_R * 0.32));
+      spoke.rotation.x = a;
+      spin.add(spoke);
+    }
+
+    /* Shoes + cylinder (fixed to backing plate) */
+    const shoeGeo = new THREE.CylinderGeometry(
+      DRUM_R - 0.04, DRUM_R - 0.04, 0.10,
+      isLowEnd ? 16 : 24, 1, true, 0, Math.PI * 0.75
+    );
+    const shoeFwd = new THREE.Mesh(shoeGeo, M.shoe);
+    shoeFwd.rotation.z = Math.PI / 2;
+    shoeFwd.rotation.y = -Math.PI * 0.08;
+    shoeFwd.position.x = -0.02;
+    g.add(shoeFwd);
+
+    const shoeRear = new THREE.Mesh(shoeGeo, M.shoe);
+    shoeRear.rotation.z = Math.PI / 2;
+    shoeRear.rotation.y = Math.PI - Math.PI * 0.08;
+    shoeRear.position.x = -0.02;
+    g.add(shoeRear);
+
+    const wheelCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.14, 12), M.alum);
+    wheelCyl.rotation.z = Math.PI / 2;
+    wheelCyl.position.set(-0.02, DRUM_R * 0.5, 0);
+    g.add(wheelCyl);
+
+    [-0.08, 0.08].forEach(z => {
+      const rod = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.04, 0.04), M.steel);
+      rod.position.set(-0.02, DRUM_R * 0.5, z);
+      g.add(rod);
+    });
+
+    const springMat = new THREE.MeshStandardMaterial({ color:0x94a3b8, metalness:0.85, roughness:0.30 });
+    [Math.PI * 0.15, Math.PI * 0.85].forEach(rot => {
+      const spring = new THREE.Mesh(
+        new THREE.TorusGeometry(DRUM_R * 0.55, 0.008, 6, 24, Math.PI * 0.7),
+        springMat
+      );
+      spring.rotation.y = Math.PI / 2;
+      spring.rotation.x = rot;
+      spring.position.set(0.06, 0, 0);
+      g.add(spring);
+    });
+
+    return { group: g, spin, drumShell, shoeFwd, shoeRear };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG 1 — DISC + DRUM
+     ═══════════════════════════════════════════════════════════════════ */
+  function createDiscDrumScene() {
+    const g = new THREE.Group();
+    const hyd = buildHydraulicFrontend();
+    g.add(hyd.group);
+
+    const discZ = 1.00, drumZ = -1.00, brakeX = 1.10;
+
+    const disc = buildDiscBrakeUnit();
+    disc.group.position.set(brakeX, -0.05, discZ);
+    g.add(disc.group);
+
+    const drum = buildDrumBrakeUnit();
+    drum.group.position.set(brakeX, -0.05, drumZ);
+    g.add(drum.group);
+
+    const frontLine = makeLineCurve(g, [
+      [-0.90, -0.16, 0],[-0.60, 0.10, 0.05],[-0.10, 0.32, 0.20],
+      [0.45, 0.32, 0.42],[0.85, 0.16, 0.58],[1.00, -0.05, discZ]
+    ], M.lineBlue, 0.028);
+
+    const rearLine = makeLineCurve(g, [
+      [-0.90, -0.44, 0],[-0.55, -0.68, -0.05],[-0.05, -0.88, -0.20],
+      [0.50, -0.88, -0.42],[0.90, -0.70, -0.58],[1.00, -0.45, drumZ]
+    ], M.lineRed, 0.028);
+
+    const fluid = makeParticleStream(g, FLUID_COUNT, 0.10, 0x60a5fa);
+    const fluidData = [];
+    for (let i = 0; i < FLUID_COUNT; i++) {
+      fluidData.push({ t: Math.random(), speed: 0.7 + Math.random() * 0.6, line: Math.random() < 0.5 ? 'f' : 'r' });
+    }
+
+    const airPts = makeParticleStream(g, AIR_COUNT, 0.12, 0xf8fafc);
+    const airData = [];
+    for (let i = 0; i < AIR_COUNT; i++) {
+      airData.push({ t: Math.random(), wobble: Math.random() * Math.PI * 2, speed: 0.3 + Math.random() * 0.5, line: Math.random() < 0.5 ? 'f' : 'r' });
+    }
+
+    let rotorAngle = 0, drumAngle = 0;
+
+    function update(dt, pedal, forces) {
+      hyd.pedalGroup.rotation.z = -pedal * 0.38;
+      hyd.pistonF.position.x = -0.20 + pedal * 0.14;
+      hyd.pistonR.position.x = 0.14 + pedal * 0.14 * 0.85;
+      hyd.mcFluid.scale.x = 1 - pedal * 0.10;
+
+      const frontClamp = forces.circuitFail ? 0 : pedal * forces.absPulse;
+      const clampedF = 0.10 - frontClamp * 0.085;
+      disc.padFront.position.x = -clampedF;
+      disc.padBack.position.x  =  clampedF;
+      disc.calPiston1.position.x = -0.05 - frontClamp * 0.045;
+      disc.calPiston2.position.x = -0.05 - frontClamp * 0.045;
+
+      const rearClamp = pedal;
+      drum.shoeFwd.position.x  = -0.02 - rearClamp * 0.025;
+      drum.shoeRear.position.x = -0.02 - rearClamp * 0.025;
+
+      const baseOmega = 2.0;
+      const speedFactor = 0.4 + state.speedMul * 0.9;
+      const systemFail = forces.circuitFail ? 0.4 : 1.0;
+      const dragFront = frontClamp * 0.75 * systemFail;
+      const dragRear  = rearClamp * 0.55;
+      rotorAngle += dt * baseOmega * speedFactor * (1 - dragFront);
+      drumAngle  += dt * baseOmega * speedFactor * (1 - dragRear);
+      disc.spin.rotation.x = rotorAngle;
+      drum.spin.rotation.x = drumAngle;
+
+      const fluidActive = forces.effectivePedal > 0.02;
+      fluid.pts.visible = fluidActive && state.showGas !== false;
+      if (fluid.pts.visible) {
+        const posA = fluid.geo.attributes.position;
+        const colA = fluid.geo.attributes.color;
+        const blueCol = new THREE.Color(0x60a5fa);
+        const redCol  = new THREE.Color(0xf87171);
+        const deadCol = new THREE.Color(0x334155);
+        for (let i = 0; i < FLUID_COUNT; i++) {
+          const p = fluidData[i];
+          const isFront = p.line === 'f';
+          if (forces.circuitFail && isFront) {
+            const pt = frontLine.curve.getPoint(p.t);
+            posA.setXYZ(i, pt.x, pt.y, pt.z);
+            colA.setXYZ(i, deadCol.r * 0.3, deadCol.g * 0.3, deadCol.b * 0.3);
+            continue;
+          }
+          p.t += dt * p.speed * (0.5 + forces.effectivePedal * 1.6) * 0.5;
+          if (p.t > 1) p.t -= 1;
+          const curve = isFront ? frontLine.curve : rearLine.curve;
+          const pt = curve.getPoint(p.t);
+          posA.setXYZ(i, pt.x, pt.y, pt.z);
+          const I = 0.4 + 0.6 * forces.effectivePedal;
+          const c = isFront ? blueCol : redCol;
+          colA.setXYZ(i, c.r * I, c.g * I, c.b * I);
+        }
+        posA.needsUpdate = true;
+        colA.needsUpdate = true;
+      }
+
+      airPts.pts.visible = state.airBubble && state.showGas !== false;
+      if (airPts.pts.visible) {
+        const posA = airPts.geo.attributes.position;
+        const now = performance.now() * 0.008;
+        for (let i = 0; i < AIR_COUNT; i++) {
+          const b = airData[i];
+          b.t += dt * b.speed * 0.3;
+          if (b.t > 1) b.t -= 1;
+          const curve = b.line === 'f' ? frontLine.curve : rearLine.curve;
+          const pt = curve.getPoint(b.t);
+          const wob = Math.sin(now + b.wobble) * 0.03;
+          posA.setXYZ(i, pt.x + wob, pt.y + wob, pt.z + wob);
+        }
+        posA.needsUpdate = true;
+      }
+    }
+
+    function setEmissive(frontHeat, rearHeat) {
+      disc.rotor.material.emissiveIntensity = frontHeat * 1.4;
+      disc.padFront.material.emissiveIntensity = frontHeat * 0.6;
+      disc.padBack.material.emissiveIntensity  = frontHeat * 0.6;
+      drum.drumShell.material.emissiveIntensity = rearHeat * 1.0;
+    }
+
+    return {
+      group: g, update, setEmissive, id: 'disc-drum',
+      labelSet: ['pedal', 'booster', 'mc', 'caliper', 'pad', 'rotor', 'drum', 'shoe'],
+      frontTempWeight: 1.0, rearTempWeight: 1.0
+    };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG 2 — ALL-DISC
+     ═══════════════════════════════════════════════════════════════════ */
+  function createAllDiscScene() {
+    const g = new THREE.Group();
+    const hyd = buildHydraulicFrontend();
+    g.add(hyd.group);
+
+    const discZ = 1.00, discZ2 = -1.00, brakeX = 1.10;
+
+    const disc1 = buildDiscBrakeUnit();
+    disc1.group.position.set(brakeX, -0.05, discZ);
+    g.add(disc1.group);
+
+    const disc2 = buildDiscBrakeUnit();
+    disc2.group.position.set(brakeX, -0.05, discZ2);
+    g.add(disc2.group);
+
+    makeLineCurve(g, [
+      [-0.90, -0.16, 0],[-0.60, 0.10, 0.05],[-0.10, 0.32, 0.20],
+      [0.45, 0.32, 0.42],[0.85, 0.16, 0.58],[1.00, -0.05, discZ]
+    ], M.lineBlue, 0.028);
+
+    makeLineCurve(g, [
+      [-0.90, -0.44, 0],[-0.55, -0.68, -0.05],[-0.05, -0.88, -0.20],
+      [0.50, -0.88, -0.42],[0.90, -0.70, -0.58],[1.00, -0.45, discZ2]
+    ], M.lineBlue, 0.028);
+
+    let ang1 = 0, ang2 = 0;
+
+    function update(dt, pedal, forces) {
+      hyd.pedalGroup.rotation.z = -pedal * 0.38;
+      hyd.pistonF.position.x = -0.20 + pedal * 0.14;
+      hyd.pistonR.position.x = 0.14 + pedal * 0.14 * 0.85;
+      hyd.mcFluid.scale.x = 1 - pedal * 0.10;
+
+      const clampBoth = pedal * forces.absPulse;
+      const clampedF = 0.10 - clampBoth * 0.085;
+
+      [disc1, disc2].forEach(d => {
+        d.padFront.position.x = -clampedF;
+        d.padBack.position.x  =  clampedF;
+        d.calPiston1.position.x = -0.05 - clampBoth * 0.045;
+        d.calPiston2.position.x = -0.05 - clampBoth * 0.045;
+      });
+
+      const baseOmega = 2.0;
+      const speedFactor = 0.4 + state.speedMul * 0.9;
+      const drag = clampBoth * 0.75;
+      ang1 += dt * baseOmega * speedFactor * (1 - drag);
+      ang2 += dt * baseOmega * speedFactor * (1 - drag);
+
+      disc1.spin.rotation.x = ang1;
+      disc2.spin.rotation.x = ang2;
+    }
+
+    function setEmissive(frontHeat, rearHeat) {
+      disc1.rotor.material.emissiveIntensity = frontHeat * 1.4;
+      disc1.padFront.material.emissiveIntensity = frontHeat * 0.6;
+      disc1.padBack.material.emissiveIntensity  = frontHeat * 0.6;
+      disc2.rotor.material.emissiveIntensity = rearHeat * 1.4;
+      disc2.padFront.material.emissiveIntensity = rearHeat * 0.6;
+      disc2.padBack.material.emissiveIntensity  = rearHeat * 0.6;
+    }
+
+    return {
+      group: g, update, setEmissive, id: 'all-disc',
+      labelSet: ['pedal', 'booster', 'mc', 'caliper', 'rotor'],
+      frontTempWeight: 1.0, rearTempWeight: 1.0
+    };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG 3 — ALL-DRUM
+     ═══════════════════════════════════════════════════════════════════ */
+  function createAllDrumScene() {
+    const g = new THREE.Group();
+    const hyd = buildHydraulicFrontend();
+    g.add(hyd.group);
+
+    const drumZ1 = 1.00, drumZ2 = -1.00, brakeX = 1.10;
+
+    const drum1 = buildDrumBrakeUnit();
+    drum1.group.position.set(brakeX, -0.05, drumZ1);
+    g.add(drum1.group);
+
+    const drum2 = buildDrumBrakeUnit();
+    drum2.group.position.set(brakeX, -0.05, drumZ2);
+    g.add(drum2.group);
+
+    makeLineCurve(g, [
+      [-0.90, -0.16, 0],[-0.60, 0.10, 0.05],[-0.10, 0.32, 0.20],
+      [0.45, 0.32, 0.42],[0.85, 0.16, 0.58],[1.00, -0.05, drumZ1]
+    ], M.lineRed, 0.028);
+
+    makeLineCurve(g, [
+      [-0.90, -0.44, 0],[-0.55, -0.68, -0.05],[-0.05, -0.88, -0.20],
+      [0.50, -0.88, -0.42],[0.90, -0.70, -0.58],[1.00, -0.45, drumZ2]
+    ], M.lineRed, 0.028);
+
+    let ang1 = 0, ang2 = 0;
+
+    function update(dt, pedal, forces) {
+      hyd.pedalGroup.rotation.z = -pedal * 0.38;
+      hyd.pistonF.position.x = -0.20 + pedal * 0.14;
+      hyd.pistonR.position.x = 0.14 + pedal * 0.14 * 0.85;
+      hyd.mcFluid.scale.x = 1 - pedal * 0.10;
+
+      const clampBoth = pedal;
+      [drum1, drum2].forEach(d => {
+        d.shoeFwd.position.x  = -0.02 - clampBoth * 0.025;
+        d.shoeRear.position.x = -0.02 - clampBoth * 0.025;
+      });
+
+      const baseOmega = 2.0;
+      const speedFactor = 0.4 + state.speedMul * 0.9;
+      const drag = clampBoth * 0.55;
+      ang1 += dt * baseOmega * speedFactor * (1 - drag);
+      ang2 += dt * baseOmega * speedFactor * (1 - drag);
+
+      drum1.spin.rotation.x = ang1;
+      drum2.spin.rotation.x = ang2;
+    }
+
+    function setEmissive(frontHeat, rearHeat) {
+      drum1.drumShell.material.emissiveIntensity = frontHeat * 1.0;
+      drum2.drumShell.material.emissiveIntensity = rearHeat * 1.0;
+    }
+
+    return {
+      group: g, update, setEmissive, id: 'all-drum',
+      labelSet: ['pedal', 'booster', 'mc', 'drum', 'shoe'],
+      frontTempWeight: 0.6, rearTempWeight: 1.0
+    };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG 4 — REGENERATIVE
+     ═══════════════════════════════════════════════════════════════════ */
+  function createRegenScene() {
+    const g = new THREE.Group();
+
+    const pedalPivotX = -2.45, pedalPivotY = 0.30;
+    const pedalGroup = new THREE.Group();
+    pedalGroup.position.set(pedalPivotX, pedalPivotY, 0);
+    g.add(pedalGroup);
+
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.85, 0.10), M.steelDark);
+    arm.position.set(0, -0.42, 0);
+    arm.castShadow = true;
+    pedalGroup.add(arm);
+
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.10, 0.42), M.pad);
+    pad.position.set(0.06, -0.86, 0);
+    pad.castShadow = true;
+    pedalGroup.add(pad);
+
+    const pivot = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 12), M.steel);
+    pivot.rotation.x = Math.PI / 2;
+    pedalGroup.add(pivot);
+
+    const MOTOR_X = 0.5;
+    const motorGroup = new THREE.Group();
+    motorGroup.position.set(MOTOR_X, 0.20, 0);
+    g.add(motorGroup);
+
+    const motorShell = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55, 0.55, 0.90, 32, 1, true, 0, Math.PI * 1.60),
+      new THREE.MeshStandardMaterial({
+        color:0xaebfd2, metalness:0.35, roughness:0.22,
+        transparent:true, opacity:0.22, depthWrite:false, side:THREE.DoubleSide
+      })
+    );
+    motorShell.rotation.z = Math.PI / 2;
+    motorGroup.add(motorShell);
+
+    const motorRotor = new THREE.Group();
+    motorGroup.add(motorRotor);
+
+    const motorCore = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.72, 24), M.steel);
+    motorCore.rotation.z = Math.PI / 2;
+    motorRotor.add(motorCore);
+
+    /* Marker on rotor so spin is visible */
+    const motorMark = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.06, 0.08), M.markerA);
+    motorMark.position.y = 0.26;
+    motorRotor.add(motorMark);
+
+    const statorGroup = new THREE.Group();
+    motorGroup.add(statorGroup);
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const winding = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.09, 0.09), M.brass);
+      winding.position.set(0, Math.cos(a) * 0.40, Math.sin(a) * 0.40);
+      winding.rotation.x = a;
+      statorGroup.add(winding);
+    }
+
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.4, 14), M.steel);
+    shaft.rotation.z = Math.PI / 2;
+    shaft.position.set(MOTOR_X, 0.20, 0);
+    g.add(shaft);
+
+    const BATTERY_X = -1.50, BATTERY_Y = 1.10;
+    const battery = new THREE.Group();
+    battery.position.set(BATTERY_X, BATTERY_Y, 0);
+    g.add(battery);
+
+    const batBody = new THREE.Mesh(new THREE.BoxGeometry(1.10, 0.50, 0.60), M.steelDark);
+    battery.add(batBody);
+    const batTop = new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.03, 0.62), M.steelDark);
+    batTop.position.y = 0.27;
+    battery.add(batTop);
+
+    const batPos = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.10, 12), M.red);
+    batPos.position.set(0.42, 0.34, 0.20);
+    battery.add(batPos);
+    const batNeg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.09, 12), M.steelDark);
+    batNeg.position.set(-0.42, 0.33, 0.20);
+    battery.add(batNeg);
+
+    const batLed = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04, 12, 8),
+      new THREE.MeshBasicMaterial({ color:0x4ade80 })
+    );
+    batLed.position.set(0, 0.30, -0.20);
+    battery.add(batLed);
+
+    makeLineCurve(g, [
+      [-1.10, 1.20, 0],[-0.30, 1.40, 0],[0.50, 1.10, 0],[0.50, 0.60, 0]
+    ], M.lineBlue, 0.022);
+    makeLineCurve(g, [
+      [-1.10, 1.00, 0],[-0.30, 0.30, 0],[0.50, -0.20, 0],[0.50, -0.10, 0]
+    ], M.lineRed, 0.022);
+
+    const backupDisc = new THREE.Group();
+    backupDisc.position.set(1.80, -0.60, -0.30);
+    g.add(backupDisc);
+
+    const spin2 = makeSpinGroup();
+    backupDisc.add(spin2);
+
+    const discSmall = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.34, 0.34, 0.05, 24),
+      M.rotor.clone()
+    );
+    discSmall.rotation.z = Math.PI / 2;
+    spin2.add(discSmall);
+
+    const smallWheel = new THREE.Mesh(
+      new THREE.CylinderGeometry(WHEEL_R * 0.9, WHEEL_R * 0.9, 0.28, 30, 1, true),
+      M.tire
+    );
+    smallWheel.rotation.z = Math.PI / 2;
+    smallWheel.position.x = 0.02;
+    spin2.add(smallWheel);
+
+    /* Caliper (fixed) */
+    const caliper = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.44, 0.14), M.steelDark);
+    caliper.position.x = 0.10;
+    backupDisc.add(caliper);
+
+    const regenPts = makeParticleStream(g, 30, 0.10, 0x4ade80, 0.9);
+    const regenData = [];
+    for (let i = 0; i < 30; i++) regenData.push({ t: Math.random(), speed: 0.5 + Math.random() * 0.5 });
+
+    const REGEN_PATH = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.50, 0.60, 0),
+      new THREE.Vector3(0.50, 1.10, 0),
+      new THREE.Vector3(-0.30, 1.40, 0),
+      new THREE.Vector3(-1.10, 1.20, 0)
+    ]);
+
+    let motorAngle = 0;
+    let backupAngle = 0;
+    let regenStrengthSmoothed = 0;
+
+    function update(dt, pedal, forces) {
+      pedalGroup.rotation.z = -pedal * 0.38;
+
+      const regenStrength = pedal * (0.3 + 0.7 * state.speedMul);
+      regenStrengthSmoothed += (regenStrength - regenStrengthSmoothed) * Math.min(1, dt * 4);
+
+      const baseOmega = 3.0;
+      const speedFactor = 0.3 + state.speedMul * 1.0;
+      const motorDrag = regenStrengthSmoothed * 0.60;
+      motorAngle += dt * baseOmega * speedFactor * (1 - motorDrag);
+      motorRotor.rotation.x = motorAngle;
+
+      const frictionAmount = Math.max(0, (pedal - 0.5) * 2) + (state.speedMul < 0.4 ? pedal * 0.5 : 0);
+      const clamp = Math.min(1, frictionAmount);
+      caliper.position.x = 0.10 + clamp * 0.04;
+
+      const backupDrag = regenStrengthSmoothed * 0.35 + clamp * 0.55;
+      backupAngle += dt * baseOmega * speedFactor * (1 - backupDrag);
+      spin2.rotation.x = backupAngle;
+
+      regenPts.pts.visible = state.showGas !== false && regenStrengthSmoothed > 0.05;
+      if (regenPts.pts.visible) {
+        const posA = regenPts.geo.attributes.position;
+        const colA = regenPts.geo.attributes.color;
+        const col = new THREE.Color(0x4ade80);
+        for (let i = 0; i < 30; i++) {
+          const p = regenData[i];
+          p.t += dt * p.speed * (0.3 + regenStrengthSmoothed * 1.8);
+          if (p.t > 1) p.t -= 1;
+          const pt = REGEN_PATH.getPoint(p.t);
+          posA.setXYZ(i, pt.x, pt.y, pt.z);
+          const I = regenStrengthSmoothed * (0.4 + 0.6 * Math.sin(p.t * Math.PI));
+          colA.setXYZ(i, col.r * I, col.g * I, col.b * I);
+        }
+        posA.needsUpdate = true;
+        colA.needsUpdate = true;
+      }
+    }
+
+    function setEmissive(frontHeat, rearHeat) {
+      discSmall.material.emissiveIntensity = rearHeat * 1.2;
+    }
+
+    return {
+      group: g, update, setEmissive, id: 'regen',
+      labelSet: ['motor', 'battery', 'backup'],
+      frontTempWeight: 0.0, rearTempWeight: 0.35
+    };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG 5 — AIR BRAKES
+     ═══════════════════════════════════════════════════════════════════ */
+  function createAirScene() {
+    const g = new THREE.Group();
+
+    const pedalPivotX = -2.45, pedalPivotY = 0.30;
+    const pedalGroup = new THREE.Group();
+    pedalGroup.position.set(pedalPivotX, pedalPivotY, 0);
+    g.add(pedalGroup);
+
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.85, 0.10), M.steelDark);
+    arm.position.set(0, -0.42, 0);
+    pedalGroup.add(arm);
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.10, 0.42), M.pad);
+    pad.position.set(0.06, -0.86, 0);
+    pedalGroup.add(pad);
+    const pivot = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 12), M.steel);
+    pivot.rotation.x = Math.PI / 2;
+    pedalGroup.add(pivot);
+
+    const compressor = new THREE.Group();
+    compressor.position.set(-2.00, 0.30, 0);
+    g.add(compressor);
+    const compBody = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.44, 20), M.steelDark);
+    compBody.rotation.z = Math.PI / 2;
+    compressor.add(compBody);
+    const compPulley = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.08, 20), M.alum);
+    compPulley.rotation.z = Math.PI / 2;
+    compPulley.position.x = -0.30;
+    compressor.add(compPulley);
+    const compPiston = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.10, 12), M.steel);
+    compPiston.position.set(0, 0.24, 0);
+    compressor.add(compPiston);
+
+    const tank = new THREE.Group();
+    tank.position.set(-0.60, 0.60, 0);
+    g.add(tank);
+    const tankBody = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 1.20, 24), M.steel);
+    tankBody.rotation.z = Math.PI / 2;
+    tank.add(tankBody);
+    [-0.62, 0.62].forEach(x => {
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.24, 20, 14), M.steel);
+      cap.position.x = x;
+      cap.scale.x = 0.6;
+      tank.add(cap);
+    });
+
+    const relief = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.10, 10), M.brass);
+    relief.position.set(-0.30, 0.28, 0);
+    tank.add(relief);
+
+    const gauge = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.10, 0.10, 0.04, 20),
+      new THREE.MeshStandardMaterial({ color:0xf1f5f9, metalness:0.05, roughness:0.55 })
+    );
+    gauge.rotation.x = Math.PI / 2;
+    gauge.position.set(0.30, 0.24, 0.10);
+    tank.add(gauge);
+
+    makeLineCurve(g, [
+      [-2.00, 0.54, 0],[-1.80, 0.90, 0],[-1.10, 0.90, 0],[-0.60, 0.84, 0]
+    ], M.lineBlue, 0.030);
+    makeLineCurve(g, [
+      [0.00, 0.60, 0],[0.60, 0.60, 0],[0.90, 0.20, 0],[1.10, 0.10, 0]
+    ], M.lineBlue, 0.030);
+
+    const chamber = new THREE.Group();
+    chamber.position.set(1.10, 0.10, 0);
+    g.add(chamber);
+
+    const chamberBody = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.30, 20), M.steelDark);
+    chamberBody.rotation.z = Math.PI / 2;
+    chamber.add(chamberBody);
+    const chamberClamp = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.020, 8, 24), M.steel);
+    chamberClamp.rotation.y = Math.PI / 2;
+    chamber.add(chamberClamp);
+
+    const pushrod = new THREE.Mesh(new THREE.CylinderGeometry(0.030, 0.030, 0.50, 12), M.steel);
+    pushrod.rotation.z = Math.PI / 2;
+    pushrod.position.x = 0.42;
+    chamber.add(pushrod);
+
+    const pushrodBase = pushrod.position.x;
+
+    const slackAdjuster = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.34, 0.06), M.steelDark);
+    slackAdjuster.position.set(0.80, -0.10, 0);
+    chamber.add(slackAdjuster);
+
+    const drum = buildDrumBrakeUnit();
+    drum.group.position.set(1.80, -0.60, 0);
+    drum.group.scale.setScalar(0.85);
+    g.add(drum.group);
+
+    let drumAngle = 0;
+
+    function update(dt, pedal, forces) {
+      pedalGroup.rotation.z = -pedal * 0.38;
+      pushrod.position.x = pushrodBase + pedal * 0.10;
+      slackAdjuster.rotation.z = -pedal * 0.25;
+
+      drum.shoeFwd.position.x  = -0.02 - pedal * 0.025;
+      drum.shoeRear.position.x = -0.02 - pedal * 0.025;
+
+      const baseOmega = 2.0;
+      const speedFactor = 0.4 + state.speedMul * 0.9;
+      const drag = pedal * 0.65;
+      drumAngle += dt * baseOmega * speedFactor * (1 - drag);
+      drum.spin.rotation.x = drumAngle;
+    }
+
+    function setEmissive(frontHeat, rearHeat) {
+      drum.drumShell.material.emissiveIntensity = rearHeat * 1.0;
+    }
+
+    return {
+      group: g, update, setEmissive, id: 'air',
+      labelSet: ['compressor', 'tank', 'chamber', 'drum'],
+      frontTempWeight: 0.0, rearTempWeight: 1.4
+    };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG REGISTRY
+     ═══════════════════════════════════════════════════════════════════ */
+  const CONFIG_DEFS = [
+    {
+      id: 'disc-drum', label: 'Disc + Drum', badge: '#ef4444',
+      desc: `<strong>Disc + drum (classic hydraulic).</strong> Front wheels use a
+             <strong>disc brake</strong> — a caliper squeezes two pads against a
+             rotor. Rear wheels use a <strong>drum brake</strong> — wheel cylinders
+             push two curved shoes outward against a rotating drum. Discs cool
+             better and resist fade; drums are cheaper and can self-energise.
+             A vacuum booster multiplies pedal force ~4× before the master
+             cylinder splits pressure into two circuits for safety.`,
+      build: createDiscDrumScene, showPascal: true
+    },
+    {
+      id: 'all-disc', label: 'All-Disc', badge: '#38bdf8',
+      desc: `<strong>Four-wheel disc.</strong> Both axles use caliper + rotor.
+             Modern standard for cars — better heat dissipation, more consistent
+             performance under repeated hard stops, easier to fit ABS and
+             stability control. Each wheel gets its own hydraulic circuit
+             (split diagonally for safety, so a leak at one wheel still leaves
+             two working brakes).`,
+      build: createAllDiscScene, showPascal: true
+    },
+    {
+      id: 'all-drum', label: 'All-Drum', badge: '#f59e0b',
+      desc: `<strong>Four-wheel drum.</strong> All four wheels use drum brakes.
+             Common on pre-1960s cars and still used on some economy vehicles
+             and trucks. Cheap and self-energising, but the enclosed drum traps
+             heat — fade comes quickly under repeated stops, and the shoes need
+             periodic adjustment as they wear.`,
+      build: createAllDrumScene, showPascal: true
+    },
+    {
+      id: 'regen', label: 'Regenerative', badge: '#22c55e',
+      desc: `<strong>Regenerative braking (EV / hybrid).</strong> Lifting off or
+             pressing the brake pedal turns the traction motor into a
+             <strong>generator</strong> — kinetic energy charges the battery
+             instead of heating a disc. Friction brakes take over only at very
+             low speed or hard stops. Brake pads last far longer, but feel
+             differs: no pedal noise, and regen fades away below ~5 km/h.`,
+      build: createRegenScene, showPascal: false
+    },
+    {
+      id: 'air', label: 'Air Brakes', badge: '#818cf8',
+      desc: `<strong>Air brakes (heavy truck / bus).</strong> Instead of
+             hydraulic fluid, an engine-driven <strong>compressor</strong>
+             charges a <strong>storage tank</strong>. Pressing the pedal admits
+             air into each wheel's <strong>brake chamber</strong>, whose
+             pushrod pulls a slack adjuster that rotates the S-cam inside the
+             drum. Huge force from modest pedal effort, and spring-applied
+             parking brakes fail safe (air pressure releases them, loss of
+             air applies them).`,
+      build: createAirScene, showPascal: false
+    }
+  ];
+
+  const configsRoot = new THREE.Group();
+  scene.add(configsRoot);
+
+  const configs = CONFIG_DEFS.map(def => {
+    const built = def.build();
+    built.group.visible = false;
+    configsRoot.add(built.group);
+    return {
+      ...def,
+      group: built.group,
+      update: built.update,
+      setEmissive: built.setEmissive,
+      labelSet: built.labelSet,
+      frontTempWeight: built.frontTempWeight,
+      rearTempWeight: built.rearTempWeight
+    };
+  });
+
+  let activeConfigIdx = 0;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     3D LABELS
+     ═══════════════════════════════════════════════════════════════════ */
+  const labelDefs = {
+    pedal:      { id:'pedal',      text:'Brake pedal',      pos: new THREE.Vector3(-2.35, -0.65, 0.30) },
+    booster:    { id:'booster',    text:'Vacuum booster',   pos: new THREE.Vector3(-1.95, 0.15, 0.30) },
+    mc:         { id:'mc',         text:'Master cylinder',  pos: new THREE.Vector3(-1.20, 0.25, 0) },
+    caliper:    { id:'caliper',    text:'Caliper',          pos: new THREE.Vector3(1.15, 0.50, 1.10) },
+    pad:        { id:'pad',        text:'Brake pads',       pos: new THREE.Vector3(0.95, -0.35, 1.20) },
+    rotor:      { id:'rotor',      text:'Rotor (disc)',     pos: new THREE.Vector3(1.10, -0.65, 1.00) },
+    drum:       { id:'drum',       text:'Drum brake',       pos: new THREE.Vector3(1.10, 0.50, -1.10) },
+    shoe:       { id:'shoe',       text:'Brake shoes',      pos: new THREE.Vector3(0.95, -0.30, -1.15) },
+    motor:      { id:'motor',      text:'Motor / generator', pos: new THREE.Vector3(0.50, 0.90, 0) },
+    battery:    { id:'battery',    text:'Battery pack',     pos: new THREE.Vector3(-1.50, 1.55, 0) },
+    backup:     { id:'backup',     text:'Friction backup',  pos: new THREE.Vector3(1.80, -0.05, -0.30) },
+    compressor: { id:'compressor', text:'Air compressor',   pos: new THREE.Vector3(-2.00, 0.80, 0) },
+    tank:       { id:'tank',       text:'Storage tank',     pos: new THREE.Vector3(-0.60, 1.05, 0) },
+    chamber:    { id:'chamber',    text:'Brake chamber',    pos: new THREE.Vector3(1.10, 0.55, 0) }
+  };
+  for (const key in labelDefs) {
+    labels.add(labelDefs[key].id, labelDefs[key].text);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     STATE
+     ═══════════════════════════════════════════════════════════════════ */
+  let pedalPos = 0;
+  let effectivePedal = 0;
+  let rotorTemp = 32;
+  let drumTemp = 32;
+  let spaceHeld = false;
+  let frame = 0;
+  let lastDomUpdate = 0;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     UNIVERSAL UI
+     ═══════════════════════════════════════════════════════════════════ */
+  const ui = UI.create({
+    moduleId: 'braking',
+
+    panel: {
+      kicker: 'Chassis',
+      title:  'Hydraulic Braking System',
+      badge:  { text: CONFIG_DEFS[0].label, color: CONFIG_DEFS[0].badge },
+      readout: `
+        <div class="br-readout">
+          <div class="row"><span>Pedal force (F₁)</span><b data-fr="pedal">0 N</b></div>
+          <div class="row"><span data-lbl="pressure">Line pressure</span><b data-fr="pres">0 kPa</b></div>
+          <div class="row"><span data-lbl="front">Front axle force</span><b data-fr="cal">0 N</b></div>
+          <div class="row"><span data-lbl="rear">Rear axle force</span><b data-fr="shoe">0 N</b></div>
+          <div class="row"><span>Braking torque</span><b data-fr="tq">0 Nm</b></div>
+        </div>
+        <div class="br-pascal">
+          <div class="label">Pascal's Law</div>
+          <div class="eq">P = F₁/A₁ = F₂/A₂</div>
+          <div class="row"><span>F₁ (pedal)</span><b data-pc="f1">0 N</b></div>
+          <div class="row"><span>A₁ (MC piston)</span><b>3.1 cm²</b></div>
+          <div class="row"><span>P (pressure)</span><b data-pc="p">0 kPa</b></div>
+          <div class="row"><span>A₂ (caliper)</span><b>25 cm²</b></div>
+          <div class="row"><span>F₂ (caliper)</span><b data-pc="f2">0 N</b></div>
+          <div class="mult"><span>Force multiplication</span><b data-pc="mult">8.0×</b></div>
+        </div>
+      `,
+      desc: CONFIG_DEFS[0].desc
+    },
+
+    chip: {
+      label: 'Brake temperature',
+      value: 32, unit: '°C', bar: true,
+      rows: [
+        { id: 'front', label: 'Front', value: '32 °C' },
+        { id: 'rear',  label: 'Rear',  value: '32 °C' }
+      ],
+      status: { text: 'Cold' }
+    },
+
+    toolbar: {
+      play: true, reset: true,
+      speed: { label: 'Wheel speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
+      labels: true, gas: true,
+      extras: []
+    },
+
+    widgets: {
+      br: {
+        caption: 'Press &amp; hold · <span data-pedal-cap>0%</span>',
+        html: `
+          <div class="br-pedal">
+            <div class="br-pedal-track" data-role="track"
+                 role="slider" tabindex="0"
+                 aria-label="Brake pedal"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div class="br-pedal-fill" data-role="fill"></div>
+              <div class="br-pedal-pad" data-role="pad">
+                <svg viewBox="0 0 70 44" aria-hidden="true">
+                  <rect class="plate" x="4" y="4" width="62" height="36" rx="9"/>
+                  <rect class="grip" x="12" y="12" width="46" height="4" rx="2"/>
+                  <rect class="grip" x="12" y="20" width="46" height="4" rx="2"/>
+                  <rect class="grip" x="12" y="28" width="46" height="4" rx="2"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        `,
+        onMount: (el) => wirePedal(el)
+      }
+    }
+  });
+
+  const panelBody = ui.panel.body;
+  const badgeEl     = document.getElementById('stroke-badge');
+  const badgeTextEl = document.getElementById('badge-text');
+  const pascalEl    = panelBody.querySelector('.br-pascal');
+
+  const frEls = {
+    pedal: panelBody.querySelector('[data-fr="pedal"]'),
+    pres:  panelBody.querySelector('[data-fr="pres"]'),
+    cal:   panelBody.querySelector('[data-fr="cal"]'),
+    shoe:  panelBody.querySelector('[data-fr="shoe"]'),
+    tq:    panelBody.querySelector('[data-fr="tq"]')
+  };
+  const lblEls = {
+    pressure: panelBody.querySelector('[data-lbl="pressure"]'),
+    front:    panelBody.querySelector('[data-lbl="front"]'),
+    rear:     panelBody.querySelector('[data-lbl="rear"]')
+  };
+  const pcEls = {
+    f1:   panelBody.querySelector('[data-pc="f1"]'),
+    p:    panelBody.querySelector('[data-pc="p"]'),
+    f2:   panelBody.querySelector('[data-pc="f2"]'),
+    mult: panelBody.querySelector('[data-pc="mult"]')
+  };
+
+  /* ═════════════════════════════════════════════════════════════════════
+     ★ DEFENSIVE TOOLBAR WIRING
+     Works even if the shell's kit.js hasn't auto-wired yet. If your kit.js
+     has been updated, this block is harmless (idempotent duplicate).
+     ═════════════════════════════════════════════════════════════════════ */
+  (function wireToolbar() {
+    const playBtn  = document.getElementById('btn-play');
+    const resetBtn = document.getElementById('btn-reset');
+    const speedInp = document.getElementById('speed');
+    const chkLab   = document.getElementById('chk-labels');
+    const chkGas   = document.getElementById('chk-gas');
+
+    function syncIcons() {
+      const ip  = document.getElementById('icon-play');
+      const ipa = document.getElementById('icon-pause');
+      if (ip)  ip.style.display  = state.playing ? 'none'  : 'block';
+      if (ipa) ipa.style.display = state.playing ? 'block' : 'none';
+    }
+    syncIcons();
+
+    if (playBtn)  playBtn.addEventListener('click', () => {
+      state.playing = !state.playing;
+      syncIcons();
+    });
+    if (resetBtn) resetBtn.addEventListener('click', resetSim);
+    if (speedInp) speedInp.addEventListener('input', () => {
+      state.speedMul = parseFloat(speedInp.value);
+    });
+    if (chkLab) chkLab.addEventListener('change', () => { state.showLabels = chkLab.checked; });
+    if (chkGas) chkGas.addEventListener('change', () => { state.showGas    = chkGas.checked; });
+
+    /* Watch state.playing in case it changes from the shell — keep icons honest */
+    setInterval(syncIcons, 500);
+
+    window.__brakeSyncIcons = syncIcons;
+  })();
+
+  /* ═══════════════════════════════════════════════════════════════════
+     TOOLBAR EXTRAS — toggles + config switcher
+     ═══════════════════════════════════════════════════════════════════ */
+  (function buildToolbarExtras() {
+    const extras = document.getElementById('toolbar-extras');
+    if (!extras) return;
+
+    const toggleGroup = document.createElement('div');
+    toggleGroup.className = 'cfg-group';
+    toggleGroup.innerHTML = `
+      <button class="br-toggle" id="br-toggle-abs" title="ABS — Anti-lock Braking System">ABS</button>
+      <button class="br-toggle" id="br-toggle-fail" title="Simulate front circuit failure">FAIL</button>
+      <button class="br-toggle" id="br-toggle-air" title="Air bubble in the lines">AIR</button>
+    `;
+    extras.appendChild(toggleGroup);
+
+    const cfgGroup = document.createElement('div');
+    cfgGroup.className = 'cfg-group';
+    cfgGroup.innerHTML = `
+      <button class="cfg-arrow" id="cfg-prev" type="button" aria-label="Previous configuration">‹</button>
+      <span id="cfg-label">${CONFIG_DEFS[0].label}</span>
+      <button class="cfg-arrow" id="cfg-next" type="button" aria-label="Next configuration">›</button>
+    `;
+    extras.appendChild(cfgGroup);
+
+    document.getElementById('br-toggle-abs').addEventListener('click', (e) => {
+      state.abs = !state.abs;
+      e.currentTarget.classList.toggle('active', state.abs);
+    });
+    document.getElementById('br-toggle-fail').addEventListener('click', (e) => {
+      state.circuitFail = !state.circuitFail;
+      e.currentTarget.classList.toggle('active', state.circuitFail);
+    });
+    document.getElementById('br-toggle-air').addEventListener('click', (e) => {
+      state.airBubble = !state.airBubble;
+      e.currentTarget.classList.toggle('active', state.airBubble);
+    });
+  })();
+
+  const cfgLabelEl = document.getElementById('cfg-label');
+  const cfgPrevEl  = document.getElementById('cfg-prev');
+  const cfgNextEl  = document.getElementById('cfg-next');
+
+  let bridge = null;
+
+  function applyConfig(idx) {
+    activeConfigIdx = ((idx % configs.length) + configs.length) % configs.length;
+    configs.forEach((c, i) => { c.group.visible = (i === activeConfigIdx); });
+
+    const active = configs[activeConfigIdx];
+    if (cfgLabelEl) cfgLabelEl.textContent = active.label;
+    badgeTextEl.textContent = active.label;
+    badgeEl.style.background = `color-mix(in oklch, ${active.badge} 18%, transparent)`;
+    badgeEl.style.color = active.badge;
+
+    panelBody.querySelector('#stroke-desc').innerHTML = active.desc;
+
+    if (pascalEl) pascalEl.style.display = active.showPascal ? '' : 'none';
+
+    if (active.id === 'air') {
+      if (lblEls.pressure) lblEls.pressure.textContent = 'Air pressure';
+      if (lblEls.front)    lblEls.front.textContent    = 'Front chamber force';
+      if (lblEls.rear)     lblEls.rear.textContent     = 'Rear chamber force';
+    } else if (active.id === 'regen') {
+      if (lblEls.pressure) lblEls.pressure.textContent = 'Hydraulic pressure';
+      if (lblEls.front)    lblEls.front.textContent    = 'Regen braking force';
+      if (lblEls.rear)     lblEls.rear.textContent     = 'Friction force';
+    } else if (active.id === 'all-drum') {
+      if (lblEls.pressure) lblEls.pressure.textContent = 'Line pressure';
+      if (lblEls.front)    lblEls.front.textContent    = 'Front shoe force';
+      if (lblEls.rear)     lblEls.rear.textContent     = 'Rear shoe force';
+    } else if (active.id === 'all-disc') {
+      if (lblEls.pressure) lblEls.pressure.textContent = 'Line pressure';
+      if (lblEls.front)    lblEls.front.textContent    = 'Front caliper force';
+      if (lblEls.rear)     lblEls.rear.textContent     = 'Rear caliper force';
+    } else {
+      if (lblEls.pressure) lblEls.pressure.textContent = 'Line pressure';
+      if (lblEls.front)    lblEls.front.textContent    = 'Front caliper force';
+      if (lblEls.rear)     lblEls.rear.textContent     = 'Rear shoe force';
+    }
+
+    /* Hide labels for configs that don't declare them */
+    for (const key in labelDefs) {
+      if (active.labelSet.indexOf(key) < 0) labels.hide(labelDefs[key].id);
+    }
+
+    if (bridge) bridge.setStatus(active.label, active.badge);
+  }
+  function stepConfig(dir) { applyConfig(activeConfigIdx + dir); }
+  if (cfgPrevEl) cfgPrevEl.addEventListener('click', () => stepConfig(-1));
+  if (cfgNextEl) cfgNextEl.addEventListener('click', () => stepConfig(1));
+  applyConfig(0);
+
+  /* ═══════════════════════════════════════════════════════════════════
+     PEDAL WIDGET
+     ═══════════════════════════════════════════════════════════════════ */
+  function wirePedal(root) {
+    const track  = root.querySelector('[data-role="track"]');
+    const fill   = root.querySelector('[data-role="fill"]');
+    const pad    = root.querySelector('[data-role="pad"]');
+    const caption = document.getElementById('ui-widget-br-cap');
+
+    let dragging = false;
+    let pointerId = null;
+    let returnRAF = 0;
+
+    function setPos(v) {
+      pedalPos = Math.max(0, Math.min(1, v));
+      const pct = Math.round(pedalPos * 100);
+      fill.style.height = pct + '%';
+      pad.style.bottom  = pct + '%';
+      track.setAttribute('aria-valuenow', String(pct));
+      if (caption) {
+        const span = caption.querySelector('[data-pedal-cap]');
+        if (span) span.textContent = pct + '%';
+      }
+    }
+    function percentFromEvent(e) {
+      const r = track.getBoundingClientRect();
+      return Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height));
+    }
+    function cancelReturn() {
+      if (returnRAF) { cancelAnimationFrame(returnRAF); returnRAF = 0; }
+    }
+    function springRelease() {
+      cancelReturn();
+      const step = () => {
+        const next = pedalPos * 0.88;
+        setPos(next < 0.005 ? 0 : next);
+        returnRAF = pedalPos > 0 ? requestAnimationFrame(step) : 0;
+      };
+      returnRAF = requestAnimationFrame(step);
+    }
+
+    track.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      cancelReturn();
+      dragging = true;
+      pointerId = e.pointerId;
+      try { track.setPointerCapture(e.pointerId); } catch (_) {}
+      track.classList.add('active');
+      setPos(percentFromEvent(e));
+    });
+    track.addEventListener('pointermove', e => {
+      if (!dragging || e.pointerId !== pointerId) return;
+      e.preventDefault();
+      setPos(percentFromEvent(e));
+    });
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      pointerId = null;
+      track.classList.remove('active');
+      springRelease();
+    }
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
+    track.addEventListener('lostpointercapture', endDrag);
+
+    root.__setPos = setPos;
+    root.__cancelReturn = cancelReturn;
+  }
+
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space' && !e.repeat && !e.target.closest('button, input, [role="slider"]')) {
+      e.preventDefault();
+      spaceHeld = true;
+      const w = document.getElementById('ui-widget-br');
+      if (w && w.__cancelReturn) w.__cancelReturn();
+    }
+  });
+  window.addEventListener('keyup', e => {
+    if (e.code === 'Space') spaceHeld = false;
+  });
+
+  /* ═══════════════════════════════════════════════════════════════════
+     FORCE MODEL
+     ═══════════════════════════════════════════════════════════════════ */
+  function computeForces() {
+    const airPenalty = state.airBubble ? 0.65 : 1.0;
+    const padClearance = 0.12;
+    const raw = pedalPos <= padClearance ? 0 : (pedalPos - padClearance) / (1 - padClearance);
+    const absPulse = (state.abs && raw > 0.8) ? ((Math.sin(frame * 0.8) > 0) ? 1.0 : 0.15) : 1.0;
+    const fade = rotorTemp > 400 ? Math.max(0.3, 1 - (rotorTemp - 400) / 300) : 1.0;
+
+    effectivePedal = raw * airPenalty;
+
+    const PEDAL_FORCE  = pedalPos * 250;
+    const F1           = PEDAL_FORCE * 4;
+    const A1           = 3.1;
+    const A2           = 25.0;
+    const MULT         = A2 / A1;
+
+    const active = configs[activeConfigIdx];
+    const pressureScale = active.id === 'air' ? 0.1 : 1.0;
+
+    const linePressure  = effectivePedal * 8000 * pressureScale;
+    const caliperForce  = effectivePedal * 12000 * fade * absPulse * (state.circuitFail ? 0 : 1);
+    const shoeForce     = effectivePedal * 6000;
+    const brakeTorque   = effectivePedal * 1200 * fade * (state.circuitFail ? 0 : 1);
+
+    let frontForce, rearForce;
+    if (active.id === 'all-disc') {
+      frontForce = caliperForce;
+      rearForce  = effectivePedal * 9000 * fade * absPulse;
+    } else if (active.id === 'all-drum') {
+      frontForce = shoeForce * 0.75;
+      rearForce  = shoeForce;
+    } else if (active.id === 'regen') {
+      const regen = effectivePedal * 7000 * (0.3 + 0.7 * state.speedMul);
+      const friction = Math.max(0, (pedalPos - 0.5) * 2) * 5000;
+      frontForce = regen;
+      rearForce  = friction;
+    } else if (active.id === 'air') {
+      frontForce = 0;
+      rearForce  = effectivePedal * 14000;
+    } else {
+      frontForce = caliperForce;
+      rearForce  = shoeForce;
+    }
+
+    return { PEDAL_FORCE, F1, MULT, linePressure, caliperForce, shoeForce, brakeTorque,
+             frontForce, rearForce, absPulse, effectivePedal };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     READOUTS
+     ═══════════════════════════════════════════════════════════════════ */
+  function updateReadouts(f) {
+    if (frEls.pedal) frEls.pedal.textContent = Math.round(f.PEDAL_FORCE) + ' N';
+    if (frEls.pres)  frEls.pres.textContent  = Math.round(f.linePressure / 100) * 100 + ' kPa';
+    if (frEls.cal)   frEls.cal.textContent   = Math.round(f.frontForce) + ' N';
+    if (frEls.shoe)  frEls.shoe.textContent  = Math.round(f.rearForce) + ' N';
+    if (frEls.tq)    frEls.tq.textContent    = Math.round(f.brakeTorque) + ' Nm';
+
+    if (pcEls.f1)   pcEls.f1.textContent   = Math.round(f.F1) + ' N';
+    if (pcEls.p)    pcEls.p.textContent    = Math.round(f.linePressure / 100) * 100 + ' kPa';
+    if (pcEls.f2)   pcEls.f2.textContent   = Math.round(f.caliperForce) + ' N';
+    if (pcEls.mult) pcEls.mult.textContent = f.MULT.toFixed(1) + '×';
+
+    const t = Math.max(rotorTemp, drumTemp);
+    const tRounded = Math.round(t);
+
+    ui.chip.setBig(tRounded, '°C');
+    ui.chip.set('front', Math.round(rotorTemp) + ' °C');
+    ui.chip.set('rear',  Math.round(drumTemp)  + ' °C');
+
+    let c, status;
+    if (t < 80)       { c = '#38bdf8'; status = 'Cold'; }
+    else if (t < 200) { c = '#22c55e'; status = 'Warm'; }
+    else if (t < 400) { c = '#f59e0b'; status = 'Hot'; }
+    else if (t < 600) { c = '#f97316'; status = 'Very hot'; }
+    else              { c = '#ef4444'; status = '⚠ Overheating'; }
+
+    ui.chip.setColor(c);
+    ui.chip.setBar(Math.min(100, (t / 700) * 100), c);
+    ui.chip.setStatus(status, t < 400);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     RESET + BRIDGE
+     ═══════════════════════════════════════════════════════════════════ */
+  function resetSim() {
+    const w = document.getElementById('ui-widget-br');
+    if (w && w.__cancelReturn) w.__cancelReturn();
+    if (w && w.__setPos) w.__setPos(0);
+    rotorTemp = 32;
+    drumTemp  = 32;
+    applyConfig(0);
+  }
+
+  bridge = ui.wireBridge({
+    viewManager,
+    state,
+    onCommand: (d) => {
+      switch (d.action) {
+        case 'setPlaying':
+          state.playing = !!d.value;
+          if (window.__brakeSyncIcons) window.__brakeSyncIcons();
+          break;
+        case 'setSpeed':
+          state.speedMul = +d.value;
+          { const s = document.getElementById('speed'); if (s) s.value = state.speedMul; }
+          break;
+        case 'setLabels':
+          state.showLabels = !!d.value;
+          { const c = document.getElementById('chk-labels'); if (c) c.checked = state.showLabels; }
+          break;
+        case 'setGas':
+          state.showGas = !!d.value;
+          { const c = document.getElementById('chk-gas'); if (c) c.checked = state.showGas; }
+          break;
+        case 'reset': resetSim(); break;
+      }
+    }
+  });
+  bridge.ready();
+  bridge.setStatus(CONFIG_DEFS[0].label, CONFIG_DEFS[0].badge);
+
+  /* ═══════════════════════════════════════════════════════════════════
+     RENDER LOOP
+     ═══════════════════════════════════════════════════════════════════ */
+  const clock = new THREE.Clock();
+
+  function animate() {
+    requestAnimationFrame(animate);
+    frame++;
+
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const sim = state.playing ? dt * state.speedMul : 0;
+
+    if (spaceHeld) {
+      const w = document.getElementById('ui-widget-br');
+      if (w && w.__setPos) w.__setPos(Math.min(1, pedalPos + 0.15));
+    }
+
+    const forces = computeForces();
+
+    const active = configs[activeConfigIdx];
+    active.update(sim, pedalPos, forces);
+
+    const speedNorm = 0.4 + state.speedMul * 0.9;
+    const heatIn  = pedalPos * speedNorm * 300 * (state.circuitFail ? 0.4 : 1.0) * active.frontTempWeight;
+    const heatInD = pedalPos * speedNorm * 180 * active.rearTempWeight;
+    const heatOut = (rotorTemp - 32) * 0.22;
+    const heatOutD = (drumTemp - 32) * 0.28;
+    rotorTemp = Math.max(32, rotorTemp + (heatIn - heatOut) * sim);
+    drumTemp  = Math.max(32, drumTemp + (heatInD - heatOutD) * sim);
+
+    const heatF = Math.max(0, Math.min(1, (rotorTemp - 100) / 500));
+    const heatD = Math.max(0, Math.min(1, (drumTemp - 100) / 500));
+    active.setEmissive(heatF, heatD);
+
+    if (frame - lastDomUpdate > 6) {
+      updateReadouts(forces);
+      lastDomUpdate = frame;
+    }
+
+    if (state.showLabels && frame % 2 === 0) {
+      for (const key in labelDefs) {
+        const d = labelDefs[key];
+        if (active.labelSet.indexOf(key) >= 0) {
+          labels.project(d.id, d.pos, camera, wrap);
+        } else {
+          labels.hide(d.id);
+        }
+      }
+    } else if (!state.showLabels) {
+      labels.hideAll();
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+  </script>
+</body>
+</html>

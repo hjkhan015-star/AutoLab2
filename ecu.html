@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ECU · Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+/* ── module-local styles ───────────────────────────────────────────────
+   All colours come from app.css tokens, so both themes work unchanged.
+   Only the accent is module-specific and has an explicit light variant. */
+:root { --al-accent: #a855f7; }
+html.light-theme { --al-accent: #7c3aed; }
+.al-w{display:flex;flex-direction:column;gap:6px;min-width:150px;}
+.ui-tb-btn.active{outline:2px solid var(--al-accent);color:var(--al-accent);}
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import * as Base from './kit.js';
+import { Widgets } from './components.js';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CONFIG
+   ═══════════════════════════════════════════════════════════════════════ */
+const CFG = {
+  moduleId: 'ecu',
+  accent:   '#a855f7',
+  flowHz:   0.40          // particle cycles per second at speedMul = 1
+};
+
+const state = Base.createUIState();   // { playing, speedMul, showLabels, showGas, isCoarse }
+state.load  = 35;                     // % engine load (widget slider)
+state.fault = 'none';                 // 'none' | 'o2'
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SCENE
+   ═══════════════════════════════════════════════════════════════════════ */
+const built = Base.buildScene({
+  fov: 42,
+  camPos: [6.0, 4.2, 8.0],
+  target: [0, 0.55, 0],
+  floorY: -1.6,
+  fogDensity: 0.030
+});
+const { scene, camera, renderer, controls, wrap, viewManager, quality } = built;
+Base.attachResize(camera, renderer, wrap, built.baseFov);
+
+const lowEnd = quality.isLowEnd;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MATERIALS & GEOMETRY
+   ═══════════════════════════════════════════════════════════════════════ */
+const M = Base.createMaterials();
+const root = new THREE.Group();
+scene.add(root);
+
+/* --- ECU enclosure, lid removed so the board is visible --- */
+const caseMesh = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.72, 1.8), M.matMetalDark);
+caseMesh.position.y = 0.36;
+caseMesh.castShadow = true;
+caseMesh.receiveShadow = true;
+root.add(caseMesh);
+
+const pcbMat = new THREE.MeshStandardMaterial({ color: 0x1d6b3c, roughness: 0.78, metalness: 0.06 });
+const pcb = new THREE.Mesh(new THREE.BoxGeometry(2.32, 0.06, 1.52), pcbMat);
+pcb.position.y = 0.75;
+pcb.castShadow = true;
+root.add(pcb);
+
+const chipMat = new THREE.MeshStandardMaterial({ color: 0x15191f, roughness: 0.50, metalness: 0.35 });
+[
+  [-0.72, -0.42, 0.66, 0.52],
+  [-0.72,  0.42, 0.66, 0.52],
+  [ 0.42, -0.34, 0.46, 0.38],
+  [ 0.42,  0.34, 0.46, 0.38]
+].forEach(([x, z, w, d]) => {
+  const c = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, d), chipMat);
+  c.position.set(x, 0.84, z);
+  c.castShadow = true;
+  root.add(c);
+});
+
+const connMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.60, metalness: 0.45 });
+[-1, 1].forEach(s => {
+  const c = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.50, 1.30), connMat);
+  c.position.set(s * 1.42, 0.36, 0);
+  c.castShadow = true;
+  root.add(c);
+});
+
+/* --- Sensor / actuator nodes ------------------------------------------ */
+const NODE_Y = 0.42;
+const nodeGeo = new THREE.BoxGeometry(0.44, 0.44, 0.44);
+const pGeo = new THREE.SphereGeometry(0.05, lowEnd ? 6 : 10, lowEnd ? 5 : 8);
+
+const INPUTS = [
+  { id: 'maf', text: 'MAF / MAP',     z: -1.50, color: 0x38bdf8 },
+  { id: 'ckp', text: 'Crank sensor',  z: -0.50, color: 0x38bdf8 },
+  { id: 'tps', text: 'Throttle pos.', z:  0.50, color: 0x38bdf8 },
+  { id: 'o2',  text: 'O₂ sensor',     z:  1.50, color: 0x38bdf8 }
+];
+const OUTPUTS = [
+  { id: 'inj', text: 'Injectors',      z: -1.50, color: 0xffb020 },
+  { id: 'ign', text: 'Ignition coils', z: -0.50, color: 0xffb020 },
+  { id: 'thr', text: 'Throttle motor', z:  0.50, color: 0xffb020 },
+  { id: 'egr', text: 'EGR / purge',    z:  1.50, color: 0xffb020 }
+];
+
+const lines = [];
+
+function makeLink(a, b, colour) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x556074, roughness: 0.55, metalness: 0.35 });
+  const tube = Base.tubeBetween(a, b, 0.022, 0.022, mat, true);
+  tube.castShadow = false;
+  root.add(tube);
+
+  const parts = [];
+  const n = lowEnd ? 2 : 3;
+  for (let i = 0; i < n; i++) {
+    const p = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({ color: colour }));
+    root.add(p);
+    parts.push(p);
+  }
+  const rec = { a: a.clone(), b: b.clone(), parts, mat, dead: false };
+  lines.push(rec);
+  return rec;
+}
+
+function makeNode(spec, side) {
+  const mat = new THREE.MeshStandardMaterial({ color: spec.color, roughness: 0.45, metalness: 0.35 });
+  const mesh = new THREE.Mesh(nodeGeo, mat);
+  mesh.position.set(side * 3.0, NODE_Y, spec.z);
+  mesh.castShadow = true;
+  root.add(mesh);
+  spec.mesh = mesh;
+  spec.mat  = mat;
+  return mesh;
+}
+
+INPUTS.forEach(n => {
+  makeNode(n, -1);
+  n.link = makeLink(
+    new THREE.Vector3(-2.75, NODE_Y, n.z),
+    new THREE.Vector3(-1.56, 0.36, n.z * 0.45),
+    0x38bdf8
+  );
+});
+OUTPUTS.forEach(n => {
+  makeNode(n, 1);
+  n.link = makeLink(
+    new THREE.Vector3(1.56, 0.36, n.z * 0.45),
+    new THREE.Vector3(2.75, NODE_Y, n.z),
+    0xffb020
+  );
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LABELS
+   ═══════════════════════════════════════════════════════════════════════ */
+const labels = Base.createLabelSystem();
+labels.add('ecu', 'ECU');
+INPUTS.forEach(n => labels.add('in-' + n.id, n.text));
+OUTPUTS.forEach(n => labels.add('out-' + n.id, n.text));
+
+/* ═══════════════════════════════════════════════════════════════════════
+   UI
+   ═══════════════════════════════════════════════════════════════════════ */
+const TABS = {
+  overview: () => `
+    <div class="al-sec">
+      <h4>What it does</h4>
+      <p>The engine control unit is the computer that runs the engine. It reads sensors,
+      compares them with <b>maps</b> held in flash memory, and drives the actuators that meter
+      fuel, fire the coils and set the throttle — hundreds of times per second.</p>
+    </div>
+    <div class="al-sec">
+      <h4>Signal chain</h4>
+      <ul>
+        <li><b>Inputs</b> — MAF/MAP, crank &amp; cam position, throttle, coolant, upstream O₂, knock.</li>
+        <li><b>Processing</b> — 10–100 µs task scheduler; fuel and spark maps indexed by engine speed and load.</li>
+        <li><b>Outputs</b> — injectors, ignition coils, electronic throttle, EGR and purge valves.</li>
+      </ul>
+    </div>
+    <div class="al-sec">
+      <h4>Closed loop</h4>
+      <p>At λ = 1 the upstream O₂ sensor swings between roughly 0.1 V and 0.9 V. The ECU moves the
+      <b>short-term fuel trim</b> until those swings average out; the long-term trim stores the
+      correction for the next drive cycle. Typical authority is ±25 %.</p>
+    </div>
+    <div class="al-sec">
+      <h4>Limp home</h4>
+      <p>When a sensor fails a plausibility check the ECU substitutes a fixed default, lights the
+      MIL and limits load so the car can still reach a workshop.</p>
+    </div>`,
+  faults: () => `
+    <div class="al-sec"><h4>Common faults</h4></div>
+    <div class="al-fault">
+      <div class="t">Sensor open or short circuit</div>
+      <div class="s">MIL on, rich running, poor economy, P0100-series code stored.</div>
+      <div class="c">Check: 5 V reference at the plug, sensor resistance, continuity back to the ECU.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Crank sensor no signal</div>
+      <div class="s">Cranks but will not start — no spark, no injection pulse.</div>
+      <div class="c">Check: air gap (typical 0.5–1.5 mm), coil resistance (typical 500–1500 Ω), tach signal while cranking.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">CAN bus fault</div>
+      <div class="s">U-codes, several modules offline at once, instrument pack dead.</div>
+      <div class="c">Check: 60 Ω across the bus with the ignition off, 2.5 V and 2.5 V on CAN-H / CAN-L.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Failed ECU (rare)</div>
+      <div class="s">No communication, no injector pulse, water in the connector.</div>
+      <div class="c">Check: powers, grounds and 5 V rails first — replace only after ruling out wiring.</div>
+    </div>`,
+  quiz: () => `
+    <div class="al-q" data-a="1">
+      <div class="q">1. Which sensor keeps the mixture in closed loop at cruise?</div>
+      <button class="al-opt">Crankshaft position sensor</button>
+      <button class="al-opt">Upstream heated oxygen sensor</button>
+      <button class="al-opt">Knock sensor</button>
+      <div class="al-exp">The upstream (pre-catalyst) O₂ sensor measures oxygen in the exhaust; the ECU trims fuel until it averages λ = 1.</div>
+    </div>
+    <div class="al-q" data-a="2">
+      <div class="q">2. What is a fuel map?</div>
+      <button class="al-opt">A wiring diagram for the injectors</button>
+      <button class="al-opt">A list of stored fault codes</button>
+      <button class="al-opt">A lookup table of injection quantity against engine speed and load</button>
+      <div class="al-exp">Maps are calibrated tables indexed by speed and load; the ECU interpolates between the nearest cells.</div>
+    </div>
+    <div class="al-q" data-a="0">
+      <div class="q">3. What happens in limp-home mode?</div>
+      <button class="al-opt">The ECU substitutes default values and limits engine load</button>
+      <button class="al-opt">The engine stops immediately</button>
+      <button class="al-opt">The ECU resets every map to zero</button>
+      <div class="al-exp">Defaults keep the car driveable; the MIL stays on until the fault is repaired and codes are cleared.</div>
+    </div>`
+};
+
+function readoutHTML() {
+  return `<div class="al-read">
+    <span class="k">Engine speed</span><span class="v hi" id="ro-rpm">—</span>
+    <span class="k">Engine load</span><span class="v" id="ro-load">—</span>
+    <span class="k">Injection pulse</span><span class="v" id="ro-pw">—</span>
+    <span class="k">Ignition advance</span><span class="v" id="ro-adv">—</span>
+    <span class="k">Short-term trim</span><span class="v" id="ro-trim">—</span>
+    <span class="k">Fuel control</span><span class="v" id="ro-loop">—</span>
+    <span class="k">Malfunction lamp</span><span class="v" id="ro-mil">—</span>
+  </div>`;
+}
+
+const ui = Base.UI.create({
+  moduleId: CFG.moduleId,
+  panel: {
+    kicker: 'Sensors & Control',
+    title:  'Engine control unit',
+    tabs: [
+      { id: 'overview', label: 'Overview' },
+      { id: 'faults',   label: 'Faults' },
+      { id: 'quiz',     label: 'Self-check' }
+    ],
+    onTab: renderTab,
+    badge: { text: 'Closed loop', color: CFG.accent },
+    readout: readoutHTML()
+  },
+  chip: {
+    label: 'Engine',
+    value: '—',
+    unit: ' rpm',
+    bar: true,
+    rows: [
+      { id: 'load', label: 'Load',    value: '—' },
+      { id: 'adv',  label: 'Advance', value: '—' }
+    ],
+    status: { text: 'Running' }
+  },
+  toolbar: {
+    play: true,
+    reset: true,
+    speed: { label: 'Sim speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
+    labels: true,
+    extras: [
+      { id: 'btn-fault', label: 'O₂ FAULT', title: 'Toggle upstream oxygen sensor fault', onClick: toggleFault }
+    ]
+  },
+  widgets: {
+    bl: {
+      html: `<div class="al-w">
+        <label for="load-range">Engine load <b id="load-out">35%</b></label>
+        <input id="load-range" class="al-range" type="range" min="0" max="100" step="1"
+               value="35" aria-label="Engine load percentage">
+      </div>`,
+      caption: 'Operating point',
+      onMount: mountLoadWidget
+    }
+  }
+});
+
+/* --- tab host (lives under the live readout, inside the kit panel) --- */
+const tabHost = document.createElement('div');
+tabHost.id = 'al-tabs';
+tabHost.className = 'al-tabs';
+ui.panel.body.appendChild(tabHost);
+
+Widgets.wireQuiz(tabHost);
+
+function renderTab(id) {
+  tabHost.innerHTML = (TABS[id] || TABS.overview)();
+}
+renderTab('overview');
+
+function mountLoadWidget(el) {
+  const inp = el.querySelector('#load-range');
+  const out = el.querySelector('#load-out');
+  if (!inp || !out) return;
+  inp.value = state.load;
+  out.textContent = state.load + '%';
+  inp.addEventListener('input', () => {
+    state.load = Number(inp.value);
+    out.textContent = state.load + '%';
+    updateReadouts();
+  });
+}
+
+function toggleFault() {
+  state.fault = state.fault === 'o2' ? 'none' : 'o2';
+  const b = document.getElementById('btn-fault');
+  if (b) b.classList.toggle('active', state.fault !== 'none');
+  applyFaultVisuals();
+  updateReadouts();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   FAULT VISUALS
+   ═══════════════════════════════════════════════════════════════════════ */
+function applyFaultVisuals() {
+  const dead = state.fault === 'o2';
+  const o2 = INPUTS.find(n => n.id === 'o2');
+  if (o2) {
+    o2.link.dead = dead;
+    o2.link.mat.color.setHex(dead ? 0xb03030 : 0x556074);
+    o2.mat.color.setHex(dead ? 0x8a2222 : 0x38bdf8);
+  }
+  const badge = document.getElementById('stroke-badge');
+  const text  = document.getElementById('badge-text');
+  const col   = dead ? '#ef4444' : CFG.accent;
+  if (badge) {
+    badge.style.background = `color-mix(in oklch, ${col} 18%, transparent)`;
+    badge.style.color = col;
+  }
+  if (text) text.textContent = dead ? 'Open loop · default' : 'Closed loop';
+}
+applyFaultVisuals();
+
+/* ═══════════════════════════════════════════════════════════════════════
+   READOUTS
+   ═══════════════════════════════════════════════════════════════════════ */
+const ro = {
+  rpm:  document.getElementById('ro-rpm'),
+  load: document.getElementById('ro-load'),
+  pw:   document.getElementById('ro-pw'),
+  adv:  document.getElementById('ro-adv'),
+  trim: document.getElementById('ro-trim'),
+  loop: document.getElementById('ro-loop'),
+  mil:  document.getElementById('ro-mil')
+};
+
+function updateReadouts() {
+  const load = state.load / 100;
+  const dead = state.fault === 'o2';
+
+  const rpm = Math.round(800 + load * 6200);
+  const pw  = 1.6 + load * 11.5;
+  const adv = 28 - load * 20 - (dead ? 4 : 0);
+  const stft = dead ? 0 : Math.sin(performance.now() * 0.0011) * 3.2;
+
+  if (ro.rpm)  ro.rpm.textContent  = rpm + ' rpm';
+  if (ro.load) ro.load.textContent = state.load + ' %';
+  if (ro.pw)   ro.pw.textContent   = pw.toFixed(2) + ' ms';
+  if (ro.adv)  ro.adv.textContent  = adv.toFixed(1) + '° BTDC';
+  if (ro.trim) {
+    ro.trim.textContent = (stft >= 0 ? '+' : '') + stft.toFixed(1) + ' %';
+    ro.trim.className = 'v ' + (dead ? 'crit' : 'ok');
+  }
+  if (ro.loop) {
+    ro.loop.textContent = dead ? 'Open loop (default)' : 'Closed loop';
+    ro.loop.className = 'v ' + (dead ? 'crit' : 'ok');
+  }
+  if (ro.mil) {
+    ro.mil.textContent = dead ? 'ON' : 'OFF';
+    ro.mil.className = 'v ' + (dead ? 'warn' : '');
+  }
+
+  ui.chip.setBig(rpm, ' rpm');
+  ui.chip.set('load', state.load + ' %');
+  ui.chip.set('adv', adv.toFixed(1) + '°');
+  ui.chip.setBar(state.load, dead ? 'var(--crit)' : 'var(--al-accent)');
+  ui.chip.setStatus(dead ? 'Limp home' : 'Running', !dead);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MESSAGING
+   ═══════════════════════════════════════════════════════════════════════ */
+const bridge = ui.wireBridge({
+  viewManager,
+  state,
+  onCommand: (d) => {
+    if (d.action === 'reset') {
+      state.load  = 35;
+      state.fault = 'none';
+      const inp = document.getElementById('load-range');
+      const out = document.getElementById('load-out');
+      if (inp) inp.value = 35;
+      if (out) out.textContent = '35%';
+      const b = document.getElementById('btn-fault');
+      if (b) b.classList.remove('active');
+      applyFaultVisuals();
+      updateReadouts();
+    }
+  }
+});
+bridge.ready();
+bridge.setStatus('ECU online', '#a855f7');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ANIMATION
+   ═══════════════════════════════════════════════════════════════════════ */
+let t = 0;
+let last = performance.now();
+let raf = 0;
+let roClock = 0;
+
+const tmp = new THREE.Vector3();
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function frame(now) {
+  raf = requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  const sp = state.playing ? state.speedMul : 0;
+  t += dt * sp;
+
+  /* --- flowing signal particles --- */
+  for (const L of lines) {
+    const n = L.parts.length;
+    for (let i = 0; i < n; i++) {
+      const p = L.parts[i];
+      if (L.dead) { p.visible = false; continue; }
+      p.visible = true;
+      let u = (t * CFG.flowHz + i / n) % 1;
+      if (u < 0) u += 1;
+      p.position.lerpVectors(L.a, L.b, u);
+      p.scale.setScalar(0.55 + 0.55 * Math.sin(Math.PI * u));
+    }
+  }
+
+  /* --- labels --- */
+  labels.hideAll();
+  if (state.showLabels) {
+    labels.project('ecu', tmp.set(0, 1.15, 0), camera, wrap);
+    for (const n of INPUTS) {
+      labels.project('in-' + n.id,
+        tmp.set(n.mesh.position.x, n.mesh.position.y + 0.46, n.mesh.position.z), camera, wrap);
+    }
+    for (const n of OUTPUTS) {
+      labels.project('out-' + n.id,
+        tmp.set(n.mesh.position.x, n.mesh.position.y + 0.46, n.mesh.position.z), camera, wrap);
+    }
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+
+  roClock += dt;
+  if (roClock > 0.12) { roClock = 0; updateReadouts(); }
+}
+
+if (reduced) {
+  /* still render, just slower */
+  setInterval(() => renderer.render(scene, camera), 120);
+} else {
+  raf = requestAnimationFrame(frame);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (reduced) return;
+  if (document.hidden) {
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+  } else if (!raf) {
+    last = performance.now();
+    raf = requestAnimationFrame(frame);
+  }
+});
+
+updateReadouts();
+</script>
+</body>
+</html>

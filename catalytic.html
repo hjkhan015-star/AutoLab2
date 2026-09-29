@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Catalytic Converter — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #fb923c; }
+html.light-theme { --al-accent: color-mix(in oklch, #fb923c 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "catalytic", "title": "Catalytic Converter", "kicker": "Exhaust & Emissions", "accent": "#fb923c", "badge": "Three-way · Pt/Pd/Rh", "camPos": [4.8, 2.6, 6.4], "target": [0, 0, 0], "floorY": -1.6, "ctl": {"label": "Catalyst temperature", "val": 25, "caption": "Exhaust temp"}, "chipLabel": "CO conversion", "rows": [["hc", "HC"], ["nox", "NOx"]], "ro": [["temp", "Catalyst temp"], ["co", "CO → CO₂"], ["hc", "HC → CO₂ + H₂O"], ["nox", "NOx → N₂"], ["state", "State"]], "legend": [["#9a7b4f", "Raw exhaust (CO, HC, NOx)"], ["#a5f3fc", "Cleaned gas (CO₂, H₂O, N₂)"]], "overview": "<div class=\"al-sec\"><h4>Three jobs at once<\/h4><ul><li>Oxidise carbon monoxide: CO → CO₂<\/li><li>Oxidise unburnt hydrocarbons: HC → CO₂ + H₂O<\/li><li>Reduce nitrogen oxides: NOx → N₂<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Light-off<\/h4><p>Platinum, palladium and rhodium on a ceramic honeycomb only work above about 250–300 °C. Modern engines place the catalyst close to the manifold and enrich briefly to heat it fast.<\/p><\/div><div class=\"al-sec\"><h4>Lambda window<\/h4><p>The ECU keeps the mixture near λ = 1 (14.7:1). Oxygen sensors before and after the catalyst check its efficiency.<\/p><\/div>", "faults": [["Contaminated (lead, silicone, oil)", "High emissions, P0420, failing MOT/test.", "Compare pre- and post-cat O₂ sensor waveforms."], ["Melted substrate", "Blockage: power loss, glowing red, rattle.", "Backpressure test; check for misfire that dumped raw fuel."], ["Rattling heat shield or broken monolith", "Metallic rattle at idle.", "Tap the shell; inspect for loose ceramic."]], "quiz": [["Catalyst light-off temperature is about…", ["100 °C", "250–300 °C", "700 °C"], 1, "Below ~250 °C the reactions are too slow to clean the exhaust."], ["The catalyst works best at…", ["Rich mixture", "Lean mixture", "λ ≈ 1"], 2, "The three-way catalyst needs a near-stoichiometric mixture."], ["P0420 indicates…", ["Catalyst efficiency below threshold", "Misfire", "Low coolant"], 0, "The post-cat oxygen sensor shows the catalyst is not cleaning enough."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylX,mat,glass,stream,lc,clamp,root,THREE}=H;
+ const steel=mat(0x6b7280,.8,.4);
+ cylX(.97,.97,3.7,glass(0x94a3b8,.16),0,0,0,null,40,true);
+ cylX(.42,.97,.7,steel,-2.2,0,0); cylX(.97,.42,.7,steel,2.2,0,0);
+ cylX(.42,.42,1.6,steel,-3.35,0,0,null,24,true); cylX(.42,.42,1.6,steel,3.35,0,0,null,24,true);
+ const cv=document.createElement('canvas'); cv.width=cv.height=256; const g=cv.getContext('2d');
+ g.fillStyle='#cdbb8e'; g.fillRect(0,0,256,256); g.strokeStyle='#4b3f2a'; g.lineWidth=3;
+ for(let i=0;i<=256;i+=14){ g.beginPath(); g.moveTo(i,0); g.lineTo(i,256); g.stroke(); g.beginPath(); g.moveTo(0,i); g.lineTo(256,i); g.stroke(); }
+ const tex=new THREE.CanvasTexture(cv);
+ const mono=new THREE.MeshStandardMaterial({color:0xd9c9a3,roughness:.9,metalness:0,emissive:0xff5a1f,emissiveIntensity:0});
+ cylX(.86,.86,2.6,mono,0,0,0);
+ [[-1.302,-Math.PI/2],[1.302,Math.PI/2]].forEach(f=>{ const m=new THREE.Mesh(new THREE.CircleGeometry(.86,40),new THREE.MeshBasicMaterial({map:tex})); m.position.x=f[0]; m.rotation.y=f[1]; root.add(m); });
+ const rawS=stream([[-4.3,0,0],[-1.35,0,0]],22,0x9a7b4f,.12);
+ const mid=[.4,0,-.4].map(y=>stream([[-1.3,y,0],[1.3,y,0]],8,0xd6b26a,.08));
+ const dirty=stream([[1.35,.12,0],[4.3,.12,0]],18,0x9a7b4f,.11);
+ const clean=stream([[1.35,-.1,0],[4.3,-.1,0]],18,0xa5f3fc,.11);
+ return {
+  labels:[['Raw exhaust in',[-3.6,.7,0]],['Ceramic monolith',[0,1.1,0]],['Steel shell',[-1.4,1.15,0]],['Cleaned exhaust',[3.6,.7,0]],['Honeycomb face',[-1.3,-.7,.6]]],
+  update(c){
+   const T=100+700*c.k, s=x=>1/(1+Math.exp(-(T-x)/30)), co=s(260), hc=s(285), nox=s(310)*.93;
+   mono.emissiveIntensity=clamp((T-350)/450)*1.1;
+   rawS.update(c.t,.15,1); mid.forEach(m=>m.update(c.t,.15,.4+.4*co)); const cl=(co+hc+nox)/3;
+   dirty.update(c.t,.15,1-cl); clean.update(c.t,.15,cl);
+   const st=T<250?'Cold – not lit off':T<350?'Light-off':T<=780?'Operating window':'Overheat risk';
+   return {big:(co*100).toFixed(0),unit:' %',bar:co*100,rows:{hc:(hc*100).toFixed(0)+' %',nox:(nox*100).toFixed(0)+' %'},
+    ro:{temp:[T.toFixed(0)+' °C','hi'],co:[(co*100).toFixed(0)+' %',co>.9?'ok':'warn'],hc:[(hc*100).toFixed(0)+' %',hc>.9?'ok':'warn'],nox:[(nox*100).toFixed(0)+' %',nox>.85?'ok':'warn'],state:[st,T<250?'warn':T>780?'crit':'ok']},
+    status:[st,true],ctl:T.toFixed(0)+' °C'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

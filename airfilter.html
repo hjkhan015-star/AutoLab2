@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Air Filter &amp; Intake — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #fb7185; }
+html.light-theme { --al-accent: color-mix(in oklch, #fb7185 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "airfilter", "title": "Air Filter & Intake", "kicker": "Air Intake & Boost", "accent": "#fb7185", "badge": "Airbox · Pleated paper", "camPos": [5.2, 3.2, 6.6], "target": [0, 0, 0], "floorY": -1.5, "ctl": {"label": "Filter clogging", "val": 15, "caption": "Filter condition"}, "chipLabel": "Airflow", "rows": [["dp", "Pressure drop"], ["pw", "Power loss"]], "ro": [["flow", "Airflow"], ["dp", "Pressure drop"], ["pw", "Power loss"], ["cond", "Filter state"], ["thr", "Throttle"]], "legend": [["#7dd3fc", "Clean air"], ["#b08050", "Dust"], ["#f5e9c8", "Filter element"]], "overview": "<div class=\"al-sec\"><h4>What it does<\/h4><p>The air filter stops dust, sand and soot before they reach the cylinders. A few grams of grit can score cylinder walls and rings, so the intake is filtered to roughly 99% at 5 µm.<\/p><\/div><div class=\"al-sec\"><h4>Path of the air<\/h4><ul><li><b>Snorkel / inlet<\/b> – draws cool, dry air.<\/li><li><b>Airbox &amp; pleated element<\/b> – pleats give a huge surface in a small box.<\/li><li><b>Airflow meter (MAF)<\/b> – measures the clean air.<\/li><li><b>Throttle body<\/b> – the butterfly meters load.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Restriction<\/h4><p>As dirt loads the element, pressure drop rises and airflow falls. On a modern engine the ECU compensates, so the damage shows as lost power and higher fuel use rather than a warning light. Drag the slider to see it.<\/p><\/div>", "faults": [["Clogged element", "Sluggish acceleration, black smoke on diesels, slight mpg loss.", "Hold the element to a light – if you cannot see through the pleats, replace it."], ["Air leak after the filter", "Rough idle, lean codes (P0171), whistling.", "Inspect intake hose clamps and cracked ducts; smoke-test the intake."], ["Oiled or wet element", "MAF reading errors, hesitation.", "Check for over-oiled reusable filters and water ingress from the snorkel."]], "quiz": [["Why is the filter pleated?", ["To make it look better", "To give a large filtering area in a small box", "To slow the air down"], 1, "Pleating packs several square metres of media into the airbox, keeping restriction low."], ["A clogged filter mainly causes…", ["Less airflow and lost power", "Higher compression", "More oil pressure"], 0, "Restriction reduces the air that can be drawn in, so less fuel can be burned efficiently."], ["Where must filtered air enter?", ["After the throttle only", "Before the MAF sensor and throttle", "Directly into the exhaust"], 1, "All air must be filtered before any sensors or the engine – a leak after the filter admits dirt."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylX,mat,glass,glow,stream,lc,clamp,root,THREE}=H;
+ const duct=mat(0x475569,.5,.5), dark=mat(0x2b303b,.4,.6);
+ box(4.2,.15,2.6,dark,0,-1,0); box(4.2,2.0,2.6,glass(0x94a3b8,.14),0,0,0);
+ cylX(.5,.5,1.6,duct,-3.0,0,0,null,32,true); cylX(.42,.42,1.6,duct,3.0,0,0,null,32,true);
+ const fmat=mat(0xf5e9c8,0,.9); const pleats=[];
+ for(let i=0;i<22;i++){ const p=box(.55,1.5,.04,fmat,0,0,-1.05+i*(2.1/21)); p.rotation.y=(i%2?1:-1)*.9; pleats.push(p); }
+ box(.7,.1,2.3,dark,0,.8,0); box(.7,.1,2.3,dark,0,-.8,0);
+ const plate=cyl(.4,.4,.04,mat(0xcbd5e1,.8,.3),3.9,0,0); cyl(.44,.44,.5,duct,3.9,0,0,null,32,true).rotation.z=Math.PI/2;
+ const air=stream([[-4.2,0,0],[-1,0,0],[-.3,0,0]],26,0x7dd3fc,.11);
+ const dust=stream([[-4.2,.25,.25],[-1,.25,.25],[-.3,.25,.25]],14,0xb08050,.09);
+ const clean=stream([[.3,0,0],[2,0,0],[4.4,0,0]],26,0x7dd3fc,.11);
+ return {
+  labels:[['Inlet duct',[-3.4,.75,0]],['Pleated element',[0,1.05,0]],['Airbox',[-1.6,1.15,1.2]],['Clean-air duct',[2.4,.7,0]],['Throttle plate',[3.9,.75,0]]],
+  update(c){
+   const k=c.k, open=.55+.45*Math.sin(c.t*.9), q=1-.72*k, flow=30+95*open*q;
+   fmat.color.copy(lc(0xf5e9c8,0x3f2e1c,k));
+   plate.rotation.z=(1-open)*Math.PI/2*.92;
+   air.update(c.t,.16+.2*open,1); dust.update(c.t,.16+.2*open,.35+.5*k); clean.update(c.t,(.16+.2*open)*q,q);
+   const dp=.4+k*5.6, loss=clamp((k-.35)/.65)*10;
+   const st=k<.4?'Clean':k<.75?'Loaded':'Replace';
+   return {big:flow.toFixed(0),unit:' g/s',bar:flow/1.25,rows:{dp:dp.toFixed(1)+' kPa',pw:loss.toFixed(1)+' %'},
+    ro:{flow:[flow.toFixed(0)+' g/s','hi'],dp:[dp.toFixed(1)+' kPa',dp>4?'warn':''],pw:[loss.toFixed(1)+' %',loss>4?'warn':'ok'],cond:[st,k>.75?'crit':k>.4?'warn':'ok'],thr:[(open*100).toFixed(0)+' %','']},
+    status:[k>.75?'Restricted':'Breathing',true],ctl:Math.round(k*100)+' % clogged'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

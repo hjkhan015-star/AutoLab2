@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diesel Particulate Filter — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #94a3b8; }
+html.light-theme { --al-accent: color-mix(in oklch, #94a3b8 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "dpf", "title": "Diesel Particulate Filter", "kicker": "Exhaust & Emissions", "accent": "#94a3b8", "badge": "Wall-flow filter", "camPos": [4.8, 2.6, 6.4], "target": [0, 0, 0], "floorY": -1.6, "ctl": {"label": "Soot load", "val": 30, "caption": "Filter loading"}, "chipLabel": "Back pressure", "rows": [["soot", "Soot"], ["regen", "Regen"]], "ro": [["soot", "Soot load"], ["bp", "Back pressure"], ["eff", "Filtration"], ["regen", "Regeneration"], ["temp", "Regen temp"]], "legend": [["#525252", "Soot particles"], ["#a5f3fc", "Filtered exhaust"], ["#c8bfa5", "Ceramic wall"]], "overview": "<div class=\"al-sec\"><h4>Wall-flow filter<\/h4><p>The ceramic block has thousands of tiny channels plugged at alternate ends. Exhaust must pass through the porous walls, which trap over 99% of soot particles.<\/p><\/div><div class=\"al-sec\"><h4>Regeneration<\/h4><ul><li><b>Passive<\/b> – long motorway runs let soot burn slowly with NO₂.<\/li><li><b>Active<\/b> – the ECU injects extra fuel to raise exhaust to ~600 °C and burn the soot to ash.<\/li><li><b>Forced<\/b> – done by a workshop when limits are exceeded.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Back pressure<\/h4><p>As the filter loads, back pressure rises. A differential pressure sensor lets the ECU estimate soot mass and decide when to regenerate.<\/p><\/div>", "faults": [["Blocked DPF", "Limp mode, DPF warning light, power loss.", "Read soot load and differential pressure; attempt forced regeneration."], ["Failed regenerations (short trips)", "Frequent regen attempts, fuel in oil.", "Drive at sustained speed; check the oil level for dilution."], ["Cracked or melted substrate", "High emissions, loss of filtration.", "Inspect for faults after uncontrolled regen; replace the DPF."]], "quiz": [["Why are channels plugged alternately?", ["Force gas through the porous walls", "Slow the engine", "Store fuel"], 0, "The plugs make the gas flow through the wall, which traps the soot."], ["Active regeneration burns soot at about…", ["100 °C", "600 °C", "1500 °C"], 1, "Around 550–650 °C oxidises soot into CO₂."], ["Rising back pressure means…", ["Filter is loading with soot", "Turbo is stronger", "Coolant is low"], 0, "More soot restricts flow, increasing pressure upstream."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylX,mat,glass,stream,lc,clamp,root,THREE}=H;
+ const steel=mat(0x6b7280,.8,.4);
+ cylX(1.0,1.0,3.5,glass(0x94a3b8,.16),0,0,0,null,40,true);
+ cylX(.42,1.0,.7,steel,-2.15,0,0); cylX(1.0,.42,.7,steel,2.15,0,0);
+ cylX(.42,.42,1.6,steel,-3.3,0,0,null,24,true); cylX(.42,.42,1.6,steel,3.3,0,0,null,24,true);
+ function face(inv){ const cv=document.createElement('canvas'); cv.width=cv.height=256; const g=cv.getContext('2d'); g.fillStyle='#c8bfa5'; g.fillRect(0,0,256,256);
+   for(let i=0;i<16;i++)for(let j=0;j<16;j++){ if(((i+j)%2===0)!==inv){ g.fillStyle='#3f3a33'; g.fillRect(i*16+2,j*16+2,12,12);} else { g.fillStyle='#e7dfc6'; g.fillRect(i*16+2,j*16+2,12,12);} }
+   return new THREE.CanvasTexture(cv); }
+ const mono=new THREE.MeshStandardMaterial({color:0xb6a98a,roughness:.9,metalness:0,emissive:0xff5a1f,emissiveIntensity:0});
+ cylX(.88,.88,2.4,mono,0,0,0);
+ const sootM=new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.1,depthWrite:false});
+ cylX(.9,.9,2.42,sootM,0,0,0);
+ [[-1.202,-Math.PI/2,false],[1.202,Math.PI/2,true]].forEach(f=>{ const m=new THREE.Mesh(new THREE.CircleGeometry(.88,40),new THREE.MeshBasicMaterial({map:face(f[2])})); m.position.x=f[0]; m.rotation.y=f[1]; root.add(m); });
+ const rawS=stream([[-4.2,0,0],[-1.25,0,0]],22,0x525252,.13);
+ const s1=stream([[-1.15,.25,0],[.3,.25,0]],10,0x525252,.09);
+ const s2=stream([[.3,.25,0],[.3,.05,0]],5,0xc8bfa5,.09);
+ const s3=stream([[.3,.05,0],[1.2,.05,0]],10,0xa5f3fc,.09);
+ const clean=stream([[1.3,0,0],[4.3,0,0]],20,0xa5f3fc,.11);
+ return {
+  labels:[['Exhaust in (soot)',[-3.5,.7,0]],['Plugged channels',[-1.2,-1.1,.6]],['Ceramic filter',[0,1.15,0]],['Soot layer',[.6,-1.05,.7]],['Filtered exhaust',[3.5,.7,0]]],
+  update(c){
+   const k=c.k, soot=8*k, bp=4+26*Math.pow(k,1.3), regen=k>.85, glowV=regen?((k-.85)/.15)*(.55+.45*Math.sin(c.t*4)):0;
+   sootM.opacity=.06+.62*k; mono.emissiveIntensity=glowV*1.3;
+   rawS.update(c.t,.14,1); s1.update(c.t,.14,1); s2.update(c.t,.14,1); s3.update(c.t,.14,1); clean.update(c.t,.14,1);
+   const st=k>.95?'REQUIRED – limp mode':k>.8?'Recommended':'Not needed';
+   return {big:bp.toFixed(0),unit:' kPa',bar:bp/30*100,rows:{soot:soot.toFixed(1)+' g/L',regen:st},
+    ro:{soot:[soot.toFixed(1)+' g/L','hi'],bp:[bp.toFixed(0)+' kPa',bp>20?'warn':'ok'],eff:['99.5 %','ok'],regen:[st,k>.95?'crit':k>.8?'warn':'ok'],temp:[regen?'~600 °C':'—','']},
+    status:[regen?'Regenerating':'Loading',true],ctl:soot.toFixed(1)+' g/L'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

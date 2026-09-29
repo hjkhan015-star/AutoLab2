@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crankshaft & Pistons · Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #ca8a04; }
+html.light-theme { --al-accent: #a16207; }
+.al-w{display:flex;flex-direction:column;gap:6px;min-width:160px;}
+.ui-tb-btn.active{outline:2px solid var(--al-accent);color:var(--al-accent);}
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import * as Base from './kit.js';
+import { Widgets } from './components.js';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CONFIG
+   ═══════════════════════════════════════════════════════════════════════ */
+const CFG = {
+  moduleId: 'crankpiston',
+  accent:   '#ca8a04',
+  cycleHz:  1.0,
+  /* engine geometry (scene units ≈ decimetres) */
+  stroke:   0.90,     // crank throw radius r
+  rodBase:  1.55,     // rod length L (matches stroke × ~3.4 rod ratio)
+  bore:     0.55,
+  spacing:  1.10      // cylinder spacing along crank axis
+};
+
+/* Firing order 1-3-4-2 → pistons 1 & 4 move together, 2 & 3 opposite */
+const CYLINDERS = [
+  { id: 1, x: -1.65, phase: 0.00, colour: 0xffb020 },
+  { id: 2, x: -0.55, phase: 0.50, colour: 0x38bdf8 },
+  { id: 3, x:  0.55, phase: 0.50, colour: 0x38bdf8 },
+  { id: 4, x:  1.65, phase: 0.00, colour: 0xffb020 }
+];
+
+const state = Base.createUIState();
+state.rodRatio = 3.4;   // widget slider — 3.0 … 5.0
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SCENE
+   ═══════════════════════════════════════════════════════════════════════ */
+const built = Base.buildScene({
+  fov: 42,
+  camPos: [7.5, 4.5, 7.5],
+  target: [0, 0.20, 0],
+  floorY: -1.65,
+  fogDensity: 0.028
+});
+const { scene, camera, renderer, controls, wrap, viewManager, quality } = built;
+Base.attachResize(camera, renderer, wrap, built.baseFov);
+const lowEnd = quality.isLowEnd;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MATERIALS
+   ═══════════════════════════════════════════════════════════════════════ */
+const M = Base.createMaterials();
+const root = new THREE.Group();
+scene.add(root);
+
+const crankMat   = new THREE.MeshStandardMaterial({ color: 0xb8c0cc, metalness: 0.85, roughness: 0.28 });
+const throwMat   = new THREE.MeshStandardMaterial({ color: 0x8a93a5, metalness: 0.80, roughness: 0.32 });
+const cwMat      = new THREE.MeshStandardMaterial({ color: 0x4a5160, metalness: 0.65, roughness: 0.45 });
+const rodMat     = new THREE.MeshStandardMaterial({ color: 0xc5ccd6, metalness: 0.78, roughness: 0.30 });
+const pistonMat  = new THREE.MeshStandardMaterial({ color: 0xd4dbe6, metalness: 0.72, roughness: 0.30 });
+const ringMat    = new THREE.MeshStandardMaterial({ color: 0x6b7280, metalness: 0.90, roughness: 0.22 });
+const blockMat   = new THREE.MeshStandardMaterial({ color: 0x3d4555, metalness: 0.50, roughness: 0.55, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false });
+const panMat     = new THREE.MeshStandardMaterial({ color: 0x2a3038, metalness: 0.55, roughness: 0.55 });
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GEOMETRY — Crankshaft (runs along X)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* crank rotates around its own X axis — use a group */
+const crankGroup = new THREE.Group();
+crankGroup.position.set(0, 0, 0);
+root.add(crankGroup);
+
+const mainJGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.35, lowEnd ? 12 : 18);
+const throwGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.30, lowEnd ? 12 : 18);
+const cwGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.14, lowEnd ? 12 : 20);
+
+/* 5 main journals between and outside the 4 cylinders */
+const mainXs = [-2.20, -1.10, 0.00, 1.10, 2.20];
+mainXs.forEach(x => {
+  const j = new THREE.Mesh(mainJGeo, crankMat);
+  j.rotation.z = Math.PI / 2;
+  j.position.set(x, 0, 0);
+  j.castShadow = true;
+  crankGroup.add(j);
+});
+
+/* 4 crank throws + counterweights at cylinder positions */
+CYLINDERS.forEach(c => {
+  /* throw: offset cylinder (this is what carries the rod) */
+  const th = new THREE.Mesh(throwGeo, throwMat);
+  th.rotation.z = Math.PI / 2;
+  th.position.set(c.x, CFG.stroke, 0);
+  th.castShadow = true;
+
+  /* counterweight opposite the throw */
+  const cw = new THREE.Mesh(cwGeo, cwMat);
+  cw.rotation.z = Math.PI / 2;
+  cw.position.set(c.x, -CFG.stroke * 0.55, 0);
+  cw.castShadow = true;
+
+  /* web plates connecting throw to main journal */
+  const web1 = new THREE.Mesh(new THREE.BoxGeometry(0.10, CFG.stroke * 2, 0.30), throwMat);
+  web1.position.set(c.x - 0.10, 0, 0);
+  const web2 = web1.clone();
+  web2.position.x = c.x + 0.10;
+
+  /* pivot: rotate the whole cylinder assembly around the crank axis */
+  const pivot = new THREE.Group();
+  pivot.position.set(c.x, 0, 0);
+  pivot.add(th.clone());
+  pivot.add(cw.clone());
+  pivot.add(web1);
+  pivot.add(web2);
+  /* move children so their origin is at crank axis */
+  pivot.children.forEach(ch => {
+    ch.position.x -= c.x;
+  });
+
+  th.parent && th.parent.remove(th);
+  cw.parent && cw.parent.remove(cw);
+
+  crankGroup.add(pivot);
+  c.throwPivot = pivot;
+  c.throwOffset = CFG.stroke;  // crank throw radius
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Pistons + Connecting Rods
+   ═══════════════════════════════════════════════════════════════════════ */
+const pistonGeo = new THREE.CylinderGeometry(CFG.bore, CFG.bore, 0.55, lowEnd ? 16 : 24);
+const pistonTopGeo = new THREE.CylinderGeometry(CFG.bore * 0.98, CFG.bore * 0.98, 0.06, lowEnd ? 16 : 24);
+const rodGeo = new THREE.CylinderGeometry(0.075, 0.10, 1, lowEnd ? 10 : 14);
+const smallEndGeo = new THREE.CylinderGeometry(0.10, 0.10, 0.10, lowEnd ? 10 : 14);
+const bigEndGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.12, lowEnd ? 10 : 14);
+
+/* cylinder walls (transparent) */
+CYLINDERS.forEach(c => {
+  const wall = new THREE.Mesh(
+    new THREE.CylinderGeometry(CFG.bore + 0.04, CFG.bore + 0.04, 1.65, lowEnd ? 16 : 28, 1, true),
+    blockMat
+  );
+  wall.position.set(c.x, 1.25, 0);
+  root.add(wall);
+
+  /* piston group — everything that moves up/down */
+  const pistonG = new THREE.Group();
+  root.add(pistonG);
+
+  const body = new THREE.Mesh(pistonGeo, pistonMat);
+  body.castShadow = true;
+  pistonG.add(body);
+
+  const top = new THREE.Mesh(pistonTopGeo, ringMat);
+  top.position.y = 0.30;
+  pistonG.add(top);
+
+  /* 3 rings — two compression + one oil */
+  for (let i = 0; i < 3; i++) {
+    const ring = new THREE.Mesh(
+      new THREE.CylinderGeometry(CFG.bore + 0.005, CFG.bore + 0.005, 0.035, lowEnd ? 16 : 24),
+      ringMat
+    );
+    ring.position.y = 0.15 - i * 0.08;
+    pistonG.add(ring);
+  }
+
+  /* rod — a tall cylinder; we reposition + orient each frame */
+  const rod = new THREE.Mesh(rodGeo, rodMat);
+  rod.castShadow = true;
+  /* rod geometry: length 1 along local +Y, pivot at base — we'll rewrite position+quat */
+  root.add(rod);
+
+  /* small end (wrist pin side, upper) */
+  const smallEnd = new THREE.Mesh(smallEndGeo, rodMat);
+  smallEnd.rotation.z = Math.PI / 2;
+  root.add(smallEnd);
+
+  /* big end (journal side, lower) */
+  const bigEnd = new THREE.Mesh(bigEndGeo, rodMat);
+  bigEnd.rotation.z = Math.PI / 2;
+  root.add(bigEnd);
+
+  c.pistonG = pistonG;
+  c.rod = rod;
+  c.smallEnd = smallEnd;
+  c.bigEnd = bigEnd;
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LABELS
+   ═══════════════════════════════════════════════════════════════════════ */
+const labels = Base.createLabelSystem();
+labels.add('crank',   'Crankshaft');
+labels.add('throw',   'Crank throw');
+labels.add('cw',      'Counterweight');
+labels.add('rod',     'Connecting rod');
+labels.add('piston',  'Piston');
+labels.add('rings',   'Piston rings');
+labels.add('main',    'Main journal');
+labels.add('cyl1',    'Cyl 1');
+labels.add('cyl4',    'Cyl 4');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   UI
+   ═══════════════════════════════════════════════════════════════════════ */
+const TABS = {
+  overview: () => `
+    <div class="al-sec">
+      <h4>What it does</h4>
+      <p>The crankshaft converts the piston's up-down motion into rotation. The connecting rod
+      links the two: the small end pins to the piston, the big end wraps the crank throw. Every
+      throw is offset from the crank axis by half the stroke.</p>
+    </div>
+    <div class="al-sec">
+      <h4>Key geometry</h4>
+      <ul>
+        <li><b>Stroke</b> — piston travel, TDC to BDC. Usually 70–100 mm on a car.</li>
+        <li><b>Bore</b> — cylinder diameter.</li>
+        <li><b>Rod ratio</b> — rod length ÷ stroke, typically 3.2–4.0. Longer rods reduce side load on the piston skirt.</li>
+        <li><b>Main journal</b> — the part that turns in the block bearings.</li>
+        <li><b>Counterweights</b> — opposite each throw to cancel reciprocating forces.</li>
+      </ul>
+    </div>
+    <div class="al-sec">
+      <h4>Piston rings</h4>
+      <p>Two <b>compression rings</b> seal combustion pressure; one <b>oil-control ring</b> scrapes
+      excess oil off the bore and returns it to the sump. Ring material and end gap are critical
+      to oil consumption and blow-by.</p>
+    </div>
+    <div class="al-sec">
+      <h4>Firing order 1-3-4-2</h4>
+      <p>In an inline-4 the throws are paired: 1 &amp; 4 move together, and 2 &amp; 3 move together
+      half a revolution behind. This sequence gives even firing and the smoothest balance.</p>
+    </div>`,
+  faults: () => `
+    <div class="al-sec"><h4>Common faults</h4></div>
+    <div class="al-fault">
+      <div class="t">Worn crankshaft bearings</div>
+      <div class="s">Deep knocking at idle, low oil pressure, metal in the oil.</div>
+      <div class="c">Check: oil pressure hot, remove sump, plastigauge the journals vs spec.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Piston slap</div>
+      <div class="s">Rattle that fades as the engine warms up — common on high-mileage engines.</div>
+      <div class="c">Check: bore wear with a dial gauge; measure piston-to-bore clearance.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Stuck or worn rings</div>
+      <div class="s">Oil consumption, blue exhaust, low compression, high crankcase pressure.</div>
+      <div class="c">Check: dry and wet compression test; leak-down test to localise valve vs ring.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Worn or spun rod bearing</div>
+      <div class="s">Sudden knocking, loss of oil pressure, no-start.</div>
+      <div class="c">Check: rod bearing clearance and journal ovality; replace with the crank on the bench.</div>
+    </div>`,
+  quiz: () => `
+    <div class="al-q" data-a="1">
+      <div class="q">1. What does the crank throw offset define?</div>
+      <button class="al-opt">Piston diameter</button>
+      <button class="al-opt">Half the piston stroke</button>
+      <button class="al-opt">Rod length</button>
+      <div class="al-exp">The throw offset equals half the stroke. Moving from TDC to BDC shifts the throw from +r to −r, giving a total piston travel of 2r.</div>
+    </div>
+    <div class="al-q" data-a="2">
+      <div class="q">2. In an inline-4 with firing order 1-3-4-2, which pistons move together?</div>
+      <button class="al-opt">1 and 2</button>
+      <button class="al-opt">2 and 4</button>
+      <button class="al-opt">1 and 4, plus 2 and 3 half a revolution later</button>
+      <div class="al-exp">Throws are paired. Pistons 1 and 4 go up together while 2 and 3 go down — this gives even 180° firing intervals.</div>
+    </div>
+    <div class="al-q" data-a="0">
+      <div class="q">3. What is a longer rod ratio good for?</div>
+      <button class="al-opt">Lower side load on the piston skirt and smoother high-rpm behaviour</button>
+      <button class="al-opt">Higher compression ratio</button>
+      <button class="al-opt">More torque at idle only</button>
+      <div class="al-exp">A longer rod reduces the rod's angularity at mid-stroke, cutting side load on the bore and improving high-rpm stability — at the cost of a taller block.</div>
+    </div>`
+};
+
+function readoutHTML() {
+  return `<div class="al-read">
+    <span class="k">Engine speed</span><span class="v hi" id="ro-rpm">—</span>
+    <span class="k">Crank angle</span><span class="v" id="ro-ca">—</span>
+    <span class="k">Piston 1 pos.</span><span class="v" id="ro-p1">—</span>
+    <span class="k">Piston 1 speed</span><span class="v" id="ro-v1">—</span>
+    <span class="k">Rod ratio</span><span class="v" id="ro-rr">—</span>
+    <span class="k">Mean piston speed</span><span class="v" id="ro-mps">—</span>
+    <span class="k">Firing cylinder</span><span class="v" id="ro-fire">—</span>
+  </div>`;
+}
+
+const ui = Base.UI.create({
+  moduleId: CFG.moduleId,
+  panel: {
+    kicker: 'Engine Mechanical',
+    title:  'Crankshaft & Pistons',
+    tabs: [
+      { id: 'overview', label: 'Overview' },
+      { id: 'faults',   label: 'Faults' },
+      { id: 'quiz',     label: 'Self-check' }
+    ],
+    onTab: renderTab,
+    badge: { text: 'Inline-4 · 1-3-4-2', color: CFG.accent },
+    readout: readoutHTML()
+  },
+  chip: {
+    label: 'Engine',
+    value: '—',
+    unit: ' rpm',
+    bar: true,
+    rows: [
+      { id: 'rpm',  label: 'Speed', value: '—' },
+      { id: 'fire', label: 'Firing', value: '—' }
+    ],
+    status: { text: 'Running' }
+  },
+  toolbar: {
+    play: true,
+    reset: true,
+    speed: { label: 'Sim speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
+    labels: true,
+    extras: [
+      { id: 'btn-cyl', label: 'CYL 1', title: 'Cycle highlight cylinder', onClick: cycleHighlight }
+    ]
+  },
+  widgets: {
+    bl: {
+      html: `<div class="al-w">
+        <label for="rr-range">Rod ratio <b id="rr-out">3.4</b></label>
+        <input id="rr-range" class="al-range" type="range" min="3.0" max="5.0" step="0.1"
+               value="3.4" aria-label="Rod ratio">
+      </div>`,
+      caption: 'Geometry',
+      onMount: mountRodWidget
+    },
+    br: {
+      html: `<div class="al-legend">
+        <span><i style="background:#b8c0cc"></i>Crankshaft</span>
+        <span><i style="background:#c5ccd6"></i>Connecting rod</span>
+        <span><i style="background:#d4dbe6"></i>Piston</span>
+        <span><i style="background:#ffb020"></i>Cyl 1 &amp; 4</span>
+        <span><i style="background:#38bdf8"></i>Cyl 2 &amp; 3</span>
+      </div>`,
+      caption: 'Legend'
+    }
+  }
+});
+
+const tabHost = document.createElement('div');
+tabHost.id = 'al-tabs';
+tabHost.className = 'al-tabs';
+ui.panel.body.appendChild(tabHost);
+
+Widgets.wireQuiz(tabHost);
+
+function renderTab(id) { tabHost.innerHTML = (TABS[id] || TABS.overview)(); }
+renderTab('overview');
+
+function mountRodWidget(el) {
+  const inp = el.querySelector('#rr-range');
+  const out = el.querySelector('#rr-out');
+  if (!inp || !out) return;
+  inp.value = state.rodRatio;
+  out.textContent = state.rodRatio.toFixed(1);
+  inp.addEventListener('input', () => {
+    state.rodRatio = Number(inp.value);
+    out.textContent = state.rodRatio.toFixed(1);
+    updateReadouts();
+  });
+}
+
+let highlightIdx = -1;
+function cycleHighlight() {
+  highlightIdx = (highlightIdx + 1) % CYLINDERS.length;
+  const b = document.getElementById('btn-cyl');
+  if (b) b.textContent = 'CYL ' + CYLINDERS[highlightIdx].id;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   READOUTS
+   ═══════════════════════════════════════════════════════════════════════ */
+const ro = {
+  rpm:  document.getElementById('ro-rpm'),
+  ca:   document.getElementById('ro-ca'),
+  p1:   document.getElementById('ro-p1'),
+  v1:   document.getElementById('ro-v1'),
+  rr:   document.getElementById('ro-rr'),
+  mps:  document.getElementById('ro-mps'),
+  fire: document.getElementById('ro-fire')
+};
+
+/* Slider-crank kinematics: piston position relative to crank axis */
+function pistonPos(crankAngleRad, r, l) {
+  return r * Math.cos(crankAngleRad) + Math.sqrt(l * l - (r * Math.sin(crankAngleRad)) ** 2);
+}
+
+function updateReadouts() {
+  const crankRad = (t * CFG.cycleHz * 2 * Math.PI) % (2 * Math.PI);
+  const rpm = Math.round(700 + state.speedMul * 5500);
+  const rodLen = CFG.stroke * state.rodRatio;
+  const r = CFG.stroke;
+  const l = rodLen;
+
+  /* piston 1 (phase 0) */
+  const p1 = pistonPos(crankRad, r, l);
+  const bdc = l - r;
+  const tdc = l + r;
+  const strokeMm = (tdc - p1) / (tdc - bdc) * 90; // 90 mm typical
+
+  /* instantaneous velocity of piston 1 (derivative), simplified */
+  const dt = 0.001;
+  const p1b = pistonPos(crankRad + dt, r, l);
+  const v = ((p1b - p1) / dt) * state.speedMul * CFG.cycleHz;
+
+  /* mean piston speed = 2 * stroke * rpm / 60 */
+  const meanPS = 2 * 0.090 * rpm / 60;
+
+  /* firing cylinder = one closest to TDC */
+  let firing = 1, closest = Infinity;
+  CYLINDERS.forEach(c => {
+    const ang = crankRad + c.phase * 2 * Math.PI;
+    const p = pistonPos(ang, r, l);
+    const dist = tdc - p;
+    if (dist < closest) { closest = dist; firing = c.id; }
+  });
+
+  if (ro.rpm)  ro.rpm.textContent  = rpm.toLocaleString() + ' rpm';
+  if (ro.ca)   ro.ca.textContent   = (crankRad * 180 / Math.PI).toFixed(0) + '°';
+  if (ro.p1)   ro.p1.textContent   = strokeMm.toFixed(1) + ' mm from TDC';
+  if (ro.v1)   ro.v1.textContent   = (v * 1000).toFixed(1) + ' mm/cycle';
+  if (ro.rr)   ro.rr.textContent   = state.rodRatio.toFixed(2) + ' : 1';
+  if (ro.mps) {
+    ro.mps.textContent = meanPS.toFixed(2) + ' m/s';
+    ro.mps.className = 'v ' + (meanPS > 20 ? 'crit' : meanPS > 15 ? 'warn' : 'ok');
+  }
+  if (ro.fire) {
+    ro.fire.textContent = 'Cyl ' + firing;
+    ro.fire.className = 'v ' + (firing === 1 || firing === 4 ? 'warn' : 'ok');
+  }
+
+  ui.chip.setBig(rpm, ' rpm');
+  ui.chip.set('rpm', (rpm / 1000).toFixed(1) + ' k');
+  ui.chip.set('fire', 'Cyl ' + firing);
+  ui.chip.setBar((crankRad / (2 * Math.PI)) * 100, 'var(--al-accent)');
+  ui.chip.setStatus('Firing cylinder ' + firing, true);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MESSAGING
+   ═══════════════════════════════════════════════════════════════════════ */
+const bridge = ui.wireBridge({
+  viewManager,
+  state,
+  onCommand: (d) => {
+    if (d.action === 'reset') {
+      state.rodRatio = 3.4;
+      highlightIdx = -1;
+      const inp = document.getElementById('rr-range');
+      const out = document.getElementById('rr-out');
+      const b = document.getElementById('btn-cyl');
+      if (inp) inp.value = 3.4;
+      if (out) out.textContent = '3.4';
+      if (b) b.textContent = 'CYL 1';
+      updateReadouts();
+    }
+  }
+});
+bridge.ready();
+bridge.setStatus('Crankshaft ready', '#ca8a04');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ANIMATION
+   ═══════════════════════════════════════════════════════════════════════ */
+let t = 0;
+let last = performance.now();
+let raf = 0;
+let roClock = 0;
+
+const tmp = new THREE.Vector3();
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function frame(now) {
+  raf = requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  const sp = state.playing ? state.speedMul : 0;
+  t += dt * sp;
+
+  const crankRad = (t * CFG.cycleHz * 2 * Math.PI) % (2 * Math.PI);
+  const r = CFG.stroke;
+  const l = r * state.rodRatio;
+
+  /* rotate entire crankshaft */
+  crankGroup.rotation.x = crankRad;
+
+  /* update each cylinder: piston Y and rod orientation */
+  CYLINDERS.forEach(c => {
+    const ang = crankRad + c.phase * 2 * Math.PI;
+
+    /* position of the crank pin in world YZ (crank axis along X) */
+    const pinY = r * Math.cos(ang);
+    const pinZ = r * Math.sin(ang);
+
+    /* piston position along Y (from crank axis) */
+    const pistonY = pinY + Math.sqrt(l * l - (r * Math.sin(ang)) ** 2);
+
+    /* piston group */
+    c.pistonG.position.set(c.x, pistonY, 0);
+
+    /* rod: from pin (c.x, pinY, pinZ) to piston small end (c.x, pistonY, 0) */
+    const p0 = new THREE.Vector3(c.x, pinY, pinZ);
+    const p1 = new THREE.Vector3(c.x, pistonY, 0);
+    const mid = new THREE.Vector3().addVectors(p0, p1).multiplyScalar(0.5);
+    const dir = new THREE.Vector3().subVectors(p1, p0);
+    const len = dir.length();
+
+    c.rod.position.copy(mid);
+    c.rod.scale.set(1, len, 1);
+    c.rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+
+    /* small end (at piston) */
+    c.smallEnd.position.copy(p1);
+
+    /* big end (at crank pin) */
+    c.bigEnd.position.copy(p0);
+
+    /* highlight colour */
+    const isHighlight = highlightIdx >= 0 && CYLINDERS[highlightIdx] === c;
+    c.rod.material.emissive = isHighlight
+      ? new THREE.Color(c.colour).multiplyScalar(0.3)
+      : new THREE.Color(0x000000);
+  });
+
+  /* --- labels --- */
+  labels.hideAll();
+  if (state.showLabels) {
+    labels.project('crank', tmp.set(-2.20, 0, 0), camera, wrap);
+    labels.project('throw', tmp.set(0.55, -0.55, 0), camera, wrap);
+    labels.project('cw', tmp.set(1.65, -0.55, 0), camera, wrap);
+    labels.project('rod', tmp.set(-0.55, 1.30, 0.20), camera, wrap);
+    labels.project('piston', tmp.set(-1.65, 2.10, 0), camera, wrap);
+    labels.project('rings', tmp.set(-1.65, 1.85, 0.35), camera, wrap);
+    labels.project('main', tmp.set(0, 0.30, 0), camera, wrap);
+    labels.project('cyl1', tmp.set(-1.65, 2.60, 0), camera, wrap);
+    labels.project('cyl4', tmp.set(1.65, 2.60, 0), camera, wrap);
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+
+  roClock += dt;
+  if (roClock > 0.12) { roClock = 0; updateReadouts(); }
+}
+
+if (reduced) {
+  setInterval(() => renderer.render(scene, camera), 120);
+} else {
+  raf = requestAnimationFrame(frame);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (reduced) return;
+  if (document.hidden) {
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+  } else if (!raf) {
+    last = performance.now();
+    raf = requestAnimationFrame(frame);
+  }
+});
+
+updateReadouts();
+</script>
+</body>
+</html>

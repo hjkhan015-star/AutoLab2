@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wheels &amp; Tyres — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #64748b; }
+html.light-theme { --al-accent: color-mix(in oklch, #64748b 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "tyres", "title": "Wheels & Tyres", "kicker": "Steering, Suspension & Brakes", "accent": "#64748b", "badge": "Radial tyre", "camPos": [3.6, 1.6, 6.8], "target": [0, -0.2, 0], "floorY": -2.15, "ctl": {"label": "Tyre pressure", "val": 55, "caption": "Inflation"}, "chipLabel": "Pressure", "rows": [["patch", "Contact patch"], ["wear", "Wear"]], "ro": [["psi", "Pressure"], ["patch", "Contact patch"], ["wear", "Wear pattern"], ["rr", "Rolling resistance"], ["grip", "Grip index"]], "legend": [["#22c55e", "Even contact"], ["#ef4444", "Overloaded zone"], ["#111827", "Tread"]], "overview": "<div class=\"al-sec\"><h4>Only contact with the road<\/h4><p>Four palm-sized contact patches transmit all driving, braking and cornering forces. Correct pressure keeps the patch flat, even and predictable.<\/p><\/div><div class=\"al-sec\"><h4>Pressure effects<\/h4><ul><li><b>Under-inflated<\/b> – patch is long, shoulders overloaded, hot, more fuel used, wear on both edges.<\/li><li><b>Over-inflated<\/b> – tyre crowns, small centre patch, less grip, harsh ride, centre wear.<\/li><li><b>Correct<\/b> – even patch and wear; set to placard pressure when cold.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Reading a tyre<\/h4><p>Sidewall code like 205/55 R16: width 205 mm, aspect 55% of width, radial construction, 16-inch rim.<\/p><\/div>", "faults": [["Uneven wear", "Edge or centre wear; pulling; vibration.", "Check pressures, alignment and suspension wear."], ["Sidewall bulge or cut", "Sudden failure risk.", "Inspect visually; replace immediately if damaged."], ["Slow puncture", "Repeated pressure loss.", "Immerse or soap-test the tyre and valve."]], "quiz": [["Under-inflation mainly wears…", ["Both shoulders", "Centre only", "Inner edge only"], 0, "The shoulders carry more load and wear faster."], ["Check pressure when…", ["Tyres are cold", "After a long drive", "Any time"], 0, "Heat raises pressure; placard values are for cold tyres."], ["“205/55 R16” — 55 means…", ["Width in mm", "Aspect ratio (%)", "Speed rating"], 1, "Sidewall height is 55% of the tyre width."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylZ,tor,mat,clamp,root,THREE,lc}=H;
+ const rubber=mat(0x1b1f27,.1,.9), steel=mat(0xcbd5e1,.9,.25);
+ const defl=new THREE.Group(); root.add(defl); const wheel=new THREE.Group(); defl.add(wheel);
+ const tire=new THREE.Mesh(new THREE.TorusGeometry(1.5,.55,20,56),rubber); tire.scale.z=1.35; wheel.add(tire);
+ for(let i=0;i<40;i++){ const a=i/40*Math.PI*2, b=new THREE.Mesh(new THREE.BoxGeometry(.34,.12,1.05),mat(0x0f1218,.05,.95)); b.position.set(Math.cos(a)*2.03,Math.sin(a)*2.03,0); b.rotation.z=a+Math.PI/2; wheel.add(b); }
+ cylZ(1.1,1.1,.5,steel,0,0,0,wheel); cylZ(.3,.3,.7,mat(0x9aa3b2,.9,.3),0,0,0,wheel);
+ for(let i=0;i<5;i++){ const s=box(.3,1.0,.14,steel,0,0,.27,wheel); s.rotation.z=i*Math.PI*2/5; s.position.set(Math.sin(i*Math.PI*2/5)*-.55,Math.cos(i*Math.PI*2/5)*.55,.27); }
+ for(let i=0;i<5;i++){ const a=i/5*Math.PI*2; cylZ(.05,.05,.1,mat(0x64748b,.9,.3),Math.cos(a)*.18,Math.sin(a)*.18,.38,wheel); }
+ const mk=()=>new THREE.MeshBasicMaterial({color:0x22c55e,transparent:true,opacity:.85});
+ const mats=[mk(),mk(),mk()], patch=[];
+ [-.6,0,.6].forEach((z,i)=>patch.push(box(1.0,.03,.5,mats[i],0,-2.06,z)));
+ return {
+  labels:[['Tread blocks',[1.6,1.65,.6]],['Sidewall',[-1.9,.6,.8]],['Rim',[0,.5,.7]],['Hub & lug nuts',[0,0,.9]],['Contact patch',[0,-2.3,1.0]]],
+  update(c){
+   const k=c.k, psi=20+25*k, area=880/psi*6.45, len=clamp(1.55-1.1*k,.55,1.5);
+   wheel.rotation.z=-c.t*3; defl.scale.y=.94+.06*k; defl.position.y=-2.05*(1-defl.scale.y); tire.scale.x=1+.04*(1-k);
+   const edge=clamp((.5-k)/.3), ctr=clamp((k-.6)/.3);
+   const cols=[lc(0x22c55e,0xef4444,edge),lc(0x22c55e,0xef4444,ctr),lc(0x22c55e,0xef4444,edge)];
+   patch.forEach((p,i)=>{ mats[i].color.copy(cols[i]); p.scale.x=len; p.scale.z=1; });
+   const wear=k<.4?'Both shoulders':k>.7?'Centre':'Even', rr=k<.5?100+(.5-k)*36:100-(k-.5)*14, grip=100-.9*Math.abs(psi-34);
+   return {big:psi.toFixed(0),unit:' psi',bar:k*100,rows:{patch:area.toFixed(0)+' cm²',wear:wear},
+    ro:{psi:[psi.toFixed(0)+' psi (cold)','hi'],patch:[area.toFixed(0)+' cm²',''],wear:[wear,wear==='Even'?'ok':'warn'],rr:[rr.toFixed(0)+' %',rr>108?'warn':''],grip:[grip.toFixed(0)+' / 100',grip>92?'ok':'warn']},
+    status:[wear==='Even'?'Optimal':'Off-spec',true],ctl:psi.toFixed(0)+' psi'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

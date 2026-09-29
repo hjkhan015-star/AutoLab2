@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Radiator — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #06b6d4; }
+html.light-theme { --al-accent: color-mix(in oklch, #06b6d4 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "radiator", "title": "Radiator", "kicker": "Cooling", "accent": "#06b6d4", "badge": "Downflow · Electric fan", "camPos": [4.8, 2.6, 7.2], "target": [0, 0, 0], "floorY": -1.9, "ctl": {"label": "Airflow (speed + fan)", "val": 55, "caption": "Cooling air"}, "chipLabel": "Heat rejected", "rows": [["tin", "Coolant in"], ["tout", "Coolant out"]], "ro": [["tin", "Coolant in"], ["tout", "Coolant out"], ["dt", "Temperature drop"], ["q", "Heat rejected"], ["state", "State"]], "legend": [["#f97316", "Hot coolant"], ["#38bdf8", "Cooled coolant"], ["#7dd3fc", "Air through fins"]], "overview": "<div class=\"al-sec\"><h4>Heat exchanger<\/h4><p>Hot coolant flows through many thin tubes; air flows across large fins bonded to them. Heat moves from coolant → tubes → fins → air.<\/p><\/div><div class=\"al-sec\"><h4>Airflow<\/h4><ul><li><b>At speed<\/b> – ram air is enough.<\/li><li><b>In traffic<\/b> – the electric fan pulls air through.<\/li><li>Fan shroud stops air recirculating around the fan.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Pressure cap<\/h4><p>The cap holds about 1–1.4 bar, raising the boiling point of coolant to ~120 °C and letting coolant expand into the reservoir.<\/p><\/div>", "faults": [["Blocked core", "Overheating in traffic or at speed.", "Look for debris between condenser and radiator; check ΔT across the radiator with an IR thermometer."], ["Leaking tank or hose", "Coolant loss, sweet smell, low level.", "Pressure-test the system with a hand pump."], ["Fan not switching on", "Overheats when stationary, fine at speed.", "Check fan relay, fuse and the ECU cooling command."]], "quiz": [["Why fins on the radiator?", ["Decoration", "More surface area for heat transfer", "Slow the coolant"], 1, "Fins massively increase the surface in contact with air."], ["Overheating only in traffic suggests…", ["Fan or airflow fault", "Thermostat stuck open", "Low oil"], 0, "At speed ram air masks a failed fan."], ["The pressure cap…", ["Raises boiling point", "Lowers coolant pressure", "Adds coolant"], 0, "Higher pressure raises the boiling point of the coolant."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylX,cylZ,mat,pipe,stream,lc,clamp,root,THREE}=H;
+ const alu=mat(0xc5ccd6,.75,.35), tube=mat(0x334155,.6,.5), tank=mat(0x64748b,.7,.4), hose=mat(0x1f2937,.2,.8);
+ for(let i=0;i<29;i++) box(.025,2.5,.8,i%4===0?tube:alu,-1.75+i*.125,0,0);
+ cylX(.32,.32,3.9,tank,0,1.45,0); cylX(.32,.32,3.9,tank,0,-1.45,0);
+ pipe([[-1.7,1.45,0],[-2.5,1.45,0],[-3.2,.9,0]],.2,hose); pipe([[1.7,-1.45,0],[2.5,-1.45,0],[3.2,-.9,0]],.2,hose);
+ cyl(.12,.12,.25,mat(0xb91c1c,.3,.5),1.2,1.85,0);
+ H.put(new THREE.Mesh(new THREE.TorusGeometry(1.15,.06,8,40),tank),0,0,-.95);
+ const fan=new THREE.Group(); fan.position.set(0,0,-1.0); root.add(fan);
+ cylZ(.25,.25,.2,mat(0x111827,.3,.6),0,0,0,fan);
+ for(let i=0;i<7;i++){ const a=i/7*Math.PI*2, b=box(.85,.05,.3,mat(0x1f2937,.2,.6),0,0,0,fan); b.position.set(Math.cos(a)*.6,Math.sin(a)*.6,0); b.rotation.z=a; b.rotation.x=.35; }
+ const top=[],bot=[],air=[];
+ [-1.2,0,1.2].forEach(x=>{ top.push(stream([[x,1.45,0],[x,0,0]],8,0xf97316,.1)); bot.push(stream([[x,0,0],[x,-1.45,0]],8,0xf97316,.1)); });
+ [[-1.2,.6],[0,.6],[1.2,.6],[-1.2,-.6],[0,-.6],[1.2,-.6]].forEach(p=>air.push(stream([[p[0],p[1],2.4],[p[0],p[1],-2.0]],9,0x7dd3fc,.08)));
+ let fa=0;
+ return {
+  labels:[['Inlet (hot)',[-3.2,1.3,0]],['Outlet (cool)',[3.2,-.6,0]],['Core & fins',[0,0,.55]],['Cooling fan',[0,1.3,-1.0]],['Pressure cap',[1.2,2.15,0]],['Top tank',[-1.4,1.85,.3]]],
+  update(c){
+   const k=c.k; let Tin=98+clamp(1-k*6)*10; const dT=4+14*Math.sqrt(k), Tout=Tin-dT, q=4.3*dT;
+   fa+=c.dt*(4+12*k); fan.rotation.z=-fa;
+   const sp=.14; top.forEach(s=>s.update(c.t,sp,1)); bot.forEach(s=>{s.update(c.t,sp,1);}); air.forEach(s=>s.update(c.t,.1+.5*k,.4+.6*k));
+   const cool=lc(0xf97316,0x38bdf8,dT/18*.8); bot.forEach(s=>s.mat.color.copy(cool)); top.forEach(s=>s.mat.color.copy(lc(0xf97316,0xff5a2a,clamp(Tin-98,0,10)/10)));
+   const st=Tin>104?'Overheating risk':k<.3?'Marginal':'Healthy';
+   return {big:q.toFixed(0),unit:' kW',bar:q/78*100,rows:{tin:Tin.toFixed(0)+' °C',tout:Tout.toFixed(0)+' °C'},
+    ro:{tin:[Tin.toFixed(0)+' °C',Tin>104?'crit':''],tout:[Tout.toFixed(0)+' °C','ok'],dt:[dT.toFixed(0)+' °C','hi'],q:[q.toFixed(0)+' kW',''],state:[st,Tin>104?'crit':k<.3?'warn':'ok']},
+    status:[st,true],ctl:Math.round(k*100)+' %'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

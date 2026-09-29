@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Driveshafts &amp; U-Joints — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #38bdf8; }
+html.light-theme { --al-accent: color-mix(in oklch, #38bdf8 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "driveshaft", "title": "Driveshafts & U-Joints", "kicker": "Transmission & Drivetrain", "accent": "#38bdf8", "badge": "Universal joint", "camPos": [4.2, 2.8, 5.6], "target": [0, 0, 0], "floorY": -1.7, "ctl": {"label": "Joint angle", "val": 45, "caption": "Working angle"}, "chipLabel": "Joint angle", "rows": [["vary", "Speed swing"], ["ratio", "Instant ratio"]], "ro": [["ang", "Joint angle"], ["in", "Input speed"], ["ratio", "Instant output ratio"], ["vary", "Speed variation"], ["note", "Advice"]], "legend": [["#e2e8f0", "Input shaft"], ["#38bdf8", "Output shaft"], ["#f97316", "Reference marks"]], "overview": "<div class=\"al-sec\"><h4>Transmitting power at an angle<\/h4><p>A cardan (universal) joint lets a shaft turn power through an angle – e.g. from gearbox to rear axle as the suspension moves.<\/p><\/div><div class=\"al-sec\"><h4>The catch<\/h4><p>A single U-joint at an angle makes the output speed fluctuate twice per revolution. The bigger the angle, the bigger the fluctuation (ratio between cos α and 1/cos α).<\/p><\/div><div class=\"al-sec\"><h4>The cure<\/h4><ul><li>Use <b>two joints<\/b> with equal angles in the same plane – their errors cancel.<\/li><li>Constant-velocity (CV) joints remove the fluctuation completely and are used on driveshafts to the wheels.<\/li><li>Keep working angles below about 12–15° for smooth running.<\/li><\/ul><\/div>", "faults": [["Worn u-joint", "Clunk when taking up drive, vibration, chirp at low speed.", "Twist the shaft by hand – any play in the cross means replace."], ["Out-of-balance shaft", "Vibration at a particular speed.", "Check for lost balance weights, dents or mud; re-balance."], ["Failed centre bearing", "Rumble under load, vibration.", "Check the rubber mount and bearing for wear."]], "quiz": [["A single u-joint at an angle causes…", ["Speed fluctuation twice per rev", "Constant speed", "Zero torque"], 0, "The output speed speeds up and slows down twice per revolution."], ["How are the fluctuations cancelled?", ["Two joints with equal angles", "Higher speed", "Lower angle to zero only"], 0, "The second joint reverses the first joint’s error."], ["CV joints…", ["Give constant output speed", "Are cheaper", "Need no grease"], 0, "They transmit uniformly at large angles."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylX,mat,glass,clamp,root,THREE}=H;
+ const steel=mat(0xe2e8f0,.8,.3), blue=mat(0x38bdf8,.7,.35), dark=mat(0x3d4555,.6,.5), or=mat(0xf97316,.4,.5), cross=mat(0x94a3b8,.9,.25);
+ box(1.0,1.4,1.4,dark,-3.9,0,0);
+ const gIn=new THREE.Group(); root.add(gIn);
+ cylX(.22,.22,3.2,steel,-1.7,0,0,gIn); cyl(.5,.5,.14,dark,-3.2,0,0,gIn).rotation.z=Math.PI/2;
+ box(.5,.06,.06,or,-2.4,.24,0,gIn); box(.3,.05,.05,or,-1.2,.24,0,gIn);
+ box(.4,.14,.16,steel,-.2,.52,0,gIn); box(.4,.14,.16,steel,-.2,-.52,0,gIn); box(.08,1.2,.16,steel,-.42,0,0,gIn);
+ cyl(.07,.07,1.0,cross,0,0,0,gIn);
+ const gTilt=new THREE.Group(); root.add(gTilt);
+ const gOut=new THREE.Group(); gTilt.add(gOut);
+ cylX(.22,.22,3.2,blue,1.7,0,0,gOut); cyl(.5,.5,.14,dark,3.2,0,0,gOut).rotation.z=Math.PI/2;
+ box(.5,.06,.06,or,2.4,.24,0,gOut); box(.3,.05,.05,or,1.2,.24,0,gOut);
+ box(.4,.16,.14,blue,.2,0,.52,gOut); box(.4,.16,.14,blue,.2,0,-.52,gOut); box(.08,.16,1.2,blue,.42,0,0,gOut);
+ cyl(.07,.07,1.0,cross,0,0,0,gOut).rotation.x=Math.PI/2;
+ const diff=box(1.0,1.4,1.4,dark,0,0,0,gTilt); diff.position.set(3.9,0,0);
+ return {
+  labels:[['Input shaft',[-2.6,.7,0]],['Yoke',[-.2,.95,0]],['Cross (spider)',[0,-.85,.4]],['Output shaft',[2.6,.7,0]],['Gearbox',[-3.9,1.05,0]],['Axle flange',[3.5,1.05,0]]],
+  update(c){
+   const a=c.k*25*Math.PI/180, th=c.t*5, ca=Math.cos(a), ph=Math.atan2(Math.sin(th),Math.cos(th)*ca);
+   const r=ca/(Math.cos(th)*Math.cos(th)*ca*ca+Math.sin(th)*Math.sin(th));
+   gIn.rotation.x=th; gTilt.rotation.z=a; gOut.rotation.x=ph-0;
+   const deg=c.k*25, lo=Math.cos(a), hi=1/Math.cos(a), swing=(hi-lo)/2*100;
+   const note=deg<8?'Smooth':deg<15?'Acceptable':'Use CV / second joint';
+   return {big:deg.toFixed(1),unit:' °',bar:c.k*100,rows:{vary:'±'+swing.toFixed(1)+' %',ratio:r.toFixed(2)},
+    ro:{ang:[deg.toFixed(1)+' °','hi'],in:['2400 rpm',''],ratio:[r.toFixed(3),''],vary:['±'+swing.toFixed(1)+' %',deg>15?'crit':deg>8?'warn':'ok'],note:[note,deg>15?'crit':deg>8?'warn':'ok']},
+    status:[note,true],ctl:deg.toFixed(1)+' °'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

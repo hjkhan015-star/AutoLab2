@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Exhaust Gas Recirculation — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #a78bfa; }
+html.light-theme { --al-accent: color-mix(in oklch, #a78bfa 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "egr", "title": "Exhaust Gas Recirculation", "kicker": "Exhaust & Emissions", "accent": "#a78bfa", "badge": "NOx reduction", "camPos": [5.6, 3.0, 7.6], "target": [0, 0, 0], "floorY": -2.4, "ctl": {"label": "EGR rate", "val": 40, "caption": "Recirculation"}, "chipLabel": "NOx (relative)", "rows": [["lift", "Valve lift"], ["temp", "Peak temp"]], "ro": [["rate", "EGR rate"], ["lift", "EGR valve lift"], ["nox", "NOx output"], ["temp", "Peak flame temp"], ["note", "Effect"]], "legend": [["#f97316", "Exhaust gas"], ["#7dd3fc", "Fresh air"], ["#a1a1aa", "Air + EGR mix"]], "overview": "<div class=\"al-sec\"><h4>Cooler, cleaner combustion<\/h4><p>EGR routes a metered part of the exhaust back to the intake. The inert gas dilutes the oxygen and soaks up heat, lowering peak flame temperature – the main cause of NOx.<\/p><\/div><div class=\"al-sec\"><h4>Parts<\/h4><ul><li><b>EGR valve<\/b> – pintle valve driven by a motor or vacuum.<\/li><li><b>EGR cooler<\/b> – cools recirculated gas for greater effect.<\/li><li><b>ECU map<\/b> – uses load and rpm to set the rate.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Trade-offs<\/h4><p>Too much EGR raises soot and roughness; carbon builds up in the valve and intake over time.<\/p><\/div>", "faults": [["Carboned-up valve", "Rough idle, stalling, hesitation, EGR flow codes (P0401).", "Remove and clean the pintle; verify smooth valve movement."], ["Cooler leak", "Coolant loss, white smoke.", "Pressure-test the cooler for coolant leaks to exhaust side."], ["Stuck open", "Rough idle at low load, poor throttle response.", "Command the valve closed with a scan tool and watch idle."]], "quiz": [["EGR mainly reduces…", ["NOx", "CO₂", "Noise"], 0, "Lower peak combustion temperature cuts NOx formation."], ["EGR gas is…", ["Fresh air", "Inert exhaust that dilutes the charge", "Fuel vapour"], 1, "It carries little oxygen and absorbs heat."], ["A stuck-open EGR valve at idle causes…", ["Rough idle", "Higher power", "Colder exhaust only"], 0, "Too much inert gas at idle destabilises combustion."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylX,mat,glass,pipe,stream,lc,clamp,root,THREE}=H;
+ const steel=mat(0x8a93a5,.8,.35), dark=mat(0x374151,.5,.5);
+ const blockM=new THREE.MeshStandardMaterial({color:0x4a5160,metalness:.55,roughness:.55,emissive:0xff6a1a,emissiveIntensity:.3});
+ box(4.4,1.4,1.6,blockM,0,0,0);
+ cylX(.5,.5,7.4,glass(0x7dd3fc,.24),0,1.7,0,null,32,true); cylX(.45,.45,7.4,glass(0xf97316,.28),0,-1.7,0,null,32,true);
+ [-1.5,-.5,.5,1.5].forEach(x=>{ cyl(.16,.16,.6,steel,x,1.0,0); cyl(.16,.16,.6,steel,x,-1.0,0); });
+ pipe([[-2.8,-1.7,0],[-3.5,-1.7,0],[-3.5,-.2,0],[-3.5,1.0,0],[-2.8,1.7,0]],.15,mat(0x6b7280,.7,.4));
+ box(.55,1.0,.55,mat(0xc5ccd6,.7,.4),-3.5,-.85,0);
+ cyl(.3,.3,.6,dark,-3.5,.7,0); const pin=cyl(.09,.09,.6,steel,-3.5,1.15,0); box(.5,.5,.5,dark,-3.5,1.65,0);
+ const air=stream([[-3.9,1.7,0],[-2.8,1.7,0]],8,0x7dd3fc,.11);
+ const mix=stream([[-2.7,1.7,0],[3.7,1.7,0]],22,0xa1a1aa,.11);
+ const exh=stream([[3.7,-1.7,0],[-3.5,-1.7,0]],22,0xf97316,.12);
+ const egr=stream([[-3.5,-1.7,0],[-3.5,-.2,0],[-3.5,1.0,0],[-2.8,1.7,0]],10,0xf97316,.1);
+ return {
+  labels:[['Intake manifold',[2.4,2.3,0]],['Exhaust manifold',[2.4,-2.3,0]],['EGR cooler',[-3.5,-1.55,.4]],['EGR valve',[-3.5,.15,.4]],['Engine',[0,.95,0]]],
+  update(c){
+   const k=c.k, egrPct=25*k, nox=Math.exp(-.05*egrPct)*100, tp=2400-8*egrPct;
+   pin.position.y=1.15+.35*k; blockM.emissiveIntensity=.42*(1-.4*k);
+   air.update(c.t,.16,1); mix.update(c.t,.16,1); mix.mat.color.copy(lc(0x7dd3fc,0xa1a1aa,k)); exh.update(c.t,.16,1); egr.update(c.t,.14,k>.02?clamp(k*1.2):0);
+   const note=egrPct<3?'NOx high':egrPct<20?'Balanced':'Soot / roughness risk';
+   return {big:nox.toFixed(0),unit:' %',bar:egrPct/25*100,rows:{lift:(k*6).toFixed(1)+' mm',temp:tp.toFixed(0)+' °C'},
+    ro:{rate:[egrPct.toFixed(0)+' %','hi'],lift:[(k*6).toFixed(1)+' mm',''],nox:[nox.toFixed(0)+' %',nox<40?'ok':'warn'],temp:[tp.toFixed(0)+' °C',''],note:[note,egrPct>20?'warn':'ok']},
+    status:[egrPct<3?'EGR closed':'Recirculating',true],ctl:egrPct.toFixed(0)+' %'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

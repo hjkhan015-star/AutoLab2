@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>4WD / AWD Systems — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #22c55e; }
+html.light-theme { --al-accent: color-mix(in oklch, #22c55e 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "awd", "title": "4WD / AWD Systems", "kicker": "Transmission & Drivetrain", "accent": "#22c55e", "badge": "Centre coupling", "camPos": [1.5, 8.8, 4.6], "target": [0, -0.4, 0], "floorY": -1.6, "ctl": {"label": "Rear torque share", "val": 40, "caption": "Torque split"}, "chipLabel": "Rear torque", "rows": [["front", "Front"], ["clutch", "Clutch clamp"]], "ro": [["front", "Front axle torque"], ["rear", "Rear axle torque"], ["layout", "Bias"], ["clutch", "Coupling clamp"], ["note", "Behaviour"]], "legend": [["#38bdf8", "Front driveshaft"], ["#f97316", "Rear driveshaft"], ["#94a3b8", "Multi-plate clutch"]], "overview": "<div class=\"al-sec\"><h4>Power to all four wheels<\/h4><p>A transfer case or centre coupling splits engine torque between the front and rear axles, improving traction on slippery surfaces.<\/p><\/div><div class=\"al-sec\"><h4>Types<\/h4><ul><li><b>Part-time 4WD<\/b> – locked 50:50 for off-road (not on dry tarmac).<\/li><li><b>Full-time AWD<\/b> – centre differential (with lock) allows different axle speeds.<\/li><li><b>On-demand AWD<\/b> – a multi-plate clutch sends torque to the second axle when slip is detected.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Why a centre diff or clutch?<\/h4><p>Front and rear wheels travel different distances in turns. Without a centre diff or slipping clutch, the driveline would wind up and bind.<\/p><\/div>", "faults": [["Driveline bind (tight-corner braking)", "Hopping, judder on tight turns on tarmac.", "Check tyre sizes match; test the transfer case lock/clutch."], ["Low or old transfer-case oil", "Whine, clutch slip, poor engagement.", "Change the oil to the specified fluid."], ["Failed coupling pump/solenoid", "No rear drive until slip is severe.", "Scan for AWD codes; test coupling operation."]], "quiz": [["Why can’t part-time 4WD be used on dry tarmac in 4H?", ["Axles must turn at different speeds", "Too much grip", "Overheats"], 0, "The locked centre forces both axles to the same speed and causes binding."], ["An on-demand AWD clutch…", ["Locks permanently", "Clamps to send torque rearward when needed", "Removes torque"], 1, "Clamp force sets how much torque reaches the second axle."], ["A centre diff allows…", ["Front and rear to rotate at different speeds", "Only equal speeds", "Free wheel"], 0, "It lets axles travel different arcs in turns."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,cylX,cylZ,mat,glass,clamp,lc,root,THREE}=H;
+ const dark=mat(0x374151,.6,.5), steel=mat(0x94a3b8,.85,.3), rub=mat(0x111827,.1,.9);
+ box(1.6,.9,1.3,dark,-1.9,.3,0); box(.9,.7,.9,dark,-.95,.25,0);
+ box(1.3,.9,1.1,glass(0x64748b,.32),-.15,-.05,0);
+ const discs=[]; for(let i=0;i<10;i++) discs.push(cylX(.36,.36,.03,i%2?mat(0xcbd5e1,.8,.3):mat(0xb45309,.5,.6),0,-.05,0));
+ const fM=new THREE.MeshStandardMaterial({color:0x38bdf8,metalness:.7,roughness:.35,emissive:0x38bdf8,emissiveIntensity:.3});
+ const rM=new THREE.MeshStandardMaterial({color:0xf97316,metalness:.7,roughness:.35,emissive:0xf97316,emissiveIntensity:.3});
+ const fs=cylX(.1,.1,2.9,fM,-1.95,-.4,0), rs=cylX(.1,.1,3.9,rM,1.55,-.4,0);
+ box(.8,.5,.8,dark,-3.4,-.4,0); box(.8,.5,.8,dark,3.4,-.4,0);
+ cylZ(.09,.09,3.6,steel,-3.4,-.4,0); cylZ(.09,.09,3.6,steel,3.4,-.4,0);
+ const wheels=[];
+ [[-3.4,-1.9],[-3.4,1.9],[3.4,-1.9],[3.4,1.9]].forEach(p=>{
+   const w=new THREE.Group(); w.position.set(p[0],-.4,p[1]); root.add(w);
+   cylZ(.75,.75,.5,rub,0,0,0,w); cylZ(.45,.45,.52,steel,0,0,0,w);
+   for(let i=0;i<5;i++){ const b=box(.12,.8,.06,steel,0,0,p[1]>0?.27:-.27,w); b.rotation.z=i*Math.PI*2/5; }
+   wheels.push(w);
+ });
+ let a=0;
+ return {
+  labels:[['Engine',[-2.2,1.0,0]],['Transfer case / coupling',[-.15,.8,0]],['Front driveshaft',[-2.4,-.7,.6]],['Rear driveshaft',[1.6,-.7,.6]],['Front diff',[-3.4,-.05,.6]],['Rear diff',[3.4,-.05,.6]]],
+  update(c){
+   const r=c.k, f=1-r; a+=c.dt*7;
+   wheels.forEach(w=>w.rotation.z=-a);
+   const sp=.12-.075*r; discs.forEach((d,i)=>d.position.x=-.3+i*sp);
+   fs.scale.set(1,.45+1.5*f,.45+1.5*f); rs.scale.set(1,.45+1.5*r,.45+1.5*r);
+   fM.emissiveIntensity=.15+1.1*f; rM.emissiveIntensity=.15+1.1*r;
+   const lay=r<.3?'Front-biased':r<.7?'Balanced':'Rear-biased', note=r<.05?'Effectively 2WD (FWD)':r>.95?'Effectively RWD':'Torque shared by coupling';
+   return {big:(r*100).toFixed(0),unit:' %',bar:r*100,rows:{front:(f*100).toFixed(0)+' %',clutch:(r*100).toFixed(0)+' %'},
+    ro:{front:[(f*100).toFixed(0)+' %',''],rear:[(r*100).toFixed(0)+' %','hi'],layout:[lay,''],clutch:[(r*100).toFixed(0)+' %',''],note:[note,'']},
+    status:[lay,true],ctl:(r*100).toFixed(0)+' % rear'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

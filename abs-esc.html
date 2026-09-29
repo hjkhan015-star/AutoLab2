@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ABS &amp; ESC · Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #f43f5e; }
+html.light-theme { --al-accent: #be123c; }
+.al-w{display:flex;flex-direction:column;gap:6px;min-width:160px;}
+.ui-tb-btn.active{outline:2px solid var(--al-accent);color:var(--al-accent);}
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import * as Base from './kit.js';
+import { Widgets } from './components.js';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CONFIG
+   ═══════════════════════════════════════════════════════════════════════ */
+const CFG = {
+  moduleId: 'absesc',
+  accent:   '#f43f5e',
+  cycleHz:  6.0           // ABS pressure cycles per second (approximate)
+};
+
+const SURFACES = {
+  dry: { mu: 0.90, label: 'Dry asphalt' },
+  wet: { mu: 0.55, label: 'Wet road' },
+  ice: { mu: 0.18, label: 'Ice / snow' }
+};
+
+const state = Base.createUIState();
+state.speedMul = 60;      // km/h — the toolbar slider drives vehicle speed
+state.brake    = 40;      // % pedal
+state.surface  = 'dry';
+state.wssFault = false;   // front-left wheel-speed sensor fault
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SCENE
+   ═══════════════════════════════════════════════════════════════════════ */
+const built = Base.buildScene({
+  fov: 44,
+  camPos: [5.6, 4.6, 8.6],
+  target: [0, 0.55, 0],
+  floorY: -1.4,
+  fogDensity: 0.028
+});
+const { scene, camera, renderer, controls, wrap, viewManager, quality } = built;
+Base.attachResize(camera, renderer, wrap, built.baseFov);
+
+const lowEnd = quality.isLowEnd;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MATERIALS
+   ═══════════════════════════════════════════════════════════════════════ */
+const M = Base.createMaterials();
+const root = new THREE.Group();
+scene.add(root);
+
+const discMat    = new THREE.MeshStandardMaterial({ color: 0x6e7684, metalness: 0.80, roughness: 0.42 });
+const ringMat    = new THREE.MeshStandardMaterial({ color: 0x3d4555, metalness: 0.70, roughness: 0.45 });
+const caliperMat = new THREE.MeshStandardMaterial({ color: 0xb03a2e, metalness: 0.35, roughness: 0.55 });
+const sensorMat  = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.40, roughness: 0.50 });
+const valveMat   = new THREE.MeshStandardMaterial({ color: 0x8a93a5, metalness: 0.80, roughness: 0.30 });
+const valveHot   = new THREE.MeshStandardMaterial({ color: 0xffb020, metalness: 0.50, roughness: 0.35, emissive: 0x552200, emissiveIntensity: 1 });
+const lineMat    = new THREE.MeshStandardMaterial({ color: 0x556074, metalness: 0.60, roughness: 0.40 });
+const brakeLine  = new THREE.MeshStandardMaterial({ color: 0x3a4a60, metalness: 0.55, roughness: 0.45 });
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GEOMETRY — four wheels + hydraulic modulator
+   ═══════════════════════════════════════════════════════════════════════ */
+const WHEELS = [
+  { id: 'fl', text: 'Front left',  x: -2.45, z: -1.55 },
+  { id: 'fr', text: 'Front right', x:  2.45, z: -1.55 },
+  { id: 'rl', text: 'Rear left',   x: -2.45, z:  1.55 },
+  { id: 'rr', text: 'Rear right',  x:  2.45, z:  1.55 }
+];
+
+const discGeo = new THREE.CylinderGeometry(0.56, 0.56, 0.09, lowEnd ? 18 : 32);
+const calGeo  = new THREE.BoxGeometry(0.30, 0.24, 0.24);
+const sensGeo = new THREE.BoxGeometry(0.16, 0.16, 0.20);
+
+WHEELS.forEach(w => {
+  const g = new THREE.Group();
+  g.position.set(w.x, 0.62, w.z);
+  g.rotation.x = Math.PI / 2;          // disc axis now points along world Z
+  root.add(g);
+
+  const disc = new THREE.Mesh(discGeo, discMat);
+  disc.castShadow = true;
+  g.add(disc);
+
+  /* tone ring (reluctor) — 24 teeth typical */
+  const tone = Base.makeCog(0.44, 0.07, lowEnd ? 16 : 24, 0.07, 0.085, ringMat, ringMat);
+  tone.position.y = -0.11;
+  g.add(tone);
+
+  const caliper = new THREE.Mesh(calGeo, caliperMat);
+  caliper.position.set(0, 0.04, 0.50);
+  caliper.castShadow = true;
+  g.add(caliper);
+
+  const sensor = new THREE.Mesh(sensGeo, sensorMat);
+  sensor.position.set(0.52, -0.11, 0);
+  sensor.castShadow = true;
+  g.add(sensor);
+
+  w.group   = g;
+  w.disc    = disc;
+  w.tone    = tone;
+  w.sensor  = sensor;
+  w.sensorMat = sensorMat.clone();
+  w.sensor.material = w.sensorMat;
+});
+
+/* --- hydraulic modulator --- */
+const modGroup = new THREE.Group();
+modGroup.position.set(0, 0.55, 0);
+root.add(modGroup);
+
+const modBody = new THREE.Mesh(new THREE.BoxGeometry(1.30, 0.62, 1.05), M.matMetalDark);
+modBody.castShadow = true;
+modBody.receiveShadow = true;
+modGroup.add(modBody);
+
+/* four solenoid valves on top (one per wheel) */
+const valves = [];
+WHEELS.forEach((w, i) => {
+  const vx = (i % 2 === 0 ? -0.32 : 0.32);
+  const vz = (i < 2 ? -0.28 : 0.28);
+  const v = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.30, lowEnd ? 8 : 14), valveMat);
+  v.position.set(vx, 0.46, vz);
+  v.castShadow = true;
+  modGroup.add(v);
+  valves.push(v);
+});
+
+/* pump motor */
+const pump = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.42, lowEnd ? 10 : 16), valveMat);
+pump.rotation.z = Math.PI / 2;
+pump.position.set(0.82, 0.02, 0);
+pump.castShadow = true;
+modGroup.add(pump);
+
+/* --- brake lines + fluid particles --- */
+const lines = [];
+const pGeo = new THREE.SphereGeometry(0.042, lowEnd ? 6 : 10, lowEnd ? 5 : 8);
+
+WHEELS.forEach((w, i) => {
+  const a = new THREE.Vector3(w.x * 0.30, 0.55, w.z * 0.30);
+  const b = new THREE.Vector3(w.x * 0.82, 0.62, w.z * 0.82);
+
+  const tube = Base.tubeBetween(a, b, 0.030, 0.030, brakeLine, true);
+  root.add(tube);
+
+  const parts = [];
+  const n = lowEnd ? 2 : 3;
+  for (let k = 0; k < n; k++) {
+    const p = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({ color: 0x60a5fa }));
+    root.add(p);
+    parts.push(p);
+  }
+
+  const rec = { a, b, parts, valve: valves[i], wheel: w, hot: 0 };
+  lines.push(rec);
+  w.link = rec;
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LABELS
+   ═══════════════════════════════════════════════════════════════════════ */
+const labels = Base.createLabelSystem();
+labels.add('mod', 'ABS / ESC modulator');
+labels.add('pump', 'Pump motor');
+WHEELS.forEach(w => labels.add('w-' + w.id, w.text));
+labels.add('tone', 'Tone ring + WSS');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   UI
+   ═══════════════════════════════════════════════════════════════════════ */
+const TABS = {
+  overview: () => `
+    <div class="al-sec">
+      <h4>What it does</h4>
+      <p>ABS stops a wheel locking under braking. A locked tyre slides, and a sliding tyre has less
+      grip than a rolling one — and no steering at all. ABS keeps each wheel turning at roughly
+      <b>10–25 % slip</b>, which is where grip peaks.</p>
+    </div>
+    <div class="al-sec">
+      <h4>The loop</h4>
+      <ul>
+        <li><b>Sense</b> — a wheel-speed sensor reads a toothed tone ring; typical signal is a
+        square wave whose frequency is proportional to wheel speed.</li>
+        <li><b>Decide</b> — the ECU compares each wheel with the others and with vehicle speed.</li>
+        <li><b>Act</b> — the modulator's solenoid valves <b>hold</b>, <b>dump</b> then
+        <b>reapply</b> pressure, up to about 10 cycles per second.</li>
+      </ul>
+    </div>
+    <div class="al-sec">
+      <h4>EBD and ESC</h4>
+      <p><b>EBD</b> (electronic brake distribution) uses the same hardware to balance rear braking
+      before ABS ever intervenes. <b>ESC</b> adds a yaw-rate sensor and a steering-angle sensor:
+      when the car understeers or oversteers, ESC brakes one wheel and asks the engine for less
+      torque, pulling the car back onto the intended line.</p>
+    </div>
+    <div class="al-sec">
+      <h4>Typical values</h4>
+      <ul>
+        <li>Peak grip ≈ 0.9 µ on dry asphalt, ≈ 0.55 µ wet, ≈ 0.18 µ on ice.</li>
+        <li>Wheel-speed sensor air gap: 0.5–1.5 mm.</li>
+        <li>ABS hydraulic pressure: up to 150–200 bar.</li>
+      </ul>
+    </div>`,
+  faults: () => `
+    <div class="al-sec"><h4>Common faults</h4></div>
+    <div class="al-fault">
+      <div class="t">Wheel-speed sensor / wiring</div>
+      <div class="s">ABS and ESC lamps on, codes for one wheel, ABS disabled but normal brakes remain.</div>
+      <div class="c">Check: sensor resistance, air gap, tone-ring damage and continuity to the ECU.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Cracked or corroded tone ring</div>
+      <div class="s">Intermittent ABS at low speed, false activation just before stopping.</div>
+      <div class="c">Check: ring for cracks or missing teeth — a common cause of low-speed pulsing.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Stuck solenoid valve</div>
+      <div class="s">One wheel drags after ABS has been active, or pulls to one side.</div>
+      <div class="c">Check: live data per wheel, modulator function test with a scan tool.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Low brake fluid / air in the system</div>
+      <div class="s">Long pedal, ABS pump runs constantly.</div>
+      <div class="c">Check: fluid level, bleed sequence (usually with a scan tool to cycle the valves).</div>
+    </div>`,
+  quiz: () => `
+    <div class="al-q" data-a="1">
+      <div class="q">1. Why does ABS try to keep a small amount of slip?</div>
+      <button class="al-opt">To save fuel</button>
+      <button class="al-opt">Grip peaks at roughly 10–25 % slip; a fully locked tyre has less grip and no steering</button>
+      <button class="al-opt">To cool the brakes</button>
+      <div class="al-exp">A sliding tyre loses both longitudinal and lateral grip. Peak braking force happens a little way into slip, not at full lock.</div>
+    </div>
+    <div class="al-q" data-a="2">
+      <div class="q">2. What does ESC add over ABS?</div>
+      <button class="al-opt">A bigger brake booster</button>
+      <button class="al-opt">A second hydraulic circuit</button>
+      <button class="al-opt">Yaw-rate and steering-angle sensing, so it can brake one wheel and cut torque</button>
+      <div class="al-exp">ESC compares the car's actual yaw with the driver's intended direction and corrects understeer or oversteer by braking individual wheels.</div>
+    </div>
+    <div class="al-q" data-a="0">
+      <div class="q">3. A wheel-speed sensor fails. What still works?</div>
+      <button class="al-opt">Conventional braking, and usually EBD, but not full ABS</button>
+      <button class="al-opt">Nothing — the brakes stop working</button>
+      <button class="al-opt">Only the parking brake</button>
+      <div class="al-exp">The system fails safe: the ABS and ESC lamps come on, but the hydraulic circuit still gives normal, unmodulated braking.</div>
+    </div>`
+};
+
+function readoutHTML() {
+  return `<div class="al-read">
+    <span class="k">Vehicle speed</span><span class="v hi" id="ro-speed">—</span>
+    <span class="k">Wheel speed FL</span><span class="v" id="ro-fl">—</span>
+    <span class="k">Wheel speed FR</span><span class="v" id="ro-fr">—</span>
+    <span class="k">Slip</span><span class="v" id="ro-slip">—</span>
+    <span class="k">Brake pressure</span><span class="v" id="ro-press">—</span>
+    <span class="k">ABS state</span><span class="v" id="ro-abs">—</span>
+    <span class="k">Yaw rate</span><span class="v" id="ro-yaw">—</span>
+    <span class="k">ESC</span><span class="v" id="ro-esc">—</span>
+  </div>`;
+}
+
+const ui = Base.UI.create({
+  moduleId: CFG.moduleId,
+  panel: {
+    kicker: 'Chassis',
+    title:  'ABS & ESC',
+    tabs: [
+      { id: 'overview', label: 'Overview' },
+      { id: 'faults',   label: 'Faults' },
+      { id: 'quiz',     label: 'Self-check' }
+    ],
+    onTab: renderTab,
+    badge: { text: 'ABS ready', color: CFG.accent },
+    readout: readoutHTML()
+  },
+  chip: {
+    label: 'Vehicle',
+    value: '—',
+    unit: ' km/h',
+    bar: true,
+    rows: [
+      { id: 'slip', label: 'Slip', value: '—' },
+      { id: 'abs',  label: 'ABS',  value: '—' }
+    ],
+    status: { text: 'Monitoring' }
+  },
+  toolbar: {
+    play: true,
+    reset: true,
+    speed: { label: 'Speed', min: 0, max: 140, step: 1, value: 60 },
+    labels: true,
+    extras: [
+      { id: 'btn-wss', label: 'WSS FAULT', title: 'Toggle front-left wheel-speed sensor fault', onClick: toggleWss }
+    ]
+  },
+  widgets: {
+    bl: {
+      html: `<div class="al-w">
+        <label for="brake-range">Brake pedal <b id="brake-out">40%</b></label>
+        <input id="brake-range" class="al-range" type="range" min="0" max="100" step="1"
+               value="40" aria-label="Brake pedal percentage">
+      </div>`,
+      caption: 'Driver input',
+      onMount: mountBrakeWidget
+    },
+    br: {
+      html: `<div class="al-w">
+        <label for="surf-sel">Surface</label>
+        <select id="surf-sel" class="al-sel" aria-label="Road surface">
+          <option value="dry">Dry asphalt · µ ≈ 0.90</option>
+          <option value="wet">Wet road · µ ≈ 0.55</option>
+          <option value="ice">Ice / snow · µ ≈ 0.18</option>
+        </select>
+      </div>`,
+      caption: 'Friction',
+      onMount: mountSurfaceWidget
+    }
+  }
+});
+
+ui.toolbar.setRpmLabel('km/h');
+
+const tabHost = document.createElement('div');
+tabHost.id = 'al-tabs';
+tabHost.className = 'al-tabs';
+ui.panel.body.appendChild(tabHost);
+
+Widgets.wireQuiz(tabHost);
+
+function renderTab(id) {
+  tabHost.innerHTML = (TABS[id] || TABS.overview)();
+}
+renderTab('overview');
+
+function mountBrakeWidget(el) {
+  const inp = el.querySelector('#brake-range');
+  const out = el.querySelector('#brake-out');
+  if (!inp || !out) return;
+  inp.value = state.brake;
+  out.textContent = state.brake + '%';
+  inp.addEventListener('input', () => {
+    state.brake = Number(inp.value);
+    out.textContent = state.brake + '%';
+    updateReadouts();
+  });
+}
+
+function mountSurfaceWidget(el) {
+  const sel = el.querySelector('#surf-sel');
+  if (!sel) return;
+  sel.value = state.surface;
+  sel.addEventListener('change', () => {
+    state.surface = sel.value;
+    updateReadouts();
+  });
+}
+
+function toggleWss() {
+  state.wssFault = !state.wssFault;
+  const b = document.getElementById('btn-wss');
+  if (b) b.classList.toggle('active', state.wssFault);
+
+  const fl = WHEELS.find(w => w.id === 'fl');
+  if (fl) fl.sensorMat.color.setHex(state.wssFault ? 0xef4444 : 0x94a3b8);
+
+  applyBadge();
+  updateReadouts();
+}
+
+function applyBadge() {
+  const dead = state.wssFault;
+  const col  = dead ? '#ef4444' : CFG.accent;
+  const badge = document.getElementById('stroke-badge');
+  const text  = document.getElementById('badge-text');
+  if (badge) {
+    badge.style.background = `color-mix(in oklch, ${col} 18%, transparent)`;
+    badge.style.color = col;
+  }
+  if (text) text.textContent = dead ? 'ABS disabled · EBD active' : 'ABS ready';
+}
+applyBadge();
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SIMULATION
+   ═══════════════════════════════════════════════════════════════════════ */
+function simulate() {
+  const v      = state.speedMul;                     // km/h
+  const mu     = SURFACES[state.surface].mu;
+  const demand = (state.brake / 100) * 9.0;          // m/s² requested
+  const grip   = mu * 9.81;                          // m/s² available
+
+  const wantsLock = demand > grip;
+  const absActive = wantsLock && v > 8 && !state.wssFault;
+  const decel     = absActive ? grip * 0.95 : Math.min(demand, grip);
+
+  let slip = 0;
+  if (absActive)      slip = 0.18;
+  else if (wantsLock) slip = 1.0;
+  else                slip = (demand / Math.max(grip, 0.001)) * 0.08;
+
+  const wSpeed = v * (1 - slip);
+
+  /* ESC: without ABS the car is unstable at high slip; ESC intervenes */
+  const escActive = !absActive && wantsLock && v > 25;
+
+  return { v, mu, demand, grip, absActive, escActive, slip, wSpeed, decel };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   READOUTS
+   ═══════════════════════════════════════════════════════════════════════ */
+const ro = {
+  speed: document.getElementById('ro-speed'),
+  fl:    document.getElementById('ro-fl'),
+  fr:    document.getElementById('ro-fr'),
+  slip:  document.getElementById('ro-slip'),
+  press: document.getElementById('ro-press'),
+  abs:   document.getElementById('ro-abs'),
+  yaw:   document.getElementById('ro-yaw'),
+  esc:   document.getElementById('ro-esc')
+};
+
+function updateReadouts() {
+  const s = simulate();
+  const flSpeed = state.wssFault ? 0 : s.wSpeed;
+
+  if (ro.speed) ro.speed.textContent = Math.round(s.v) + ' km/h';
+  if (ro.fl) {
+    ro.fl.textContent = state.wssFault ? 'no signal' : Math.round(flSpeed) + ' km/h';
+    ro.fl.className = 'v ' + (state.wssFault ? 'crit' : '');
+  }
+  if (ro.fr) ro.fr.textContent = Math.round(s.wSpeed) + ' km/h';
+
+  if (ro.slip) {
+    ro.slip.textContent = Math.round(s.slip * 100) + ' %';
+    ro.slip.className = 'v ' + (s.slip > 0.5 ? 'crit' : s.slip > 0.15 ? 'warn' : 'ok');
+  }
+  if (ro.press) ro.press.textContent = Math.round(state.brake * 1.8) + ' bar';
+
+  if (ro.abs) {
+    if (state.wssFault)   { ro.abs.textContent = 'Disabled'; ro.abs.className = 'v crit'; }
+    else if (s.absActive) { ro.abs.textContent = 'Regulating'; ro.abs.className = 'v warn'; }
+    else                  { ro.abs.textContent = 'Idle'; ro.abs.className = 'v ok'; }
+  }
+
+  if (ro.yaw) {
+    const yaw = s.escActive ? (1.6 + Math.sin(performance.now() * 0.002) * 0.6) : 0.1;
+    ro.yaw.textContent = yaw.toFixed(1) + ' °/s';
+    ro.yaw.className = 'v ' + (s.escActive ? 'warn' : '');
+  }
+
+  if (ro.esc) {
+    ro.esc.textContent = s.escActive ? 'Intervening' : 'Standby';
+    ro.esc.className = 'v ' + (s.escActive ? 'warn' : '');
+  }
+
+  ui.chip.setBig(Math.round(s.v), ' km/h');
+  ui.chip.set('slip', Math.round(s.slip * 100) + ' %');
+  ui.chip.set('abs', state.wssFault ? 'OFF' : s.absActive ? 'ACTIVE' : 'IDLE');
+  ui.chip.setBar((state.brake / 100) * 100, s.absActive ? 'var(--warn)' : 'var(--al-accent)');
+  ui.chip.setStatus(
+    state.wssFault ? 'Sensor fault' : s.absActive ? 'ABS active' : 'Monitoring',
+    !state.wssFault
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MESSAGING
+   ═══════════════════════════════════════════════════════════════════════ */
+const bridge = ui.wireBridge({
+  viewManager,
+  state,
+  onCommand: (d) => {
+    if (d.action === 'reset') {
+      state.speedMul = 60;
+      state.brake    = 40;
+      state.surface  = 'dry';
+      state.wssFault = false;
+
+      const sp = document.getElementById('speed');
+      if (sp) sp.value = 60;
+      const br = document.getElementById('brake-range');
+      const bo = document.getElementById('brake-out');
+      if (br) br.value = 40;
+      if (bo) bo.textContent = '40%';
+      const ss = document.getElementById('surf-sel');
+      if (ss) ss.value = 'dry';
+      const b = document.getElementById('btn-wss');
+      if (b) b.classList.remove('active');
+
+      const fl = WHEELS.find(w => w.id === 'fl');
+      if (fl) fl.sensorMat.color.setHex(0x94a3b8);
+
+      applyBadge();
+      updateReadouts();
+    }
+  }
+});
+bridge.ready();
+bridge.setStatus('Brakes online', '#f43f5e');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ANIMATION
+   ═══════════════════════════════════════════════════════════════════════ */
+let t = 0;
+let last = performance.now();
+let raf = 0;
+let roClock = 0;
+
+const tmp = new THREE.Vector3();
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function frame(now) {
+  raf = requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  const s = simulate();
+  const running = state.playing;
+  const spin = running ? (s.wSpeed / 3.6) / 0.56 * dt : 0;   // rad/s → disc rotation
+
+  /* --- discs and tone rings rotate with wheel speed --- */
+  WHEELS.forEach((w, i) => {
+    const isFl = w.id === 'fl';
+    const localSpin = (isFl && state.wssFault) ? 0 : spin;
+    w.disc.rotation.y -= localSpin;
+    w.tone.rotation.y -= localSpin;
+
+    /* ABS valve glow + fluid pulsing while regulating */
+    const rec = lines[i];
+    if (s.absActive) {
+      const phase = ((t * CFG.cycleHz + i * 0.15) % 1);
+      rec.hot = Math.sin(phase * Math.PI * 2) > 0 ? 1 : 0;
+      viewManager.setMeshMaterial(rec.valve, rec.hot ? valveHot : valveMat);
+    } else {
+      viewManager.setMeshMaterial(rec.valve, valveMat);
+    }
+  });
+
+  if (running) t += dt * 1.0;
+
+  /* --- brake fluid particles --- */
+  for (let i = 0; i < lines.length; i++) {
+    const L = lines[i];
+    const n = L.parts.length;
+    const flow = s.absActive ? 0.9 : (state.brake / 100) * 0.35;
+    for (let k = 0; k < n; k++) {
+      const p = L.parts[k];
+      let u = (t * flow + k / n) % 1;
+      if (u < 0) u += 1;
+      p.position.lerpVectors(L.a, L.b, u);
+      p.scale.setScalar(0.45 + 0.7 * Math.sin(Math.PI * u));
+      p.visible = s.absActive || state.brake > 4;
+    }
+  }
+
+  /* --- labels --- */
+  labels.hideAll();
+  if (state.showLabels) {
+    labels.project('mod',  tmp.set(0, 1.30, 0), camera, wrap);
+    labels.project('pump', tmp.set(0.82, 1.05, 0), camera, wrap);
+    for (const w of WHEELS) {
+      labels.project('w-' + w.id, tmp.set(w.x, 1.55, w.z), camera, wrap);
+    }
+    labels.project('tone', tmp.set(-2.45, 1.05, -1.55), camera, wrap);
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+
+  roClock += dt;
+  if (roClock > 0.12) { roClock = 0; updateReadouts(); }
+}
+
+if (reduced) {
+  setInterval(() => renderer.render(scene, camera), 120);
+} else {
+  raf = requestAnimationFrame(frame);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (reduced) return;
+  if (document.hidden) {
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+  } else if (!raf) {
+    last = performance.now();
+    raf = requestAnimationFrame(frame);
+  }
+});
+
+updateReadouts();
+</script>
+</body>
+</html>

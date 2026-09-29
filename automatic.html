@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d13">
+<title>Automatic Transmission — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  /* ═══════════════════════════════════════════════════════════════════
+     Module-specific widget styles.
+     All chrome (panel, chip, toolbar, widget container, caption) is
+     handled by app.css. Only the *interiors* of the two custom widgets
+     (accelerator pedal and gear selector) are styled here.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /* ── Accelerator pedal widget (bl slot) ── */
+  .at-pedal {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 6px;
+    pointer-events: none;
+  }
+  .at-pedal-readout {
+    font-family: var(--font-mono);
+    font-size: 12px; font-weight: 800;
+    color: var(--text);
+    background: var(--surface-2);
+    padding: 3px 11px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+  }
+  .at-pedal-track {
+    position: relative;
+    width: 54px; height: 158px;
+    pointer-events: auto;
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / .03), 0 10px 24px oklch(0 0 0 / .35);
+    transition: border-color var(--dur-fast) var(--ease-out);
+  }
+  .at-pedal-track.active {
+    border-color: color-mix(in oklch, var(--accent) 55%, transparent);
+  }
+  .at-pedal-fill {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 0%;
+    background: linear-gradient(180deg, #f59e0b, #fbbf24);
+    transition: height var(--dur-fast) linear;
+  }
+  .at-pedal-pad {
+    position: absolute; left: -4px; right: -4px;
+    bottom: 0%; height: 34px;
+    transform: translateY(50%);
+    filter: drop-shadow(0 6px 10px oklch(0 0 0 / .6));
+    transition: bottom var(--dur-fast) linear;
+  }
+  .at-pedal-pad svg { width: 100%; height: 100%; display: block; }
+  .at-pedal-pad .plate {
+    fill: var(--surface-3);
+    stroke: color-mix(in oklch, var(--text) 40%, transparent);
+    stroke-width: 1.4;
+  }
+  .at-pedal-pad .grip {
+    fill: color-mix(in oklch, var(--text) 28%, transparent);
+  }
+  .at-pedal-track.active .at-pedal-pad .plate {
+    stroke: var(--warn);
+  }
+  .at-pedal-label {
+    font-size: 10.5px; font-weight: 700;
+    letter-spacing: .55px; text-transform: uppercase;
+    color: var(--text-dim);
+    background: var(--surface-2);
+    padding: 5px 11px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+    pointer-events: none;
+  }
+  .at-pedal-label span {
+    color: var(--text);
+    font-family: var(--font-mono);
+  }
+
+  /* ── Gear selector widget (br slot) ── */
+  .at-gearsel {
+    display: flex; flex-direction: column;
+    gap: 5px;
+    pointer-events: auto;
+  }
+  .at-gearsel-caption {
+    font-size: 10px; font-weight: 800;
+    letter-spacing: .16em; text-transform: uppercase;
+    color: var(--text-mute);
+    text-align: center;
+    padding: 4px 0 2px;
+  }
+  .at-gearsel-btn {
+    width: 52px; height: 52px;
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 15px; font-weight: 800;
+    display: grid; place-items: center;
+    cursor: pointer;
+    transition: color var(--dur-fast) var(--ease-out),
+                background var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out),
+                box-shadow var(--dur-fast) var(--ease-out),
+                transform var(--dur-fast) var(--ease-spring);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-sm);
+  }
+  .at-gearsel-btn:hover {
+    color: var(--text);
+    border-color: var(--border-hi);
+  }
+  .at-gearsel-btn:active { transform: scale(.94); }
+  .at-gearsel-btn.active {
+    color: #06121a;
+    border-color: transparent;
+    background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+    box-shadow: 0 0 16px color-mix(in oklch, #38bdf8 55%, transparent),
+                var(--shadow-sm);
+  }
+  .at-gearsel-btn.active[data-gear="R"] {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    box-shadow: 0 0 16px color-mix(in oklch, #ef4444 55%, transparent),
+                var(--shadow-sm);
+  }
+  .at-gearsel-btn.active[data-gear="P"] {
+    background: linear-gradient(135deg, #475569, #64748b);
+    box-shadow: 0 0 16px color-mix(in oklch, #94a3b8 40%, transparent),
+                var(--shadow-sm);
+  }
+  .at-gearsel-btn.active[data-gear="N"] {
+    background: linear-gradient(135deg, #a855f7, #c084fc);
+    box-shadow: 0 0 16px color-mix(in oklch, #a855f7 55%, transparent),
+                var(--shadow-sm);
+  }
+
+  @media (max-width: 600px) {
+    .at-pedal-track { width: 44px; height: 128px; }
+    .at-pedal-label { font-size: 10px; padding: 4px 8px; }
+    .at-gearsel-btn { width: 44px; height: 44px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+  <div id="canvas-wrap"></div>
+  <div id="labels-root"></div>
+
+  <script src="guard.js"></script>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  } }
+  </script>
+
+  <script type="module">
+  import * as THREE from 'three';
+  import * as Base from './kit.js';
+  import { UI } from './kit.js';
+
+  const TAU = Base.TAU;
+  const DEG = Base.DEG;
+
+  /* ============================================================
+     BOOTSTRAP — adaptive quality + scene
+     ============================================================ */
+  const isCoarse = matchMedia('(pointer: coarse)').matches;
+  const cores    = navigator.hardwareConcurrency || 4;
+  const mem      = navigator.deviceMemory || 4;
+  const isLowEnd = cores <= 4 || mem <= 2;
+  const isMidEnd = !isLowEnd && (cores <= 6 || isCoarse);
+
+  const TC_BLADES    = isLowEnd ? 8 : isMidEnd ? 12 : 16;
+  const CONV_FLUID_N = isLowEnd ? 40 : isMidEnd ? 70 : 100;
+  const PLANET_N     = 3;
+
+  const { scene, camera, renderer, controls, wrap, viewManager } = Base.buildScene({
+    fov: 42,
+    camPos: isCoarse ? [3.2, 2.2, 4.8] : [3.6, 2.4, 5.4],
+    target: [-0.30, 0.05, 0],
+    floorY: -2.15
+  });
+  Base.attachResize(camera, renderer, wrap, 42);
+  const particleTex = Base.createParticleTexture();
+  const labels = Base.createLabelSystem();
+  const state  = Base.createUIState();
+
+  /* ============================================================
+     MATERIALS — cutaway glass + orange cut faces
+     ============================================================ */
+  const M = {
+    steel:      new THREE.MeshStandardMaterial({ color:0x9aa3b0, metalness:0.88, roughness:0.28 }),
+    steelDark:  new THREE.MeshStandardMaterial({ color:0x4b5563, metalness:0.80, roughness:0.38 }),
+    alum:       new THREE.MeshStandardMaterial({ color:0xc5ccd6, metalness:0.82, roughness:0.28 }),
+    brass:      new THREE.MeshStandardMaterial({ color:0xd4a34a, metalness:0.88, roughness:0.28 }),
+    glass:      new THREE.MeshStandardMaterial({
+      color:0xb8c6da, metalness:0.25, roughness:0.30,
+      transparent:true, opacity:0.10, side:THREE.DoubleSide, depthWrite:false
+    }),
+    cut:        new THREE.MeshStandardMaterial({
+      color:0xf0703a, metalness:0.10, roughness:0.55,
+      emissive:0xf0703a, emissiveIntensity:0.28, side:THREE.DoubleSide
+    }),
+    fluidGlass: new THREE.MeshPhysicalMaterial({
+      color:0x60a5fa, metalness:0.10, roughness:0.20,
+      transmission:0.55, transparent:true, opacity:0.22,
+      depthWrite:false, side:THREE.DoubleSide
+    }),
+    fluid:      new THREE.MeshStandardMaterial({
+      color:0xf59e0b, emissive:0xffa040, emissiveIntensity:0.55,
+      transparent:true, opacity:0.85, roughness:0.20, metalness:0.10
+    }),
+    impeller:   new THREE.MeshStandardMaterial({ color:0xd4a34a, metalness:0.85, roughness:0.28 }),
+    turbine:    new THREE.MeshStandardMaterial({ color:0xa8b0be, metalness:0.85, roughness:0.28 }),
+    stator:     new THREE.MeshStandardMaterial({ color:0x38bdf8, metalness:0.65, roughness:0.30,
+                  emissive:0x38bdf8, emissiveIntensity:0.30 }),
+    lockup:     new THREE.MeshStandardMaterial({ color:0x22c55e, metalness:0.60, roughness:0.35,
+                  emissive:0x22c55e, emissiveIntensity:0.35, transparent:true, opacity:0.85 }),
+    sun:        new THREE.MeshStandardMaterial({ color:0xf59e0b, metalness:0.82, roughness:0.30 }),
+    planet:     new THREE.MeshStandardMaterial({ color:0xa8b0be, metalness:0.85, roughness:0.28 }),
+    ring:       new THREE.MeshStandardMaterial({ color:0x6b7280, metalness:0.82, roughness:0.32 }),
+    carrier:    new THREE.MeshStandardMaterial({ color:0x38bdf8, metalness:0.55, roughness:0.38,
+                  emissive:0x38bdf8, emissiveIntensity:0.18 }),
+    clutchDisc: new THREE.MeshStandardMaterial({ color:0x7a4528, metalness:0.15, roughness:0.88 }),
+    clutchPlate:new THREE.MeshStandardMaterial({ color:0xb8c1cc, metalness:0.85, roughness:0.30 }),
+    solenoid:   new THREE.MeshStandardMaterial({ color:0x38bdf8, metalness:0.55, roughness:0.30,
+                  emissive:0x38bdf8, emissiveIntensity:0.55 }),
+    valveBody:  new THREE.MeshStandardMaterial({ color:0x8a93a5, metalness:0.55, roughness:0.45 })
+  };
+
+  const system = new THREE.Group();
+  scene.add(system);
+
+  /* ============================================================
+     LAYOUT
+     ============================================================ */
+  const CONV_X  = -1.60;
+  const CONV_R  = 0.55;
+  const CONV_W  = 0.60;
+
+  const SHAFT_X = 0.10;
+  const PLAN_X  = 0.90;
+  const SUN_R   = 0.16;
+  const PLANET_R = 0.16;
+  const RING_R  = 0.46;
+  const RING_T  = 0.05;
+
+  const CLUTCH_X_1 = -0.55;
+  const CLUTCH_X_2 =  0.05;
+
+  /* ============================================================
+     TORQUE CONVERTER
+     ============================================================ */
+  const tcGroup = new THREE.Group();
+  tcGroup.position.set(CONV_X, 0, 0);
+  system.add(tcGroup);
+
+  const shellGeo = new THREE.TorusGeometry(CONV_R * 0.80, CONV_R * 0.42, 14, 40, Math.PI * 1.6);
+  const tcShell = new THREE.Mesh(shellGeo, M.glass);
+  tcShell.rotation.y = Math.PI / 2;
+  tcShell.rotation.z = Math.PI * 0.20;
+  tcGroup.add(tcShell);
+
+  function makeCutFace(w, h, mat, x, y, z, ry) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+    m.position.set(x, y, z);
+    if (ry) m.rotation.y = ry;
+    return m;
+  }
+
+  const frontCoverGeo = new THREE.CylinderGeometry(CONV_R * 0.95, CONV_R * 0.95, 0.04, 40);
+  const frontCover = new THREE.Mesh(frontCoverGeo, M.alum);
+  frontCover.rotation.z = Math.PI / 2;
+  frontCover.position.x = -CONV_W / 2;
+  tcGroup.add(frontCover);
+
+  const frontCut = new THREE.Mesh(
+    new THREE.CircleGeometry(CONV_R * 0.95, 40, Math.PI * 0.5, Math.PI),
+    M.cut
+  );
+  frontCut.rotation.y = Math.PI / 2;
+  frontCut.position.x = -CONV_W / 2 + 0.021;
+  tcGroup.add(frontCut);
+
+  const impellerGroup = new THREE.Group();
+  impellerGroup.position.x = -0.12;
+  tcGroup.add(impellerGroup);
+
+  const impellerRing = new THREE.Mesh(
+    new THREE.TorusGeometry(CONV_R * 0.62, 0.15, 10, 30, Math.PI * 0.85),
+    M.impeller
+  );
+  impellerRing.rotation.y = Math.PI / 2;
+  impellerRing.rotation.z = -Math.PI * 0.42;
+  impellerGroup.add(impellerRing);
+
+  for (let i = 0; i < TC_BLADES; i++) {
+    const a = -Math.PI * 0.42 + (i / (TC_BLADES - 1)) * Math.PI * 0.85;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.22, 0.10), M.impeller);
+    blade.position.set(-0.12, Math.cos(a) * CONV_R * 0.62, Math.sin(a) * CONV_R * 0.62);
+    blade.rotation.x = a + 0.35;
+    impellerGroup.add(blade);
+  }
+
+  const turbineGroup = new THREE.Group();
+  turbineGroup.position.x = 0.12;
+  tcGroup.add(turbineGroup);
+
+  const turbineRing = new THREE.Mesh(
+    new THREE.TorusGeometry(CONV_R * 0.62, 0.15, 10, 30, Math.PI * 0.85),
+    M.turbine
+  );
+  turbineRing.rotation.y = Math.PI / 2;
+  turbineRing.rotation.z = Math.PI * 0.58;
+  turbineGroup.add(turbineRing);
+
+  for (let i = 0; i < TC_BLADES; i++) {
+    const a = Math.PI * 0.58 + (i / (TC_BLADES - 1)) * Math.PI * 0.85;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.22, 0.10), M.turbine);
+    blade.position.set(0.12, Math.cos(a) * CONV_R * 0.62, Math.sin(a) * CONV_R * 0.62);
+    blade.rotation.x = a - 0.35;
+    turbineGroup.add(blade);
+  }
+
+  const statorGroup = new THREE.Group();
+  statorGroup.position.x = 0;
+  tcGroup.add(statorGroup);
+
+  const statorRing = new THREE.Mesh(
+    new THREE.TorusGeometry(CONV_R * 0.30, 0.06, 8, 24),
+    M.stator
+  );
+  statorRing.rotation.y = Math.PI / 2;
+  statorGroup.add(statorRing);
+
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * TAU;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.14, 0.04), M.stator);
+    blade.position.set(0, Math.cos(a) * CONV_R * 0.30, Math.sin(a) * CONV_R * 0.30);
+    blade.rotation.x = a + 0.55;
+    statorGroup.add(blade);
+  }
+
+  const lockupPlate = new THREE.Mesh(
+    new THREE.CylinderGeometry(CONV_R * 0.78, CONV_R * 0.78, 0.02, 32),
+    M.lockup
+  );
+  lockupPlate.rotation.z = Math.PI / 2;
+  lockupPlate.position.x = -CONV_W / 2 + 0.06;
+  tcGroup.add(lockupPlate);
+
+  const convOutShaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.055, 0.55, 16),
+    M.steel
+  );
+  convOutShaft.rotation.z = Math.PI / 2;
+  convOutShaft.position.x = CONV_X + CONV_W / 2 + 0.275;
+  system.add(convOutShaft);
+
+  const convInShaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.070, 0.070, 0.55, 16),
+    M.steelDark
+  );
+  convInShaft.rotation.z = Math.PI / 2;
+  convInShaft.position.x = CONV_X - CONV_W / 2 - 0.275;
+  system.add(convInShaft);
+
+  /* ============================================================
+     FLUID VORTEX PARTICLES
+     ============================================================ */
+  const convFluidGeo = new THREE.BufferGeometry();
+  const convFluidPos = new Float32Array(CONV_FLUID_N * 3);
+  const convFluidCol = new Float32Array(CONV_FLUID_N * 3);
+  convFluidGeo.setAttribute('position', new THREE.BufferAttribute(convFluidPos, 3));
+  convFluidGeo.setAttribute('color',    new THREE.BufferAttribute(convFluidCol, 3));
+  const convFluidMat = new THREE.PointsMaterial({
+    map: particleTex, size: 0.09, sizeAttenuation: true,
+    vertexColors: true, transparent: true, opacity: 0.95,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  const convFluidPts = new THREE.Points(convFluidGeo, convFluidMat);
+  convFluidPts.frustumCulled = false;
+  system.add(convFluidPts);
+
+  const convFluidData = [];
+  for (let i = 0; i < CONV_FLUID_N; i++) {
+    convFluidData.push({
+      t: Math.random(),
+      r: 0.32 + Math.random() * 0.30,
+      speed: 0.85 + Math.random() * 0.35,
+      side: Math.random()
+    });
+  }
+
+  /* ============================================================
+     PLANETARY GEARSET
+     ============================================================ */
+  const planetGroup = new THREE.Group();
+  planetGroup.position.set(PLAN_X, 0, 0);
+  system.add(planetGroup);
+
+  const sunGroup = new THREE.Group();
+  planetGroup.add(sunGroup);
+  const sunCog = Base.makeCog(SUN_R, 0.10, 16, 0.030, 0.032, M.sun, M.sun);
+  sunCog.rotation.z = Math.PI / 2;
+  sunGroup.add(sunCog);
+
+  const carrierGroup = new THREE.Group();
+  planetGroup.add(carrierGroup);
+
+  [-0.07, 0.07].forEach(xOff => {
+    const plateGeo = new THREE.RingGeometry(SUN_R * 0.5, RING_R * 0.95, 32, 1,
+      Math.PI * 0.15, TAU - Math.PI * 0.30);
+    const plate = new THREE.Mesh(plateGeo, M.carrier);
+    plate.rotation.y = Math.PI / 2;
+    plate.position.x = xOff;
+    carrierGroup.add(plate);
+  });
+
+  const carrierHub = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.06, 0.06, 0.16, 16), M.carrier
+  );
+  carrierHub.rotation.z = Math.PI / 2;
+  carrierGroup.add(carrierHub);
+
+  const planetGears = [];
+  const planetDistance = SUN_R + PLANET_R;
+  for (let i = 0; i < PLANET_N; i++) {
+    const a = (i / PLANET_N) * TAU;
+    const pg = new THREE.Group();
+    pg.position.set(0, Math.cos(a) * planetDistance, Math.sin(a) * planetDistance);
+    pg.rotation.z = a;
+    carrierGroup.add(pg);
+
+    const cog = Base.makeCog(PLANET_R, 0.08, 12, 0.026, 0.030, M.planet, M.planet);
+    cog.rotation.z = Math.PI / 2;
+    pg.add(cog);
+
+    const pin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.020, 0.020, 0.16, 12), M.steelDark
+    );
+    pin.rotation.z = Math.PI / 2;
+    pg.add(pin);
+
+    planetGears.push({ group: pg, cog, phase: a });
+  }
+
+  const ringGroup = new THREE.Group();
+  planetGroup.add(ringGroup);
+
+  const ringShellGeo = new THREE.TorusGeometry(RING_R + RING_T / 2, RING_T * 0.9, 12, 40);
+  const ringShell = new THREE.Mesh(ringShellGeo, M.ring);
+  ringShell.rotation.y = Math.PI / 2;
+  ringGroup.add(ringShell);
+
+  const RING_TEETH = 30;
+  for (let i = 0; i < RING_TEETH; i++) {
+    const a = (i / RING_TEETH) * TAU;
+    const tooth = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.045, 0.045), M.ring
+    );
+    tooth.position.set(0, Math.cos(a) * (RING_R - 0.015), Math.sin(a) * (RING_R - 0.015));
+    tooth.rotation.x = a;
+    ringGroup.add(tooth);
+  }
+
+  const ringCut1 = new THREE.Mesh(
+    new THREE.PlaneGeometry(RING_T * 1.8, RING_R * 1.0),
+    M.cut
+  );
+  ringCut1.position.set(0.08, RING_R * 0.55, 0);
+  ringGroup.add(ringCut1);
+
+  /* ============================================================
+     CLUTCH PACKS
+     ============================================================ */
+  function makeClutchPack(xPos, discCount) {
+    const g = new THREE.Group();
+    g.position.x = xPos;
+    system.add(g);
+
+    const housing = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.26, 0.26, 0.24, 28, 1, true, 0, Math.PI * 1.55),
+      M.fluidGlass
+    );
+    housing.rotation.z = Math.PI / 2;
+    g.add(housing);
+
+    const discs = [];
+    for (let i = 0; i < discCount; i++) {
+      const isFriction = (i % 2 === 0);
+      const disc = new THREE.Mesh(
+        new THREE.CylinderGeometry(isFriction ? 0.22 : 0.18, isFriction ? 0.22 : 0.18, 0.022, 24),
+        isFriction ? M.clutchDisc : M.clutchPlate
+      );
+      disc.rotation.z = Math.PI / 2;
+      disc.position.x = -0.10 + i * 0.045;
+      g.add(disc);
+      discs.push({ mesh: disc, isFriction, x0: disc.position.x });
+    }
+
+    const cutFace = new THREE.Mesh(
+      new THREE.CircleGeometry(0.26, 28, Math.PI * 0.5, Math.PI),
+      M.cut
+    );
+    cutFace.rotation.y = Math.PI / 2;
+    cutFace.position.x = 0.001;
+    g.add(cutFace);
+
+    return { group: g, discs };
+  }
+
+  const clutch1 = makeClutchPack(CLUTCH_X_1, isLowEnd ? 5 : 8);
+  const clutch2 = makeClutchPack(CLUTCH_X_2, isLowEnd ? 5 : 8);
+
+  /* ============================================================
+     VALVE BODY
+     ============================================================ */
+  const valveBody = new THREE.Group();
+  valveBody.position.set(-0.30, -0.75, 0.85);
+  system.add(valveBody);
+
+  const vbBox = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.30, 0.45), M.valveBody);
+  vbBox.castShadow = true;
+  valveBody.add(vbBox);
+
+  const vbCut = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.30), M.cut);
+  vbCut.position.set(0, 0, 0.226);
+  valveBody.add(vbCut);
+
+  const solenoids = [];
+  [-0.22, 0.22].forEach((xOff, i) => {
+    const sg = new THREE.Group();
+    sg.position.set(xOff, 0, 0);
+    valveBody.add(sg);
+
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 0.14, 14), M.steelDark
+    );
+    body.rotation.z = Math.PI / 2;
+    sg.add(body);
+
+    const plunger = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.030, 0.030, 0.08, 12), M.solenoid
+    );
+    plunger.rotation.z = Math.PI / 2;
+    plunger.position.x = 0.06;
+    sg.add(plunger);
+
+    solenoids.push({ group: sg, plunger, x0: 0.06 });
+  });
+
+  /* ============================================================
+     INPUT / OUTPUT SHAFTS
+     ============================================================ */
+  const inShaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.045, 0.045, 0.90, 16), M.steel
+  );
+  inShaft.rotation.z = Math.PI / 2;
+  inShaft.position.set(-0.55, 0, 0);
+  system.add(inShaft);
+
+  const outShaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.052, 0.052, 1.05, 16), M.steel
+  );
+  outShaft.rotation.z = Math.PI / 2;
+  outShaft.position.set(1.85, 0, 0);
+  system.add(outShaft);
+
+  const outFlange = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.14, 0.14, 0.05, 24), M.alum
+  );
+  outFlange.rotation.z = Math.PI / 2;
+  outFlange.position.set(2.40, 0, 0);
+  system.add(outFlange);
+
+  const caseGeo = new THREE.CylinderGeometry(1.05, 1.05, 4.2, 40, 1, true, Math.PI * 0.35, Math.PI * 1.30);
+  const tcCase = new THREE.Mesh(caseGeo, M.glass);
+  tcCase.rotation.z = Math.PI / 2;
+  tcCase.position.set(0.15, 0, 0);
+  system.add(tcCase);
+
+  /* ============================================================
+     3D LABELS
+     ============================================================ */
+  const labelDefs = [
+    { id:'impeller', text:'Impeller',           pos: new THREE.Vector3(CONV_X - 0.20, 0.75, 0) },
+    { id:'turbine',  text:'Turbine',            pos: new THREE.Vector3(CONV_X + 0.20, 0.75, 0) },
+    { id:'stator',   text:'Stator (one-way)',   pos: new THREE.Vector3(CONV_X, -0.72, 0) },
+    { id:'lockup',   text:'Lockup clutch',      pos: new THREE.Vector3(CONV_X - 0.30, -0.20, 0.55) },
+    { id:'clutch1',  text:'Clutch pack A',      pos: new THREE.Vector3(CLUTCH_X_1, 0.50, 0.50) },
+    { id:'clutch2',  text:'Clutch pack B',      pos: new THREE.Vector3(CLUTCH_X_2, -0.50, 0.50) },
+    { id:'sun',      text:'Sun gear',           pos: new THREE.Vector3(PLAN_X, 0.35, 0) },
+    { id:'planet',   text:'Planet gears',       pos: new THREE.Vector3(PLAN_X + 0.30, 0.55, 0) },
+    { id:'ring',     text:'Ring gear',          pos: new THREE.Vector3(PLAN_X, -0.70, 0) },
+    { id:'carrier',  text:'Carrier (output)',   pos: new THREE.Vector3(PLAN_X + 0.75, 0.35, 0) },
+    { id:'valve',    text:'Valve body',         pos: new THREE.Vector3(-0.30, -1.10, 0.85) },
+    { id:'out',      text:'Output shaft',       pos: new THREE.Vector3(2.10, 0.35, 0) }
+  ];
+  labelDefs.forEach(d => labels.add(d.id, d.text));
+
+  /* ============================================================
+     STATE
+     ============================================================ */
+  let selectedGear = 'D';
+  let throttle = 0;
+  let engineRpm = 800;
+  let turbineRpm = 0;
+  let outputRpm = 0;
+  let slipPct = 100;
+  let torqueMult = 2.2;
+  let lockupEngaged = false;
+  let linePressure = 5.0;
+
+  let impellerAngle = 0;
+  let turbineAngle = 0;
+  let carrierAngle = 0;
+  let sunAngle = 0;
+  let ringAngle = 0;
+  let planetAngles = [0, 0, 0];
+  let fluidPhase = 0;
+  let solenoidLift = [0, 0];
+
+  function getVehicleSpeed() {
+    return Math.max(0, Math.min(1, (state.speedMul - 0.15) / 2.35));
+  }
+
+  /* ============================================================
+     UNIVERSAL UI — panel, chip, toolbar, widgets
+     ============================================================ */
+  const ui = UI.create({
+    moduleId: 'automatic',
+
+    panel: {
+      kicker: 'Drivetrain',
+      title:  'Automatic Transmission',
+      badge:  { text: 'Torque Converter + Planetary', color: '#38bdf8' },
+      desc: `
+        <strong>Automatic transmission.</strong> There is no clutch pedal.
+        Instead, the engine drives an <strong>impeller</strong> submerged in
+        oil. That spinning oil pushes the <strong>turbine</strong>, whose
+        blades turn the gearbox input — so the engine never stops, even when
+        the car is stationary. A fixed <strong>stator</strong> redirects the
+        returning oil, multiplying torque by up to 2.2×.
+        <br><br>
+        Downstream, a <strong>planetary gearset</strong> changes ratio by
+        locking different members with hydraulically-applied
+        <strong>clutch packs</strong>. At cruise, a <strong>lockup clutch</strong>
+        mechanically ties the turbine to the engine for zero slip.
+        <br><br>
+        Above stall speed the fluid coupling gives way to a mechanical lock,
+        and torque multiplication falls to 1.0×.
+      `
+    },
+
+    chip: {
+      label: 'Converter Slip',
+      value: 0,
+      unit:  '%',
+      bar:   true,
+      rows: [
+        { id: 'eng',  label: 'Engine',     value: '0 rpm' },
+        { id: 'turb', label: 'Turbine',    value: '0 rpm' },
+        { id: 'mult', label: 'Multiplier', value: '1.0 ×' }
+      ],
+      status: { text: 'Unlocked' }
+    },
+
+    toolbar: {
+      play: true, reset: true,
+      speed: { label: 'Vehicle speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
+      labels: true, gas: true
+    },
+
+    widgets: {
+      /* Bottom-left: accelerator pedal */
+      bl: {
+        caption: 'Hold · <span data-pct>0%</span>',
+        html: `
+          <div class="at-pedal">
+            <div class="at-pedal-readout"><span data-pct>0%</span></div>
+            <div class="at-pedal-track" data-role="track" role="slider" tabindex="0"
+                 aria-label="Accelerator — hold to build torque"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div class="at-pedal-fill" data-role="fill"></div>
+              <div class="at-pedal-pad" data-role="pad">
+                <svg viewBox="0 0 60 34" aria-hidden="true">
+                  <rect class="plate" x="4" y="4" width="52" height="26" rx="8"/>
+                  <rect class="grip" x="10" y="9" width="40" height="4" rx="2"/>
+                  <rect class="grip" x="10" y="16" width="40" height="4" rx="2"/>
+                  <rect class="grip" x="10" y="23" width="40" height="4" rx="2"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        `,
+        onMount: (el) => wirePedalWidget(el)
+      },
+
+      /* Bottom-right: P R N D gear selector */
+      br: {
+        html: `
+          <div class="at-gearsel">
+            <div class="at-gearsel-caption">Select</div>
+            <button class="at-gearsel-btn" data-gear="P">P</button>
+            <button class="at-gearsel-btn" data-gear="R">R</button>
+            <button class="at-gearsel-btn" data-gear="N">N</button>
+            <button class="at-gearsel-btn active" data-gear="D">D</button>
+          </div>
+        `,
+        onMount: (el) => wireGearSelector(el)
+      }
+    }
+  });
+
+  /* ─── Throttle pedal widget ────────────────────────────────── */
+  function wirePedalWidget(root) {
+    const track   = root.querySelector('[data-role="track"]');
+    const fill    = root.querySelector('[data-role="fill"]');
+    const pad     = root.querySelector('[data-role="pad"]');
+    const caption = document.getElementById('ui-widget-bl-cap');
+
+    let dragging = false;
+    let pointerId = null;
+    let returnRAF = null;
+
+    function setThrottle(v) {
+      throttle = Math.max(0, Math.min(1, v));
+      const pct = Math.round(throttle * 100);
+      fill.style.height = pct + '%';
+      pad.style.bottom  = pct + '%';
+      root.querySelectorAll('[data-pct]').forEach(n => { n.textContent = pct + '%'; });
+      if (caption) caption.querySelector('[data-pct]').textContent = pct + '%';
+      track.setAttribute('aria-valuenow', String(pct));
+    }
+    function percentFromEvent(e) {
+      const r = track.getBoundingClientRect();
+      return Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height));
+    }
+    function cancelReturn() {
+      if (returnRAF) { cancelAnimationFrame(returnRAF); returnRAF = null; }
+    }
+    function springRelease() {
+      cancelReturn();
+      const step = () => {
+        const next = throttle * 0.86;
+        setThrottle(next < 0.005 ? 0 : next);
+        returnRAF = throttle > 0 ? requestAnimationFrame(step) : null;
+      };
+      returnRAF = requestAnimationFrame(step);
+    }
+
+    track.addEventListener('pointerdown', e => {
+      e.preventDefault(); cancelReturn();
+      dragging = true; pointerId = e.pointerId;
+      try { track.setPointerCapture(e.pointerId); } catch (_) {}
+      track.classList.add('active');
+      setThrottle(percentFromEvent(e));
+    });
+    track.addEventListener('pointermove', e => {
+      if (!dragging || e.pointerId !== pointerId) return;
+      e.preventDefault();
+      setThrottle(percentFromEvent(e));
+    });
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false; pointerId = null;
+      track.classList.remove('active');
+      springRelease();
+    }
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
+    track.addEventListener('lostpointercapture', endDrag);
+    track.addEventListener('keydown', e => {
+      if (e.key === 'ArrowUp')   { e.preventDefault(); cancelReturn(); setThrottle(throttle + 0.08); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); cancelReturn(); setThrottle(throttle - 0.08); }
+    });
+  }
+
+  /* ─── Gear selector widget ─────────────────────────────────── */
+  function wireGearSelector(root) {
+    const btns = root.querySelectorAll('.at-gearsel-btn');
+    btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedGear = btn.dataset.gear;
+        btns.forEach(b => b.classList.toggle('active', b === btn));
+      });
+    });
+  }
+
+  /* ─── Wire local toolbar controls (play/reset/speed/labels/gas) ── */
+  (function wireToolbar() {
+    const playBtn  = document.getElementById('btn-play');
+    const resetBtn = document.getElementById('btn-reset');
+    const speedInp = document.getElementById('speed');
+    const chkLab   = document.getElementById('chk-labels');
+    const chkGas   = document.getElementById('chk-gas');
+
+    function syncPlayIcons() {
+      const ip  = document.getElementById('icon-play');
+      const ipa = document.getElementById('icon-pause');
+      if (ip)  ip.style.display  = state.playing ? 'none'  : 'block';
+      if (ipa) ipa.style.display = state.playing ? 'block' : 'none';
+    }
+    syncPlayIcons();
+
+    if (playBtn) playBtn.addEventListener('click', () => {
+      state.playing = !state.playing;
+      syncPlayIcons();
+    });
+    if (resetBtn) resetBtn.addEventListener('click', resetSim);
+    if (speedInp) speedInp.addEventListener('input', () => {
+      state.speedMul = parseFloat(speedInp.value);
+    });
+    if (chkLab) chkLab.addEventListener('change', () => { state.showLabels = chkLab.checked; });
+    if (chkGas) chkGas.addEventListener('change', () => { state.showGas    = chkGas.checked; });
+  })();
+
+  /* ─── Sync speed input + rpm label each frame (cheap) ─── */
+  function syncSpeedUI() {
+    const inp = document.getElementById('speed');
+    if (inp && parseFloat(inp.value) !== state.speedMul) inp.value = state.speedMul;
+    const kmh = Math.round(2.4 * state.speedMul * 16);
+    ui.toolbar.setRpmLabel(`~${kmh} km/h`);
+  }
+
+  /* ============================================================
+     PHYSICS
+     ============================================================ */
+  function stepPhysics(dt) {
+    const vehicleSpeed = getVehicleSpeed();
+    const isDriving = (selectedGear === 'D' || selectedGear === 'R');
+    const isLockupEligible = (selectedGear === 'D' && vehicleSpeed > 0.45);
+
+    const targetEngineRpm = 800 + throttle * 5200;
+    engineRpm += (targetEngineRpm - engineRpm) * Math.min(1, dt * 4.0);
+
+    if (!isDriving) {
+      slipPct = throttle > 0.05 ? 95 : 100;
+      turbineRpm = 0;
+      outputRpm = 0;
+      torqueMult = 1.0;
+      lockupEngaged = false;
+    } else if (lockupEngaged) {
+      slipPct = 0;
+      turbineRpm = engineRpm;
+      outputRpm = turbineRpm;
+      torqueMult = 1.0;
+    } else {
+      const slipBase = Math.max(0.06, 1 - vehicleSpeed * 1.6);
+      slipPct = slipBase * 100;
+      turbineRpm = engineRpm * (1 - slipBase);
+      outputRpm = turbineRpm;
+      torqueMult = 1.0 + (slipBase * 1.4);
+    }
+
+    const wantLockup = isLockupEligible && engineRpm > 1500 && !(throttle > 0.7);
+    if (wantLockup && !lockupEngaged && slipPct < 20) lockupEngaged = true;
+    if (!wantLockup || selectedGear !== 'D') lockupEngaged = false;
+
+    const targetPressure = 3.0 + throttle * 9.0 + (vehicleSpeed > 0.3 ? 3.0 : 0);
+    linePressure += (targetPressure - linePressure) * Math.min(1, dt * 3.0);
+
+    let gearRatio = 1.0;
+    if (selectedGear === 'R') gearRatio = -2.0;
+    else if (selectedGear === 'D') {
+      if (vehicleSpeed < 0.30)      gearRatio = 2.7;
+      else if (vehicleSpeed < 0.60) gearRatio = 1.5;
+      else                          gearRatio = 1.0;
+    }
+
+    const engineOmega  = engineRpm * 0.0012;
+    const turbineOmega = turbineRpm * 0.0012;
+    const outputOmega  = outputRpm * 0.0012 * Math.abs(gearRatio);
+
+    impellerAngle += dt * engineOmega;
+    turbineAngle  += dt * turbineOmega;
+
+    let sunOmega = 0, ringOmega = 0, carrierOmega = 0;
+
+    if (selectedGear === 'P' || selectedGear === 'N') {
+      sunOmega = ringOmega = carrierOmega = 0;
+    } else if (selectedGear === 'R') {
+      sunOmega = turbineOmega;
+      ringOmega = -(SUN_R / RING_R) * sunOmega;
+      carrierOmega = 0;
+    } else {
+      if (gearRatio > 2.0) {
+        sunOmega = 0;
+        ringOmega = turbineOmega;
+        carrierOmega = ringOmega * (RING_R / (SUN_R + RING_R));
+      } else if (gearRatio > 1.2) {
+        ringOmega = 0;
+        sunOmega = turbineOmega;
+        carrierOmega = sunOmega * (SUN_R / (SUN_R + RING_R));
+      } else {
+        sunOmega = ringOmega = carrierOmega = turbineOmega;
+      }
+    }
+
+    sunAngle     += dt * sunOmega;
+    ringAngle    += dt * ringOmega;
+    carrierAngle += dt * carrierOmega;
+
+    sunCog.rotation.x = sunAngle;
+    carrierGroup.rotation.x = carrierAngle;
+    ringGroup.rotation.x = ringAngle;
+
+    planetGears.forEach((pg) => {
+      const dir = (ringOmega - carrierOmega) * (RING_R / PLANET_R);
+      pg.cog.rotation.x += dt * dir * 0.5;
+    });
+
+    const clutch1Amount = (selectedGear === 'D' && gearRatio > 2.0) ? 1 :
+                          (selectedGear === 'R') ? 1 : 0;
+    const clutch2Amount = (selectedGear === 'D' && gearRatio < 2.0) ? 1 : 0;
+
+    [clutch1, clutch2].forEach((pack, idx) => {
+      const amount = idx === 0 ? clutch1Amount : clutch2Amount;
+      pack.discs.forEach((d, i) => {
+        const baseX = d.x0;
+        const squeeze = (i - (pack.discs.length - 1) / 2) * amount * 0.004;
+        d.mesh.position.x = baseX - squeeze;
+      });
+      pack.group.children.forEach(child => {
+        if (child.material === M.clutchDisc) {
+          child.material.emissive = new THREE.Color(0xff5522);
+          child.material.emissiveIntensity = amount * 0.4;
+        }
+      });
+    });
+
+    solenoids.forEach((s, i) => {
+      const target = (i === 0 ? clutch1Amount : clutch2Amount) * 0.05;
+      solenoidLift[i] += (target - solenoidLift[i]) * Math.min(1, dt * 8);
+      s.plunger.position.x = s.x0 - solenoidLift[i];
+    });
+
+    const lockupTargetX = lockupEngaged ? (-CONV_W / 2 + 0.035) : (-CONV_W / 2 + 0.09);
+    lockupPlate.position.x += (lockupTargetX - lockupPlate.position.x) * Math.min(1, dt * 6);
+
+    fluidPhase += dt * (1.5 + turbineOmega * 2);
+  }
+
+  /* ============================================================
+     FLUID PARTICLES
+     ============================================================ */
+  function updateFluid(dt) {
+    const show = state.showGas !== false;
+    convFluidPts.visible = show;
+    if (!show) return;
+
+    const posAttr = convFluidGeo.attributes.position;
+    const colAttr = convFluidGeo.attributes.color;
+
+    const hotCol  = new THREE.Color(0xf59e0b);
+    const coolCol = new THREE.Color(0x60a5fa);
+
+    for (let i = 0; i < CONV_FLUID_N; i++) {
+      const p = convFluidData[i];
+      p.t += dt * p.speed * (0.8 + slipPct / 100 * 1.4);
+      if (p.t > 1) p.t -= 1;
+
+      const a = p.t * TAU;
+      const r = p.r;
+
+      const lx = Math.cos(a) * 0.20;
+      const ly = Math.sin(a) * r;
+      const lz = 0;
+
+      const worldX = CONV_X + lx;
+      const worldY = ly;
+      const worldZ = lz;
+
+      const axialSway = Math.sin(a * 3 + p.side * TAU) * 0.10;
+
+      posAttr.setXYZ(i, worldX + axialSway, worldY, worldZ);
+
+      const heat = (1 + Math.cos(a)) / 2;
+      const c = coolCol.clone().lerp(hotCol, heat);
+      const intensity = 0.55 + 0.45 * (slipPct / 100);
+      colAttr.setXYZ(i, c.r * intensity, c.g * intensity, c.b * intensity);
+    }
+    posAttr.needsUpdate = true;
+    colAttr.needsUpdate = true;
+  }
+
+  /* ============================================================
+     READOUTS → chip
+     ============================================================ */
+  function updateReadouts() {
+    /* Big value + bar = slip % */
+    ui.chip.setBig(Math.round(slipPct), '%');
+
+    let col;
+    if (slipPct < 5)       col = '#22c55e';
+    else if (slipPct < 40) col = '#38bdf8';
+    else if (slipPct < 75) col = '#f59e0b';
+    else                   col = '#f87171';
+
+    ui.chip.setColor(col);
+    ui.chip.setBar(slipPct, col);
+
+    ui.chip.set('eng',  Math.round(engineRpm).toLocaleString() + ' rpm');
+    ui.chip.set('turb', Math.round(turbineRpm).toLocaleString() + ' rpm');
+    ui.chip.set('mult', torqueMult.toFixed(1) + ' ×');
+
+    ui.chip.setStatus(lockupEngaged ? 'Locked' : 'Unlocked', lockupEngaged);
+  }
+
+  /* ============================================================
+     RESET
+     ============================================================ */
+  function resetSim() {
+    /* Reset throttle via pedal widget DOM */
+    throttle = 0;
+    const blRoot = document.getElementById('ui-widget-bl');
+    if (blRoot) {
+      const fill = blRoot.querySelector('[data-role="fill"]');
+      const pad  = blRoot.querySelector('[data-role="pad"]');
+      const track= blRoot.querySelector('[data-role="track"]');
+      if (fill) fill.style.height = '0%';
+      if (pad)  pad.style.bottom  = '0%';
+      if (track) track.setAttribute('aria-valuenow', '0');
+      blRoot.querySelectorAll('[data-pct]').forEach(n => { n.textContent = '0%'; });
+    }
+    const blCap = document.getElementById('ui-widget-bl-cap');
+    if (blCap) { const s = blCap.querySelector('[data-pct]'); if (s) s.textContent = '0%'; }
+
+    selectedGear = 'D';
+    document.querySelectorAll('.at-gearsel-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.gear === 'D');
+    });
+
+    engineRpm = 800; turbineRpm = 0; outputRpm = 0;
+    slipPct = 100; torqueMult = 2.2;
+    lockupEngaged = false;
+    impellerAngle = 0; turbineAngle = 0; carrierAngle = 0;
+    sunAngle = 0; ringAngle = 0; planetAngles = [0, 0, 0];
+  }
+
+  /* ============================================================
+     SHELL BRIDGE
+     ============================================================ */
+  const bridge = ui.wireBridge({
+    viewManager,
+    state,
+    onCommand: (d) => {
+      if (d.action === 'reset') resetSim();
+    }
+  });
+  bridge.ready();
+  bridge.setStatus('Automatic', '#38bdf8');
+
+  /* ============================================================
+     LOOP
+     ============================================================ */
+  const clock = new THREE.Clock();
+  let frame = 0;
+
+  function animate() {
+    requestAnimationFrame(animate);
+    frame++;
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const sim = state.playing ? dt : 0;
+
+    if (sim > 0) {
+      stepPhysics(sim);
+      updateFluid(sim);
+    }
+
+    if (frame % 6 === 0) {
+      updateReadouts();
+      syncSpeedUI();
+    }
+
+    if (state.showLabels && frame % 2 === 0) {
+      labelDefs.forEach(d => labels.project(d.id, d.pos, camera, wrap));
+    } else if (!state.showLabels) {
+      labels.hideAll();
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+  </script>
+</body>
+</html>

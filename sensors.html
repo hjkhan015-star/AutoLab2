@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d13">
+<title>Automotive Sensors &amp; Wiring — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  body{overflow-y:auto;background:var(--bg);color:var(--text);font-family:var(--font-sans);padding-bottom:var(--safe-b)}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 var(--s-4)}
+  header.hd{padding:calc(var(--s-5) + var(--safe-t)) 0 var(--s-3);display:flex;gap:var(--s-3);align-items:flex-start}
+  header.hd>div{flex:1}
+  .k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  h1{font-size:clamp(22px,4.5vw,32px);line-height:1.15;margin-top:4px}
+  h2{font-size:19px;margin:var(--s-8) 0 var(--s-3)}
+  p.lead{color:var(--text-dim);font-size:14px;line-height:1.55;margin-bottom:var(--s-3)}
+  #th{width:40px;height:40px;border-radius:var(--r-pill);background:var(--surface-2);border:1px solid var(--border-hi);font-size:18px}
+  nav.nv{position:sticky;top:0;z-index:5;background:var(--surface-2);backdrop-filter:blur(var(--blur));border-bottom:1px solid var(--border)}
+  nav.nv .wrap{display:flex;gap:var(--s-2);overflow-x:auto;padding-top:var(--s-2);padding-bottom:var(--s-2)}
+  nav.nv a,.chip{flex:none;padding:6px 12px;border-radius:var(--r-pill);font-size:13px;font-weight:600;color:var(--text-dim);text-decoration:none;border:1px solid var(--border);background:var(--surface)}
+  .chip{cursor:pointer}.chip.on,nav.nv a:hover{color:var(--text);border-color:var(--accent);background:var(--ring)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--s-3)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s-4)}
+  .card h3{font-size:14px;margin-bottom:6px}.card p{font-size:13px;line-height:1.5;color:var(--text-dim)}
+  .chips{display:flex;gap:var(--s-2);flex-wrap:wrap;margin-bottom:var(--s-3)}
+  details.sn{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--c);border-radius:var(--r-sm);padding:var(--s-3) var(--s-4)}
+  details.sn summary{cursor:pointer;list-style:none;font-weight:700;font-size:14px;display:flex;justify-content:space-between;gap:8px}
+  details.sn summary::-webkit-details-marker{display:none}
+  .tag{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--c);white-space:nowrap}
+  .fn{font-size:13px;color:var(--text-dim);line-height:1.5;margin-top:6px}
+  dl.dt{margin-top:8px;font-size:12.5px;line-height:1.5;display:grid;grid-template-columns:82px 1fr;gap:4px 8px}
+  dl.dt dt{color:var(--text-mute);font-weight:600}dl.dt dd{color:var(--text-dim)}
+  .diag{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow-x:auto}
+  svg#sv{min-width:820px;width:100%;height:auto}
+  svg text{fill:var(--text);font:600 11px var(--font-sans)}svg .sm{font-size:9px;fill:var(--text-mute);font-weight:500}
+  svg .bx{fill:var(--surface-3);stroke:var(--border-hi);stroke-width:1}
+  svg .ecu{fill:var(--surface-2);stroke:var(--accent);stroke-width:2}
+  svg .sn{cursor:pointer}svg .sn:hover .bx,svg .sn.sel .bx{stroke:var(--accent);stroke-width:2}
+  svg path{fill:none;stroke-width:1.8}
+  .sig,.drv{stroke-dasharray:5 6;animation:flow var(--d,1s) linear infinite;animation-play-state:paused}
+  .drv{stroke:#f97316}.run .sig,.run .drv{animation-play-state:running}
+  @keyframes flow{to{stroke-dashoffset:-22}}
+  @media(prefers-reduced-motion:reduce){.sig,.drv{animation:none}}
+  .lg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--text-dim);margin:var(--s-3) 0}
+  .lg i{display:inline-block;width:18px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  #wd{margin-top:var(--s-3)}
+  .sl{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s-4)}
+  .sl label{font-size:13px;color:var(--text-dim);display:block}.sl b{color:var(--text);font-family:var(--font-mono)}
+  input[type=range]{width:100%;accent-color:var(--accent);margin-top:6px}
+  .rd{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s-2);margin-top:var(--s-4)}
+  .rd div{background:var(--surface-2);border-radius:var(--r-sm);padding:10px 12px;font-size:11px;color:var(--text-mute)}
+  .rd b{display:block;font:700 15px var(--font-mono);color:var(--text);margin-top:2px}
+  .ck{margin-top:10px}.ck svg{max-width:290px;width:100%;height:auto}
+  #sc{width:100%;height:170px;display:block;background:var(--surface-2);border-radius:var(--r-sm);margin-top:var(--s-3)}
+  footer{color:var(--text-mute);font-size:12px;padding:var(--s-8) 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hd">
+    <div><div class="k">Electronics · Sensing &amp; Control</div><h1>Automotive Sensors &amp; Combined Wiring</h1></div>
+    <button id="th" aria-label="Toggle theme">◐</button>
+  </header>
+</div>
+<nav class="nv"><div class="wrap"><a href="#basics">Basics</a><a href="#cat">Sensor catalogue</a><a href="#wiring">Wiring schematic</a><a href="#live">Live simulator</a></div></nav>
+
+<main class="wrap">
+<h2 id="basics">1 · How the system works</h2>
+<div class="grid">
+  <div class="card"><h3>Sense → Decide → Act</h3><p>Sensors turn physical quantities (pressure, temperature, position, speed) into electrical signals. The ECU compares them with stored maps and drives actuators such as injectors, coils and motors.</p></div>
+  <div class="card"><h3>Signal types</h3><p><b style="color:#22c55e">Analog</b> voltage (0.5–4.5 V), <b style="color:#38bdf8">digital / Hall</b> square waves, <b style="color:#f59e0b">AC / VR</b> sine waves, <b style="color:#a78bfa">PWM / frequency</b>, and <b style="color:#f472b6">CAN / LIN</b> data messages.</p></div>
+  <div class="card"><h3>The 3-wire rule</h3><p>Most active sensors share a regulated <b>5 V reference</b>, a <b>signal</b> wire and a clean <b>sensor ground</b> that returns to the ECU, not to the chassis. Two-wire thermistors use only signal and sensor ground.</p></div>
+  <div class="card"><h3>Diagnosing</h3><p>Check reference voltage (5 V ±0.1), ground drop (&lt;50 mV), then sweep the signal while moving the input. Use a scope on CKP, CMP and knock; keep shielded pairs grounded at the ECU end only.</p></div>
+</div>
+
+<h2 id="cat">2 · Sensor catalogue</h2>
+<div class="chips" id="fl"></div>
+<div class="grid" id="cl" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))"></div>
+
+<h2 id="wiring">3 · Combined system wiring schematic</h2>
+<p class="lead">Engine-management view: each sensor connects only the wires it really uses (5 V reference, switched 12 V, sensor ground), sends its signal on its own wire (arrows show direction), and the ECU switches the actuators. CAN links it to ABS, transmission and body modules. <b>Tap a sensor</b> for its details.</p>
+<div class="diag"><svg id="sv" viewBox="0 0 900 640" role="img" aria-label="Combined sensor wiring schematic"></svg></div>
+<div class="lg" id="lg"></div>
+<div class="card" id="wd"><p>Select a sensor in the diagram to see its function and wiring.</p></div>
+
+<h2 id="live">4 · Live simulator &amp; scope</h2>
+<p class="lead">Move the sliders to see what the ECU would read on the wires above. The signal lines in the schematic animate when the engine is running.</p>
+<div class="card">
+  <div class="sl">
+    <label>Engine speed <b id="vr">0</b> rpm<input type="range" id="rpm" min="0" max="7000" step="50" value="0"></label>
+    <label>Throttle <b id="vt">0</b> %<input type="range" id="thr" min="0" max="100" value="0"></label>
+    <label>Coolant temp <b id="vc">20</b> °C<input type="range" id="ect" min="-20" max="110" value="20"></label>
+  </div>
+  <div class="rd"><div>TPS voltage<b id="r1"></b></div><div>MAP pressure<b id="r2"></b></div><div>CKP frequency (60-2)<b id="r3"></b></div><div>ECT voltage<b id="r4"></b></div><div>O2 upstream<b id="r5"></b></div></div>
+  <div class="chips" id="sg" style="margin:var(--s-4) 0 0"></div><canvas id="sc" aria-label="Oscilloscope trace"></canvas>
+</div>
+<footer>Values are typical; always confirm pin-outs and specifications in the vehicle's service manual.</footer>
+</main>
+
+<script>
+const TT={a:['Analog','#22c55e'],d:['Digital / Hall','#38bdf8'],v:['AC / VR','#f59e0b'],p:['PWM / Freq','#a78bfa'],c:['CAN / LIN / RF','#f472b6'],s:['Switch','#94a3b8']};
+const D=`map|MAP – Manifold Absolute Pressure|Engine|a|Piezoresistive silicon diaphragm; pressure shifts a Wheatstone bridge|0.5–4.5 V (≈20–105 kPa)|Intake manifold|Reports engine load so the ECU sets base fuel and spark; also reads barometric pressure at key-on|Rich mixture, rough idle, low power|3: 5V ref · signal · GND
+maf|MAF – Mass Air Flow|Engine|p|Heated wire/film cooled by airflow; ECU measures current needed to hold its temperature|0–5 V or 0–10 kHz|Between air filter and throttle|Measures air mass directly for accurate air-fuel ratio|Hesitation, stalling, bad fuel trims|4–5: 12V · GND · signal · 5V · IAT
+iat|IAT – Intake Air Temperature|Engine|a|NTC thermistor: resistance falls as temperature rises|≈0.5–4.5 V via pull-up|Air duct or inside MAF|Corrects for air density; pulls timing back when intake air is hot|Hot-start trouble, poor economy|2: signal · sensor GND
+ect|ECT – Coolant Temperature|Engine|a|NTC thermistor in a voltage divider|≈0.5 V hot to 4 V cold|Thermostat housing|Cold enrichment, fan control, closed-loop enable, gauge feed|Always rich, fan always on|2: signal · sensor GND
+tps|TPS – Throttle Position|Engine|a|Potentiometer or Hall on the throttle shaft; drive-by-wire uses two opposing tracks|0.5 V closed – 4.5 V open|Throttle body|Driver demand and rate: acceleration enrichment, idle control, fuel cut-off|Surging idle, flat acceleration|3: 5V · signal · GND (6 if dual)
+app|APP – Accelerator Pedal Position|Engine|a|Twin Hall/pot tracks, second at half slope, cross-checked for safety|0.5–4.5 V and 0.25–2.25 V|Pedal assembly|Torque request sent to the electronic throttle|Limp mode, high idle|6: 2 × (5V · signal · GND)
+ckp|CKP – Crankshaft Position|Engine|v|VR magnet coil or Hall reads a 60-2 tooth wheel; the gap marks a TDC reference|AC sine (up to ±50 V) or square|Flywheel / crank pulley|Engine speed and exact angle; sets injection and ignition timing|No start, no spark, stalling|2–3: shielded pair or 5V · sig · GND
+cmp|CMP – Camshaft Position|Engine|d|Hall sensor on a cam target; identifies cylinder 1 compression stroke|5 V or 12 V square wave|Cylinder head / cam cover|Phase for sequential injection, coil-on-plug and VVT|Long cranking, limp start|3: supply · signal · GND
+knk|Knock Sensor|Engine|v|Piezo crystal makes voltage from block vibration (5–15 kHz)|AC mV–V burst|Engine block|Detects detonation; ECU retards timing per cylinder|Pinging, power loss|2: shielded signal + shield
+frp|Fuel Rail Pressure|Engine|a|Strain-gauge diaphragm; pressure flexes it|0.5–4.5 V (to 2000 bar diesel)|Fuel rail|Closed-loop pump control and injection correction|Hard start, power loss|3: 5V · signal · GND
+oilp|Oil Pressure|Engine|s|Warning switch to ground, or variable-resistance / piezo sender|Switch or 0.5–4.5 V|Oil gallery|Warns of lubrication loss and protects the engine|Warning lamp, false alarms|1–3 wires
+o2|O2 / Lambda – Upstream|Emissions|a|Zirconia cell (0.1–0.9 V) or wideband pump cell; heater brings it to ≈350 °C|0.1–0.9 V swing or wideband 0–5 V|Exhaust manifold, before catalyst|Closed-loop fuel trim to hold λ = 1|High fuel use, failed emissions|4: heater 12V · heater GND · signal · sig GND
+o2d|O2 – Downstream|Emissions|a|Same cell placed after the catalyst; signal stays steady|≈0.6–0.8 V steady|After catalytic converter|Monitors catalyst efficiency (P0420)|Catalyst code, MIL on|4 wires as upstream
+vss|VSS – Output Shaft Speed|Drivetrain|d|Hall or VR sensor over a tone ring|Square/AC wave, frequency ∝ speed|Transmission tail housing|Vehicle speed for cluster, cruise control and shift logic|Erratic speedometer, harsh shifts|2–3 wires
+whl|Wheel Speed (ABS)|Chassis|v|Passive VR, or active Hall/MR that works down to 0 km/h|AC sine or 7/14 mA pulses|Each wheel hub|Detects lock-up and slip for ABS, traction and stability control|ABS lamp on|2 per wheel
+sas|Steering Angle|Chassis|c|Optical or Hall coded ring in the clock spring|CAN message, ±780°|Steering column|Driver intent for ESC, lane keeping and power steering|ESC fault, off-centre wheel|4: 12V · GND · CAN H · CAN L
+imu|Yaw Rate / Accelerometer|Chassis|c|MEMS vibrating-structure gyro plus capacitive accelerometer|CAN, up to 100 Hz|Centre tunnel|Compares actual yaw and lateral g with driver input for ESC|ESC/ABS lamp|4: 12V · GND · CAN H/L
+brk|Brake Pressure / Pedal Switch|Chassis|s|Piezo cell in master cylinder; switch closes on pedal travel|0.5–4.5 V or 12 V switch|Master cylinder / pedal|Brake lights, cruise cancel, brake-by-wire and ESC pressure|Stop lamps stuck, cruise off|2–3 wires
+tpms|TPMS – Tyre Pressure|Chassis|c|Wheel-mounted pressure and temperature cell with a battery RF transmitter|RF 315/433 MHz|Inside each wheel|Warns of under-inflation|TPMS lamp|Wireless
+acc|Crash / Airbag Accelerometer|Safety|c|MEMS accelerometer senses sudden deceleration|Digital CAN / PSI5|Bumper, B-pillar, ECU|Decides airbag and pretensioner deployment|SRS lamp|2–4: shielded twisted pair
+ultra|Ultrasonic Parking Sensor|Safety|p|Piezo transducer sends a 40–58 kHz pulse; echo time gives distance|Pulse-width / LIN|Bumpers|Near-field obstacle distance|Beeping or silent|3: 12V · GND · LIN
+radar|Radar / Camera / Lidar (ADAS)|Safety|c|77 GHz radar, laser lidar or CMOS camera with vision processing|CAN-FD / Ethernet object list|Grille, windshield|Adaptive cruise, emergency braking, lane and sign detection|ADAS unavailable|Power + data (coax / Ethernet)
+rain|Rain / Light Sensor|Body|a|Infrared reflection from the glass, or a photodiode|Analog or LIN|Windshield|Auto wipers and headlamps|Erratic wipers|3: 12V · GND · LIN
+bat|Battery Sensor (IBS)|Body|c|Shunt resistor with an ADC on the negative terminal|LIN data|Battery negative clamp|State of charge, alternator control, start-stop|Battery warning|Clamp + LIN`.split('\n').map(r=>{const[i,n,g,t,p,o,l,f,x,w]=r.split('|');return{i,n,g,t,p,o,l,f,x,w}});
+const $=s=>document.querySelector(s),
+w=(d,c)=>`<path d="${d}" stroke="${c||'var(--text-dim)'}" style="stroke-width:1.5"/>`,
+tx=(x,y,s,a)=>`<text class="sm" x="${x}" y="${y}" text-anchor="${a||'start'}">${s}</text>`,
+dt=(y)=>`<circle cx="200" cy="${y}" r="3" fill="var(--accent)"/>`,
+RR=(x,y,h)=>`<rect class="bx" x="${x}" y="${y}" width="14" height="${h}" rx="2"/>`,
+BR=['Bridge + amp',['5V ref','SIG','GND']],HL=['Hall IC',['VCC','OUT','GND']],CN=['Sensor node',['12V','GND','CAN H','CAN L']],
+CK={map:BR,frp:BR,brk:BR,maf:['Hot film + IC',['12V','SIG','GND']],cmp:HL,vss:HL,knk:['Piezo crystal',['SIG','SHIELD']],o2:['ZrO₂ cell + heater',['HTR +12V','HTR GND','SIG','SIG GND']],o2d:['ZrO₂ cell + heater',['HTR +12V','HTR GND','SIG','SIG GND']],oilp:['Switch / sender',['SIG','GND']],sas:CN,imu:CN,acc:CN};
+function circ(id){let b='';
+ if(id=='tps'||id=='app')b=w('M200 20H90V32M200 90H90V78')+RR(83,32,46)+w('M150 55H97M150 55H200')+'<polygon points="97,55 104,51 104,59" fill="var(--text-dim)"/>'+dt(20)+dt(55)+dt(90)+tx(208,24,'5V ref')+tx(208,59,'SIG')+tx(208,94,'GND')+tx(110,49,'wiper');
+ else if(id=='iat'||id=='ect')b=w('M60 10V22M60 52V64M60 58H200M60 94V104H200')+RR(53,22,30)+RR(53,64,30)+w('M47 96L73 62')+dt(58)+dt(104)+tx(66,14,'ECU 5 V')+tx(80,40,'pull-up')+tx(80,84,'NTC')+tx(208,62,'SIG')+tx(208,108,'GND');
+ else if(id=='ckp'||id=='whl')b=w('M70 55a7 7 0 0 1 14 0a7 7 0 0 1 14 0a7 7 0 0 1 14 0a7 7 0 0 1 14 0')+w('M70 55H50V28H200M126 55H146V82H200')+'<rect class="bx" x="84" y="70" width="28" height="12"/>'+tx(98,80,'magnet','middle')+dt(28)+dt(82)+tx(208,32,'SIG +')+tx(208,86,'SIG −');
+ else{const[l,p]=CK[id]||['Sensor module',['12V','GND','LIN / CAN']],n=p.length;b='<rect class="bx" x="50" y="10" width="110" height="90" rx="8"/>'+tx(105,58,l,'middle');
+  p.forEach((q,i)=>{const y=n==1?55:24+i*62/(n-1);b+=w(`M160 ${y}H200`)+dt(y)+tx(208,y+4,q)})}
+ return`<svg viewBox="0 0 270 112" aria-hidden="true">${b}</svg>`}
+const rowsHTML=d=>`<div class="ck">${circ(d.i)}</div><dl class="dt"><dt>Principle</dt><dd>${d.p}</dd><dt>Output</dt><dd>${d.o}</dd><dt>Location</dt><dd>${d.l}</dd><dt>Fault signs</dt><dd>${d.x}</dd><dt>Wiring</dt><dd>${d.w}</dd></dl>`;
+
+/* catalogue */
+const groups=['All',...new Set(D.map(d=>d.g))];let cur='All';
+function drawCat(){
+  $('#fl').innerHTML=groups.map(g=>`<button class="chip${g===cur?' on':''}" data-g="${g}">${g}</button>`).join('');
+  $('#cl').innerHTML=D.filter(d=>cur==='All'||d.g===cur).map(d=>`<details class="sn" style="--c:${TT[d.t][1]}"><summary><span>${d.n}</span><span class="tag">${TT[d.t][0]}</span></summary><p class="fn">${d.f}</p>${rowsHTML(d)}</details>`).join('');
+}
+$('#fl').onclick=e=>{const g=e.target.dataset.g;if(g){cur=g;drawCat()}};drawCat();
+
+/* schematic */
+const L=[['map','MAP','5G'],['maf','MAF / IAT','BG'],['ect','ECT','G'],['tps','TPS / APP','5G'],['ckp','CKP',''],['cmp','CMP','BG'],['knk','KNOCK',''],['o2','O2 UPSTREAM','BG'],['o2d','O2 DOWNSTREAM','BG'],['frp','FUEL PRESSURE','5G']],
+A=[['Injectors ×4','Low-side PWM'],['Ignition coils ×4','Dwell / spark'],['E-throttle motor','H-bridge PWM'],['Fuel pump relay','On / off'],['VVT solenoid','PWM'],['EVAP / EGR valve','PWM'],['Cooling fan relay','On / off'],['A/C clutch relay','On / off']],
+N=['ABS/ESC','TCU','BCM','Cluster','OBD-II'];
+let h=`<rect class="ecu" x="380" y="14" width="140" height="534" rx="12"/><text x="450" y="270" text-anchor="middle" style="font-size:18px">ECU / PCM</text><text class="sm" x="450" y="288" text-anchor="middle">Engine control module</text>
+<path d="M16 110V632H345V586" stroke="#a3e635"/><text class="sm" x="22" y="627" style="fill:#a3e635">SWITCHED +12 V (sensor heaters, Hall supply)</text><text class="sm" x="2" y="104" style="fill:#a3e635">12V</text>
+<text class="sm" x="100" y="38">SENSORS (inputs)</text><text class="sm" x="660" y="38">ACTUATORS (outputs)</text>
+<path d="M40 24V468M40 24H380" stroke="#ef4444"/><text x="46" y="20" style="fill:#ef4444;font-size:9px">5 V REFERENCE</text>
+<path d="M62 74V530H380" stroke="#94a3b8"/><text class="sm" x="68" y="524">SENSOR GROUND</text>`;
+L.forEach(([id,l,pn],i)=>{const y=46+i*46,c=TT[D.find(d=>d.i===id).t][1];
+[['5',40,8,'#ef4444'],['B',16,18,'#a3e635'],['G',62,28,'#94a3b8']].forEach(([k,x,o,cc])=>{if(pn.includes(k))h+=`<path d="M${x} ${y+o}H100" stroke="${cc}"/><circle cx="${x}" cy="${y+o}" r="3" fill="${cc}"/>`});
+h+=`
+<g class="sn" data-id="${id}" tabindex="0" role="button" aria-label="${l}"><rect class="bx" x="100" y="${y}" width="150" height="36" rx="8"/><text x="112" y="${y+22}">${l}</text><path class="sig" d="M250 ${y+18}H380" stroke="${c}"/><polygon points="370,${y+13} 380,${y+18} 370,${y+23}" fill="${c}"/></g>`});
+A.forEach(([n,s],i)=>{const y=46+i*56;
+h+=`<path class="drv" d="M520 ${y+20}H652"/><polygon points="652,${y+15} 660,${y+20} 652,${y+25}" fill="#f97316"/><rect class="bx" x="660" y="${y}" width="220" height="40" rx="8"/><text x="672" y="${y+17}">${n}</text><text class="sm" x="672" y="${y+31}">${s}</text>`});
+h+=`<path d="M110 586H150M200 586H215M285 586H400V548" stroke="#a3e635"/><rect class="bx" x="30" y="566" width="80" height="40" rx="6"/><text x="70" y="590" text-anchor="middle">12 V BAT</text>
+<rect class="bx" x="150" y="574" width="50" height="24" rx="4"/><text class="sm" x="175" y="590" text-anchor="middle">FUSE</text><rect class="bx" x="215" y="574" width="70" height="24" rx="4"/><text class="sm" x="250" y="590" text-anchor="middle">MAIN RELAY</text><text class="sm" x="330" y="580">B+ / IGN</text>
+<path d="M450 548V566M438 566H462M443 571H457M448 576H452" stroke="#94a3b8"/><text class="sm" x="436" y="574" text-anchor="end">POWER GND</text>
+<path d="M500 548V580H880" stroke="#f472b6"/><path d="M510 548V588H880" stroke="#f472b6" style="opacity:.6"/><text class="sm" x="530" y="574">CAN H / CAN L  (120 Ω terminated)</text>`;
+h+=`<text class="sm" x="660" y="500">Loads are fed +12 V from the main relay;</text><text class="sm" x="660" y="512">the ECU switches the ground (low) side.</text>`;
+N.forEach((n,i)=>{const x=560+i*64;h+=`<rect class="bx" x="${x}" y="600" width="58" height="22" rx="5"/><text class="sm" x="${x+29}" y="614" text-anchor="middle" style="fill:var(--text)">${n}</text><path d="M${x+29} 588V600" stroke="#f472b6"/>`});
+$('#sv').innerHTML=h;
+$('#lg').innerHTML=[...Object.values(TT).slice(0,5).map(([n,c])=>`<span><i style="background:${c}"></i>${n}</span>`),'<span><i style="background:#ef4444"></i>5 V reference</span>','<span><i style="background:#a3e635"></i>12 V supply</span>','<span><i style="background:#94a3b8"></i>Ground</span>','<span><i style="background:#f97316"></i>Actuator drive</span>'].join('');
+function pick(id){document.querySelectorAll('.sn.sel').forEach(e=>e.classList.remove('sel'));const g=document.querySelector(`g.sn[data-id="${id}"]`);g&&g.classList.add('sel');
+  const d=D.find(x=>x.i===id);$('#wd').innerHTML=`<h3 style="color:${TT[d.t][1]}">${d.n}</h3><p class="fn">${d.f}</p>${rowsHTML(d)}`}
+$('#sv').addEventListener('click',e=>{const g=e.target.closest('g.sn');g&&pick(g.dataset.id)});
+$('#sv').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const g=e.target.closest('g.sn');g&&(e.preventDefault(),pick(g.dataset.id))}});
+
+/* live simulator */
+let K=0;
+function live(){
+  const r=+$('#rpm').value,t=+$('#thr').value,c=+$('#ect').value;
+  $('#vr').textContent=r;$('#vt').textContent=t;$('#vc').textContent=c;
+  const kpa=Math.min(101,25+.55*t+r/7000*20),R=2500*Math.exp(3500*(1/(c+273.15)-1/298.15));
+  K=kpa;$('#r1').textContent=(.5+4*t/100).toFixed(2)+' V';
+  $('#r2').textContent=kpa.toFixed(0)+' kPa';
+  $('#r3').textContent=(r/60*58).toFixed(0)+' Hz';
+  $('#r4').textContent=(5*R/(R+2490)).toFixed(2)+' V';
+  $('#r5').textContent=!r?'Engine off':c>=70?'0.1 ↔ 0.9 V (closed loop)':'Open loop (warming)';
+  const s=$('#sv');s.classList.toggle('run',r>0);s.style.setProperty('--d',Math.max(.25,2.4-r/3200)+'s');draw();
+}
+/* oscilloscope */
+const SG={ckp:['CKP · VR 60-2 tooth wheel (slow-motion)','v'],cmp:['CMP · Hall square wave','d'],map:['MAP · manifold pulsation','a'],o2:['O2 · narrowband (closed loop)','a'],knk:['Knock · combustion vibration bursts','v']},cv=$('#sc'),cx=cv.getContext('2d'),RM=matchMedia('(prefers-reduced-motion:reduce)').matches;
+let sel='ckp',off=0,tt=0,lt=0,vis=true;
+$('#sg').innerHTML=Object.keys(SG).map(k=>`<button class="chip" data-k="${k}">${k.toUpperCase()}</button>`).join('');
+$('#sg').onclick=e=>{if(e.target.dataset.k){sel=e.target.dataset.k;draw()}};
+function val(ph,r,c,th,t){switch(sel){
+ case'ckp':{const q=ph*60,k=Math.floor(q)%60;return r&&k<58?Math.sin(q%1*6.283)*Math.min(1,.3+r/4000):0}
+ case'cmp':return r&&(ph/2)%1<.25?.8:-.8;
+ case'map':return K/101*1.6-.8+(r?.12*Math.sin(ph*12.566):0);
+ case'o2':return!r?-.8:c<70?0:.75*Math.tanh(3*Math.sin(t*7));
+ default:return(Math.random()-.5)*.1+(r?Math.exp(-(ph*2%1)*14)*Math.sin(ph*200)*th:0)}}
+function draw(){
+ const d=devicePixelRatio||1,W=cv.clientWidth,H=170;if(!W)return;
+ if(cv.width!==Math.round(W*d)){cv.width=Math.round(W*d);cv.height=H*d}
+ cx.setTransform(d,0,0,d,0,0);cx.clearRect(0,0,W,H);
+ const st=getComputedStyle(document.body),r=+$('#rpm').value,c=+$('#ect').value,th=+$('#thr').value/100,win=sel=='ckp'?1.2:4;
+ document.querySelectorAll('#sg .chip').forEach(b=>b.classList.toggle('on',b.dataset.k==sel));
+ cx.strokeStyle=st.getPropertyValue('--border-hi');cx.lineWidth=1;cx.beginPath();for(let i=1;i<4;i++){cx.moveTo(0,i*H/4);cx.lineTo(W,i*H/4)}cx.stroke();
+ cx.strokeStyle=TT[SG[sel][1]][1];cx.lineWidth=2;cx.beginPath();
+ for(let x=0;x<=W;x+=2){const y=H/2-val(off+x/W*win,r,c,th,tt+x/W)*H*.42;x?cx.lineTo(x,y):cx.moveTo(x,y)}cx.stroke();
+ cx.fillStyle=st.getPropertyValue('--text-dim');cx.font='12px sans-serif';cx.fillText(SG[sel][0]+(r?'':' — engine off'),10,16)}
+function tick(ts){const dt=Math.min(.1,(ts-lt)/1000||0);lt=ts;if(vis&&!RM){off+=$('#rpm').value/60*dt*.04;tt+=dt;draw()}requestAnimationFrame(tick)}
+new IntersectionObserver(e=>vis=e[0].isIntersecting).observe(cv);addEventListener('resize',draw);requestAnimationFrame(tick);
+document.querySelectorAll('input[type=range]').forEach(i=>i.oninput=live);live();
+
+/* theme (standalone toggle + Auto Lab shell messages) */
+function setTheme(l){document.documentElement.classList.toggle('light-theme',l);document.body.classList.toggle('light-theme',l)}
+$('#th').onclick=()=>setTheme(!document.documentElement.classList.contains('light-theme'));
+addEventListener('message',e=>{const d=e.data;if(d&&d.source==='auto-shell'&&d.action==='setTheme')setTheme(d.value==='light')});
+</script>
+</body>
+</html>

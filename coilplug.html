@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Coil-on-Plug Ignition — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #f97316; }
+html.light-theme { --al-accent: color-mix(in oklch, #f97316 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId": "coilplug", "title": "Coil-on-Plug Ignition", "kicker": "Ignition", "accent": "#f97316", "badge": "One coil per cylinder", "camPos": [3.4, 3.2, 7.4], "target": [0, 0.2, 0], "floorY": -1.6, "ctl": {"label": "Engine speed", "val": 30, "caption": "RPM"}, "chipLabel": "Engine speed", "rows": [["dwell", "Dwell"], ["sps", "Sparks / s"]], "ro": [["rpm", "Engine speed"], ["dwell", "Dwell time"], ["sps", "Sparks per second"], ["cyl", "Firing cylinder"], ["order", "Firing order"]], "legend": [["#fb923c", "Coil charging"], ["#a5f3fc", "Spark"], ["#94a3b8", "Wiring to ECU"]], "overview": "<div class=\"al-sec\"><h4>No plug leads<\/h4><p>Each spark plug has its own coil sitting directly on top. This removes the distributor and HT leads, cutting energy loss and giving the ECU exact control of each spark.<\/p><\/div><div class=\"al-sec\"><h4>Dwell<\/h4><p>The ECU switches the coil primary on for a “dwell” time to build magnetic energy, then switches it off – the collapsing field induces 20–40 kV in the secondary.<\/p><\/div><div class=\"al-sec\"><h4>Firing order<\/h4><p>For an inline-4 the common firing order is 1-3-4-2, so power strokes are evenly spread every 180° of crank rotation.<\/p><\/div>", "faults": [["Failed coil", "Single-cylinder misfire, flashing check-engine light, P030x codes.", "Swap the coil with another cylinder; if the misfire follows, the coil is bad."], ["Cracked boot", "Spark tracking, misfire in the rain.", "Inspect the rubber boot for carbon tracks; look for oil in the plug well."], ["Low dwell voltage", "Weak spark at high rpm.", "Check battery voltage, coil supply fuse and ground."]], "quiz": [["What is dwell?", ["Time the coil is charging", "Spark plug gap", "Fuel injection time"], 0, "Dwell is the primary-current-on time during which the coil stores energy."], ["Firing order of a typical inline-4:", ["1-2-3-4", "1-3-4-2", "4-3-2-1"], 1, "1-3-4-2 spaces the power strokes evenly."], ["Advantage of coil-on-plug:", ["Needs distributor", "No HT leads, precise control", "Cheaper coils"], 1, "Fewer losses and independent control of each cylinder."]]};
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H){
+ const {box,cyl,sph,mat,glass,pipe,lc,clamp,THREE}=H;
+ box(5.4,.7,1.7,glass(0x94a3b8,.28),0,-1.05,0); box(5.4,.1,1.7,mat(0x3d4555,.5,.5),0,-1.45,0);
+ const xs=[-1.95,-.65,.65,1.95], coils=[], sparks=[];
+ xs.forEach((x,i)=>{
+   const m=new THREE.MeshStandardMaterial({color:0x111827,metalness:.3,roughness:.5,emissive:0xfb923c,emissiveIntensity:0});
+   cyl(.25,.25,1.5,m,x,.2,0); box(.34,.32,.34,mat(0x1f2937,.3,.6),x,1.1,0);
+   cyl(.16,.21,.55,mat(0xb91c1c,.1,.7),x,-.5,0); cyl(.08,.08,.5,mat(0xcbd5e1,.8,.3),x,-.95,0);
+   const sm=new THREE.MeshBasicMaterial({color:0xa5f3fc,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending});
+   sparks.push(sph(.22,sm,x,-1.25,0)); coils.push(m);
+ });
+ box(1.8,.5,1.0,mat(0x1e293b,.4,.5),0,2.0,-1.1);
+ xs.forEach(x=>pipe([[x*.3,2.0,-1.1],[x*.6,1.7,-.7],[x,1.35,-.15],[x,1.2,0]],.035,mat(0x94a3b8,.3,.6)));
+ const order=[0,2,3,1];
+ return {
+  labels:[['ECU',[0,2.45,-1.1]],['Ignition coil',[-1.95,1.25,0]],['Rubber boot',[-.65,-.5,.3]],['Spark plug',[.65,-1.0,.5]],['Cylinder head',[1.95,-1.5,.9]]],
+  update(c){
+   const rpm=800+5700*c.k, dwell=4.0-2.2*c.k, interval=30000/rpm, frac=clamp(dwell/interval,0,.95);
+   const p=(c.t*rpm/3000)%1, slot=Math.floor(p*4), u=p*4-slot, cur=order[slot], nxt=order[(slot+1)%4];
+   for(let i=0;i<4;i++){
+     let e=0, s=0;
+     if(i===nxt&&u>1-frac) e=(u-(1-frac))/frac;
+     if(i===cur&&u<.2){ e=.0; s=1-u/.2; }
+     coils[i].emissiveIntensity=e*1.6; sparks[i].material.opacity=s*.85;
+   }
+   return {big:rpm.toFixed(0),unit:' rpm',bar:c.k*100,rows:{dwell:dwell.toFixed(1)+' ms',sps:(rpm/30).toFixed(0)},
+    ro:{rpm:[rpm.toFixed(0),'hi'],dwell:[dwell.toFixed(1)+' ms',''],sps:[(rpm/30).toFixed(0)+' /s',''],cyl:['#'+(cur+1),'ok'],order:['1-3-4-2','']},
+    status:['Firing #'+(cur+1),true],ctl:rpm.toFixed(0)+' rpm'};
+  }};
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

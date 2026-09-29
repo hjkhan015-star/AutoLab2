@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d13">
+<title>Exhaust System — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  /* ═══════ PANEL READOUT INTERIOR — live rows ═══════ */
+  #ex-readout {
+    display: flex; flex-direction: column; gap: 5px;
+    margin-top: 6px;
+    font-size: 11.5px; color: var(--text-dim, #94a3b8);
+  }
+  #ex-readout .ex-row {
+    display: flex; justify-content: space-between; gap: 10px;
+    font-family: var(--font-mono);
+  }
+  #ex-readout .ex-row > span:first-child {
+    font-family: var(--font-sans);
+    font-weight: 500;
+  }
+  #ex-readout .ex-row b {
+    color: var(--text, #e5e7eb); font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  html.light-theme #ex-readout .ex-row b { color: #0a0d13; }
+
+  /* ═══════ Catalyst chemistry block (inside info panel) ═══════ */
+  #cat-chem {
+    margin-top: 12px; padding-top: 10px;
+    border-top: 1px solid var(--border, rgba(255,255,255,.10));
+    font-size: 11px; color: var(--text-dim, #94a3b8);
+  }
+  #cat-chem .cc-title {
+    font-size: 10px; font-weight: 800; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-mute, #64748b);
+    margin: 12px 0 5px;
+  }
+  #cat-chem .cc-title:first-child { margin-top: 0; }
+  #cat-chem .cc-seg { display: flex; gap: 4px; }
+  #cat-chem .lam-btn {
+    flex: 1; padding: 6px 2px; border-radius: 8px;
+    background: var(--surface-2, rgba(255,255,255,.06));
+    border: 1px solid var(--border, rgba(255,255,255,.10));
+    color: var(--text, #e5e7eb);
+    font-size: 11px; font-weight: 800; line-height: 1.25;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  #cat-chem .lam-btn small {
+    font-size: 10px; font-weight: 600; opacity: .7;
+    font-family: var(--font-mono);
+  }
+  #cat-chem .lam-btn.active { color: #0b0e14; border-color: transparent; background: #22c55e; }
+  #cat-chem .lam-btn[data-lam="rich"].active { background: #ef4444; }
+  #cat-chem .lam-btn[data-lam="lean"].active { background: #3b82f6; }
+  #cat-chem .cc-note { margin-top: 7px; line-height: 1.5; }
+  #cat-chem .cc-eff {
+    display: grid; grid-template-columns: 50px 1fr 104px;
+    align-items: center; gap: 8px; margin: 5px 0;
+  }
+  #cat-chem .cc-eff b {
+    text-align: right; color: var(--text, #e5e7eb);
+    font-family: var(--font-mono);
+    font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  #cat-chem .cc-bar, #cat-chem .cc-act {
+    height: 6px; border-radius: 99px; overflow: hidden;
+    background: var(--surface-3, rgba(255,255,255,.08));
+  }
+  #cat-chem .cc-act { height: 4px; }
+  #cat-chem .cc-bar i, #cat-chem .cc-act i {
+    display: block; height: 100%; width: 0; border-radius: 99px;
+    background: currentColor; transition: width .25s linear;
+  }
+  #cat-chem .cc-grp { margin: 11px 0 3px; font-size: 10px; font-weight: 800; letter-spacing: .03em; }
+  #cat-chem .cc-rx {
+    display: grid; grid-template-columns: 8px 1fr 38px;
+    align-items: center; gap: 8px; padding: 3px 0;
+  }
+  #cat-chem .cc-dot { width: 8px; height: 8px; border-radius: 50%; }
+  #cat-chem .cc-eq {
+    font-family: var(--font-mono);
+    font-size: 10.5px; line-height: 1.4; color: var(--text, #e5e7eb);
+  }
+  html.light-theme #cat-chem .cc-eq, html.light-theme #cat-chem .cc-eff b { color: #0a0d13; }
+
+  .ex-legend {
+    display: flex; flex-wrap: wrap; gap: 6px 12px;
+    margin-top: 10px; padding-top: 8px;
+    border-top: 1px solid var(--border, rgba(255,255,255,.08));
+    font-size: 10px; font-weight: 800; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--text-dim, #9aa3b2);
+  }
+  .ex-legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .ex-legend i {
+    width: 7px; height: 7px; border-radius: 50%;
+    display: inline-block; box-shadow: 0 0 6px currentColor;
+    background: currentColor;
+  }
+
+  /* ═══════ WIDGET — sound panel (bottom-left) ═══════ */
+  #sound-panel {
+    display: flex; flex-direction: column; gap: 8px;
+    background: rgba(10,14,20,.88);
+    border: 1px solid var(--border, rgba(255,255,255,.10));
+    border-radius: 14px; padding: 10px 12px;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 10px 28px rgba(0,0,0,.5);
+    min-width: 210px; color: var(--text, #e5e7eb);
+  }
+  html.light-theme #sound-panel {
+    background: rgba(255,255,255,.95);
+    border-color: rgba(15,23,42,.14); color: #0a0d13;
+  }
+  #sound-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 9px 12px; border-radius: 10px;
+    background: rgba(239,68,68,.14);
+    border: 1px solid rgba(239,68,68,.4);
+    color: #fca5a5;
+    font-size: 11px; font-weight: 800; letter-spacing: .08em;
+    text-transform: uppercase; cursor: pointer;
+    transition: all .2s; font-family: inherit;
+  }
+  #sound-toggle svg { width: 15px; height: 15px; }
+  #sound-toggle:hover { background: rgba(239,68,68,.22); }
+  #sound-toggle.on {
+    background: linear-gradient(135deg,#22c55e,#4ade80);
+    color: #0a1a0e; border-color: transparent;
+    box-shadow: 0 0 14px rgba(34,197,94,.5);
+  }
+  #muffler-types { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .muf-btn {
+    padding: 7px 4px; border-radius: 8px;
+    border: 1px solid var(--border, rgba(255,255,255,.10));
+    background: rgba(255,255,255,.04); color: var(--text-dim, #94a3b8);
+    font-size: 10px; font-weight: 800; letter-spacing: .03em;
+    text-transform: uppercase; cursor: pointer;
+    transition: all .18s; font-family: inherit; line-height: 1.15;
+  }
+  .muf-btn:hover { color: var(--text, #e5e7eb); border-color: rgba(255,255,255,.25); }
+  .muf-btn.active {
+    background: linear-gradient(135deg,#f59e0b,#fbbf24);
+    color: #0a0d13; border-color: transparent;
+    box-shadow: 0 3px 12px rgba(245,158,11,.35);
+  }
+  html.light-theme .muf-btn {
+    background: rgba(15,23,42,.05);
+    border-color: rgba(15,23,42,.12); color: #475569;
+  }
+  #spectrum-strip {
+    width: 100%; height: 46px; border-radius: 6px;
+    background: rgba(0,0,0,.35); display: block;
+  }
+  html.light-theme #spectrum-strip { background: rgba(15,23,42,.06); }
+  #spectrum-label {
+    display: flex; justify-content: space-between;
+    font-size: 10px; letter-spacing: .08em; color: #64748b;
+    text-transform: uppercase; font-weight: 800;
+  }
+
+  /* ═══════ Toolbar extras config switcher ═══════ */
+  .cfg-group {
+    display: flex; align-items: center; gap: 4px;
+    padding-left: 8px; margin-left: 4px;
+    border-left: 1px solid var(--border, rgba(255,255,255,.10));
+  }
+  .cfg-arrow {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: none; background: rgba(255,255,255,.08);
+    color: var(--text, #e5e7eb); font-size: 14px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-family: inherit; padding: 0;
+    transition: background .15s, color .15s;
+  }
+  .cfg-arrow:hover, .cfg-arrow:active {
+    background: var(--accent, #38bdf8); color: #0b0e14;
+  }
+  #cfg-label {
+    min-width: 96px; text-align: center; white-space: nowrap;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .02em;
+    color: var(--text, #e5e7eb);
+    font-family: var(--font-mono);
+  }
+  html.light-theme .cfg-arrow { background: rgba(15,23,42,.08); color: #0a0d13; }
+  html.light-theme #cfg-label { color: #0a0d13; }
+  @media (max-width: 600px) {
+    .cfg-arrow { width: 19px; height: 19px; font-size: 12px; }
+    #cfg-label { min-width: 76px; font-size: 10px; }
+    #sound-panel { min-width: 180px; padding: 8px 10px; gap: 6px; }
+    .muf-btn { font-size: 10px; padding: 6px 3px; }
+    #spectrum-strip { height: 38px; }
+  }
+</style>
+</head>
+<body>
+  <div id="canvas-wrap"></div>
+  <div id="labels-root"></div>
+
+  <script src="guard.js"></script>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  } }
+  </script>
+
+  <script type="module">
+  import * as THREE from 'three';
+  import * as Base from './kit.js';
+import { Parts } from './components.js';
+  import { UI } from './kit.js';
+
+  const TAU = Base.TAU;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  const TUNING = {
+    prLen: 5.0, prR: 0.35, prBaffleX: [-1.0, 1.0],
+    waveSpeedScale: 0.0029, waveRpmSpeedup: 1.6, waveSpawnBase: 0.55,
+    coldStartDur: 10,
+    catalyst: { lightOffStart: 240, lightOffFull: 420, maxTemp: 850 },
+    flowFullRate: 0.25
+  };
+
+  const isCoarse = matchMedia('(pointer: coarse)').matches;
+  const cores    = navigator.hardwareConcurrency || 4;
+  const mem      = navigator.deviceMemory || 4;
+  const isLowEnd = cores <= 4 || mem <= 2;
+
+  const { scene, camera, renderer, controls, wrap, viewManager } = Base.buildScene({
+    fov: 42,
+    camPos: isCoarse ? [2.6, 1.9, 4.8] : [3.0, 2.1, 5.2],
+    target: [0, 0, 0], floorY: -2.15
+  });
+  Base.attachResize(camera, renderer, wrap, 42);
+  const particleTex = Base.createParticleTexture();
+  const labels = Base.createLabelSystem();
+  const state = Base.createUIState();
+
+  /* ═══════════════════════════════════════════════════════════
+     MATERIALS
+     ═══════════════════════════════════════════════════════════ */
+  const M = {
+    steel:       new THREE.MeshStandardMaterial({ color:0xa8b0be, metalness:0.88, roughness:0.28 }),
+    steelDark:   new THREE.MeshStandardMaterial({ color:0x3d4555, metalness:0.78, roughness:0.40 }),
+    chrome:      new THREE.MeshStandardMaterial({ color:0xe0e6ef, metalness:0.95, roughness:0.12 }),
+    shell:       new THREE.MeshStandardMaterial({
+      color:0x8a93a5, metalness:0.70, roughness:0.35,
+      transparent:true, opacity:0.28, depthWrite:false, side:THREE.DoubleSide
+    }),
+    cut:         new THREE.MeshStandardMaterial({
+      color:0xf0703a, metalness:0.10, roughness:0.55,
+      emissive:0xf0703a, emissiveIntensity:0.28, side:THREE.DoubleSide
+    }),
+    pipeGlass:   new THREE.MeshStandardMaterial({
+      color:0x9bb6cc, metalness:0.55, roughness:0.16,
+      transparent:true, opacity:0.24, depthWrite:false, side:THREE.FrontSide
+    }),
+    pipeSolid:   new THREE.MeshStandardMaterial({ color:0x8a93a5, metalness:0.72, roughness:0.35 }),
+    baffle:      new THREE.MeshStandardMaterial({ color:0x6b7280, metalness:0.70, roughness:0.45 }),
+    perforated:  new THREE.MeshStandardMaterial({ color:0xb87333, metalness:0.80, roughness:0.35 }),
+    packing:     new THREE.MeshStandardMaterial({
+      color:0xd4c4a8, metalness:0.02, roughness:0.95,
+      transparent:true, opacity:0.42, depthWrite:false
+    }),
+    honeycomb:   new THREE.MeshStandardMaterial({
+      color:0xd4a34a, metalness:0.85, roughness:0.28,
+      emissive:0xff6600, emissiveIntensity:0
+    }),
+    o2Body:      new THREE.MeshStandardMaterial({ color:0x9aa3b0, metalness:0.85, roughness:0.30 }),
+    manifold:    new THREE.MeshStandardMaterial({ color:0x8a5a3a, metalness:0.85, roughness:0.35 }),
+    engine:      new THREE.MeshStandardMaterial({ color:0x6a7383, metalness:0.62, roughness:0.50 }),
+    engineCut:   new THREE.MeshStandardMaterial({
+      color:0xc45c2a, metalness:0.15, roughness:0.70, side:THREE.DoubleSide
+    }),
+    ecu:         new THREE.MeshStandardMaterial({ color:0x1a1f2a, metalness:0.35, roughness:0.62 }),
+    wireGreen:   new THREE.MeshStandardMaterial({
+      color:0x22c55e, metalness:0.25, roughness:0.55,
+      emissive:0x22c55e, emissiveIntensity:0.15
+    }),
+    glassTube:   new THREE.MeshStandardMaterial({
+      color: 0xaebfd2, metalness: 0.35, roughness: 0.22,
+      transparent: true, opacity: 0.10, side: THREE.DoubleSide, depthWrite: false
+    })
+  };
+
+  function applyThermalGradient(mesh, T_in, T_out) {
+    const g = mesh.geometry;
+    if (!g.attributes.position) return;
+    const pos = g.attributes.position;
+    const count = pos.count;
+    let minX = Infinity, maxX = -Infinity;
+    for (let i = 0; i < count; i++) {
+      const x = pos.getX(i);
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+    }
+    const span = Math.max(1e-6, maxX - minX);
+    const colorArr = new Float32Array(count * 3);
+    const cHot  = new THREE.Color().setHSL(0.045, 0.95, 0.55);
+    const cMid  = new THREE.Color().setHSL(0.10,  0.55, 0.42);
+    const cCool = new THREE.Color().setHSL(0.58,  0.35, 0.42);
+    for (let i = 0; i < count; i++) {
+      const t = (pos.getX(i) - minX) / span;
+      const c = t < 0.5
+        ? cHot.clone().lerp(cMid, t * 2)
+        : cMid.clone().lerp(cCool, (t - 0.5) * 2);
+      colorArr[i * 3]     = c.r;
+      colorArr[i * 3 + 1] = c.g;
+      colorArr[i * 3 + 2] = c.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
+    if (Array.isArray(mesh.material)) {
+      mesh.material.forEach(m => { m.vertexColors = true; m.color.set(0xffffff); m.needsUpdate = true; });
+    } else {
+      mesh.material = mesh.material.clone();
+      mesh.material.vertexColors = true;
+      mesh.material.color.set(0xffffff);
+      mesh.material.needsUpdate = true;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     GEOMETRY HELPERS
+     ═══════════════════════════════════════════════════════════ */
+  const rootGroup = new THREE.Group();
+  scene.add(rootGroup);
+
+  const principleView = new THREE.Group();
+  const compareView   = new THREE.Group();
+  const catalystView  = new THREE.Group();
+  const fullView      = new THREE.Group();
+  rootGroup.add(principleView, compareView, catalystView, fullView);
+
+  function makeCyl(r, len, mat, orient = 'x') {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 24), mat);
+    if (orient === 'x') m.rotation.z = Math.PI / 2;
+    else if (orient === 'z') m.rotation.x = Math.PI / 2;
+    return m;
+  }
+  function makeCutCyl(r, len, mat, orient = 'x', arcStart = Math.PI * 0.15, arcLen = Math.PI * 1.65) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 32, 1, true, arcStart, arcLen), mat);
+    if (orient === 'x') m.rotation.z = Math.PI / 2;
+    return m;
+  }
+  const tubeBetween = Parts.tubeBetween;
+  const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
+
+  /* ═══════════════════════════════════════════════════════════
+     PHYSICS HELPERS
+     ═══════════════════════════════════════════════════════════ */
+  function speedOfSound(T_celsius) {
+    return Math.sqrt(1.4 * 287 * (T_celsius + 273.15));
+  }
+  function gasTempAt(x, len) {
+    const t = clamp((x + len / 2) / len, 0, 1);
+    return 700 - 450 * t;
+  }
+  function localWaveSpeed(x, len) {
+    return speedOfSound(gasTempAt(x, len)) * TUNING.waveSpeedScale;
+  }
+  function conversionFromTemp(T) {
+    const k = Math.max(0, (T - TUNING.catalyst.lightOffStart) /
+                          (TUNING.catalyst.lightOffFull - TUNING.catalyst.lightOffStart));
+    return 1 - Math.exp(-Math.pow(k, 2.2));
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     WAVE TUBE FACTORY
+     ═══════════════════════════════════════════════════════════ */
+  const ringGeo = new THREE.RingGeometry(0.10, 0.24, 24, 1);
+
+  function createWaveTube({ y = 0, baffles = [], hasPacking = false, len = TUNING.prLen, r = TUNING.prR } = {}) {
+    const group = new THREE.Group();
+    group.position.y = y;
+
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(r, r, len, 32, 1, true), M.glassTube
+    );
+    body.rotation.z = Math.PI / 2;
+    group.add(body);
+
+    [-len / 2, len / 2].forEach(xOff => {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 8, 32), M.steelDark);
+      ring.rotation.y = Math.PI / 2;
+      ring.position.x = xOff;
+      group.add(ring);
+    });
+
+    if (baffles.length) {
+      baffles.forEach(xOff => {
+        const baffle = new THREE.Mesh(
+          new THREE.CylinderGeometry(r - 0.02, r - 0.02, 0.04, 32), M.baffle
+        );
+        baffle.rotation.z = Math.PI / 2;
+        baffle.position.x = xOff;
+        group.add(baffle);
+        const hole = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.10, 0.10, 0.06, 16), M.steelDark
+        );
+        hole.rotation.z = Math.PI / 2;
+        hole.position.set(xOff, 0.15, 0);
+        group.add(hole);
+      });
+      if (hasPacking) {
+        const packing = new THREE.Mesh(
+          new THREE.CylinderGeometry(r - 0.04, r - 0.04, len - 0.10, 32, 1, true), M.packing
+        );
+        packing.rotation.z = Math.PI / 2;
+        group.add(packing);
+      }
+    }
+
+    const inlet = makeCyl(0.12, 1.0, M.pipeGlass, 'x');
+    inlet.position.x = -len / 2 - 0.55;
+    group.add(inlet);
+    const outlet = makeCyl(0.12, 1.0, M.pipeGlass, 'x');
+    outlet.position.x = len / 2 + 0.55;
+    group.add(outlet);
+
+    const source = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0xff3b3b, transparent: true, opacity: 0.85,
+        blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    source.position.set(-len / 2 - 1.15, 0, 0);
+    group.add(source);
+
+    const output = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.70,
+        blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    output.position.set(len / 2 + 1.15, 0, 0);
+    group.add(output);
+
+    const waves = [];
+    for (let i = 0; i < 40; i++) {
+      const mat = new THREE.MeshBasicMaterial({ color: 0xff3b3b, transparent: true, opacity: 0,
+        side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+      const m = new THREE.Mesh(ringGeo, mat);
+      m.rotation.y = Math.PI / 2;
+      m.visible = false;
+      group.add(m);
+      waves.push({ mesh: m, x: 0, amp: 0, life: 0 });
+    }
+
+    const reflections = [];
+    for (let i = 0; i < 24; i++) {
+      const mat = new THREE.MeshBasicMaterial({ color: 0xff9a3b, transparent: true, opacity: 0,
+        side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+      const m = new THREE.Mesh(ringGeo, mat);
+      m.rotation.y = Math.PI / 2;
+      m.visible = false;
+      group.add(m);
+      reflections.push({ mesh: m, x: 0, dir: -1, amp: 0, life: 0 });
+    }
+
+    const bars = [];
+    [[-2.10, 0xff3b3b], [0.00, 0xf59e0b], [2.10, 0x4ade80]].forEach(([bx, color]) => {
+      const g = new THREE.Group();
+      g.position.set(bx, -r - 0.55, 0);
+      group.add(g);
+      const track = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.90, 0.09),
+        new THREE.MeshBasicMaterial({ color: 0x1a1f28 }));
+      track.position.y = -0.45;
+      g.add(track);
+      const fillGeo = new THREE.BoxGeometry(0.075, 0.85, 0.075);
+      fillGeo.translate(0, 0.425, 0);
+      const fill = new THREE.Mesh(fillGeo, new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.88,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      }));
+      fill.position.y = -0.85;
+      fill.scale.y = 0.10;
+      g.add(fill);
+      bars.push({ x: bx, fill });
+    });
+
+    return { group, len, r, baffles, waves, reflections, bars, source, output, spawnTimer: 0 };
+  }
+
+  function spawnWave(tube, x, amp) {
+    for (const w of tube.waves) {
+      if (w.life > 0) continue;
+      w.x = x; w.amp = amp; w.life = 1;
+      w.mesh.material.color.setHex(0xff3b3b);
+      w.mesh.visible = true;
+      return true;
+    }
+    return false;
+  }
+  function spawnReflection(tube, x, dir, amp) {
+    for (const r of tube.reflections) {
+      if (r.life > 0) continue;
+      r.x = x; r.dir = dir; r.amp = amp; r.life = 1;
+      r.mesh.material.color.setHex(0xff9a3b);
+      r.mesh.visible = true;
+      return true;
+    }
+    return false;
+  }
+
+  function updateWaveTube(tube, dt, rf, sm, time) {
+    const { len, waves, reflections, baffles } = tube;
+    const rpmScale = 0.7 + rf * TUNING.waveRpmSpeedup;
+
+    tube.spawnTimer += dt;
+    const interval = clamp(TUNING.waveSpawnBase / (0.45 + rf), 0.18, 1.2);
+    if (tube.spawnTimer > interval) {
+      tube.spawnTimer = 0;
+      spawnWave(tube, -len / 2 - 1.15, 1);
+    }
+
+    for (const w of waves) {
+      if (w.life <= 0) { w.mesh.visible = false; continue; }
+      const prevX = w.x;
+      w.x += dt * localWaveSpeed(w.x, len) * rpmScale;
+      for (const bx of baffles) {
+        if (prevX < bx && w.x >= bx) {
+          if (sm.reflect > 0.02) spawnReflection(tube, bx, -1, w.amp * sm.reflect);
+          w.amp *= (1 - sm.reflect);
+          if (sm.atten < 1) w.mesh.material.color.lerp(new THREE.Color(0x4ade80), 0.45);
+        }
+      }
+      if (w.x > len / 2 + 1.15) { w.life = 0; w.mesh.visible = false; continue; }
+      w.mesh.position.set(w.x, 0, 0);
+      w.mesh.scale.setScalar(0.55 + w.amp * 1.55);
+      w.mesh.material.opacity = 0.25 + w.amp * 0.70;
+    }
+
+    for (const r of reflections) {
+      if (r.life <= 0) { r.mesh.visible = false; continue; }
+      r.x += dt * r.dir * localWaveSpeed(r.x, len) * rpmScale;
+      const edge = len / 2 + 1.15;
+      if ((r.dir < 0 && r.x < -edge) || (r.dir > 0 && r.x > edge)) {
+        r.life = 0; r.mesh.visible = false; continue;
+      }
+      r.mesh.position.set(r.x, 0, 0);
+      r.mesh.scale.setScalar(0.45 + r.amp * 1.4);
+      r.mesh.material.opacity = 0.55 * r.amp;
+    }
+
+    for (const bar of tube.bars) {
+      let peak = 0;
+      for (const w of waves) {
+        if (w.life <= 0) continue;
+        const d = Math.abs(w.x - bar.x);
+        if (d < 1.3) peak = Math.max(peak, w.amp * (1 - d / 1.3));
+      }
+      bar.fill.scale.y += (0.08 + peak - bar.fill.scale.y) * Math.min(1, dt * 6);
+    }
+
+    const pulse = 0.5 + 0.5 * Math.sin(time * 6);
+    tube.source.material.opacity = 0.55 + pulse * 0.35;
+    tube.source.scale.setScalar(0.85 + pulse * 0.25);
+    tube.output.material.opacity = 0.40 + 0.25 * Math.sin(time * 6 + 1);
+  }
+
+  function resetWaveTube(tube) {
+    tube.waves.forEach(w => { w.life = 0; w.mesh.visible = false; });
+    tube.reflections.forEach(r => { r.life = 0; r.mesh.visible = false; });
+    tube.bars.forEach(b => { b.fill.scale.y = 0.10; });
+    tube.spawnTimer = 0;
+  }
+
+  const principleTube = createWaveTube({ y: 0, baffles: TUNING.prBaffleX, hasPacking: true });
+  principleView.add(principleTube.group);
+
+  const compareTopTube = createWaveTube({ y: 1.0, baffles: TUNING.prBaffleX, hasPacking: true });
+  const compareBotTube = createWaveTube({ y: -1.0, baffles: [], hasPacking: false });
+  compareView.add(compareTopTube.group, compareBotTube.group);
+
+  labels.add('cmp-sil',   'Silenced · ~78 dB');
+  labels.add('cmp-str',   'Straight pipe · ~96 dB');
+  const compareLabels = [
+    { id:'cmp-sil', text:'Silenced · ~78 dB', pos: v3(-3.0, 1.55, 0) },
+    { id:'cmp-str', text:'Straight pipe · ~96 dB', pos: v3(-3.0, -0.45, 0) }
+  ];
+
+  /* ═══════════════════════════════════════════════════════════
+     CATALYST VIEW
+     ═══════════════════════════════════════════════════════════ */
+  const CAT_R = 0.34;
+  const CAT_LEN = 1.05;
+
+  catalystView.add(makeCutCyl(CAT_R, CAT_LEN, M.shell, 'x'));
+
+  [-CAT_LEN / 2, CAT_LEN / 2].forEach(xOff => {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(CAT_R - 0.03, 0.030, 10, 32, Math.PI * 1.65), M.steelDark
+    );
+    ring.rotation.y = Math.PI / 2;
+    ring.rotation.z = Math.PI * 0.325;
+    ring.position.x = xOff;
+    catalystView.add(ring);
+  });
+
+  const catCut = new THREE.Mesh(new THREE.RingGeometry(0.05, CAT_R, 32), M.cut);
+  catCut.rotation.y = -Math.PI / 2;
+  catCut.position.x = -CAT_LEN / 2 - 0.001;
+  catalystView.add(catCut);
+
+  const catInPipe = makeCyl(0.11, 0.55, M.pipeGlass, 'x');
+  catInPipe.position.set(-CAT_LEN / 2 - 0.28, 0, 0);
+  catalystView.add(catInPipe);
+  const catOutPipe = makeCyl(0.11, 0.55, M.pipeGlass, 'x');
+  catOutPipe.position.set(CAT_LEN / 2 + 0.28, 0, 0);
+  catalystView.add(catOutPipe);
+
+  const HC_SIDE = isLowEnd ? 10 : 14;
+  const cellSize = (CAT_R * 1.55) / HC_SIDE;
+  const cellLen = CAT_LEN * 0.75;
+  const cellGeo = new THREE.BoxGeometry(cellLen, cellSize * 0.78, cellSize * 0.78);
+  const honeyGroup = new THREE.Group();
+  catalystView.add(honeyGroup);
+  for (let i = 0; i < HC_SIDE; i++) {
+    for (let j = 0; j < HC_SIDE; j++) {
+      const cy = (i - (HC_SIDE - 1) / 2) * cellSize;
+      const cz = (j - (HC_SIDE - 1) / 2) * cellSize;
+      if (Math.hypot(cy, cz) > CAT_R * 0.94) continue;
+      const cell = new THREE.Mesh(cellGeo, M.honeycomb);
+      cell.position.set(0, cy, cz);
+      honeyGroup.add(cell);
+    }
+  }
+  const hcCut = new THREE.Mesh(new THREE.PlaneGeometry(CAT_R * 1.5, CAT_R * 1.5), M.engineCut);
+  hcCut.rotation.y = -Math.PI / 2;
+  hcCut.position.set(-cellLen / 2 - 0.001, 0, 0);
+  catalystView.add(hcCut);
+
+  function makeO2(xPos) {
+    const g = new THREE.Group();
+    g.position.set(xPos, CAT_R - 0.05, 0);
+    catalystView.add(g);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.14, 12), M.o2Body);
+    body.rotation.z = Math.PI / 2;
+    g.add(body);
+    const hex = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.035, 6), M.steelDark);
+    hex.rotation.z = Math.PI / 2;
+    hex.position.x = 0.055;
+    g.add(hex);
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.020, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.85,
+        blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    glow.position.x = -0.08;
+    g.add(glow);
+    return glow;
+  }
+  const preO2glow  = makeO2(-CAT_LEN / 2 - 0.15);
+  const postO2glow = makeO2( CAT_LEN / 2 + 0.15);
+
+  const ecuBox = new THREE.Group();
+  ecuBox.position.set(0, 0.90, -0.35);
+  catalystView.add(ecuBox);
+  ecuBox.add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.32, 0.22), M.ecu));
+  const ecuLed = new THREE.Mesh(
+    new THREE.SphereGeometry(0.022, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0x22c55e })
+  );
+  ecuLed.position.set(0.20, 0.10, 0.115);
+  ecuBox.add(ecuLed);
+
+  catalystView.add(tubeBetween(v3(-CAT_LEN / 2 - 0.15, CAT_R + 0.02, 0), v3(-CAT_LEN / 2 - 0.15, 0.75, 0), 0.009, M.wireGreen));
+  catalystView.add(tubeBetween(v3(-CAT_LEN / 2 - 0.15, 0.75, 0), v3(-0.28, 0.90, -0.30), 0.009, M.wireGreen));
+  catalystView.add(tubeBetween(v3( CAT_LEN / 2 + 0.15, CAT_R + 0.02, 0), v3( CAT_LEN / 2 + 0.15, 0.75, 0), 0.009, M.wireGreen));
+  catalystView.add(tubeBetween(v3( CAT_LEN / 2 + 0.15, 0.75, 0), v3( 0.28, 0.90, -0.30), 0.009, M.wireGreen));
+
+  const CAT_N = isLowEnd ? 30 : 60;
+  const catFlowGeo = new THREE.BufferGeometry();
+  const catFlowPos = new Float32Array(CAT_N * 3);
+  const catFlowCol = new Float32Array(CAT_N * 3);
+  catFlowGeo.setAttribute('position', new THREE.BufferAttribute(catFlowPos, 3));
+  catFlowGeo.setAttribute('color',    new THREE.BufferAttribute(catFlowCol, 3));
+  const catFlowPts = new THREE.Points(catFlowGeo, new THREE.PointsMaterial({
+    map: particleTex, size: 0.10, sizeAttenuation: true,
+    vertexColors: true, transparent: true, opacity: 0.9,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  catFlowPts.frustumCulled = false;
+  catalystView.add(catFlowPts);
+
+  const catFlowData = [];
+  for (let i = 0; i < CAT_N; i++) {
+    catFlowData.push({
+      x: -CAT_LEN / 2 - 0.30 + Math.random() * (CAT_LEN + 0.60),
+      y: (Math.random() - 0.5) * CAT_R * 1.5,
+      z: (Math.random() - 0.5) * CAT_R * 1.5,
+      speed: 0.6 + Math.random() * 0.6,
+      j: 0.6 + Math.random() * 0.4,
+      species: i % 3,
+      converted: 0
+    });
+  }
+
+  const lightOffRing = new THREE.Mesh(
+    new THREE.TorusGeometry(CAT_R + 0.03, 0.018, 8, 40),
+    new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  lightOffRing.rotation.y = Math.PI / 2;
+  catalystView.add(lightOffRing);
+
+  const catLabelDefs = [
+    { id:'cat-pre',   text:'Pre-cat O₂',          pos: v3(-CAT_LEN/2 - 0.20, CAT_R + 0.50, 0) },
+    { id:'cat-shell', text:'Stainless steel',      pos: v3(0, CAT_R + 0.28, 0) },
+    { id:'cat-hc',    text:'Honeycomb · Pt/Pd/Rh', pos: v3(0, -CAT_R - 0.30, 0) },
+    { id:'cat-post',  text:'Post-cat O₂',          pos: v3(CAT_LEN/2 + 0.20, CAT_R + 0.50, 0) },
+    { id:'cat-ecu',   text:'ECU · closed-loop',    pos: v3(0, 1.20, -0.35) }
+  ];
+  catLabelDefs.push(
+    { id:'cat-in',  text:'CO · HC · NOx in',    pos: v3(-0.95, -0.02, 0), tier: 2 },
+    { id:'cat-out', text:'CO₂ · H₂O · N₂ out',  pos: v3( 0.95, -0.02, 0), tier: 2 },
+    { id:'cat-eq',  text:'CO → CO₂ · HC → CO₂ + H₂O · NOx → N₂', pos: v3(0, -CAT_R - 0.62, 0), tier: 2 }
+  );
+  catLabelDefs.forEach(d => labels.add(d.id, d.text, d.tier || 1));
+
+  /* ═══════════════════════════════════════════════════════════
+     FULL SYSTEM VIEW
+     ═══════════════════════════════════════════════════════════ */
+  const FS_MAN = -3.2, FS_CAT = -1.55, FS_RES = -0.10, FS_MUF = 1.30, FS_TAIL = 2.85;
+
+  const engBlock = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.62), M.engine);
+  engBlock.position.set(FS_MAN - 0.55, 0.15, 0);
+  engBlock.castShadow = true;
+  fullView.add(engBlock);
+
+  const manifoldGroup = new THREE.Group();
+  manifoldGroup.position.set(FS_MAN, 0, 0);
+  fullView.add(manifoldGroup);
+
+  [0.40, 0.22, 0.04, -0.14].forEach(startY => {
+    const curve = new THREE.CatmullRomCurve3([
+      v3(-0.12, startY, 0), v3(0.18, startY - 0.10, 0),
+      v3(0.55, 0.14, 0), v3(0.92, 0.05, 0)
+    ]);
+    manifoldGroup.add(new THREE.Mesh(
+      new THREE.TubeGeometry(curve, 20, 0.05, isLowEnd ? 8 : 10, false), M.manifold
+    ));
+  });
+  const collector = makeCyl(0.12, 0.35, M.manifold, 'x');
+  collector.position.set(1.05, 0.05, 0);
+  manifoldGroup.add(collector);
+
+  const downpipe = makeCyl(0.09, 0.35, M.pipeSolid.clone(), 'x');
+  downpipe.position.set(-1.95, 0.05, 0);
+  applyThermalGradient(downpipe, 700, 620);
+  fullView.add(downpipe);
+
+  const fsCatShell = makeCutCyl(0.24, 1.00, M.shell, 'x');
+  fsCatShell.position.x = FS_CAT;
+  fullView.add(fsCatShell);
+
+  const honeycombFullMat = M.honeycomb.clone();
+  honeycombFullMat.emissiveIntensity = 0.05;
+  for (let i = 0; i < 6; i++) {
+    for (let j = 0; j < 6; j++) {
+      const cy = (i - 2.5) * 0.07, cz = (j - 2.5) * 0.07;
+      if (Math.hypot(cy, cz) > 0.20) continue;
+      const cell = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.052, 0.052), honeycombFullMat);
+      cell.position.set(FS_CAT, cy, cz);
+      fullView.add(cell);
+    }
+  }
+  [-0.50, 0.50].forEach(xOff => {
+    const cap = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.030, 8, 24), M.steelDark);
+    cap.rotation.y = Math.PI / 2;
+    cap.position.set(FS_CAT + xOff, 0, 0);
+    fullView.add(cap);
+  });
+
+  const midpipe1 = makeCyl(0.10, 0.60, M.pipeSolid.clone(), 'x');
+  midpipe1.position.set(-0.70, 0.05, 0);
+  applyThermalGradient(midpipe1, 560, 430);
+  fullView.add(midpipe1);
+
+  const fsResonator = makeCutCyl(0.20, 0.55, M.shell, 'x');
+  fsResonator.position.x = FS_RES;
+  fullView.add(fsResonator);
+  const resBranch = makeCyl(0.045, 0.20, M.perforated, 'y');
+  resBranch.position.set(FS_RES, 0.30, 0);
+  fullView.add(resBranch);
+
+  const midpipe2 = makeCyl(0.10, 0.50, M.pipeSolid.clone(), 'x');
+  midpipe2.position.set(0.35, 0.05, 0);
+  applyThermalGradient(midpipe2, 400, 300);
+  fullView.add(midpipe2);
+
+  const fsMufflerShell = makeCutCyl(0.32, 1.55, M.shell, 'x');
+  fsMufflerShell.position.x = FS_MUF;
+  fullView.add(fsMufflerShell);
+  [-0.42, 0, 0.42].forEach(xOff => {
+    const baffle = makeCyl(0.28, 0.025, M.baffle, 'x');
+    baffle.position.x = FS_MUF + xOff;
+    fullView.add(baffle);
+  });
+  const fsInletTube = makeCyl(0.07, 1.05, M.perforated, 'x');
+  fsInletTube.position.set(FS_MUF, -0.14, 0);
+  fullView.add(fsInletTube);
+
+  const tailpipe = makeCyl(0.10, 1.35, M.pipeSolid.clone(), 'x');
+  tailpipe.position.set(FS_MUF + 1.45, 0.05, 0);
+  applyThermalGradient(tailpipe, 280, 150);
+  fullView.add(tailpipe);
+
+  const tailTip = makeCyl(0.12, 0.28, M.chrome, 'x');
+  tailTip.position.set(FS_TAIL + 0.72, 0.05, 0);
+  fullView.add(tailTip);
+
+  const FS_N = isLowEnd ? 70 : 120;
+  const fsFlowGeo = new THREE.BufferGeometry();
+  const fsFlowPos = new Float32Array(FS_N * 3);
+  const fsFlowCol = new Float32Array(FS_N * 3);
+  fsFlowGeo.setAttribute('position', new THREE.BufferAttribute(fsFlowPos, 3));
+  fsFlowGeo.setAttribute('color',    new THREE.BufferAttribute(fsFlowCol, 3));
+  const fsFlowPts = new THREE.Points(fsFlowGeo, new THREE.PointsMaterial({
+    map: particleTex, size: 0.10, sizeAttenuation: true,
+    vertexColors: true, transparent: true, opacity: 0.9,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  fsFlowPts.frustumCulled = false;
+  fullView.add(fsFlowPts);
+
+  const fsFlowPath = [
+    v3(FS_MAN - 0.25, 0.30, 0), v3(FS_MAN + 0.60, 0.20, 0), v3(FS_MAN + 1.00, 0.05, 0),
+    v3(FS_CAT, 0.05, 0), v3(FS_RES, 0.05, 0),
+    v3(FS_MUF - 0.55, 0.05, 0), v3(FS_MUF - 0.20, -0.14, 0), v3(FS_MUF + 0.50, -0.14, 0),
+    v3(FS_MUF + 0.90, 0.05, 0), v3(FS_TAIL + 0.60, 0.05, 0)
+  ];
+  const fsSegLens = [];
+  let fsPathTotal = 0;
+  for (let i = 0; i < fsFlowPath.length - 1; i++) {
+    const l = fsFlowPath[i].distanceTo(fsFlowPath[i + 1]);
+    fsSegLens.push(l);
+    fsPathTotal += l;
+  }
+  const fsFlowData = [];
+  for (let i = 0; i < FS_N; i++) {
+    fsFlowData.push({ t: Math.random(), speed: 0.5 + Math.random() * 0.5, j: Math.random() });
+  }
+
+  const fsLabelDefs = [
+    { id:'fs-eng',  text:'Engine · 4 cyl',      pos: v3(FS_MAN - 0.55, 0.80, 0) },
+    { id:'fs-man',  text:'Exhaust manifold',    pos: v3(FS_MAN + 0.55, 0.60, 0) },
+    { id:'fs-cat',  text:'Catalytic converter', pos: v3(FS_CAT, 0.45, 0) },
+    { id:'fs-res',  text:'Resonator',           pos: v3(FS_RES, 0.42, 0) },
+    { id:'fs-muf',  text:'Muffler',             pos: v3(FS_MUF, 0.55, 0) },
+    { id:'fs-tail', text:'Tailpipe',            pos: v3(FS_TAIL + 0.45, 0.35, 0) }
+  ];
+  fsLabelDefs.forEach(d => labels.add(d.id, d.text));
+
+  /* ═══════════════════════════════════════════════════════════
+     MODE INFO + SND MODES
+     ═══════════════════════════════════════════════════════════ */
+  const MODE_INFO = {
+    principle: {
+      badge: 'Principle · How a Silencer Works', badgeColor: '#0ea5e9',
+      title: 'Exhaust System · Working Principle',
+      desc: `<strong>Every exhaust pulse is a pressure wave.</strong> Your ear reads those waves as noise. A silencer attacks them three ways at once:
+             <br><br>
+             <strong>1 · Reflection.</strong> A pressure wave meeting a baffle bounces part of itself back toward the engine — watch the <em>orange rings</em>. Two waves travelling opposite directions <em>cancel</em> wherever peaks meet troughs.
+             <br><br>
+             <strong>2 · Absorption.</strong> Fibreglass packing converts high-frequency acoustic energy into a tiny amount of heat.
+             <br><br>
+             <strong>3 · Tuning.</strong> Quarter-wave tubes and Helmholtz chambers resonate at exactly the frequency that drones worst in the cabin.
+             <br><br>
+             Switch the sound panel between <em>With Silencer</em> and <em>Straight Pipe</em> to hear the difference.`
+    },
+    compare: {
+      badge: 'Compare · Silencer vs Straight Pipe', badgeColor: '#f59e0b',
+      title: 'Exhaust System · Side-by-Side',
+      desc: `<strong>Two pipes, one source.</strong> Top tube has baffles and packing; bottom is a straight-through pipe.
+             <br><br>
+             In the silenced tube each baffle <em>sends a portion backward</em> (orange rings) and lets only the remainder through. By the tailpipe almost nothing remains. In the straight pipe every wave arrives at full strength.
+             <br><br>
+             That's the whole trick: <em>redirect the energy, don't try to absorb it all</em>.`
+    },
+    catalyst: {
+      badge: 'Three-Way Catalyst', badgeColor: '#22c55e',
+      title: 'Exhaust System · Catalytic Converter',
+      desc: `<strong>The catalyst is why modern engines run clean.</strong> Exhaust flows through a ceramic honeycomb coated with a few grams of platinum, palladium and rhodium. Three reactions happen at once: <em>CO → CO₂</em>, <em>HC → H₂O + CO₂</em>, <em>NOx → N₂</em>.
+             <br><br>
+             It only works when the air-fuel ratio is held inside ±1% around λ = 1 — the pre-cat and post-cat O₂ sensors let the ECU trim fuelling in closed loop. And it needs heat: <em>light-off</em> near 270 °C. Until then, emissions pass straight through — the reason short trips are the dirtiest driving a car ever does.`
+    },
+    full: {
+      badge: 'Full System Tour', badgeColor: '#38bdf8',
+      title: 'Exhaust System · Full Layout',
+      desc: `<strong>Every metre of pipe is a tuned instrument.</strong> The <strong>manifold</strong> merges four runners into one pulse stream, the <strong>catalyst</strong> cleans the flow, the <strong>resonator</strong> kills mid-range drone, and the <strong>muffler</strong> sets the final voice of the car.
+             <br><br>
+             Note the colour: gas leaves the head near <em>700 °C</em> and cools to roughly <em>150 °C</em> at the tip. Backpressure at the tailpipe is felt all the way back at the exhaust valves — trading a little power for silence is the eternal compromise.`
+    }
+  };
+
+  MODE_INFO.catalyst.desc = `<strong>Three jobs, one honeycomb.</strong> Exhaust flows through thousands of ceramic channels coated with a few grams of platinum, palladium and rhodium. Two families of reaction run side by side:
+             <br><br>
+             <strong>Oxidation (Pt / Pd)</strong> — CO → CO₂, and unburnt fuel (HC) → CO₂ + H₂O. These <em>need oxygen</em>.
+             <br>
+             <strong>Reduction (Rh)</strong> — NOx → N₂. This needs a reducer (CO, HC or H₂) and <em>no spare O₂</em>.
+             <br><br>
+             That is the catch: one wants oxygen, the other doesn't. Only at <em>λ = 1</em> (14.7 : 1 air to fuel) are both happy, so the ECU trims fuel by about ±1 % from the pre-cat sensor while the post-cat sensor checks the catalyst is doing its job. <em>Ceria (CeO₂)</em> in the coating stores O₂ when lean and gives it back when rich, widening the window slightly.
+             <br><br>
+             Use <em>Rich / Stoich / Lean</em> below and watch which pollutant slips through. Heat matters too: <em>light-off ≈ 250–300 °C</em>, so most trip emissions leave in the first minute. Lead, sulphur, oil ash and misfires (raw fuel burning inside the brick above 1000 °C) all destroy a catalyst.`;
+
+  const SND_MODES = {
+    silencer: { name:'Silencer',      dB: 78, atten: 0.42, reflect: 0.55, gain: 0.34, noise: 0.45, q: 1.2 },
+    straight: { name:'Straight Pipe', dB: 96, atten: 1.00, reflect: 0.05, gain: 0.80, noise: 1.00, q: 7.0 }
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     UI — kit chrome + sound widget
+     ═══════════════════════════════════════════════════════════ */
+  /* State — declared before UI.create's onMount runs */
+  let mode = 'principle';
+  let sndMode = 'silencer';
+  let time = 0, runTime = 0, catT = 20, rpm = 2880;
+  const isCold = () => runTime < TUNING.coldStartDur;
+  const backpressure = () => sndMode === 'silencer' ? 95 : 18;
+  const bpLossFactor = () => sndMode === 'silencer' ? 0.035 : 0.0;
+
+  /* Sound widget refs */
+  let specCanvas = null, specCtx = null, specW = 0, specH = 0;
+  let soundToggleEl = null, soundLabelEl = null, specNoteEl = null;
+
+  const ui = UI.create({
+    moduleId: 'exhaustsystem',
+
+    panel: {
+      kicker: 'Emissions & Acoustics',
+      title:  'Exhaust System · Working Principle',
+      badge:  { text: 'Principle', color: '#f59e0b' },
+      readout: `
+        <div id="ex-readout">
+          <div class="ex-row"><span data-ex="r1l">Input amplitude</span><b data-ex="r1">100 %</b></div>
+          <div class="ex-row"><span data-ex="r2l">Mid chamber</span><b data-ex="r2">— %</b></div>
+          <div class="ex-row"><span data-ex="r3l">Tailpipe output</span><b data-ex="r3">— %</b></div>
+        </div>
+      `,
+      desc: MODE_INFO.principle.desc
+    },
+
+    chip: {
+      label: 'Noise reduction',
+      value: 0,
+      unit:  '% cut',
+      bar:   true,
+      rows: [
+        { id: 'eng',  label: 'Engine',  value: '— rpm' },
+        { id: 'bp',   label: 'Back',    value: '— mbar' }
+      ],
+      status: { text: 'Silenced', on: true }
+    },
+
+    toolbar: {
+      play: true, reset: true,
+      speed: { label: 'Engine RPM', min: 0.15, max: 2.5, step: 0.05, value: 1.00 },
+      labels: true, gas: true
+    },
+
+    widgets: {
+      bl: {
+        caption: 'Acoustic',
+        html: `
+          <div id="sound-panel">
+            <button id="sound-toggle" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+                <path d="M15.5 9a4.5 4.5 0 0 1 0 6"/>
+                <path d="M18 6.5a8 8 0 0 1 0 11"/>
+              </svg>
+              <span id="sound-label">Enable Sound</span>
+            </button>
+            <div id="muffler-types">
+              <button class="muf-btn active" data-type="silencer">With Silencer</button>
+              <button class="muf-btn" data-type="straight">Straight Pipe</button>
+            </div>
+            <div>
+              <div id="spectrum-label"><span>Acoustic spectrum</span><span id="spec-note">Silencer</span></div>
+              <canvas id="spectrum-strip" aria-label="Live acoustic spectrum"></canvas>
+            </div>
+          </div>
+        `,
+        onMount: (el) => wireSoundWidget(el)
+      }
+    }
+  });
+
+  /* Panel readout refs */
+  const panelBody = ui.panel.body;
+  const exR1l = panelBody ? panelBody.querySelector('[data-ex="r1l"]') : null;
+  const exR2l = panelBody ? panelBody.querySelector('[data-ex="r2l"]') : null;
+  const exR3l = panelBody ? panelBody.querySelector('[data-ex="r3l"]') : null;
+  const exR1  = panelBody ? panelBody.querySelector('[data-ex="r1"]')  : null;
+  const exR2  = panelBody ? panelBody.querySelector('[data-ex="r2"]')  : null;
+  const exR3  = panelBody ? panelBody.querySelector('[data-ex="r3"]')  : null;
+
+  const badgeEl       = document.getElementById('stroke-badge');
+  const badgeTextEl   = document.getElementById('badge-text');
+  const moduleTitleEl = document.getElementById('module-title');
+  const moduleKickerEl= document.getElementById('module-kicker');
+  const strokeDescEl  = document.getElementById('stroke-desc');
+
+  /* ═══════════════════════════════════════════════════════════
+     THREE-WAY CATALYST CHEMISTRY
+     ═══════════════════════════════════════════════════════════ */
+  const LAMBDA = { rich: 0.97, stoich: 1.00, lean: 1.03 };
+  let catLam = 'stoich';
+  let oscLevel = 0.5;                       /* ceria oxygen store, 0..1 */
+  const catEff = { co: 0, hc: 0, nox: 0 };  /* conversion 0..1 */
+  const catPPM = { co: 0, hc: 0, nox: 0 };  /* tailpipe ppm */
+  const catLight = () => 1 / (1 + Math.exp(-(catT - 290) / 25));  /* light-off S-curve, T50 ≈ 290 °C */
+  const catRich = () => clamp((1 - LAMBDA[catLam]) / 0.03, 0, 1);
+  const catLean = () => clamp((LAMBDA[catLam] - 1) / 0.03, 0, 1);
+
+  function catLambdaNow() {
+    /* closed-loop ECU dithers the mixture around 1.000 */
+    return catLam === 'stoich' ? 1 + 0.008 * Math.sin(time * 3) : LAMBDA[catLam];
+  }
+
+  function stepCatChem(dt) {
+    const lam = catLambdaNow();
+    if (catLam === 'rich')      oscLevel = Math.max(0, oscLevel - dt * 0.05);
+    else if (catLam === 'lean') oscLevel = Math.min(1, oscLevel + dt * 0.05);
+    else                        oscLevel += (0.5 - oscLevel) * Math.min(1, dt * 0.3);
+
+    const light  = catLight();
+    const rawOx  = lam >= 1 ? 1 : clamp(1 - (1 - lam) * 22, 0.10, 1);
+    const rawNox = lam <= 1 ? 1 : clamp(1 - (lam - 1) * 25, 0.10, 1);
+    /* ceria buffers: rich -> releases stored O2 (helps oxidation)
+                      lean -> soaks up spare O2 (helps NOx) until full */
+    const ox  = clamp(rawOx  + (lam < 1 ? oscLevel * 0.55 : 0),       0.05, 1);
+    const nox = clamp(rawNox + (lam > 1 ? (1 - oscLevel) * 0.55 : 0), 0.05, 1);
+    catEff.co  = 0.98 * ox  * light;
+    catEff.hc  = 0.96 * ox  * light;
+    catEff.nox = 0.97 * nox * light;
+
+    const rich = Math.max(0, 1 - lam), lean = Math.max(0, lam - 1);
+    const coIn  = lam <= 1 ? 4000 + rich * 300000 : 1500;
+    const hcIn  = lam <= 1 ? 900 + rich * 10000   : 700;
+    const noxIn = lam <= 1 ? 1800 - rich * 20000  : 1800 + lean * 30000;
+    catPPM.co  = coIn  * (1 - catEff.co);
+    catPPM.hc  = hcIn  * (1 - catEff.hc);
+    catPPM.nox = noxIn * (1 - catEff.nox);
+  }
+
+  function catStatus() {
+    if (catLight() < 0.5)    return { text: 'Below light-off',   on: false };
+    if (catLam === 'rich')   return { text: 'Rich · CO/HC slip', on: false };
+    if (catLam === 'lean')   return { text: 'Lean · NOx slip',   on: false };
+    return { text: 'In the λ window', on: true };
+  }
+
+  function setChipLabel(text) {
+    const root = ui.chip && ui.chip.root;
+    const el = root && root.querySelector('.ui-chip-label');
+    if (el && el.textContent !== text) el.textContent = text;
+  }
+
+  const lightOf = catLight;
+  const CAT_GROUPS = [
+    { name: 'Oxidation · Pt / Pd', color: '#ef4444', rows: [
+      { eq: '2 CO + O₂ → 2 CO₂',                    act: () => catEff.co },
+      { eq: 'C₃H₆ + 4.5 O₂ → 3 CO₂ + 3 H₂O',        act: () => catEff.hc } ] },
+    { name: 'Reduction · Rh', color: '#3b82f6', rows: [
+      { eq: '2 NO + 2 CO → N₂ + 2 CO₂',             act: () => catEff.nox },
+      { eq: '2 NO + 2 H₂ → N₂ + 2 H₂O',             act: () => catEff.nox * (0.2 + 0.8 * catRich()) } ] },
+    { name: 'Oxygen storage · CeO₂', color: '#14b8a6', rows: [
+      { eq: 'Ce₂O₃ + ½ O₂ → 2 CeO₂   (lean: stores)',  act: () => lightOf() * (0.1 + 0.9 * catLean() * (1 - oscLevel)) },
+      { eq: '2 CeO₂ + CO → Ce₂O₃ + CO₂   (rich: gives)', act: () => lightOf() * (0.1 + 0.9 * catRich() * oscLevel) } ] },
+    { name: 'Rich-mixture helpers · Pd', color: '#a855f7', rows: [
+      { eq: 'CO + H₂O → CO₂ + H₂   (water-gas shift)',   act: () => lightOf() * (0.1 + 0.8 * catRich()) },
+      { eq: 'C₃H₆ + 3 H₂O → 3 CO + 6 H₂   (steam reform)', act: () => lightOf() * 0.7 * catRich() } ] },
+    { name: 'Unwanted side reactions', color: '#94a3b8', rows: [
+      { eq: 'SO₂ + 3 H₂ → H₂S + 2 H₂O   (rotten-egg smell)', act: () => lightOf() * 0.6 * catRich() },
+      { eq: '2 NO + 5 H₂ → 2 NH₃ + 2 H₂O',               act: () => lightOf() * 0.5 * catRich() } ] }
+  ];
+  const CAT_NOTES = {
+    rich:   'Rich: too little O₂. CO and HC slip through, but NOx is reduced easily. Ceria hands back stored O₂ until it runs out; H₂S and NH₃ appear.',
+    stoich: 'λ ≈ 1 (14.7 : 1): the ECU dithers the mixture ±1 %, so oxidation and reduction both run at over 95 % — the catalyst window.',
+    lean:   'Lean: spare O₂ burns the CO that NOx needed. NOx conversion collapses once the ceria store is full.'
+  };
+
+  const catChemEl = document.createElement('div');
+  catChemEl.id = 'cat-chem';
+  catChemEl.style.display = 'none';
+  let catRxHtml = '', catRxCount = 0;
+  CAT_GROUPS.forEach(g => {
+    catRxHtml += `<div class="cc-grp" style="color:${g.color}">${g.name}</div>`;
+    g.rows.forEach(r => {
+      r.idx = catRxCount++;
+      catRxHtml += `<div class="cc-rx"><i class="cc-dot" style="background:${g.color}"></i>` +
+                   `<span class="cc-eq">${r.eq}</span>` +
+                   `<div class="cc-act" style="color:${g.color}"><i data-rx="${r.idx}"></i></div></div>`;
+    });
+  });
+  catChemEl.innerHTML = `
+    <div class="cc-title">Air–fuel mixture (λ)</div>
+    <div class="cc-seg">
+      <button class="lam-btn" data-lam="rich">Rich<small>λ 0.97</small></button>
+      <button class="lam-btn active" data-lam="stoich">Stoich<small>λ 1.00</small></button>
+      <button class="lam-btn" data-lam="lean">Lean<small>λ 1.03</small></button>
+    </div>
+    <div class="cc-note" id="cc-note">${CAT_NOTES.stoich}</div>
+    <div class="cc-title">Conversion · tailpipe</div>
+    <div class="cc-eff"><span>CO</span><div class="cc-bar" style="color:#ef4444"><i data-eff="co"></i></div><b data-val="co"></b></div>
+    <div class="cc-eff"><span>HC</span><div class="cc-bar" style="color:#f59e0b"><i data-eff="hc"></i></div><b data-val="hc"></b></div>
+    <div class="cc-eff"><span>NOx</span><div class="cc-bar" style="color:#3b82f6"><i data-eff="nox"></i></div><b data-val="nox"></b></div>
+    <div class="cc-eff"><span>O₂ store</span><div class="cc-bar" style="color:#14b8a6"><i data-eff="osc"></i></div><b data-val="osc"></b></div>
+    <div class="cc-title">Reactions · bar = how active</div>
+    ${catRxHtml}`;
+  if (panelBody) panelBody.appendChild(catChemEl);
+
+  const ccNote = catChemEl.querySelector('#cc-note');
+  function setCatLam(key) {
+    catLam = key;
+    catChemEl.querySelectorAll('.lam-btn').forEach(b => b.classList.toggle('active', b.dataset.lam === key));
+    if (ccNote) ccNote.textContent = CAT_NOTES[key];
+  }
+  catChemEl.querySelectorAll('.lam-btn').forEach(b => b.addEventListener('click', () => setCatLam(b.dataset.lam)));
+
+  function updateCatChemUI() {
+    const q = (sel) => catChemEl.querySelector(sel);
+    const bar = (k, v) => { const el = q(`[data-eff="${k}"]`); if (el) el.style.width = (clamp(v, 0, 1) * 100).toFixed(0) + '%'; };
+    const val = (k, t) => { const el = q(`[data-val="${k}"]`); if (el) el.textContent = t; };
+    ['co', 'hc', 'nox'].forEach(k => {
+      bar(k, catEff[k]);
+      val(k, Math.round(catEff[k] * 100) + '% · ' + Math.round(catPPM[k]) + 'ppm');
+    });
+    bar('osc', oscLevel);
+    val('osc', Math.round(oscLevel * 100) + ' % full');
+    CAT_GROUPS.forEach(g => g.rows.forEach(r => {
+      const el = q(`[data-rx="${r.idx}"]`);
+      if (el) el.style.width = (clamp(r.act(), 0, 1) * 100).toFixed(0) + '%';
+    }));
+  }
+
+
+  function wireSoundWidget(root) {
+    soundToggleEl = root.querySelector('#sound-toggle');
+    soundLabelEl  = root.querySelector('#sound-label');
+    specNoteEl    = root.querySelector('#spec-note');
+    specCanvas    = root.querySelector('#spectrum-strip');
+    specCtx       = specCanvas ? specCanvas.getContext('2d') : null;
+
+    soundToggleEl.addEventListener('click', () => {
+      if (!SND.ready) initAudio();
+      if (!SND.ready) return;
+      SND.on = !SND.on;
+      soundToggleEl.setAttribute('aria-pressed', SND.on ? 'true' : 'false');
+      if (SND.on) {
+        SND.ctx.resume();
+        soundToggleEl.classList.add('on');
+        soundLabelEl.textContent = 'Mute Sound';
+      } else {
+        soundToggleEl.classList.remove('on');
+        soundLabelEl.textContent = 'Enable Sound';
+        SND.master.gain.setTargetAtTime(0, SND.ctx.currentTime, 0.05);
+        setTimeout(() => { if (!SND.on && SND.ctx) SND.ctx.suspend(); }, 120);
+      }
+      updateAudio();
+    });
+
+    root.querySelectorAll('.muf-btn').forEach(btn => {
+      btn.addEventListener('click', () => setSndMode(btn.dataset.type));
+    });
+
+    if (window.ResizeObserver) new ResizeObserver(sizeSpectrum).observe(specCanvas);
+    sizeSpectrum();
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     Config switcher — toolbar extras
+     ═══════════════════════════════════════════════════════════ */
+  (function buildConfigSwitcher() {
+    const extras = document.getElementById('toolbar-extras');
+    if (!extras) return;
+    const cfgGroup = document.createElement('div');
+    cfgGroup.className = 'cfg-group';
+    cfgGroup.setAttribute('role', 'group');
+    cfgGroup.setAttribute('aria-label', 'Exhaust view');
+    cfgGroup.innerHTML = `
+      <button class="cfg-arrow" id="cfg-prev" type="button" aria-label="Previous view">‹</button>
+      <span id="cfg-label">Principle</span>
+      <button class="cfg-arrow" id="cfg-next" type="button" aria-label="Next view">›</button>
+    `;
+    extras.appendChild(cfgGroup);
+  })();
+
+  const cfgLabelEl = document.getElementById('cfg-label');
+  const cfgPrevEl  = document.getElementById('cfg-prev');
+  const cfgNextEl  = document.getElementById('cfg-next');
+
+  const CONFIG_ORDER = ['principle', 'compare', 'catalyst', 'full'];
+  const CONFIG_LABELS = {
+    principle: 'Principle', compare: 'Compare',
+    catalyst:  'Catalyst',  full:    'Full System'
+  };
+
+  let camTween = null;
+  function animateCamera(pos, tgt) {
+    camTween = {
+      t: 0, dur: 0.95,
+      p0: camera.position.clone(), p1: v3(pos[0], pos[1], pos[2]),
+      t0: controls.target.clone(), t1: v3(tgt[0], tgt[1], tgt[2])
+    };
+  }
+  if (controls.addEventListener) controls.addEventListener('start', () => { camTween = null; });
+
+  let bridge = null;
+
+  function applyMode(m, force = false) {
+    if (m === mode && !force) return;
+    mode = m;
+    principleView.visible = (m === 'principle');
+    compareView.visible   = (m === 'compare');
+    catalystView.visible  = (m === 'catalyst');
+    fullView.visible      = (m === 'full');
+
+    if (cfgLabelEl) cfgLabelEl.textContent = CONFIG_LABELS[m];
+
+    const info = MODE_INFO[m];
+    if (badgeTextEl) badgeTextEl.textContent = info.badge;
+    if (badgeEl) {
+      badgeEl.style.background = `color-mix(in oklch, ${info.badgeColor} 18%, transparent)`;
+      badgeEl.style.color = info.badgeColor;
+      const dot = badgeEl.querySelector('.dot');
+      if (dot) dot.style.background = info.badgeColor;
+    }
+    if (moduleTitleEl) moduleTitleEl.textContent = info.title;
+    if (strokeDescEl) strokeDescEl.innerHTML = info.desc;
+
+    if (bridge) bridge.setStatus(info.badge, info.badgeColor);
+    if (catChemEl) catChemEl.style.display = (m === 'catalyst') ? '' : 'none';
+
+    labels.hideAll();
+
+    if (m === 'principle')     animateCamera([2.4, 1.6, 5.0],  [0, -0.20, 0]);
+    else if (m === 'compare')  animateCamera([3.2, 0.4, 5.6],  [0, 0.00, 0]);
+    else if (m === 'catalyst') animateCamera([2.2, 1.7, 4.4],  [0, 0.10, 0]);
+    else                       animateCamera([4.0, 2.6, 7.6],  [0.10, 0.05, 0]);
+  }
+
+  function stepConfig(dir) {
+    const i = CONFIG_ORDER.indexOf(mode);
+    applyMode(CONFIG_ORDER[(i + dir + CONFIG_ORDER.length) % CONFIG_ORDER.length]);
+  }
+  if (cfgPrevEl) cfgPrevEl.addEventListener('click', () => stepConfig(-1));
+  if (cfgNextEl) cfgNextEl.addEventListener('click', () => stepConfig(1));
+
+  function setSndMode(m) {
+    sndMode = m;
+    SND.mode = m;
+    if (panelBody) {
+      panelBody.querySelectorAll('.muf-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.type === m));
+    }
+    if (specNoteEl) specNoteEl.textContent = SND_MODES[m].name;
+    principleTube.group.traverse(o => {
+      if (o === principleTube.group) return;
+      if (o.material === M.packing) o.visible = (m === 'silencer');
+    });
+    applyAudioMode(m);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     VIEW UPDATES
+     ═══════════════════════════════════════════════════════════ */
+  function updatePrinciple(dt, rf) {
+    const sm = SND_MODES[sndMode];
+    updateWaveTube(principleTube, dt, rf, sm, time);
+  }
+  function updateCompare(dt, rf) {
+    updateWaveTube(compareTopTube, dt, rf, SND_MODES.silencer, time);
+    updateWaveTube(compareBotTube, dt, rf, SND_MODES.straight, time);
+  }
+  function catReroll(p) {
+    p.roll = Math.random();                                       /* does this molecule react? */
+    p.xc   = -CAT_LEN / 2 + 0.08 + Math.random() * CAT_LEN * 0.70; /* where in the brick */
+    p.done = false;
+  }
+  function updateCatalyst(dt, rf) {
+    catT += (250 + 550 * rf - catT) * Math.min(1, dt * 0.15);   /* thermal mass: ~7 s time constant */
+    stepCatChem(dt);
+    const heat = clamp((catT - 200) / 450, 0, 1);
+    M.honeycomb.emissiveIntensity = 0.05 + heat * (0.40 + 0.10 * Math.sin(time * 4));
+    lightOffRing.material.opacity = catT > 270 ? 0.30 + 0.30 * (0.5 + 0.5 * Math.sin(time * 5)) : 0.0;
+    preO2glow.material.opacity  = 0.45 + 0.35 * Math.sin(time * 6);
+    postO2glow.material.opacity = 0.45 + 0.35 * Math.sin(time * 6 + 2.4);
+    ecuLed.material.color.setHex(Math.sin(time * 8) > 0 ? 0x22c55e : 0x0e3f22);
+
+    if (!state.showGas) return;
+    /* reactant colours, product colours (CO->CO2, HC->H2O/CO2, NOx->N2) */
+    const REACT = [[1.00, 0.30, 0.12], [1.00, 0.85, 0.20], [0.25, 0.45, 1.00]];
+    const PROD  = [[0.85, 0.90, 1.00], [0.25, 0.90, 1.00], [0.30, 1.00, 0.50]];
+    for (let i = 0; i < CAT_N; i++) {
+      const p = catFlowData[i];
+      if (p.roll === undefined) catReroll(p);
+      p.x += dt * p.speed * (0.5 + rf);
+      if (p.x > CAT_LEN / 2 + 0.30) { p.x = -CAT_LEN / 2 - 0.30; catReroll(p); }
+
+      const eff = p.species === 0 ? catEff.co : p.species === 1 ? catEff.hc : catEff.nox;
+      if (!p.done && p.x > p.xc && p.roll < eff) p.done = true;   /* this molecule reacts here */
+      p.converted = p.done ? 1 : 0;
+
+      catFlowPos[i * 3]     = p.x;
+      catFlowPos[i * 3 + 1] = p.y + Math.sin(time * 4 + p.j * TAU) * 0.02;
+      catFlowPos[i * 3 + 2] = p.z + Math.cos(time * 4 + p.j * TAU) * 0.02;
+
+      const src = p.done ? PROD[p.species] : REACT[p.species];
+      let r = src[0], g = src[1], b = src[2];
+      if (p.done) {                                   /* white flash at the reaction site */
+        const f = clamp(1 - (p.x - p.xc) / 0.12, 0, 1);
+        r += (1 - r) * f; g += (1 - g) * f; b += (1 - b) * f;
+      }
+      catFlowCol[i * 3] = r; catFlowCol[i * 3 + 1] = g; catFlowCol[i * 3 + 2] = b;
+    }
+    catFlowGeo.attributes.position.needsUpdate = true;
+    catFlowGeo.attributes.color.needsUpdate = true;
+  }
+  function updateCatalystLegacy(dt, rf) {
+    catT += (90 + 630 * rf - catT) * Math.min(1, dt * 0.25);
+    const heat = clamp((catT - 200) / 450, 0, 1);
+    M.honeycomb.emissiveIntensity = 0.05 + heat * (0.40 + 0.10 * Math.sin(time * 4));
+    lightOffRing.material.opacity = catT > 270 ? 0.30 + 0.30 * (0.5 + 0.5 * Math.sin(time * 5)) : 0.0;
+    preO2glow.material.opacity  = 0.45 + 0.35 * Math.sin(time * 6);
+    postO2glow.material.opacity = 0.45 + 0.35 * Math.sin(time * 6 + 2.4);
+    ecuLed.material.color.setHex(Math.sin(time * 8) > 0 ? 0x22c55e : 0x0e3f22);
+
+    if (!state.showGas) return;
+    const convFrac = conversionFromTemp(catT);
+    for (let i = 0; i < CAT_N; i++) {
+      const p = catFlowData[i];
+      p.x += dt * p.speed * (0.5 + rf);
+      if (p.x > CAT_LEN / 2 + 0.30) p.x = -CAT_LEN / 2 - 0.30;
+      p.converted = clamp((p.x + CAT_LEN / 2) / CAT_LEN, 0, 1) * convFrac;
+      catFlowPos[i * 3]     = p.x;
+      catFlowPos[i * 3 + 1] = p.y + Math.sin(time * 4 + p.j * TAU) * 0.02;
+      catFlowPos[i * 3 + 2] = p.z + Math.cos(time * 4 + p.j * TAU) * 0.02;
+      let r, g, b;
+      if (p.species === 0)      { r = 1.00; g = 0.35; b = 0.10; }
+      else if (p.species === 1) { r = 1.00; g = 0.85; b = 0.20; }
+      else                      { r = 0.25; g = 0.45; b = 1.00; }
+      if (p.converted > 0.45) {
+        const k = clamp((p.converted - 0.45) / 0.35, 0, 1);
+        r += (0.30 - r) * k; g += (1.00 - g) * k; b += (0.80 - b) * k;
+      }
+      catFlowCol[i * 3] = r; catFlowCol[i * 3 + 1] = g; catFlowCol[i * 3 + 2] = b;
+    }
+    catFlowGeo.attributes.position.needsUpdate = true;
+    catFlowGeo.attributes.color.needsUpdate = true;
+  }
+  function updateFull(dt, rf) {
+    if (!state.showGas) return;
+    for (let i = 0; i < FS_N; i++) {
+      const p = fsFlowData[i];
+      p.t += dt * p.speed * TUNING.flowFullRate * (0.4 + rf);
+      if (p.t > 1) p.t -= 1;
+      let d = p.t * fsPathTotal, seg = 0;
+      while (seg < fsSegLens.length - 1 && d > fsSegLens[seg]) { d -= fsSegLens[seg]; seg++; }
+      const k = fsSegLens[seg] > 1e-5 ? d / fsSegLens[seg] : 0;
+      const a = fsFlowPath[seg], b = fsFlowPath[seg + 1];
+      fsFlowPos[i * 3]     = a.x + (b.x - a.x) * k + Math.sin(time * 4 + p.j * TAU) * 0.03;
+      fsFlowPos[i * 3 + 1] = a.y + (b.y - a.y) * k + Math.cos(time * 4 + p.j * TAU) * 0.03;
+      fsFlowPos[i * 3 + 2] = a.z + (b.z - a.z) * k;
+      const t = p.t;
+      fsFlowCol[i * 3]     = 1.00 - t * 0.55;
+      fsFlowCol[i * 3 + 1] = 0.45 - t * 0.05;
+      fsFlowCol[i * 3 + 2] = 0.16 + t * 0.55;
+    }
+    fsFlowGeo.attributes.position.needsUpdate = true;
+    fsFlowGeo.attributes.color.needsUpdate = true;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     AUDIO ENGINE
+     ═══════════════════════════════════════════════════════════ */
+  const SND = { ready:false, on:false, ctx:null, mode:'silencer' };
+
+  function bandlimitedWave(ctx, harmonicCount, rolloff) {
+    const n = harmonicCount;
+    const real = new Float32Array(n + 1);
+    const imag = new Float32Array(n + 1);
+    for (let i = 1; i <= n; i++) imag[i] = (1 / i) * Math.pow(1 / i, rolloff - 1);
+    return ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+  }
+  function firingPulseCurve(n, sharpness) {
+    const c = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * 2 - 1;
+      c[i] = x > 0 ? Math.pow(x, sharpness) : 0;
+    }
+    return c;
+  }
+  function raspCurve(n) {
+    const c = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * 2 - 1;
+      c[i] = Math.tanh(x * 1.6) + 0.22 * Math.tanh(x * x * x * 1.4);
+    }
+    return c;
+  }
+
+  function initAudio() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    SND.ctx = ctx;
+
+    SND.oscA = ctx.createOscillator();
+    SND.oscA.setPeriodicWave(bandlimitedWave(ctx, 14, 1.0));
+    SND.oscB = ctx.createOscillator();
+    SND.oscB.setPeriodicWave(bandlimitedWave(ctx, 8, 0.7));
+    SND.sub  = ctx.createOscillator();
+    SND.sub.type = 'triangle';
+
+    const gA = ctx.createGain(); gA.gain.value = 0.14;
+    const gB = ctx.createGain(); gB.gain.value = 0.06;
+    const gS = ctx.createGain(); gS.gain.value = 0.20;
+
+    SND.pulseOsc = ctx.createOscillator();
+    SND.pulseOsc.type = 'sine';
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = firingPulseCurve(1024, 8);
+    const depth = ctx.createGain(); depth.gain.value = 0.55;
+    SND.pulseGain = ctx.createGain(); SND.pulseGain.gain.value = 0.32;
+    SND.pulseOsc.connect(shaper);
+    shaper.connect(depth);
+    depth.connect(SND.pulseGain.gain);
+
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < d.length; i++) {
+      const w = Math.random() * 2 - 1;
+      last = (last + 0.025 * w) / 1.025;
+      d[i] = last * 3.2 + w * 0.28;
+    }
+    SND.noiseSrc = ctx.createBufferSource();
+    SND.noiseSrc.buffer = buf;
+    SND.noiseSrc.loop = true;
+    const noiseBP = ctx.createBiquadFilter();
+    noiseBP.type = 'bandpass';
+    noiseBP.frequency.value = 480;
+    noiseBP.Q.value = 0.7;
+    SND.noiseGain = ctx.createGain(); SND.noiseGain.gain.value = 0.42;
+    SND.noiseSrc.connect(noiseBP);
+    noiseBP.connect(SND.pulseGain);
+    SND.pulseGain.connect(SND.noiseGain);
+
+    const engine = ctx.createGain();
+    gA.connect(engine); gB.connect(engine); gS.connect(engine);
+    SND.noiseGain.connect(engine);
+
+    SND.pipeRes = [];
+    [[92, 5.0, 3.5], [188, 5.5, 2.6], [305, 6.0, 1.8], [465, 7.0, 1.0]].forEach(([f, q, g]) => {
+      const p = ctx.createBiquadFilter();
+      p.type = 'peaking'; p.frequency.value = f; p.Q.value = q; p.gain.value = g;
+      SND.pipeRes.push(p);
+    });
+
+    SND.raspIn  = ctx.createGain(); SND.raspIn.gain.value  = 0.05;
+    SND.rasp    = ctx.createWaveShaper(); SND.rasp.curve = raspCurve(2048);
+    SND.raspHP  = ctx.createBiquadFilter();
+    SND.raspHP.type = 'highpass'; SND.raspHP.frequency.value = 180; SND.raspHP.Q.value = 0.7;
+    SND.raspOut = ctx.createGain(); SND.raspOut.gain.value = 0.18;
+    SND.raspIn.connect(SND.rasp);
+    SND.rasp.connect(SND.raspHP);
+    SND.raspHP.connect(SND.raspOut);
+
+    SND.mufIn  = ctx.createGain(); SND.mufIn.gain.value  = 1.0;
+    SND.mufOut = ctx.createGain(); SND.mufOut.gain.value = 1.0;
+
+    SND.mufNotch = [];
+    [[130, 6, -15], [260, 6, -12], [410, 6, -9]].forEach(([f, q, g]) => {
+      const n = ctx.createBiquadFilter();
+      n.type = 'peaking'; n.frequency.value = f; n.Q.value = q; n.gain.value = g;
+      SND.mufNotch.push(n);
+    });
+    SND.mufPeak = ctx.createBiquadFilter();
+    SND.mufPeak.type = 'peaking';
+    SND.mufPeak.frequency.value = 175;
+    SND.mufPeak.Q.value = 1.2;
+    SND.mufPeak.gain.value = 2;
+
+    SND.mufShelf = ctx.createBiquadFilter();
+    SND.mufShelf.type = 'highshelf';
+    SND.mufShelf.frequency.value = 700;
+    SND.mufShelf.gain.value = -13;
+
+    SND.mufLP = ctx.createBiquadFilter();
+    SND.mufLP.type = 'lowpass';
+    SND.mufLP.frequency.value = 1800;
+    SND.mufLP.Q.value = 0.5;
+
+    let node = engine;
+    SND.pipeRes.forEach(p => { node.connect(p); node = p; });
+    const pipeOut = node;
+
+    pipeOut.connect(SND.raspIn);
+    pipeOut.connect(SND.mufIn);
+
+    let m = SND.mufIn;
+    SND.mufNotch.forEach(n => { m.connect(n); m = n; });
+    m.connect(SND.mufPeak);
+    SND.mufPeak.connect(SND.mufShelf);
+    SND.mufShelf.connect(SND.mufLP);
+    SND.mufLP.connect(SND.mufOut);
+
+    const preMaster = ctx.createGain();
+    SND.raspOut.connect(preMaster);
+    SND.mufOut.connect(preMaster);
+
+    SND.loudness = ctx.createGain();
+    SND.loudness.gain.value = 0.34;
+    preMaster.connect(SND.loudness);
+
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.knee.value = 12;
+    comp.ratio.value = 4; comp.attack.value = 0.006; comp.release.value = 0.16;
+
+    SND.master = ctx.createGain(); SND.master.gain.value = 0;
+    SND.analyser = ctx.createAnalyser();
+    SND.analyser.fftSize = 512;
+    SND.analyser.smoothingTimeConstant = 0.72;
+
+    SND.loudness.connect(comp);
+    comp.connect(SND.master);
+    SND.master.connect(SND.analyser);
+    SND.analyser.connect(ctx.destination);
+
+    SND.oscA.start(); SND.oscB.start(); SND.sub.start();
+    SND.pulseOsc.start(); SND.noiseSrc.start();
+    SND.ready = true;
+    applyAudioMode(SND.mode, 0.001);
+  }
+
+  function applyAudioMode(mode, tau = 0.09) {
+    if (!SND.ready) return;
+    const t = SND.ctx.currentTime;
+    const set = (param, v) => param.setTargetAtTime(v, t, tau);
+    if (mode === 'silencer') {
+      set(SND.mufIn.gain, 1.00); set(SND.mufOut.gain, 1.00);
+      set(SND.raspIn.gain, 0.05); set(SND.raspOut.gain, 0.18);
+      set(SND.loudness.gain, 0.34);
+    } else {
+      set(SND.mufIn.gain, 0.10); set(SND.mufOut.gain, 0.10);
+      set(SND.raspIn.gain, 1.00); set(SND.raspOut.gain, 1.00);
+      set(SND.loudness.gain, 0.80);
+    }
+  }
+
+  function updateAudio() {
+    if (!SND.ready) return;
+    const ctx = SND.ctx, now = ctx.currentTime;
+    const sm = SND_MODES[sndMode];
+    const rf = rpm / 6000;
+    const rpmAcoustic = rpm * (1 - bpLossFactor() * rf);
+    const wobble = 1 + 0.012 * Math.sin(now * 1.7) + 0.006 * Math.sin(now * 3.3);
+    const ff = clamp(rpmAcoustic / 30, 20, 230) * wobble;
+
+    SND.oscA.frequency.setTargetAtTime(ff, now, 0.08);
+    SND.oscB.frequency.setTargetAtTime(ff * 2, now, 0.08);
+    SND.sub.frequency.setTargetAtTime(Math.max(20, ff / 2), now, 0.08);
+    SND.pulseOsc.frequency.setTargetAtTime(ff, now, 0.08);
+
+    const cold = isCold() ? 1.35 : 1.0;
+    const qScale = 0.55 + 0.85 * rf;
+    SND.pipeRes.forEach((p, i) => {
+      p.Q.setTargetAtTime(([5.0, 5.5, 6.0, 7.0][i]) * qScale, now, 0.2);
+    });
+
+    const notchDepth = sndMode === 'silencer' ? 1 : 0.35;
+    SND.mufNotch.forEach((n, i) => {
+      n.gain.setTargetAtTime([-15, -12, -9][i] * notchDepth, now, 0.15);
+    });
+    SND.mufShelf.gain.setTargetAtTime(sndMode === 'silencer' ? -13 : -5, now, 0.15);
+    SND.mufLP.frequency.setTargetAtTime(
+      clamp((sndMode === 'silencer' ? 1800 : 4200) * (0.7 + 0.5 * rf) * cold, 150, 9000), now, 0.15);
+
+    SND.noiseGain.gain.setTargetAtTime(sm.noise * cold, now, 0.15);
+    SND.master.gain.setTargetAtTime(SND.on ? 0.55 : 0, now, 0.10);
+  }
+
+  let _sndWasOn = false;
+  document.addEventListener('visibilitychange', () => {
+    const c = SND.ctx; if (!c || c.state === 'closed') return;
+    if (document.hidden) { _sndWasOn = c.state === 'running'; if (_sndWasOn) c.suspend().catch(() => {}); }
+    else if (_sndWasOn) c.resume().catch(() => {});
+  });
+  window.addEventListener('pagehide', () => {
+    try { SND.ctx && SND.ctx.close(); } catch(_) {}
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     SPECTRUM
+     ═══════════════════════════════════════════════════════════ */
+  const freqBins = new Uint8Array(256);
+
+  function sizeSpectrum() {
+    if (!specCanvas) return;
+    const r = specCanvas.getBoundingClientRect();
+    if (r.width < 4 || r.height < 4) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    specCanvas.width  = Math.round(r.width * dpr);
+    specCanvas.height = Math.round(r.height * dpr);
+    specCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    specW = r.width; specH = r.height;
+  }
+
+  function drawSpectrum() {
+    if (!specCtx) return;
+    if (!specW || !specH) sizeSpectrum();
+    if (!specW || !specH) return;
+    specCtx.clearRect(0, 0, specW, specH);
+    const bars = 40, bw = specW / bars;
+    const live = SND.on && SND.analyser;
+    if (live) SND.analyser.getByteFrequencyData(freqBins);
+    const rgb = sndMode === 'silencer' ? '56,189,248' : '239,68,68';
+    for (let i = 0; i < bars; i++) {
+      let v;
+      if (live) {
+        v = freqBins[Math.min(freqBins.length - 1,
+              Math.floor(Math.pow(i / bars, 1.7) * (freqBins.length * 0.7)))] / 255;
+      } else {
+        v = 0.05 + 0.03 * (0.5 + 0.5 * Math.sin(time * 2 + i * 0.4));
+      }
+      const h = Math.max(2, v * (specH - 6));
+      specCtx.fillStyle = `rgba(${rgb},${0.3 + v * 0.7})`;
+      specCtx.fillRect(i * bw + 1, specH - h - 2, Math.max(1, bw - 2), h);
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     LIVE PANEL
+     ═══════════════════════════════════════════════════════════ */
+  function updateLivePanel() {
+    const rf = rpm / 6000;
+    const sm = SND_MODES[sndMode];
+    const noise = Math.round(sm.dB + 10 * Math.log2(Math.max(0.3, rpm / 2880)) + (isCold() ? 3 : 0));
+    const rpmTxt = Math.round(rpm / 50) * 50;
+    ui.toolbar.setRpmLabel(`~${rpmTxt} rpm`);
+
+    ui.chip.set('eng', rpmTxt + ' rpm');
+    ui.chip.set('bp', Math.round(backpressure()) + ' mbar');
+
+    if (mode === 'principle') {
+      const aIn  = clamp(principleTube.bars[0].fill.scale.y - 0.08, 0, 1);
+      const aMid = clamp(principleTube.bars[1].fill.scale.y - 0.08, 0, 1);
+      const aOut = clamp(principleTube.bars[2].fill.scale.y - 0.08, 0, 1);
+      const cut = Math.max(0, Math.round((1 - aOut) * 100));
+      if (exR1l) exR1l.textContent = 'Input amplitude';
+      if (exR2l) exR2l.textContent = 'Mid chamber';
+      if (exR3l) exR3l.textContent = 'Tailpipe output';
+      if (exR1)  exR1.textContent = Math.round(aIn * 100) + ' %';
+      if (exR2)  exR2.textContent = Math.round(aMid * 100) + ' %';
+      if (exR3)  exR3.textContent = `${Math.round(aOut * 100)} % · ${noise} dB`;
+      ui.chip.setBig(cut, '% cut');
+      ui.chip.setColor('#0ea5e9');
+      ui.chip.setBar(cut, '#0ea5e9');
+      setChipLabel('Noise reduction');
+      ui.chip.setStatus('Silenced', true);
+    } else if (mode === 'compare') {
+      const aTop = clamp(compareTopTube.bars[2].fill.scale.y - 0.08, 0, 1);
+      const aBot = clamp(compareBotTube.bars[2].fill.scale.y - 0.08, 0, 1);
+      const delta = Math.round((aBot - aTop) * 100);
+      if (exR1l) exR1l.textContent = 'Silenced tail';
+      if (exR2l) exR2l.textContent = 'Open tail';
+      if (exR3l) exR3l.textContent = 'Attenuation';
+      if (exR1)  exR1.textContent = Math.round(aTop * 100) + ' %';
+      if (exR2)  exR2.textContent = Math.round(aBot * 100) + ' %';
+      if (exR3)  exR3.textContent = `~${SND_MODES.straight.dB - SND_MODES.silencer.dB} dB`;
+      ui.chip.setBig(delta, 'pts');
+      ui.chip.setColor('#f59e0b');
+      ui.chip.setBar(Math.min(100, Math.max(0, delta)), '#f59e0b');
+      setChipLabel('Silencer advantage');
+      ui.chip.setStatus('Compare', true);
+    } else if (mode === 'catalyst') {
+      const conv = Math.round((catEff.co + catEff.hc + catEff.nox) / 3 * 100);
+      setChipLabel('Pollutant conversion');
+      updateCatChemUI();
+      if (exR1l) exR1l.textContent = 'Engine RPM';
+      if (exR2l) exR2l.textContent = 'Substrate temp';
+      if (exR3l) exR3l.textContent = 'Lambda (λ)';
+      if (exR1)  exR1.textContent = rpmTxt + ' rpm';
+      if (exR2)  exR2.textContent = Math.round(catT) + ' °C';
+      if (exR3)  exR3.textContent = 'λ ' + catLambdaNow().toFixed(3);
+      ui.chip.setBig(conv, '%');
+      ui.chip.setColor('#22c55e');
+      ui.chip.setBar(conv, '#22c55e');
+      { const st = catStatus(); ui.chip.setStatus(st.text, st.on); }
+    } else {
+      if (exR1l) exR1l.textContent = 'Engine RPM';
+      if (exR2l) exR2l.textContent = 'Gas temp';
+      if (exR3l) exR3l.textContent = 'Backpressure';
+      if (exR1)  exR1.textContent = rpmTxt + ' rpm';
+      if (exR2)  exR2.textContent = Math.round(90 + 630 * rf) + ' °C';
+      if (exR3)  exR3.textContent = `~${backpressure()} mbar`;
+      ui.chip.setBig(noise, 'dB');
+      ui.chip.setColor('#38bdf8');
+      ui.chip.setBar(clamp((noise - 60) / 45, 0, 1) * 100, '#38bdf8');
+      setChipLabel('Tailpipe noise');
+      ui.chip.setStatus('Full system', true);
+    }
+  }
+
+  function resetSim() {
+    runTime = 0;
+    catT = 20;
+    resetWaveTube(principleTube);
+    resetWaveTube(compareTopTube);
+    resetWaveTube(compareBotTube);
+    applyMode(mode, true);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     BRIDGE
+     ═══════════════════════════════════════════════════════════ */
+  bridge = ui.wireBridge({
+    viewManager,
+    state,
+    onCommand: (d) => {
+      switch (d.action) {
+        case 'reset': resetSim(); break;
+        case 'setConfig':
+          if (CONFIG_ORDER.indexOf(d.value) >= 0) applyMode(d.value);
+          break;
+        case 'setMuffler':
+          if (d.value === 'silencer' || d.value === 'straight') setSndMode(d.value);
+          break;
+      }
+    }
+  });
+  bridge.ready();
+  bridge.setStatus('Exhaust System', '#0ea5e9');
+
+  /* Initialize */
+  setSndMode('silencer');
+  applyMode('principle', true);
+
+  /* ═══════════════════════════════════════════════════════════
+     MAIN LOOP
+     ═══════════════════════════════════════════════════════════ */
+  const clock = new THREE.Clock();
+  let liveT = 0, specT = 0;
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const sim = state.playing ? dt : 0;
+    time += sim;
+    runTime += sim;
+
+    const rfRaw = state.speedMul / 2.5;
+    const baseRpm = 800 + rfRaw * 5200;
+    rpm = baseRpm * (1 - bpLossFactor() * (baseRpm / 6000) * 0.5);
+    const rf = rpm / 6000;
+
+    if (camTween) {
+      camTween.t += dt / camTween.dur;
+      const k = camTween.t >= 1 ? 1 : 1 - Math.pow(1 - camTween.t, 3);
+      camera.position.lerpVectors(camTween.p0, camTween.p1, k);
+      controls.target.lerpVectors(camTween.t0, camTween.t1, k);
+      if (camTween.t >= 1) camTween = null;
+    }
+    controls.update();
+
+    if (sim > 0) {
+      if (mode === 'principle')      updatePrinciple(sim, rf);
+      else if (mode === 'compare')   updateCompare(sim, rf);
+      else if (mode === 'catalyst')  updateCatalyst(sim, rf);
+      else                           updateFull(sim, rf);
+    }
+
+    catFlowPts.visible = state.showGas && mode === 'catalyst';
+    fsFlowPts.visible  = state.showGas && mode === 'full';
+
+    if (state.showLabels) {
+      if (mode === 'compare')       compareLabels.forEach(d => labels.project(d.id, d.pos, camera, wrap));
+      else if (mode === 'catalyst') catLabelDefs.forEach(d => labels.project(d.id, d.pos, camera, wrap));
+      else if (mode === 'full')     fsLabelDefs.forEach(d => labels.project(d.id, d.pos, camera, wrap));
+      else labels.hideAll();
+    } else {
+      labels.hideAll();
+    }
+
+    liveT += dt;
+    if (liveT > 0.15) { liveT = 0; updateLivePanel(); updateAudio(); }
+
+    specT += dt;
+    if (specT > 0.07) { specT = 0; drawSpectrum(); }
+
+    renderer.render(scene, camera);
+  }
+  animate();
+  </script>
+</body>
+</html>

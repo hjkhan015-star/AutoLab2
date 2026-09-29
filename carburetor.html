@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d13">
+<title>Carburetor — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  /* ═══════════════════════════════════════════════════════════════════
+     Carburetor module — widget interiors + small panel extras.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  .carb-mix-ratio {
+    font-family: var(--font-mono);
+    font-size: 11px; font-weight: 700;
+    letter-spacing: .02em;
+    margin-left: 8px;
+    opacity: .78;
+  }
+
+  .carb-readout {
+    display: flex; gap: 14px;
+    margin: 10px 0 4px;
+    color: var(--text-mute);
+    font-size: 10.5px;
+    font-family: var(--font-mono);
+  }
+  .carb-readout b { color: var(--text); font-weight: 800; }
+
+  .carb-note {
+    margin-top: 12px;
+    padding-top: 10px;
+    font-size: 11.5px; line-height: 1.5;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  .carb-note strong { color: var(--text); }
+
+  .cfg-group {
+    display: flex; align-items: center; gap: 4px;
+    padding-left: 8px; margin-left: 4px;
+    border-left: 1px solid var(--border);
+  }
+  .cfg-arrow {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: var(--surface-3);
+    color: var(--text);
+    font-size: 14px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-family: inherit; padding: 0;
+    transition: background var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out);
+  }
+  .cfg-arrow:hover, .cfg-arrow:active {
+    background: var(--accent);
+    color: #0b0e14;
+  }
+  #cfg-label {
+    min-width: 92px; text-align: center; white-space: nowrap;
+    font-size: 10.5px; font-weight: 700;
+    letter-spacing: .02em;
+    color: var(--text);
+    font-family: var(--font-mono);
+  }
+
+  .carb-pedal {
+    display: flex; flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .carb-pedal-track {
+    position: relative;
+    width: 54px; height: 158px;
+    pointer-events: auto; cursor: pointer;
+    touch-action: none; user-select: none;
+    -webkit-user-select: none;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / .03),
+                0 10px 24px oklch(0 0 0 / .35);
+    transition: border-color var(--dur-fast) var(--ease-out);
+  }
+  .carb-pedal-track.active {
+    border-color: color-mix(in oklch, var(--accent) 55%, transparent);
+  }
+  .carb-pedal-fill {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 0%;
+    background: linear-gradient(180deg, #f97316, #f59e0b);
+    transition: height var(--dur-fast) linear,
+                background var(--dur-base) var(--ease-out);
+  }
+  .carb-pedal-ticks span {
+    position: absolute; left: 7px; right: 7px;
+    height: 1px;
+    background: color-mix(in oklch, var(--text) 15%, transparent);
+  }
+  .carb-pedal-ticks span:nth-child(1) { bottom: 25%; }
+  .carb-pedal-ticks span:nth-child(2) { bottom: 50%; }
+  .carb-pedal-ticks span:nth-child(3) { bottom: 75%; }
+  .carb-pedal-pad {
+    position: absolute;
+    left: -4px; right: -4px;
+    bottom: 0%; height: 34px;
+    transform: translateY(50%);
+    filter: drop-shadow(0 6px 10px oklch(0 0 0 / .6));
+    transition: bottom var(--dur-fast) linear,
+                filter var(--dur-fast) var(--ease-out);
+  }
+  .carb-pedal-track.active .carb-pedal-pad {
+    filter: drop-shadow(0 0 10px color-mix(in oklch, var(--accent) 55%, transparent))
+            drop-shadow(0 6px 10px oklch(0 0 0 / .6));
+  }
+  .carb-pedal-pad svg { width: 100%; height: 100%; display: block; }
+  .carb-pedal-pad .plate {
+    fill: var(--surface-3);
+    stroke: color-mix(in oklch, var(--text) 40%, transparent);
+    stroke-width: 1.4;
+  }
+  .carb-pedal-pad .grip {
+    fill: color-mix(in oklch, var(--text) 28%, transparent);
+  }
+  .carb-pedal-track.active .carb-pedal-pad .plate {
+    stroke: var(--accent);
+  }
+
+  @media (max-width: 600px) {
+    .carb-pedal-track { width: 44px; height: 128px; }
+    .cfg-arrow { width: 19px; height: 19px; font-size: 12px; }
+    #cfg-label { min-width: 72px; font-size: 9px; }
+  }
+
+  #ui-chip #chip-row-phase { font-size: 10px; }
+</style>
+</head>
+<body>
+  <div id="canvas-wrap"></div>
+  <div id="labels-root"></div>
+
+  <script src="guard.js"></script>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  } }
+  </script>
+
+  <script type="module">
+  import * as THREE from 'three';
+  import * as Base from './kit.js';
+  import { UI } from './kit.js';
+
+  const TAU = Base.TAU;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ADAPTIVE QUALITY
+     ═══════════════════════════════════════════════════════════════════ */
+  const isCoarse = matchMedia('(pointer: coarse)').matches;
+  const cores    = navigator.hardwareConcurrency || 4;
+  const mem      = navigator.deviceMemory || 4;
+  const isLowEnd = cores <= 4 || mem <= 2;
+  const isMidEnd = !isLowEnd && (cores <= 6 || isCoarse);
+
+  const CARB_AIR_COUNT  = isLowEnd ? 26 : isMidEnd ? 44 : 60;
+  const CARB_FUEL_COUNT = isLowEnd ? 10 : isMidEnd ? 18 : 24;
+  const INJ_SPRAY_COUNT = isLowEnd ? 24 : isMidEnd ? 40 : 56;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     BOOTSTRAP
+     ═══════════════════════════════════════════════════════════════════ */
+  const { scene, camera, renderer, controls, wrap, viewManager } = Base.buildScene({
+    fov: 42,
+    camPos: [2.8, 1.2, 3.6],
+    target: [-0.4, 0.4, 0],
+    floorY: -2.15
+  });
+  Base.attachResize(camera, renderer, wrap, 42);
+
+  const particleTex = Base.createParticleTexture();
+  const labels = Base.createLabelSystem();
+  const state  = Base.createUIState();
+
+  /* ═══════════════════════════════════════════════════════════════════
+     SHARED MATERIALS
+     ═══════════════════════════════════════════════════════════════════ */
+  const carbMats = {
+    barrelGlass:  new THREE.MeshStandardMaterial({ color:0xa8bcd4, metalness:0.15, roughness:0.25, transparent:true, opacity:0.20, side:THREE.DoubleSide, depthWrite:false }),
+    chamberGlass: new THREE.MeshStandardMaterial({ color:0xbcc8d8, metalness:0.15, roughness:0.30, transparent:true, opacity:0.18, side:THREE.DoubleSide, depthWrite:false }),
+    body:         new THREE.MeshStandardMaterial({ color:0x8a94a5, metalness:0.80, roughness:0.32 }),
+    fuel:         new THREE.MeshStandardMaterial({ color:0xf59e0b, metalness:0.40, roughness:0.25, transparent:true, opacity:0.75 }),
+    float:        new THREE.MeshStandardMaterial({ color:0xeaeaea, metalness:0.15, roughness:0.50 }),
+    butterfly:    new THREE.MeshStandardMaterial({ color:0x5a6373, metalness:0.75, roughness:0.35, side:THREE.DoubleSide }),
+    brass:        new THREE.MeshStandardMaterial({ color:0xd4a34a, metalness:0.85, roughness:0.28, transparent:true, opacity:0.55, depthWrite:false }),
+    brassSolid:   new THREE.MeshStandardMaterial({ color:0xd4a34a, metalness:0.85, roughness:0.28 }),
+    rail:         new THREE.MeshStandardMaterial({ color:0xb03a3a, metalness:0.70, roughness:0.35 }),
+    railHP:       new THREE.MeshStandardMaterial({ color:0x2c3140, metalness:0.85, roughness:0.30 }),
+    injector:     new THREE.MeshStandardMaterial({ color:0x9aa3b0, metalness:0.85, roughness:0.30 }),
+    injectorCap:  new THREE.MeshStandardMaterial({ color:0x38bdf8, metalness:0.55, roughness:0.28, emissive:0x38bdf8, emissiveIntensity:0.35 }),
+    manifold:     new THREE.MeshStandardMaterial({ color:0x8a93a5, metalness:0.65, roughness:0.42 }),
+    cylinder:     new THREE.MeshStandardMaterial({ color:0x5a6474, metalness:0.72, roughness:0.46 }),
+    cylinderCut:  new THREE.MeshStandardMaterial({ color:0xc26030, metalness:0.22, roughness:0.66, side:THREE.DoubleSide }),
+    piston:       new THREE.MeshStandardMaterial({ color:0xd4dbe6, metalness:0.65, roughness:0.32 }),
+    spray:        new THREE.MeshBasicMaterial({ color:0xfbbf24, transparent:true, opacity:0.72, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide })
+  };
+
+  /* ═══════════════════════════════════════════════════════════════════
+     MIXTURE MODEL
+     ═══════════════════════════════════════════════════════════════════ */
+  const mixturePhases = [
+    { name:'Idle — Rich',           color:'#f97316',
+      desc:'<strong>Idle circuit.</strong> With the throttle almost closed, only a trickle of air passes, but the idle port still draws enough fuel to keep the engine running smoothly — the mixture runs deliberately rich.' },
+    { name:'Part Throttle — Lean',  color:'#38bdf8',
+      desc:'<strong>Part throttle.</strong> As the throttle opens, air rushing through the venturi speeds up faster than the fuel jet can keep pace, leaning the mixture out for better economy while cruising.' },
+    { name:'Cruise — Balanced',     color:'#22c55e',
+      desc:'<strong>Main circuit.</strong> Further opening lets the main jet catch up with the airflow, bringing the mixture back close to the ideal 14.7 : 1 stoichiometric ratio.' },
+    { name:'Wide Open — Rich',      color:'#ef4444',
+      desc:'<strong>Wide open throttle.</strong> Near full throttle a power-enrichment circuit adds extra fuel for maximum power and to keep the engine cool under load — the mixture richens again.' }
+  ];
+
+  const AFR_KEYS = [
+    { t:0.00, r:12.4 }, { t:0.15, r:13.2 },
+    { t:0.40, r:15.4 }, { t:0.70, r:14.6 },
+    { t:1.00, r:12.6 }
+  ];
+  function smoothstep(a, b, x) {
+    const k = Math.max(0, Math.min(1, (x - a) / (b - a)));
+    return k * k * (3 - 2 * k);
+  }
+  function afrRatio(t) {
+    for (let i = 0; i < AFR_KEYS.length - 1; i++) {
+      const k0 = AFR_KEYS[i], k1 = AFR_KEYS[i + 1];
+      if (t <= k1.t) {
+        const f = smoothstep(k0.t, k1.t, t);
+        return k0.r + (k1.r - k0.r) * f;
+      }
+    }
+    return AFR_KEYS[AFR_KEYS.length - 1].r;
+  }
+  function phaseIndex(t) {
+    if (t < 0.15) return 0;
+    if (t < 0.55) return 1;
+    if (t < 0.85) return 2;
+    return 3;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     SHARED GEOMETRY HELPERS
+     ═══════════════════════════════════════════════════════════════════ */
+  function carbBarrelRadius(y) {
+    if (y >= 1.00) return 0.42;
+    if (y >= 0.80) return 0.42 - (1.00 - y) / 0.20 * 0.04;
+    if (y >= 0.60) return 0.38 - (0.80 - y) / 0.20 * 0.08;
+    if (y >= 0.45) return 0.30 - (0.60 - y) / 0.15 * 0.08;
+    if (y >= 0.35) return 0.22;
+    if (y >= 0.20) return 0.22 + (0.35 - y) / 0.15 * 0.08;
+    if (y >= 0.00) return 0.30 + (0.20 - y) / 0.20 * 0.08;
+    if (y >= -0.20) return 0.38 + (0.00 - y) / 0.20 * 0.04;
+    return 0.42;
+  }
+  function carbAirSpeed(y) {
+    const d = Math.abs(y - 0.40);
+    return 1.0 + 2.2 * Math.exp(-d * d / 0.08);
+  }
+
+  function makeBarrel() {
+    const pts = [
+      new THREE.Vector2(0.42, -0.75), new THREE.Vector2(0.42, -0.20),
+      new THREE.Vector2(0.38,  0.00), new THREE.Vector2(0.30,  0.20),
+      new THREE.Vector2(0.22,  0.35), new THREE.Vector2(0.22,  0.45),
+      new THREE.Vector2(0.30,  0.60), new THREE.Vector2(0.38,  0.80),
+      new THREE.Vector2(0.42,  1.00), new THREE.Vector2(0.42,  1.55)
+    ];
+    return new THREE.Mesh(new THREE.LatheGeometry(pts, 40), carbMats.barrelGlass);
+  }
+
+  function makeButterfly(y, angle) {
+    const g = new THREE.Group();
+    const R = carbBarrelRadius(y);
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.025, 32), carbMats.butterfly);
+    g.add(disc);
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.98, 8), carbMats.body);
+    shaft.rotation.z = Math.PI / 2;
+    g.add(shaft);
+    g.position.y = y;
+    g.rotation.z = angle;
+    return g;
+  }
+
+  function makeInjector(length = 0.22, radius = 0.045) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 14), carbMats.injector);
+    g.add(body);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(radius * 1.15, radius * 1.15, 0.04, 14), carbMats.injectorCap);
+    cap.position.y = length / 2 + 0.02;
+    g.add(cap);
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.55, radius * 0.9, 0.06, 12), carbMats.injector);
+    nozzle.position.y = -length / 2 - 0.02;
+    g.add(nozzle);
+    return g;
+  }
+
+  function makeSpraySystem(count, origin, dir = new THREE.Vector3(0, -1, 0), spread = 0.18) {
+    const geo = new THREE.BufferGeometry();
+    const posArr = new Float32Array(count * 3);
+    const colArr = new Float32Array(count * 3);
+    geo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+    geo.setAttribute('color',    new THREE.BufferAttribute(colArr, 3));
+    const mat = new THREE.PointsMaterial({
+      map: particleTex, size: 0.11, sizeAttenuation: true,
+      vertexColors: true, transparent: true, opacity: 0.95,
+      depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.frustumCulled = false;
+    const data = [];
+    for (let i = 0; i < count; i++) {
+      data.push({
+        t: Math.random(),
+        speed: 0.8 + Math.random() * 0.6,
+        ang: Math.random() * TAU,
+        r: Math.random() * spread
+      });
+    }
+    return { geo, pts, data, origin, dir, spread, count };
+  }
+  function updateSpray(s, dt, throttle, tintColor) {
+    const posA = s.geo.attributes.position;
+    const colA = s.geo.attributes.color;
+    const reach = 0.05 + 0.35 * throttle;
+    const c = tintColor || new THREE.Color(0xfbbf24);
+    for (let i = 0; i < s.count; i++) {
+      const p = s.data[i];
+      p.t += dt * p.speed * (0.5 + throttle * 2.2);
+      if (p.t > 1) p.t -= 1;
+      const dist = p.t * reach;
+      const wob = Math.sin(p.ang + p.t * 6) * p.r * p.t;
+      const x = s.origin.x + s.dir.x * dist + wob;
+      const y = s.origin.y + s.dir.y * dist;
+      const z = s.origin.z + s.dir.z * dist + Math.cos(p.ang + p.t * 6) * p.r * p.t;
+      posA.setXYZ(i, x, y, z);
+      const I = (1 - p.t) * (0.35 + 0.65 * throttle);
+      colA.setXYZ(i, c.r * I, c.g * I, c.b * I);
+    }
+    posA.needsUpdate = true;
+    colA.needsUpdate = true;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG 1 — CLASSIC SINGLE-BARREL CARBURETOR
+     ═══════════════════════════════════════════════════════════════════ */
+  function createCarburetorScene() {
+    const group = new THREE.Group();
+
+    group.add(makeBarrel());
+    [ [ 1.55, 0.42, 0.04 ], [ 0.40, 0.22, 0.025 ], [ -0.75, 0.42, 0.05 ] ].forEach(([y, R, r]) => {
+      const t = new THREE.Mesh(new THREE.TorusGeometry(R, r, 10, 40), carbMats.body);
+      t.rotation.x = Math.PI / 2;
+      t.position.y = y;
+      group.add(t);
+    });
+
+    group.add(makeButterfly(1.25, Math.PI * 0.42));
+    const throttlePlate = makeButterfly(-0.10, Math.PI * 0.05);
+    group.add(throttlePlate);
+
+    const CHAMBER_CX = -0.95, CHAMBER_CY = -0.10, CHAMBER_R = 0.38, CHAMBER_H = 0.90;
+    const chamber = new THREE.Mesh(
+      new THREE.CylinderGeometry(CHAMBER_R, CHAMBER_R, CHAMBER_H, 32, 1, true),
+      carbMats.chamberGlass
+    );
+    chamber.position.set(CHAMBER_CX, CHAMBER_CY, 0);
+    group.add(chamber);
+
+    const cTop = new THREE.Mesh(new THREE.CylinderGeometry(CHAMBER_R, CHAMBER_R, 0.03, 32), carbMats.body);
+    cTop.position.set(CHAMBER_CX, CHAMBER_CY + CHAMBER_H / 2, 0);
+    group.add(cTop);
+    const cBot = cTop.clone();
+    cBot.position.set(CHAMBER_CX, CHAMBER_CY - CHAMBER_H / 2, 0);
+    group.add(cBot);
+
+    const inletFitting = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.15, 12), carbMats.brassSolid);
+    inletFitting.position.set(CHAMBER_CX, CHAMBER_CY + CHAMBER_H / 2 + 0.07, 0);
+    group.add(inletFitting);
+
+    const FUEL_LEVEL_Y = -0.10;
+    const fuelBottomY  = CHAMBER_CY - CHAMBER_H / 2 + 0.02;
+    const fuelH        = FUEL_LEVEL_Y - fuelBottomY;
+    const fuelLiquid   = new THREE.Mesh(
+      new THREE.CylinderGeometry(CHAMBER_R - 0.02, CHAMBER_R - 0.02, fuelH, 32),
+      carbMats.fuel
+    );
+    fuelLiquid.position.set(CHAMBER_CX, fuelBottomY + fuelH / 2, 0);
+    group.add(fuelLiquid);
+
+    const floatBall = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24, 16), carbMats.float);
+    floatBall.position.set(CHAMBER_CX, FUEL_LEVEL_Y + 0.12, 0);
+    group.add(floatBall);
+
+    const needle = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.20, 12), carbMats.brassSolid);
+    needle.position.set(CHAMBER_CX, 0.30, 0);
+    group.add(needle);
+
+    group.add(Base.tubeBetween(new THREE.Vector3(CHAMBER_CX + CHAMBER_R - 0.01, -0.35, 0), new THREE.Vector3(-0.20, -0.35, 0), 0.05, 0.05, carbMats.brass, false));
+    group.add(Base.tubeBetween(new THREE.Vector3(-0.20, -0.35, 0), new THREE.Vector3(-0.20, 0.40, 0), 0.05, 0.05, carbMats.brass, false));
+    group.add(Base.tubeBetween(new THREE.Vector3(-0.20, 0.40, 0), new THREE.Vector3(-0.08, 0.40, 0), 0.05, 0.04, carbMats.brass, false));
+
+    const airGeo = new THREE.BufferGeometry();
+    airGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(CARB_AIR_COUNT * 3), 3));
+    airGeo.setAttribute('color',    new THREE.BufferAttribute(new Float32Array(CARB_AIR_COUNT * 3), 3));
+    const airMat = new THREE.PointsMaterial({ map: particleTex, size: 0.10, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, vertexColors: true });
+    const airPts = new THREE.Points(airGeo, airMat);
+    group.add(airPts);
+    const airData = [];
+    for (let i = 0; i < CARB_AIR_COUNT; i++) {
+      airData.push({ t: Math.random(), speed: 0.8 + Math.random() * 0.5, r: Math.random() * 0.28, angle: Math.random() * TAU });
+    }
+
+    const FUEL_PATH = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(CHAMBER_CX, -0.30, 0), new THREE.Vector3(CHAMBER_CX + 0.30, -0.35, 0),
+      new THREE.Vector3(-0.20, -0.35, 0),       new THREE.Vector3(-0.20, 0, 0),
+      new THREE.Vector3(-0.20, 0.40, 0),        new THREE.Vector3(-0.08, 0.40, 0),
+      new THREE.Vector3(0, 0.35, 0),            new THREE.Vector3(0, -0.75, 0)
+    ]);
+
+    const fuelGeo = new THREE.BufferGeometry();
+    fuelGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(CARB_FUEL_COUNT * 3), 3));
+    fuelGeo.setAttribute('color',    new THREE.BufferAttribute(new Float32Array(CARB_FUEL_COUNT * 3), 3));
+    const fuelMat = new THREE.PointsMaterial({ map: particleTex, size: 0.13, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, vertexColors: true });
+    const fuelPts = new THREE.Points(fuelGeo, fuelMat);
+    group.add(fuelPts);
+    const fuelData = [];
+    for (let i = 0; i < CARB_FUEL_COUNT; i++) {
+      fuelData.push({ t: Math.random(), speed: 0.7 + Math.random() * 0.6 });
+    }
+
+    const airBaseCol = new THREE.Color(0x9ecbff);
+
+    function update(dt, throttle, ratio) {
+      const ACCEL_MIN_ANGLE = Math.PI * 0.05;
+      const ACCEL_MAX_ANGLE = Math.PI / 2;
+      const targetAngle = ACCEL_MIN_ANGLE + (ACCEL_MAX_ANGLE - ACCEL_MIN_ANGLE) * throttle;
+      throttlePlate.rotation.z += (targetAngle - throttlePlate.rotation.z) * 0.15;
+
+      if (!state.showGas) {
+        airPts.visible = false;
+        fuelPts.visible = false;
+        return;
+      }
+      airPts.visible = true;
+      fuelPts.visible = true;
+
+      const airFlowMul  = 0.30 + 0.70 * throttle;
+      const fuelFlowMul = Math.max(0.35, Math.min(2.0, (airFlowMul * 14.7) / ratio));
+
+      const posA = airGeo.attributes.position;
+      const colA = airGeo.attributes.color;
+      for (let i = 0; i < CARB_AIR_COUNT; i++) {
+        const p = airData[i];
+        const y = 1.55 - p.t * 2.35;
+        p.t += dt * carbAirSpeed(y) * airFlowMul * p.speed * 0.35;
+        if (p.t > 1) p.t -= 1;
+        const yNew = 1.55 - p.t * 2.35;
+        const r = p.r * (carbBarrelRadius(yNew) / 0.42);
+        const swirl = Math.max(0, 1 - Math.abs(yNew - 0.40) * 3.0);
+        p.angle += dt * (1.2 + swirl * 9) * airFlowMul;
+        posA.setXYZ(i, Math.cos(p.angle) * r, yNew, Math.sin(p.angle) * r);
+        let I = 1.0;
+        if (p.t < 0.06) I = p.t / 0.06;
+        else if (p.t > 0.92) I = (1 - p.t) / 0.08;
+        I *= 0.5 + 0.5 * airFlowMul;
+        colA.setXYZ(i, airBaseCol.r * I, airBaseCol.g * I, airBaseCol.b * I);
+      }
+      posA.needsUpdate = true;
+      colA.needsUpdate = true;
+
+      const richCol  = new THREE.Color(0xef4444);
+      const idealCol = new THREE.Color(0xf59e0b);
+      const leanCol  = new THREE.Color(0x93c5fd);
+      let mixTint;
+      if (ratio <= 14.7) {
+        const f = Math.max(0, Math.min(1, (14.7 - ratio) / 2.3));
+        mixTint = idealCol.clone().lerp(richCol, f);
+      } else {
+        const f = Math.max(0, Math.min(1, (ratio - 14.7) / 0.7));
+        mixTint = idealCol.clone().lerp(leanCol, f);
+      }
+
+      const fPos = fuelGeo.attributes.position;
+      const fCol = fuelGeo.attributes.color;
+      const raw  = new THREE.Color(0xf59e0b);
+      for (let i = 0; i < CARB_FUEL_COUNT; i++) {
+        const p = fuelData[i];
+        p.t += dt * p.speed * fuelFlowMul * 0.30;
+        if (p.t > 1) p.t -= 1;
+        const v = FUEL_PATH.getPoint(p.t);
+        fPos.setXYZ(i, v.x, v.y, v.z);
+        const m = Math.max(0, (p.t - 0.72) / 0.28);
+        const cc = raw.clone().lerp(mixTint, m);
+        let I = 1.0;
+        if (p.t < 0.05) I = p.t / 0.05;
+        else if (p.t > 0.94) I = (1 - p.t) / 0.06;
+        I *= 0.45 + 0.55 * Math.min(1.4, fuelFlowMul);
+        fCol.setXYZ(i, cc.r * I, cc.g * I, cc.b * I);
+      }
+      fPos.needsUpdate = true;
+      fCol.needsUpdate = true;
+    }
+
+    return { group, update };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG 2 — DUAL-BARREL
+     ═══════════════════════════════════════════════════════════════════ */
+  function createDualCarburetorScene() {
+    const group = new THREE.Group();
+    const OFFSET = 0.42;
+
+    const throttlePlates = [];
+    for (let side = -1; side <= 1; side += 2) {
+      const barrelGroup = new THREE.Group();
+      barrelGroup.position.x = side * OFFSET;
+      group.add(barrelGroup);
+
+      barrelGroup.add(makeBarrel());
+      [[1.55, 0.42, 0.04], [0.40, 0.22, 0.025], [-0.75, 0.42, 0.05]].forEach(([y, R, r]) => {
+        const t = new THREE.Mesh(new THREE.TorusGeometry(R, r, 10, 40), carbMats.body);
+        t.rotation.x = Math.PI / 2;
+        t.position.y = y;
+        barrelGroup.add(t);
+      });
+
+      barrelGroup.add(makeButterfly(1.25, Math.PI * 0.42));
+      const plate = makeButterfly(-0.10, Math.PI * 0.05);
+      barrelGroup.add(plate);
+      throttlePlates.push(plate);
+    }
+
+    const CHAMBER_CX = 0, CHAMBER_CY = -0.10, CHAMBER_R = 0.32, CHAMBER_H = 0.85;
+    const chamber = new THREE.Mesh(
+      new THREE.CylinderGeometry(CHAMBER_R, CHAMBER_R, CHAMBER_H, 32, 1, true),
+      carbMats.chamberGlass
+    );
+    chamber.position.set(CHAMBER_CX, CHAMBER_CY, -0.85);
+    group.add(chamber);
+    const cTop = new THREE.Mesh(new THREE.CylinderGeometry(CHAMBER_R, CHAMBER_R, 0.03, 32), carbMats.body);
+    cTop.position.set(CHAMBER_CX, CHAMBER_CY + CHAMBER_H / 2, -0.85);
+    group.add(cTop);
+    const fuelLiquid = new THREE.Mesh(
+      new THREE.CylinderGeometry(CHAMBER_R - 0.02, CHAMBER_R - 0.02, 0.5, 32),
+      carbMats.fuel
+    );
+    fuelLiquid.position.set(CHAMBER_CX, CHAMBER_CY - CHAMBER_H / 2 + 0.27, -0.85);
+    group.add(fuelLiquid);
+
+    [-OFFSET, OFFSET].forEach(x => {
+      const tube = Base.tubeBetween(
+        new THREE.Vector3(0, -0.35, -0.85),
+        new THREE.Vector3(x, -0.35, 0),
+        0.05, 0.05, carbMats.brass, false
+      );
+      group.add(tube);
+      const riser = Base.tubeBetween(
+        new THREE.Vector3(x, -0.35, 0),
+        new THREE.Vector3(x - Math.sign(x) * 0.08, 0.40, 0),
+        0.04, 0.04, carbMats.brass, false
+      );
+      group.add(riser);
+    });
+
+    function update(dt, throttle, ratio) {
+      const ACCEL_MIN_ANGLE = Math.PI * 0.05;
+      const ACCEL_MAX_ANGLE = Math.PI / 2;
+      const target = ACCEL_MIN_ANGLE + (ACCEL_MAX_ANGLE - ACCEL_MIN_ANGLE) * throttle;
+      throttlePlates.forEach(p => {
+        p.rotation.z += (target - p.rotation.z) * 0.15;
+      });
+    }
+
+    return { group, update };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG 3 — THROTTLE BODY INJECTION (TBI)
+     ═══════════════════════════════════════════════════════════════════ */
+  function createTBIScene() {
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.42, 0.42, 0.70, 40, 1, true),
+      carbMats.barrelGlass
+    );
+    body.position.y = 0.10;
+    group.add(body);
+
+    [0.45, -0.25].forEach(y => {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.04, 10, 40), carbMats.body);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = y;
+      group.add(ring);
+    });
+
+    const plate = new THREE.Group();
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.40, 0.028, 32), carbMats.butterfly);
+    plate.add(disc);
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.98, 8), carbMats.body);
+    shaft.rotation.z = Math.PI / 2;
+    plate.add(shaft);
+    plate.position.y = -0.05;
+    plate.rotation.z = Math.PI * 0.05;
+    group.add(plate);
+
+    const injector = makeInjector(0.30, 0.055);
+    injector.position.set(0, 0.62, 0);
+    group.add(injector);
+
+    const boss = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.14, 0.16, 20),
+      carbMats.manifold
+    );
+    boss.position.set(0, 0.42, 0);
+    group.add(boss);
+
+    const railFeed = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.045, 0.55, 14),
+      carbMats.rail
+    );
+    railFeed.rotation.z = Math.PI / 2;
+    railFeed.position.set(0, 0.78, 0);
+    group.add(railFeed);
+    const railCapL = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 14), carbMats.injector);
+    railCapL.rotation.z = Math.PI / 2;
+    railCapL.position.set(-0.30, 0.78, 0);
+    group.add(railCapL);
+    const railCapR = railCapL.clone();
+    railCapR.position.x = 0.30;
+    group.add(railCapR);
+
+    const spray = makeSpraySystem(INJ_SPRAY_COUNT, new THREE.Vector3(0, 0.42, 0), new THREE.Vector3(0, -1, 0), 0.16);
+    group.add(spray.pts);
+
+    function update(dt, throttle, ratio) {
+      const ACCEL_MIN_ANGLE = Math.PI * 0.05;
+      const ACCEL_MAX_ANGLE = Math.PI / 2;
+      const target = ACCEL_MIN_ANGLE + (ACCEL_MAX_ANGLE - ACCEL_MIN_ANGLE) * throttle;
+      plate.rotation.z += (target - plate.rotation.z) * 0.15;
+
+      spray.pts.visible = state.showGas !== false;
+      if (spray.pts.visible) {
+        const tint = ratio < 13.5 ? new THREE.Color(0xef4444)
+                   : ratio < 14.7 ? new THREE.Color(0xf59e0b)
+                                  : new THREE.Color(0x93c5fd);
+        updateSpray(spray, dt, throttle, tint);
+      }
+    }
+
+    return { group, update };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG 4 — PORT FUEL INJECTION (PFI / MPFI)
+     ═══════════════════════════════════════════════════════════════════ */
+  function createPFIScene() {
+    const group = new THREE.Group();
+
+    const manifold = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.16, 0.16, 1.60, 24, 1, true),
+      carbMats.barrelGlass
+    );
+    manifold.rotation.z = Math.PI / 2;
+    manifold.position.set(0, 0.20, 0);
+    group.add(manifold);
+    [-0.80, 0.80].forEach(x => {
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.05, 24), carbMats.manifold);
+      cap.rotation.z = Math.PI / 2;
+      cap.position.set(x, 0.20, 0);
+      group.add(cap);
+    });
+
+    const plate = new THREE.Group();
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.155, 0.02, 24), carbMats.butterfly);
+    plate.add(disc);
+    plate.position.set(-0.80, 0.20, 0);
+    plate.rotation.y = Math.PI / 2;
+    plate.rotation.z = Math.PI * 0.05;
+    group.add(plate);
+
+    const portXs = [-0.60, -0.20, 0.20, 0.60];
+    portXs.forEach(x => {
+      const runner = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.07, 0.35, 14),
+        carbMats.manifold
+      );
+      runner.position.set(x, -0.05, 0);
+      group.add(runner);
+      const flange = new THREE.Mesh(
+        new THREE.BoxGeometry(0.14, 0.03, 0.14),
+        carbMats.manifold
+      );
+      flange.position.set(x, -0.24, 0);
+      group.add(flange);
+    });
+
+    const rail = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.048, 0.048, 1.40, 16),
+      carbMats.rail
+    );
+    rail.rotation.z = Math.PI / 2;
+    rail.position.set(0, 0.62, 0);
+    group.add(rail);
+    [-0.70, 0.70].forEach(x => {
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 14), carbMats.injector);
+      cap.rotation.z = Math.PI / 2;
+      cap.position.set(x, 0.62, 0);
+      group.add(cap);
+    });
+    const sensor = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.12, 12), carbMats.injectorCap);
+    sensor.position.set(-0.55, 0.74, 0);
+    group.add(sensor);
+
+    const sprays = [];
+    portXs.forEach(x => {
+      const inj = makeInjector(0.24, 0.045);
+      inj.position.set(x, 0.44, 0);
+      group.add(inj);
+
+      const spray = makeSpraySystem(
+        Math.round(INJ_SPRAY_COUNT / 4),
+        new THREE.Vector3(x, 0.30, 0),
+        new THREE.Vector3(0, -1, 0),
+        0.10
+      );
+      group.add(spray.pts);
+      sprays.push(spray);
+    });
+
+    function update(dt, throttle, ratio) {
+      const ACCEL_MIN_ANGLE = Math.PI * 0.05;
+      const ACCEL_MAX_ANGLE = Math.PI / 2;
+      const target = ACCEL_MIN_ANGLE + (ACCEL_MAX_ANGLE - ACCEL_MIN_ANGLE) * throttle;
+      plate.rotation.z += (target - plate.rotation.z) * 0.15;
+
+      const visible = state.showGas !== false;
+      const tint = ratio < 13.5 ? new THREE.Color(0xef4444)
+                 : ratio < 14.7 ? new THREE.Color(0xf59e0b)
+                                : new THREE.Color(0x93c5fd);
+      sprays.forEach(s => {
+        s.pts.visible = visible;
+        if (visible) updateSpray(s, dt, throttle, tint);
+      });
+    }
+
+    return { group, update };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG 5 — COMMON-RAIL DIRECT INJECTION (CRDI)
+     ═══════════════════════════════════════════════════════════════════ */
+  function createCRDIScene() {
+    const group = new THREE.Group();
+
+    const BLOCK_W = 1.10, BLOCK_H = 1.30, BLOCK_D = 1.10, WALL = 0.08;
+    const blockBase = new THREE.Group();
+    blockBase.position.set(0, -0.20, 0);
+    group.add(blockBase);
+
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(BLOCK_W, BLOCK_H, WALL), carbMats.cylinder);
+    backWall.position.set(0, 0, -BLOCK_D / 2 + WALL / 2);
+    blockBase.add(backWall);
+
+    [-1, 1].forEach(side => {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(WALL, BLOCK_H, BLOCK_D), carbMats.cylinder);
+      wall.position.set(side * (BLOCK_W / 2 - WALL / 2), 0, 0);
+      blockBase.add(wall);
+    });
+
+    const botWall = new THREE.Mesh(new THREE.BoxGeometry(BLOCK_W, WALL, BLOCK_D), carbMats.cylinder);
+    botWall.position.set(0, -BLOCK_H / 2 + WALL / 2, 0);
+    blockBase.add(botWall);
+
+    const cutPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(BLOCK_W - WALL * 2, BLOCK_H - WALL * 2),
+      carbMats.cylinderCut
+    );
+    cutPlane.position.set(0, 0, -BLOCK_D / 2 + WALL + 0.001);
+    blockBase.add(cutPlane);
+
+    const BORE_R = 0.36;
+    const bore = new THREE.Mesh(
+      new THREE.CylinderGeometry(BORE_R, BORE_R, BLOCK_H - WALL * 2 - 0.02, 32, 1, true),
+      new THREE.MeshStandardMaterial({ color:0x1a2029, metalness:0.7, roughness:0.55, side:THREE.DoubleSide })
+    );
+    bore.position.y = 0;
+    blockBase.add(bore);
+
+    const piston = new THREE.Mesh(
+      new THREE.CylinderGeometry(BORE_R * 0.94, BORE_R * 0.94, 0.20, 24),
+      carbMats.piston
+    );
+    piston.position.y = -0.15;
+    blockBase.add(piston);
+
+    for (let i = 0; i < 3; i++) {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(BORE_R * 0.95, 0.012, 6, 24),
+        carbMats.injector
+      );
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = -0.15 + 0.06 - i * 0.05;
+      blockBase.add(ring);
+    }
+
+    const head = new THREE.Mesh(new THREE.BoxGeometry(BLOCK_W, 0.30, BLOCK_D), carbMats.cylinder);
+    head.position.set(0, BLOCK_H / 2 + 0.15, 0);
+    blockBase.add(head);
+
+    const injGroup = new THREE.Group();
+    injGroup.position.set(-0.18, BLOCK_H / 2 + 0.30, 0);
+    injGroup.rotation.z = -Math.PI * 0.28;
+    blockBase.add(injGroup);
+
+    const injector = makeInjector(0.42, 0.055);
+    injector.position.y = -0.05;
+    injGroup.add(injector);
+
+    const rail = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.075, 0.075, 1.40, 20),
+      carbMats.railHP
+    );
+    rail.rotation.z = Math.PI / 2;
+    rail.position.set(0, BLOCK_H / 2 + 0.80, 0);
+    blockBase.add(rail);
+
+    [-0.70, 0.70].forEach(x => {
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 16), carbMats.injector);
+      cap.rotation.z = Math.PI / 2;
+      cap.position.set(x, BLOCK_H / 2 + 0.80, 0);
+      blockBase.add(cap);
+    });
+
+    const reg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.16, 14), carbMats.injectorCap);
+    reg.position.set(0.55, BLOCK_H / 2 + 0.94, 0);
+    blockBase.add(reg);
+
+    blockBase.add(Base.tubeBetween(
+      new THREE.Vector3(-0.55, BLOCK_H / 2 + 0.80, 0),
+      new THREE.Vector3(-0.34, BLOCK_H / 2 + 0.55, 0),
+      0.022, 0.022, carbMats.railHP, false
+    ));
+
+    const nozzleWorld = new THREE.Vector3(-0.18, BLOCK_H / 2 + 0.05, 0);
+    const spray = makeSpraySystem(INJ_SPRAY_COUNT, nozzleWorld, new THREE.Vector3(0.55, -1, 0).normalize(), 0.22);
+    blockBase.add(spray.pts);
+
+    const AIR_N = isLowEnd ? 10 : 18;
+    const airGeo = new THREE.BufferGeometry();
+    airGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(AIR_N * 3), 3));
+    airGeo.setAttribute('color',    new THREE.BufferAttribute(new Float32Array(AIR_N * 3), 3));
+    const airPts = new THREE.Points(airGeo, new THREE.PointsMaterial({
+      map: particleTex, size: 0.09, sizeAttenuation: true,
+      vertexColors: true, transparent: true, opacity: 0.85,
+      depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    blockBase.add(airPts);
+    const airData = [];
+    for (let i = 0; i < AIR_N; i++) {
+      airData.push({ ang: Math.random() * TAU, rad: Math.random() * BORE_R * 0.7, y: Math.random() * 0.4 - 0.05, spd: 0.4 + Math.random() * 0.4 });
+    }
+
+    function update(dt, throttle, ratio) {
+      const visible = state.showGas !== false;
+      spray.pts.visible = visible;
+      airPts.visible = visible;
+
+      if (visible) {
+        const tint = ratio < 13.5 ? new THREE.Color(0xef4444)
+                   : ratio < 14.7 ? new THREE.Color(0xf59e0b)
+                                  : new THREE.Color(0x93c5fd);
+        updateSpray(spray, dt, throttle, tint);
+
+        const posA = airGeo.attributes.position;
+        const colA = airGeo.attributes.color;
+        const chamberTop = 0.55;
+        for (let i = 0; i < AIR_N; i++) {
+          const a = airData[i];
+          a.ang += dt * a.spd * (0.8 + throttle * 2.0);
+          const x = Math.cos(a.ang) * a.rad;
+          const z = Math.sin(a.ang) * a.rad;
+          const y = chamberTop - (a.y + dt * 0.1);
+          posA.setXYZ(i, x, y, z);
+          const I = 0.35 + 0.35 * throttle;
+          colA.setXYZ(i, 0.62 * I, 0.78 * I, 1.0 * I);
+        }
+        posA.needsUpdate = true;
+        colA.needsUpdate = true;
+      }
+    }
+
+    return { group, update };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     CONFIG REGISTRY
+     ═══════════════════════════════════════════════════════════════════ */
+  const CONFIG_DEFS = [
+    {
+      id: 'carb',
+      label: 'Carburetor',
+      badge: '#f59e0b',
+      desc: `<strong>Classic carburetor.</strong> Air rushes down through
+             the venturi. As the throat narrows the air speeds up and its
+             pressure drops, drawing fuel up through the main jet where it
+             atomises into the airstream. A float chamber holds a constant
+             fuel level; the throttle valve below regulates how much
+             mixture reaches the engine.`,
+      build: createCarburetorScene
+    },
+    {
+      id: 'dual-carb',
+      label: 'Dual Carb',
+      badge: '#f97316',
+      desc: `<strong>Dual-barrel carburetor.</strong> Two venturis share a
+             single fuel log, each feeding half the cylinders. More airflow
+             capacity and better cylinder-to-cylinder distribution than a
+             single-barrel, but still purely mechanical — fuel delivery is
+             governed by airflow through each throat, not by a computer.`,
+      build: createDualCarburetorScene
+    },
+    {
+      id: 'tbi',
+      label: 'TBI',
+      badge: '#38bdf8',
+      desc: `<strong>Throttle body injection (TBI).</strong> The first step
+             away from the carburetor: a single electrically-controlled
+             injector sprays fuel into the throttle body, replacing the
+             venturi + jet. It looks like a carburetor and mounts in the
+             same place, but fuelling is now computed by the ECU — more
+             precise, less sensitive to altitude and temperature.`,
+      build: createTBIScene
+    },
+    {
+      id: 'pfi',
+      label: 'PFI / MPFI',
+      badge: '#22c55e',
+      desc: `<strong>Port fuel injection (PFI / MPFI).</strong> Modern
+             petrol layout: a fuel rail above the intake manifold feeds
+             one injector per cylinder, aimed at the intake port just
+             upstream of the valve. Fuel is fully atomised before it
+             enters the chamber, giving tight AFR control, low emissions
+             and better cold-start behaviour.`,
+      build: createPFIScene
+    },
+    {
+      id: 'crdi',
+      label: 'CRDI',
+      badge: '#ef4444',
+      desc: `<strong>Common-rail direct injection (CRDI).</strong>
+             Diesel engines: a high-pressure pump keeps a shared rail at
+             2000+ bar, and each cylinder's injector fires directly into
+             the combustion chamber — often several times per cycle.
+             Massive pressure means tiny droplets, extremely precise
+             fuelling and the torque and efficiency modern diesels are
+             known for.`,
+      build: createCRDIScene
+    }
+  ];
+
+  const configsRoot = new THREE.Group();
+  scene.add(configsRoot);
+
+  const configs = CONFIG_DEFS.map(def => {
+    const built = def.build();
+    built.group.visible = false;
+    configsRoot.add(built.group);
+    return { ...def, group: built.group, update: built.update };
+  });
+
+  let activeConfigIdx = 0;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     LABELS
+     ═══════════════════════════════════════════════════════════════════ */
+  const carbLabelDefs = [
+    { id:'air',    text:'Air in',                 pos: new THREE.Vector3( 0.00, 1.80, 0) },
+    { id:'choke',  text:'Choke plate (open)',     pos: new THREE.Vector3( 0.62, 1.25, 0) },
+    { id:'venturi',text:'Venturi (low pressure)', pos: new THREE.Vector3( 0.65, 0.40, 0) },
+    { id:'float',  text:'Float chamber',          pos: new THREE.Vector3(-0.95, 0.60, 0) },
+    { id:'jet',    text:'Fuel jet',               pos: new THREE.Vector3(-0.20, -0.65, 0) },
+    { id:'thr',    text:'Throttle valve',         pos: new THREE.Vector3( 0.65, -0.10, 0) },
+    { id:'out',    text:'Air–fuel mixture out',   pos: new THREE.Vector3( 0.00, -1.00, 0) }
+  ];
+  carbLabelDefs.forEach(d => labels.add(d.id, d.text));
+
+  /* ═══════════════════════════════════════════════════════════════════
+     STATE
+     ═══════════════════════════════════════════════════════════════════ */
+  let accelPos = 0;
+  let lastPhaseIdx = -1;
+
+  const RPM_AT_DEFAULT_SPEED = 900;
+  const DEFAULT_SPEED_MUL    = 0.85;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     UNIVERSAL UI
+     ═══════════════════════════════════════════════════════════════════ */
+  const ui = UI.create({
+    moduleId: 'carburetor',
+
+    panel: {
+      kicker: 'Fuel',
+      title:  'Carburetor & Fuel Delivery',
+      badge:  { text: mixturePhases[0].name, color: mixturePhases[0].color },
+      readout: `
+        <div class="carb-readout">
+          <span>Throttle <b data-throttle>0%</b></span>
+          <span>Air : Fuel <b data-afr>12.4 : 1</b></span>
+        </div>
+      `,
+      desc: CONFIG_DEFS[0].desc,
+      hint: ''
+    },
+
+    chip: {
+      label: 'Live mixture',
+      value: '12.4',
+      unit: ' : 1',
+      rows: [
+        { id: 'thr',   label: 'Throttle', value: '0%' },
+        { id: 'phase', label: 'Phase',    value: 'Idle' }
+      ]
+    },
+
+    toolbar: {
+      play: true, reset: true,
+      speed: { label: 'Speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
+      labels: true, gas: true
+    },
+
+    widgets: {
+      br: {
+        caption: 'Press &amp; hold · <span data-throttle-cap>0%</span>',
+        html: `
+          <div class="carb-pedal">
+            <div class="carb-pedal-track" data-role="track"
+                 role="slider" tabindex="0"
+                 aria-label="Accelerator pedal"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div class="carb-pedal-fill" data-role="fill"></div>
+              <div class="carb-pedal-ticks"><span></span><span></span><span></span></div>
+              <div class="carb-pedal-pad" data-role="pad">
+                <svg viewBox="0 0 60 34" aria-hidden="true">
+                  <rect class="plate" x="4" y="4" width="52" height="26" rx="8"/>
+                  <rect class="grip" x="10" y="9" width="40" height="4" rx="2"/>
+                  <rect class="grip" x="10" y="16" width="40" height="4" rx="2"/>
+                  <rect class="grip" x="10" y="23" width="40" height="4" rx="2"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        `,
+        onMount: (el) => wirePedal(el)
+      }
+    }
+  });
+
+  /* ── Mixture ratio chip ── */
+  const mixRatioEl = document.createElement('span');
+  mixRatioEl.className = 'carb-mix-ratio';
+  mixRatioEl.textContent = '12.4 : 1';
+  document.getElementById('stroke-badge').appendChild(mixRatioEl);
+
+  /* ── Mixture phase note ── */
+  const panelBody = ui.panel.body;
+  const noteEl = document.createElement('div');
+  noteEl.className = 'carb-note';
+  noteEl.innerHTML = mixturePhases[0].desc;
+  panelBody.appendChild(noteEl);
+
+  /* ═════════════════════════════════════════════════════════════════════
+     ★ TOOLBAR WIRING — connects kit-generated controls to `state`
+     ═════════════════════════════════════════════════════════════════════ */
+  (function wireToolbar() {
+    const playBtn  = document.getElementById('btn-play');
+    const resetBtn = document.getElementById('btn-reset');
+    const speedInp = document.getElementById('speed');
+    const chkLab   = document.getElementById('chk-labels');
+    const chkGas   = document.getElementById('chk-gas');
+
+    function syncPlayIcons() {
+      const ip  = document.getElementById('icon-play');
+      const ipa = document.getElementById('icon-pause');
+      if (ip)  ip.style.display  = state.playing ? 'none'  : 'block';
+      if (ipa) ipa.style.display = state.playing ? 'block' : 'none';
+    }
+    syncPlayIcons();
+
+    if (playBtn) playBtn.addEventListener('click', () => {
+      state.playing = !state.playing;
+      syncPlayIcons();
+    });
+    if (resetBtn) resetBtn.addEventListener('click', resetSim);
+    if (speedInp) speedInp.addEventListener('input', () => {
+      state.speedMul = parseFloat(speedInp.value);
+    });
+    if (chkLab) chkLab.addEventListener('change', () => { state.showLabels = chkLab.checked; });
+    if (chkGas) chkGas.addEventListener('change', () => { state.showGas    = chkGas.checked; });
+
+    /* Expose the sync so the shell's `setPlaying` command keeps icons fresh */
+    window.__carbSyncPlayIcons = syncPlayIcons;
+  })();
+
+  /* ═════════════════════════════════════════════════════════════════════
+     CONFIG SWITCHER
+     ═════════════════════════════════════════════════════════════════════ */
+  (function buildConfigSwitcher() {
+    const extras = document.getElementById('toolbar-extras');
+    if (!extras) return;
+    const cfgGroup = document.createElement('div');
+    cfgGroup.className = 'cfg-group';
+    cfgGroup.setAttribute('role', 'group');
+    cfgGroup.setAttribute('aria-label', 'Fuel delivery configuration');
+    cfgGroup.innerHTML = `
+      <button class="cfg-arrow" id="cfg-prev" type="button" aria-label="Previous configuration">‹</button>
+      <span id="cfg-label">${CONFIG_DEFS[0].label}</span>
+      <button class="cfg-arrow" id="cfg-next" type="button" aria-label="Next configuration">›</button>
+    `;
+    extras.appendChild(cfgGroup);
+  })();
+
+  const cfgLabelEl = document.getElementById('cfg-label');
+  const cfgPrevEl  = document.getElementById('cfg-prev');
+  const cfgNextEl  = document.getElementById('cfg-next');
+
+  let bridge = null;
+
+  function applyConfig(idx) {
+    activeConfigIdx = ((idx % configs.length) + configs.length) % configs.length;
+    configs.forEach((c, i) => { c.group.visible = (i === activeConfigIdx); });
+
+    const active = configs[activeConfigIdx];
+    if (cfgLabelEl) cfgLabelEl.textContent = active.label;
+    panelBody.querySelector('#stroke-desc').innerHTML = active.desc;
+
+    if (active.id !== 'carb') labels.hideAll();
+
+    if (bridge) bridge.setStatus(active.label, active.badge);
+  }
+  function stepConfig(dir) { applyConfig(activeConfigIdx + dir); }
+  if (cfgPrevEl) cfgPrevEl.addEventListener('click', () => stepConfig(-1));
+  if (cfgNextEl) cfgNextEl.addEventListener('click', () => stepConfig(1));
+  applyConfig(0);
+
+  /* ═══════════════════════════════════════════════════════════════════
+     MIXTURE READOUT
+     ═══════════════════════════════════════════════════════════════════ */
+  const badgeEl     = document.getElementById('stroke-badge');
+  const badgeTextEl = document.getElementById('badge-text');
+  const throttleEls = panelBody.querySelectorAll('[data-throttle]');
+  const afrEls      = panelBody.querySelectorAll('[data-afr]');
+
+  function setMixtureUI(t, ratio) {
+    const pct = Math.round(t * 100);
+    const ratioStr = ratio.toFixed(1);
+
+    throttleEls.forEach(el => { el.textContent = pct + '%'; });
+    afrEls.forEach(el => { el.textContent = ratioStr + ' : 1'; });
+    mixRatioEl.textContent = ratioStr + ' : 1';
+
+    ui.chip.setBig(ratioStr, ' : 1');
+    ui.chip.set('thr', pct + '%');
+
+    const idx = phaseIndex(t);
+    if (idx !== lastPhaseIdx) {
+      lastPhaseIdx = idx;
+      const m = mixturePhases[idx];
+      badgeTextEl.textContent = m.name;
+      badgeEl.style.background = `color-mix(in oklch, ${m.color} 18%, transparent)`;
+      badgeEl.style.color = m.color;
+      noteEl.innerHTML = m.desc;
+      ui.chip.set('phase', m.name.split(' — ')[0]);
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     PEDAL WIDGET
+     ═══════════════════════════════════════════════════════════════════ */
+  function wirePedal(root) {
+    const track  = root.querySelector('[data-role="track"]');
+    const fill   = root.querySelector('[data-role="fill"]');
+    const pad    = root.querySelector('[data-role="pad"]');
+    const caption = document.getElementById('ui-widget-br-cap');
+
+    let dragging = false;
+    let pointerId = null;
+    let returnRAF = null;
+    let keyHeld = false;
+
+    function setPos(v) {
+      accelPos = Math.max(0, Math.min(1, v));
+      const pct = Math.round(accelPos * 100);
+      fill.style.height = pct + '%';
+      pad.style.bottom  = pct + '%';
+      track.setAttribute('aria-valuenow', String(pct));
+      if (caption) {
+        const span = caption.querySelector('[data-throttle-cap]');
+        if (span) span.textContent = pct + '%';
+      }
+    }
+    function percentFromEvent(e) {
+      const r = track.getBoundingClientRect();
+      return Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height));
+    }
+    function cancelReturn() {
+      if (returnRAF) { cancelAnimationFrame(returnRAF); returnRAF = null; }
+    }
+    function springRelease() {
+      cancelReturn();
+      const step = () => {
+        const next = accelPos * 0.86;
+        setPos(next < 0.004 ? 0 : next);
+        returnRAF = accelPos > 0 ? requestAnimationFrame(step) : null;
+      };
+      returnRAF = requestAnimationFrame(step);
+    }
+
+    track.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      cancelReturn();
+      dragging = true;
+      pointerId = e.pointerId;
+      try { track.setPointerCapture(e.pointerId); } catch (_) {}
+      track.classList.add('active');
+      if (caption) caption.classList.add('active');
+      setPos(percentFromEvent(e));
+    });
+    track.addEventListener('pointermove', e => {
+      if (!dragging || e.pointerId !== pointerId) return;
+      e.preventDefault();
+      setPos(percentFromEvent(e));
+    });
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      pointerId = null;
+      track.classList.remove('active');
+      if (caption) caption.classList.remove('active');
+      springRelease();
+    }
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
+    track.addEventListener('lostpointercapture', endDrag);
+    track.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      cancelReturn();
+      keyHeld = true;
+      setPos(accelPos + (e.key === 'ArrowUp' ? 0.05 : -0.05));
+    });
+    track.addEventListener('keyup', e => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      if (keyHeld) { keyHeld = false; springRelease(); }
+    });
+
+    root.__setPos = setPos;
+    root.__cancelReturn = cancelReturn;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     RESET + BRIDGE
+     ═══════════════════════════════════════════════════════════════════ */
+  function resetSim() {
+    const brWidget = document.getElementById('ui-widget-br');
+    if (brWidget && brWidget.__cancelReturn) brWidget.__cancelReturn();
+    if (brWidget && brWidget.__setPos) brWidget.__setPos(0);
+    applyConfig(0);
+  }
+
+  bridge = ui.wireBridge({
+    viewManager,
+    state,
+    onCommand: (d) => {
+      switch (d.action) {
+        case 'setPlaying':
+          state.playing = !!d.value;
+          if (window.__carbSyncPlayIcons) window.__carbSyncPlayIcons();
+          break;
+        case 'setSpeed':
+          state.speedMul = +d.value;
+          /* Mirror the kit-generated slider so it stays in sync with the shell */
+          { const s = document.getElementById('speed'); if (s) s.value = state.speedMul; }
+          break;
+        case 'setLabels':
+          state.showLabels = !!d.value;
+          { const c = document.getElementById('chk-labels'); if (c) c.checked = state.showLabels; }
+          break;
+        case 'setGas':
+          state.showGas = !!d.value;
+          { const c = document.getElementById('chk-gas'); if (c) c.checked = state.showGas; }
+          break;
+        case 'setAccelerator': {
+          const brWidget = document.getElementById('ui-widget-br');
+          if (brWidget && brWidget.__cancelReturn) brWidget.__cancelReturn();
+          if (brWidget && brWidget.__setPos) brWidget.__setPos(+d.value);
+          break;
+        }
+        case 'reset': resetSim(); break;
+      }
+    }
+  });
+  bridge.ready();
+  bridge.setStatus(CONFIG_DEFS[0].label, CONFIG_DEFS[0].badge);
+
+  /* ═══════════════════════════════════════════════════════════════════
+     RENDER LOOP
+     ═══════════════════════════════════════════════════════════════════ */
+  const clock = new THREE.Clock();
+  let frame = 0;
+
+  function animate() {
+    requestAnimationFrame(animate);
+    frame++;
+    const dt = Math.min(clock.getDelta(), 0.05);
+
+    const ratio = afrRatio(accelPos);
+    setMixtureUI(accelPos, ratio);
+
+    ui.toolbar.setRpmLabel(
+      '~' + Math.round(RPM_AT_DEFAULT_SPEED * (state.speedMul / DEFAULT_SPEED_MUL)) + ' rpm'
+    );
+
+    const active = configs[activeConfigIdx];
+    if (state.playing) {
+      active.update(dt * state.speedMul, accelPos, ratio);
+    } else {
+      active.update(0, accelPos, ratio);
+    }
+
+    if (state.showLabels && active.id === 'carb' && frame % 2 === 0) {
+      carbLabelDefs.forEach(d => labels.project(d.id, d.pos, camera, wrap));
+    } else if (!state.showLabels || active.id !== 'carb') {
+      labels.hideAll();
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+  </script>
+</body>
+</html>

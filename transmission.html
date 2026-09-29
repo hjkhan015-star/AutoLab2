@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d13">
+<title>Transmission System — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  /* ═══════════════════════════════════════════════════════════
+     PANEL READOUT INTERIOR — configuration toggle (2W / 4W)
+     ═══════════════════════════════════════════════════════════ */
+  #trans-readout {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 8px;
+  }
+  #trans-readout .extra-label {
+    font-size:10.5px; font-weight:700; letter-spacing:.04em;
+    text-transform:uppercase;
+    color: var(--text-dim, #8b96a5);
+    margin-bottom: 2px;
+  }
+  .drive-toggle {
+    display: flex; gap: 4px;
+    background: rgba(255,255,255,.04);
+    padding: 4px; border-radius: 10px;
+    border: 1px solid var(--border, rgba(255,255,255,.08));
+  }
+  html.light-theme .drive-toggle {
+    background: rgba(15,23,42,.05);
+    border-color: rgba(15,23,42,.10);
+  }
+  .drive-btn {
+    flex: 1; border: none; background: transparent;
+    color: var(--text-dim, #8b96a5);
+    font-size: 11.5px; font-weight: 700;
+    padding: 8px 10px; border-radius: 7px; cursor: pointer;
+    font-family: inherit; transition: all .2s;
+  }
+  .drive-btn:hover { color: var(--text, #e5e7eb); }
+  .drive-btn.active {
+    background: var(--accent, #3b82f6); color: #0b0e14;
+    box-shadow: 0 2px 8px rgba(59,130,246,.3);
+  }
+  html.light-theme .drive-btn.active { color: #fff; }
+
+  #trans-desc-title {
+    display: block;
+    color: var(--text, #e5e7eb);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  html.light-theme #trans-desc-title { color: #0a0d13; }
+
+  #trans-desc-body { color: var(--text-dim, #94a3b8); font-size: 12.5px; line-height: 1.55; }
+  #trans-desc-body strong { color: var(--text, #e5e7eb); font-weight: 700; }
+  html.light-theme #trans-desc-body { color: #475569; }
+  html.light-theme #trans-desc-body strong { color: #0a0d13; }
+</style>
+</head>
+<body>
+  <div id="canvas-wrap"></div>
+  <div id="labels-root"></div>
+
+  <script src="guard.js"></script>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  } }
+  </script>
+
+  <script type="module">
+  import * as THREE from 'three';
+  import * as Base from './kit.js';
+  import { UI } from './kit.js';
+  import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+  /* ═══════════════════════════════════════════════════════════
+     ADAPTIVE QUALITY
+     ═══════════════════════════════════════════════════════════ */
+  const isCoarse = matchMedia('(pointer: coarse)').matches;
+  const cores    = navigator.hardwareConcurrency || 4;
+  const mem      = navigator.deviceMemory || 4;
+  const isLowEnd = cores <= 4 || mem <= 2;
+  const isMidEnd = !isLowEnd && (cores <= 6 || isCoarse);
+
+  const CHAIN_LINK_COUNT = isLowEnd ? 60 : isMidEnd ? 80 : 100;
+  const FLOW_BALL_COUNT  = isLowEnd ? 4 : isMidEnd ? 6 : 8;
+
+  /* ═══════════════════════════════════════════════════════════
+     SCENE
+     ═══════════════════════════════════════════════════════════ */
+  const { scene, camera, renderer, controls, wrap, viewManager } = Base.buildScene({
+    fov: 42,
+    camPos: isCoarse ? [4.0, 2.6, 5.0] : [4.5, 3.0, 5.5],
+    target: [0, 0, 0.5],
+    floorY: -1.5
+  });
+  Base.attachResize(camera, renderer, wrap, 42);
+
+  renderer.toneMapping         = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.outputColorSpace    = THREE.SRGBColorSpace;
+
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  pmrem.dispose();
+
+  const labels = Base.createLabelSystem();
+  const state  = Base.createUIState();
+  state.mode   = '4W';
+
+  /* ═══════════════════════════════════════════════════════════
+     GROUND GRID (visual improvement — spatial context)
+     ═══════════════════════════════════════════════════════════ */
+  const gridMain = new THREE.GridHelper(16, 32, 0x3b82f6, 0x1e293b);
+  gridMain.position.y = -1.501;
+  gridMain.material.transparent = true;
+  gridMain.material.opacity = 0.35;
+  scene.add(gridMain);
+
+  /* ═══════════════════════════════════════════════════════════
+     PROCEDURAL TEXTURES
+     ═══════════════════════════════════════════════════════════ */
+  function canvasTex(size, draw, { srgb = true, repeatX = 1, repeatY = 1 } = {}) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    draw(c.getContext('2d'), size);
+    const t = new THREE.CanvasTexture(c);
+    t.anisotropy  = renderer.capabilities.getMaxAnisotropy();
+    t.colorSpace  = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(repeatX, repeatY);
+    return t;
+  }
+
+  const tyreTex = canvasTex(256, (g, S) => {
+    g.fillStyle = '#0a0c10'; g.fillRect(0, 0, S, S);
+    for (let x = 0; x < S; x += 20) {
+      g.fillStyle = '#181c22'; g.fillRect(x, 0, 11, S);
+      g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(x + 11, 0, 2, S);
+    }
+  }, { repeatX: 8, repeatY: 1 });
+
+  const tyreRough = canvasTex(256, (g, S) => {
+    g.fillStyle = '#dcdcdc'; g.fillRect(0, 0, S, S);
+    for (let i = 0; i < 16000; i++) {
+      const v = 160 + Math.random() * 90;
+      g.fillStyle = `rgb(${v|0},${v|0},${v|0})`;
+      g.fillRect(Math.random()*S, Math.random()*S, 3, 3);
+    }
+  }, { srgb: false });
+
+  const machinedMap = canvasTex(512, (g, S) => {
+    const cx = S/2, cy = S/2;
+    g.fillStyle = '#8d97a5'; g.fillRect(0, 0, S, S);
+    for (let r = 3; r < S/2; r += 2) {
+      const v = 0.5 + 0.5 * Math.sin(r * 0.9 + Math.random() * 0.35);
+      g.strokeStyle = v > 0.5
+        ? `rgba(255,255,255,${0.03 + v * 0.07})`
+        : `rgba(0,0,0,${0.03 + (1 - v) * 0.07})`;
+      g.lineWidth = 1;
+      g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
+    }
+  });
+
+  const shadowTex = canvasTex(128, (g, S) => {
+    const grd = g.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
+    grd.addColorStop(0.00, 'rgba(0,0,0,0.55)');
+    grd.addColorStop(0.55, 'rgba(0,0,0,0.18)');
+    grd.addColorStop(1.00, 'rgba(0,0,0,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, S, S);
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     MATERIALS
+     ═══════════════════════════════════════════════════════════ */
+  const mat = {
+    metal:     new THREE.MeshStandardMaterial({ color:0x8a93a5, metalness:0.88, roughness:0.26, envMapIntensity:1.15, map: machinedMap }),
+    darkMetal: new THREE.MeshStandardMaterial({ color:0x3d4555, metalness:0.78, roughness:0.40, envMapIntensity:1.00 }),
+    alu:       new THREE.MeshStandardMaterial({ color:0xc5ccd6, metalness:0.82, roughness:0.28, envMapIntensity:1.20 }),
+    iron:      new THREE.MeshStandardMaterial({ color:0x4a5160, metalness:0.65, roughness:0.52, envMapIntensity:0.85 }),
+    rubber:    new THREE.MeshStandardMaterial({ color:0x0f1216, metalness:0.08, roughness:0.92, map: tyreTex, roughnessMap: tyreRough }),
+    chain:     new THREE.MeshStandardMaterial({ color:0x596273, metalness:0.93, roughness:0.34, envMapIntensity:1.25 }),
+    chainAlt:  new THREE.MeshStandardMaterial({ color:0xb5c0cd, metalness:0.96, roughness:0.22, envMapIntensity:1.40 }),
+    red:       new THREE.MeshStandardMaterial({ color:0xef4444, metalness:0.40, roughness:0.42, emissive:0x5a0a0a, emissiveIntensity:0.6 }),
+    hub:       new THREE.MeshStandardMaterial({ color:0xbcc4d0, metalness:0.90, roughness:0.22, envMapIntensity:1.20 }),
+    /* NEW: glass engine block so internals are visible */
+    engineGlass: new THREE.MeshPhysicalMaterial({
+      color:0x4a5160, metalness:0.20, roughness:0.20,
+      transparent:true, opacity:0.42, side:THREE.DoubleSide,
+      depthWrite:false, clearcoat:0.6, clearcoatRoughness:0.3
+    }),
+    /* NEW: chrome for exhaust */
+    chrome: new THREE.MeshStandardMaterial({ color:0xdadfe5, metalness:0.98, roughness:0.10, envMapIntensity:1.6 }),
+    /* NEW: copper for exhaust manifold */
+    copper: new THREE.MeshStandardMaterial({ color:0xc07a3a, metalness:0.88, roughness:0.34, envMapIntensity:1.2 }),
+    /* NEW: fin material for cylinder cooling */
+    fin: new THREE.MeshStandardMaterial({ color:0x2f3742, metalness:0.72, roughness:0.48 })
+  };
+
+  const flowMat = new THREE.MeshBasicMaterial({
+    color: 0xff8c00, transparent: true, opacity: 0.85,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     AXIS PIVOTS
+     ═══════════════════════════════════════════════════════════ */
+  function axisPivot(axis, x = 0, y = 0, z = 0) {
+    const pivot = new THREE.Group();
+    if (axis === 'z')      pivot.rotation.x =  Math.PI / 2;
+    else if (axis === 'x') pivot.rotation.z = -Math.PI / 2;
+    pivot.position.set(x, y, z);
+    const spin = new THREE.Group();
+    pivot.add(spin);
+    return { pivot, spin };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     4-WHEELER GROUP
+     ═══════════════════════════════════════════════════════════ */
+  const group4W = new THREE.Group();
+  scene.add(group4W);
+
+  /* Engine block — now with a transparent cutaway section so the
+     spinning crankshaft is visible inside. */
+  const engBlock = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.2, 0.8), mat.engineGlass);
+  engBlock.position.set(0, -0.1, 3.5);
+  engBlock.castShadow = true;
+  engBlock.renderOrder = 5;
+  group4W.add(engBlock);
+
+  /* Solid frame edges around the transparent engine block */
+  const engFrameMat = mat.iron;
+  const engFrame = new THREE.Group();
+  engFrame.position.set(0, -0.1, 3.5);
+  group4W.add(engFrame);
+  /* Top and bottom rails */
+  [-0.6, 0.6].forEach(dy => {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.05, 0.84), engFrameMat);
+    rail.position.y = dy;
+    engFrame.add(rail);
+  });
+  /* Corner posts */
+  [[-0.5, -0.6, -0.4], [-0.5, -0.6, 0.4], [-0.5, 0.6, -0.4], [-0.5, 0.6, 0.4],
+   [0.5, -0.6, -0.4], [0.5, -0.6, 0.4], [0.5, 0.6, -0.4], [0.5, 0.6, 0.4]].forEach(([x, y, z]) => {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), engFrameMat);
+    post.position.set(x, y, z);
+    engFrame.add(post);
+  });
+
+  /* NEW: cutaway crankshaft + pistons visible inside the engine block */
+  const crankAssembly = new THREE.Group();
+  crankAssembly.position.set(0, -0.1, 3.5);
+  group4W.add(crankAssembly);
+
+  /* Crankshaft main axis */
+  const crankMain = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.06, 0.06, 1.0, 12),
+    mat.darkMetal
+  );
+  crankMain.rotation.z = Math.PI / 2;
+  crankAssembly.add(crankMain);
+
+  /* Spinning throw + rod + piston per cylinder */
+  const crankThrowGroup = new THREE.Group();
+  crankAssembly.add(crankThrowGroup);
+
+  const pistonAssembly = [];
+  for (let i = 0; i < 4; i++) {
+    const px = -0.36 + i * 0.24;
+
+    /* Crank throw (rotating offset arm) */
+    const throwArm = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.14, 0.08), mat.darkMetal
+    );
+    throwArm.position.set(px, 0.10, 0);
+    crankThrowGroup.add(throwArm);
+
+    /* Piston cap */
+    const piston = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.075, 0.075, 0.10, 16), mat.alu
+    );
+    piston.position.set(px, 0.28, 0);
+    crankAssembly.add(piston);
+    pistonAssembly.push({ mesh: piston, px });
+
+    /* Cylinder liner (transparent) */
+    const liner = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.085, 0.085, 0.42, 16, 1, true),
+      new THREE.MeshBasicMaterial({ color:0x3b82f6, transparent:true, opacity:0.10, side:THREE.DoubleSide })
+    );
+    liner.position.set(px, 0.22, 0);
+    crankAssembly.add(liner);
+  }
+
+  /* Cooling fins around the engine block top */
+  for (let i = 0; i < 6; i++) {
+    const fin = new THREE.Mesh(
+      new THREE.BoxGeometry(1.02, 0.02, 0.02), mat.fin
+    );
+    fin.position.set(0, 0.50 + i * 0.02, 3.5);
+    group4W.add(fin);
+  }
+
+  /* Exhaust manifold — copper pipes running along the block */
+  for (let i = 0; i < 4; i++) {
+    const pipe = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.045, 0.20, 10), mat.copper
+    );
+    pipe.rotation.x = Math.PI / 2;
+    pipe.position.set(-0.35 + i * 0.24, 0.30, 3.15);
+    group4W.add(pipe);
+  }
+  const exhaustHeader = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.065, 0.065, 0.85, 12), mat.copper
+  );
+  exhaustHeader.rotation.z = Math.PI / 2;
+  exhaustHeader.position.set(0, 0.30, 3.05);
+  group4W.add(exhaustHeader);
+
+  /* Valve cover ribs */
+  for (let i = 0; i < 5; i++) {
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.05, 0.05), mat.darkMetal);
+    ridge.position.set(0, 0.5 - i * 0.15, 3.55);
+    group4W.add(ridge);
+  }
+
+  /* Flywheel */
+  const flyRotor = axisPivot('z', 0, 0, 3.0);
+  group4W.add(flyRotor.pivot);
+  const flywheel = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.2, isLowEnd ? 28 : 48), mat.darkMetal);
+  flywheel.castShadow = true;
+  const flyTeeth = Base.makeCog(0.65, 0.22, isLowEnd ? 24 : 40, 0.08, 0.06, mat.metal, mat.metal);
+  const flyFace = new THREE.Mesh(new THREE.RingGeometry(0.15, 0.55, isLowEnd ? 32 : 48), mat.metal);
+  flyFace.rotation.y = Math.PI / 2;
+  flyFace.position.x = 0.101;
+  flyRotor.spin.add(flywheel, flyTeeth, flyFace);
+
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.24, 8), mat.alu);
+    bolt.rotation.z = Math.PI / 2;
+    bolt.position.set(0, Math.cos(a) * 0.42, Math.sin(a) * 0.42);
+    flyRotor.spin.add(bolt);
+  }
+
+  /* Gearbox */
+  const gb4W = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 1.2), mat.alu);
+  gb4W.position.z = 2.0; gb4W.castShadow = true;
+  group4W.add(gb4W);
+
+  for (let i = 0; i < 4; i++) {
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.03, 0.03), mat.darkMetal);
+    rib.position.set(0, 0.5, 1.55 + i * 0.30);
+    group4W.add(rib);
+  }
+
+  /* Universal joint */
+  const ujRotor = axisPivot('z', 0, 0, 1.0);
+  group4W.add(ujRotor.pivot);
+  const ujBar1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.52, 12), mat.metal);
+  ujBar1.rotation.z = Math.PI / 2;
+  const ujBar2 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.52, 12), mat.metal);
+  ujBar2.rotation.x = Math.PI / 2;
+  const ujHub  = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.42, 20), mat.darkMetal);
+  ujRotor.spin.add(ujBar1, ujBar2, ujHub);
+
+  /* Propeller shaft */
+  const propRotor = axisPivot('z', 0, 0, 0);
+  group4W.add(propRotor.pivot);
+  const propShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.9, 24), mat.metal);
+  propShaft.castShadow = true;
+  const propKey = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.9, 0.04), mat.darkMetal);
+  propKey.position.x = 0.115;
+  propRotor.spin.add(propShaft, propKey);
+
+  /* Center support bearing on the prop shaft */
+  const centerBearing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.16, 0.05, 8, 20),
+    mat.darkMetal
+  );
+  centerBearing.position.set(0, 0, 0.05);
+  propRotor.spin.add(centerBearing);
+
+  /* Differential housing */
+  const diff4W = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 16), mat.darkMetal);
+  diff4W.position.z = -1.0; diff4W.castShadow = true;
+  group4W.add(diff4W);
+
+  /* Diff cover ribs */
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const rib = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.50, 0.06), mat.iron
+    );
+    rib.position.set(Math.cos(a) * 0.30, Math.sin(a) * 0.30, -0.90);
+    rib.rotation.z = a;
+    group4W.add(rib);
+  }
+
+  /* NEW: rotating diff output flanges (spin with ring gear) */
+  const diffOutL = new THREE.Group();
+  diffOutL.position.set(-0.34, 0, -1.0);
+  group4W.add(diffOutL);
+  const diffOutR = new THREE.Group();
+  diffOutR.position.set( 0.34, 0, -1.0);
+  group4W.add(diffOutR);
+
+  [diffOutL, diffOutR].forEach((flangeGroup) => {
+    const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.10, 24), mat.darkMetal);
+    flange.rotation.z = Math.PI / 2;
+    flangeGroup.add(flange);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.13, 6), mat.alu);
+      bolt.rotation.z = Math.PI / 2;
+      bolt.position.set(0, Math.cos(a) * 0.22, Math.sin(a) * 0.22);
+      flangeGroup.add(bolt);
+    }
+  });
+
+  /* Ring gear */
+  const ringRotor = axisPivot('x', 0, 0, -1.0);
+  group4W.add(ringRotor.pivot);
+  const ringGear = Base.makeCog(0.60, 0.14, isLowEnd ? 24 : 32, 0.09, 0.07, mat.metal, mat.metal);
+  ringRotor.spin.add(ringGear);
+
+  /* Rear wheels */
+  const wheelRotors = [];
+  const wheelShadowMat = new THREE.MeshBasicMaterial({
+    map: shadowTex, transparent: true, opacity: 0.7, depthWrite: false
+  });
+
+  [-1, 1].forEach(dir => {
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.5, 16), mat.darkMetal);
+    axle.rotation.z = Math.PI / 2;
+    axle.position.set(dir * 0.75, 0, -1.0);
+    group4W.add(axle);
+
+    const wRotor = axisPivot('x', dir * 1.5, 0, -1.0);
+    group4W.add(wRotor.pivot);
+
+    const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.3, isLowEnd ? 24 : 40, 1, true), mat.rubber);
+    tyre.castShadow = true;
+    const innerRim = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.30, 24), mat.hub);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.20, 0.34, 20), mat.hub);
+
+    const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.30, 0.03, 32), mat.metal);
+    brake.position.y = -dir * 0.10;
+
+    for (let k = 0; k < 3; k++) {
+      const a = (k / 3) * Math.PI * 2;
+      const mark = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 0.12), mat.red);
+      mark.position.set(Math.cos(a) * 0.32, dir * 0.161, Math.sin(a) * 0.32);
+      mark.rotation.y = a;
+      wRotor.spin.add(mark);
+    }
+
+    wRotor.spin.add(tyre, innerRim, hub, brake);
+    wheelRotors.push(wRotor);
+
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), wheelShadowMat);
+    sh.rotation.x = -Math.PI / 2;
+    sh.position.set(dir * 1.5, -0.51, -1.0);
+    group4W.add(sh);
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+     2-WHEELER GROUP — now includes front wheel, fork, exhaust
+     ═══════════════════════════════════════════════════════════ */
+  const group2W = new THREE.Group();
+  scene.add(group2W);
+
+  const eng2W = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 0.8), mat.iron);
+  eng2W.position.set(0, 0, 0.8); eng2W.castShadow = true;
+  group2W.add(eng2W);
+
+  for (let i = 0; i < 6; i++) {
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.03, 0.05), mat.darkMetal);
+    fin.position.set(0, 0.30 - i * 0.10, 0.8);
+    group2W.add(fin);
+  }
+
+  /* Fuel tank silhouette (2W) */
+  const tank = new THREE.Mesh(
+    new THREE.BoxGeometry(0.85, 0.32, 0.55),
+    new THREE.MeshStandardMaterial({ color:0x1a1f2a, metalness:0.55, roughness:0.42 })
+  );
+  tank.position.set(0, 0.55, 1.15);
+  tank.castShadow = true;
+  group2W.add(tank);
+  /* Tank cap */
+  const tankCap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.06, 0.06, 0.04, 12), mat.alu
+  );
+  tankCap.position.set(0, 0.72, 1.30);
+  group2W.add(tankCap);
+
+  const FRONT = { z:  0.2, y: -0.2, r: 0.24 };
+  const REAR  = { z: -1.5, y: -0.2, r: 0.49 };
+  const CHAIN_X = -0.22;
+
+  const frontSprocketRotor = axisPivot('x', CHAIN_X, FRONT.y, FRONT.z);
+  group2W.add(frontSprocketRotor.pivot);
+  frontSprocketRotor.spin.add(
+    Base.makeCog(0.2, 0.1, isLowEnd ? 11 : 15, 0.05, 0.05, mat.metal, mat.metal)
+  );
+
+  const rearSprocketRotor = axisPivot('x', CHAIN_X, REAR.y, REAR.z);
+  group2W.add(rearSprocketRotor.pivot);
+  rearSprocketRotor.spin.add(
+    Base.makeCog(0.45, 0.1, isLowEnd ? 25 : 35, 0.06, 0.06, mat.metal, mat.metal)
+  );
+
+  /* Rear wheel */
+  const wheel2WRotor = axisPivot('x', 0, REAR.y, REAR.z);
+  group2W.add(wheel2WRotor.pivot);
+  const tyre2W = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.25, isLowEnd ? 24 : 40, 1, true), mat.rubber);
+  tyre2W.castShadow = true;
+  const rim2W  = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.25, 24), mat.hub);
+  const hub2W  = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.20, 0.28, 20), mat.hub);
+  const brake2W = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.03, 32), mat.metal);
+  brake2W.position.y = -0.135;
+  for (let k = 0; k < 3; k++) {
+    const a = (k / 3) * Math.PI * 2;
+    const mark = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.02, 0.14), mat.red);
+    mark.position.set(Math.cos(a) * 0.40, 0.131, Math.sin(a) * 0.40);
+    mark.rotation.y = a;
+    wheel2WRotor.spin.add(mark);
+  }
+  wheel2WRotor.spin.add(tyre2W, rim2W, hub2W, brake2W);
+
+  /* NEW: Front wheel + fork for the 2-wheeler */
+  const frontWheelRotor = axisPivot('x', 0, FRONT.y, FRONT.z + 1.3);
+  group2W.add(frontWheelRotor.pivot);
+  const frontTyre = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 0.22, isLowEnd ? 24 : 40, 1, true), mat.rubber);
+  frontTyre.castShadow = true;
+  const frontRim = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.22, 24), mat.hub);
+  const frontHub = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.24, 20), mat.hub);
+  const frontBrake = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.30, 0.03, 32), mat.metal);
+  frontBrake.position.y = -0.12;
+  for (let k = 0; k < 3; k++) {
+    const a = (k / 3) * Math.PI * 2;
+    const mark = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.02, 0.13), mat.red);
+    mark.position.set(Math.cos(a) * 0.38, 0.116, Math.sin(a) * 0.38);
+    mark.rotation.y = a;
+    frontWheelRotor.spin.add(mark);
+  }
+  frontWheelRotor.spin.add(frontTyre, frontRim, frontHub, frontBrake);
+
+  /* Front fork legs */
+  [-0.13, 0.13].forEach(dx => {
+    const fork = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.045, 0.90, 10), mat.chrome
+    );
+    fork.position.set(dx, 0.10, FRONT.z + 1.3);
+    fork.rotation.x = 0.28;
+    group2W.add(fork);
+  });
+  /* Fork top bridge */
+  const forkBridge = new THREE.Mesh(
+    new THREE.BoxGeometry(0.30, 0.08, 0.10), mat.darkMetal
+  );
+  forkBridge.position.set(0, 0.55, FRONT.z + 1.15);
+  group2W.add(forkBridge);
+
+  /* Front fender */
+  const frontFender = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.68, 0.68, 0.14, 24, 1, true, Math.PI * 0.85, Math.PI * 0.30),
+    new THREE.MeshStandardMaterial({ color:0x1a1f2a, metalness:0.55, roughness:0.42, side:THREE.DoubleSide })
+  );
+  frontFender.rotation.z = Math.PI / 2;
+  frontFender.position.set(0, FRONT.y, FRONT.z + 1.3);
+  group2W.add(frontFender);
+
+  /* NEW: Exhaust pipe + chrome muffler along the right side */
+  const exhaustPipe = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.045, 0.045, 1.8, 12), mat.chrome
+  );
+  exhaustPipe.rotation.x = Math.PI / 2;
+  exhaustPipe.position.set(0.35, -0.10, 0.10);
+  group2W.add(exhaustPipe);
+
+  const exhaustMuffler = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.10, 0.08, 0.75, 16), mat.chrome
+  );
+  exhaustMuffler.rotation.x = Math.PI / 2;
+  exhaustMuffler.position.set(0.35, -0.10, -1.00);
+  exhaustMuffler.castShadow = true;
+  group2W.add(exhaustMuffler);
+
+  /* Exhaust tip */
+  const exhaustTip = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.095, 0.10, 16), mat.darkMetal
+  );
+  exhaustTip.rotation.x = Math.PI / 2;
+  exhaustTip.position.set(0.35, -0.10, -1.44);
+  group2W.add(exhaustTip);
+
+  const swingarm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.15, 2.0), mat.darkMetal);
+  swingarm.position.set(0.18, -0.2, -0.65);
+  group2W.add(swingarm);
+
+  /* Chain guard (partial) */
+  const chainGuard = new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.18, 1.0),
+    new THREE.MeshStandardMaterial({ color:0x2b303a, metalness:0.60, roughness:0.50 })
+  );
+  chainGuard.position.set(CHAIN_X, -0.05, -0.65);
+  group2W.add(chainGuard);
+
+  /* Foot pegs */
+  [-0.15, 0.15].forEach(dx => {
+    const peg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.02, 0.02, 0.15, 8), mat.alu
+    );
+    peg.rotation.z = Math.PI / 2;
+    peg.position.set(dx, -0.35, 0.30);
+    group2W.add(peg);
+  });
+
+  const sh2W = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), wheelShadowMat);
+  sh2W.rotation.x = -Math.PI / 2;
+  sh2W.position.set(0, -0.81, REAR.z + 0.5);
+  group2W.add(sh2W);
+
+  /* ═══════════════════════════════════════════════════════════
+     CHAIN — closed external-tangent path
+     ═══════════════════════════════════════════════════════════ */
+  function buildChainPath(c1, c2) {
+    const r1 = c1.r, r2 = c2.r;
+    const dz = c2.z - c1.z, dy = c2.y - c1.y;
+    const d  = Math.hypot(dz, dy);
+    const ez = dz / d, ey = dy / d;
+    const nz = -ey,    ny =  ez;
+    const dr = r2 - r1;
+    const k  = Math.sqrt(Math.max(d * d - dr * dr, 1e-6));
+
+    const l1x = -r1 * dr / d,      l1y = r1 * k / d;
+    const l2x =  d - r2 * dr / d,  l2y = r2 * k / d;
+
+    const toWorld = (lx, ly, sgn) => ({
+      z: c1.z + lx * ez + sgn * ly * nz,
+      y: c1.y + lx * ey + sgn * ly * ny
+    });
+
+    const A_top = toWorld(l1x, l1y, -1), A_bot = toWorld(l1x, l1y, 1);
+    const B_top = toWorld(l2x, l2y, -1), B_bot = toWorld(l2x, l2y, 1);
+
+    const angA = Math.atan2(A_top.y - c1.y, A_top.z - c1.z);
+    const angB = Math.atan2(B_top.y - c2.y, B_top.z - c2.z);
+
+    const lenTop   = k;
+    const lenRear  = r2 * (2 * Math.PI - 2 * angB);
+    const lenBot   = k;
+    const lenFront = r1 * (2 * angA);
+    const total    = lenTop + lenRear + lenBot + lenFront;
+
+    function pointAt(sIn) {
+      let s = ((sIn % total) + total) % total;
+
+      if (s < lenTop) {
+        const t = s / lenTop;
+        return { z: A_top.z + (B_top.z - A_top.z) * t,
+                 y: A_top.y + (B_top.y - A_top.y) * t };
+      }
+      s -= lenTop;
+      if (s < lenRear) {
+        const a = angB + s / r2;
+        return { z: c2.z + r2 * Math.cos(a), y: c2.y + r2 * Math.sin(a) };
+      }
+      s -= lenRear;
+      if (s < lenBot) {
+        const t = s / lenBot;
+        return { z: B_bot.z + (A_bot.z - B_bot.z) * t,
+                 y: B_bot.y + (A_bot.y - B_bot.y) * t };
+      }
+      s -= lenBot;
+      const a = -angA + s / r1;
+      return { z: c1.z + r1 * Math.cos(a), y: c1.y + r1 * Math.sin(a) };
+    }
+
+    return { pointAt, total };
+  }
+
+  const chainPath   = buildChainPath(FRONT, REAR);
+  const CHAIN_LINKS = CHAIN_LINK_COUNT;
+  const chainLinks  = [];
+  const linkGeo     = new THREE.BoxGeometry(0.085, 0.055, 0.075);
+  const pinGeo      = new THREE.CylinderGeometry(0.010, 0.010, 0.08, 6);
+  for (let i = 0; i < CHAIN_LINKS; i++) {
+    const g = new THREE.Group();
+    const link = new THREE.Mesh(linkGeo, i % 2 ? mat.chain : mat.chainAlt);
+    g.add(link);
+    if (i % 2 === 0) {
+      const pin = new THREE.Mesh(pinGeo, mat.alu);
+      pin.rotation.x = Math.PI / 2;
+      pin.position.x = 0.06;
+      g.add(pin);
+    }
+    group2W.add(g);
+    chainLinks.push(g);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     FLOW PARTICLES
+     ═══════════════════════════════════════════════════════════ */
+  function makeFlowBalls(curve, count) {
+    const balls = [];
+    for (let i = 0; i < count; i++) {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 10), flowMat);
+      s.userData.t = i / count;
+      scene.add(s);
+      balls.push(s);
+    }
+    return { balls, curve, count };
+  }
+
+  const path4W_L = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0, 3.0), new THREE.Vector3(0, 0, 1.0), new THREE.Vector3(0, 0, -1.0),
+    new THREE.Vector3(-0.75, 0, -1.0), new THREE.Vector3(-1.5, 0, -1.0)
+  ]);
+  const path4W_R = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0, 3.0), new THREE.Vector3(0, 0, 1.0), new THREE.Vector3(0, 0, -1.0),
+    new THREE.Vector3(0.75, 0, -1.0), new THREE.Vector3(1.5, 0, -1.0)
+  ]);
+  const flow4W_L = makeFlowBalls(path4W_L, FLOW_BALL_COUNT);
+  const flow4W_R = makeFlowBalls(path4W_R, FLOW_BALL_COUNT);
+
+  const chainCurvePts = [];
+  for (let i = 0; i <= 64; i++) {
+    const p = chainPath.pointAt((i / 64) * chainPath.total);
+    chainCurvePts.push(new THREE.Vector3(CHAIN_X, p.y, p.z));
+  }
+  const path2W = new THREE.CatmullRomCurve3(chainCurvePts, true, 'catmullrom', 0.1);
+  const flow2W = makeFlowBalls(path2W, FLOW_BALL_COUNT);
+
+  /* ═══════════════════════════════════════════════════════════
+     LABELS
+     ═══════════════════════════════════════════════════════════ */
+  const labels4W = [
+    { id:'fly',  text:'Engine Flywheel', pos: new THREE.Vector3(0.8, 0.6, 3.0) },
+    { id:'gb',   text:'Gearbox',         pos: new THREE.Vector3(0.8, 0.8, 2.0) },
+    { id:'uj',   text:'Universal Joint', pos: new THREE.Vector3(0.5, 0.5, 1.0) },
+    { id:'prop', text:'Propeller Shaft', pos: new THREE.Vector3(0.4, 0.4, 0.0) },
+    { id:'diff', text:'Differential',    pos: new THREE.Vector3(0.8, 0.8, -1.0) },
+    { id:'axle', text:'Rear Axles',      pos: new THREE.Vector3(-1.2, 0.5, -1.0) },
+    { id:'rw',   text:'Rear Wheels',     pos: new THREE.Vector3(1.8, 0.8, -1.0) }
+  ];
+  const labels2W = [
+    { id:'eng2w', text:'Engine & Gearbox', pos: new THREE.Vector3(0.9, 0.8, 0.8) },
+    { id:'tank',  text:'Fuel Tank',        pos: new THREE.Vector3(-0.9, 0.75, 1.15) },
+    { id:'fs',    text:'Front Sprocket',   pos: new THREE.Vector3(-0.7, -0.7, 0.2) },
+    { id:'ch',    text:'Chain Drive',      pos: new THREE.Vector3(-0.7, -0.1, -0.65) },
+    { id:'rs',    text:'Rear Sprocket',    pos: new THREE.Vector3(-0.95, -0.7, -1.5) },
+    { id:'rw2w',  text:'Rear Wheel',       pos: new THREE.Vector3(0.85, 0.8, -1.5) },
+    { id:'fw2w',  text:'Front Wheel',      pos: new THREE.Vector3(0.85, 0.8, 1.5) },
+    { id:'exh',   text:'Exhaust',          pos: new THREE.Vector3(0.85, -0.4, -0.5) }
+  ];
+  [...labels4W, ...labels2W].forEach(d => labels.add(d.id, d.text));
+
+  /* ═══════════════════════════════════════════════════════════
+     UI — kit chrome + drive-type toggle in panel readout
+     ═══════════════════════════════════════════════════════════ */
+  const ui = UI.create({
+    moduleId: 'transmission',
+
+    panel: {
+      kicker: 'Drivetrain',
+      title:  'Transmission System',
+      badge:  { text: 'Power Flow', color: '#3b82f6' },
+      readout: `
+        <div id="trans-readout">
+          <div class="extra-label">Configuration</div>
+          <div class="drive-toggle">
+            <button class="drive-btn active" data-mode="4W">4-Wheeler</button>
+            <button class="drive-btn" data-mode="2W">2-Wheeler</button>
+          </div>
+        </div>
+      `,
+      desc: `<strong id="trans-desc-title">4-Wheeler Drive (Propeller Shaft)</strong>
+             <div id="trans-desc-body">
+               Engine power flows from the <strong>flywheel</strong> into the <strong>gearbox</strong>. A <strong>universal joint</strong>
+               transfers torque through the <strong>propeller shaft</strong> to the <strong>differential</strong>. The differential turns the
+               power 90° and splits it to the <strong>rear axles</strong>, driving the rear wheels.
+             </div>`
+    },
+
+    chip: {
+      label: 'Live transmission',
+      value: '4W',
+      unit:  '',
+      bar:   true,
+      rows: [
+        { id: 'path', label: 'Path', value: 'Prop shaft' },
+        { id: 'rpm',  label: 'RPM',  value: '900' }
+      ],
+      status: { text: '4-Wheeler' }
+    },
+
+    toolbar: {
+      play: true, reset: true,
+      speed: { label: 'Speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
+      labels: true, gas: true
+    }
+  });
+
+  /* Panel body readout refs */
+  const panelBody    = ui.panel.body;
+  const descTitleEl  = panelBody ? panelBody.querySelector('#trans-desc-title') : null;
+  const descBodyEl   = panelBody ? panelBody.querySelector('#trans-desc-body') : null;
+
+  /* ═══════════════════════════════════════════════════════════
+     MODE SWITCHING — with smooth camera transition
+     ═══════════════════════════════════════════════════════════ */
+  const CAM_PRESETS = {
+    '4W': {
+      pos: isCoarse ? new THREE.Vector3(4.2, 2.6, 5.2) : new THREE.Vector3(4.5, 3.0, 5.5),
+      target: new THREE.Vector3(0, 0, 1.0)
+    },
+    '2W': {
+      pos: isCoarse ? new THREE.Vector3(3.6, 2.2, 3.6) : new THREE.Vector3(4.0, 2.5, 4.0),
+      target: new THREE.Vector3(0, -0.2, -0.5)
+    }
+  };
+
+  let camGoal = null;
+  controls.addEventListener('start', () => { camGoal = null; });
+
+  let bridge = null; /* assigned below; setMode may be called before bridge init */
+
+  function setMode(mode) {
+    state.mode = mode;
+    group4W.visible = (mode === '4W');
+    group2W.visible = (mode === '2W');
+
+    const btns = panelBody ? panelBody.querySelectorAll('.drive-btn') : [];
+    btns.forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+
+    if (mode === '4W') {
+      if (descTitleEl) descTitleEl.textContent = '4-Wheeler Drive (Propeller Shaft)';
+      if (descBodyEl) descBodyEl.innerHTML = 'Engine power flows from the <strong>flywheel</strong> into the <strong>gearbox</strong>. A <strong>universal joint</strong> transfers torque through the <strong>propeller shaft</strong> to the <strong>differential</strong>. The differential turns the power 90° and splits it to the <strong>rear axles</strong>, driving the rear wheels.';
+      ui.chip.setBig('4W', '');
+      ui.chip.setColor('#3b82f6');
+      ui.chip.setBar(100, '#3b82f6');
+      ui.chip.set('path', 'Prop shaft');
+      ui.chip.setStatus('4-Wheeler Drive', true);
+      if (bridge) bridge.setStatus('4-Wheeler Drive', '#3b82f6');
+    } else {
+      if (descTitleEl) descTitleEl.textContent = '2-Wheeler Drive (Chain Drive)';
+      if (descBodyEl) descBodyEl.innerHTML = 'Engine power flows into the <strong>gearbox</strong>, which turns the <strong>front sprocket</strong>. A <strong>chain</strong> transfers this power to the larger <strong>rear sprocket</strong>, providing gear reduction and driving the <strong>rear wheel</strong>.';
+      ui.chip.setBig('2W', '');
+      ui.chip.setColor('#a855f7');
+      ui.chip.setBar(50, '#a855f7');
+      ui.chip.set('path', 'Chain');
+      ui.chip.setStatus('2-Wheeler Drive', true);
+      if (bridge) bridge.setStatus('2-Wheeler Drive', '#a855f7');
+    }
+    camGoal = CAM_PRESETS[mode];
+  }
+
+  /* Wire the toggle buttons now that the kit has rendered the panel body */
+  if (panelBody) {
+    panelBody.querySelectorAll('.drive-btn').forEach(btn => {
+      btn.addEventListener('click', () => setMode(btn.dataset.mode));
+    });
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     BRIDGE
+     ═══════════════════════════════════════════════════════════ */
+  bridge = ui.wireBridge({
+    viewManager,
+    state,
+    onCommand: (d) => {
+      switch (d.action) {
+        case 'reset':
+          phaseEngine = 0;
+          chainS = 0;
+          setMode('4W');
+          camera.position.copy(CAM_PRESETS['4W'].pos);
+          controls.target.copy(CAM_PRESETS['4W'].target);
+          camGoal = null;
+          break;
+      }
+    }
+  });
+  bridge.ready();
+
+  /* ═══════════════════════════════════════════════════════════
+     ANIMATION
+     ═══════════════════════════════════════════════════════════ */
+  let phaseEngine = 0;
+  let chainS      = 0;
+
+  const FINAL_DRIVE  = 0.55;
+  const GEARBOX_OUT  = 0.90;
+
+  function updateTrans(dt) {
+    const omega = 2.5 * state.speedMul;
+    phaseEngine += dt * omega;
+
+    /* 4W driveline */
+    flyRotor.spin.rotation.y  = phaseEngine;
+    ujRotor.spin.rotation.y   = phaseEngine;
+    propRotor.spin.rotation.y = phaseEngine;
+
+    /* NEW: spin the cutaway crankshaft inside the engine block */
+    crankThrowGroup.rotation.x = phaseEngine;
+    pistonAssembly.forEach(({ mesh, px }, i) => {
+      /* Simple sinusoidal piston motion driven by the crank angle */
+      const pistonPhase = phaseEngine + i * Math.PI * 0.5;
+      mesh.position.y = 0.28 + Math.cos(pistonPhase) * 0.08;
+    });
+
+    const ringAngle = phaseEngine * FINAL_DRIVE;
+    ringRotor.spin.rotation.y = ringAngle;
+    wheelRotors.forEach(r => { r.spin.rotation.y = ringAngle; });
+    /* NEW: rotate diff output flanges along with the ring gear */
+    diffOutL.rotation.x = ringAngle;
+    diffOutR.rotation.x = ringAngle;
+
+    /* 2W driveline */
+    chainS -= dt * omega * GEARBOX_OUT * FRONT.r;
+
+    frontSprocketRotor.spin.rotation.y = -chainS / FRONT.r;
+    rearSprocketRotor.spin.rotation.y  = -chainS / REAR.r;
+    wheel2WRotor.spin.rotation.y       = -chainS / REAR.r;
+
+    /* NEW: spin the front wheel a bit faster than the rear (feels more alive) */
+    frontWheelRotor.spin.rotation.y    = -chainS / (FRONT.r * 0.65);
+
+    const spacing = chainPath.total / chainLinks.length;
+    const EPS = 0.02;
+    for (let i = 0; i < chainLinks.length; i++) {
+      const s   = i * spacing + chainS;
+      const p   = chainPath.pointAt(s);
+      const q   = chainPath.pointAt(s + EPS);
+      const lnk = chainLinks[i];
+      lnk.position.set(CHAIN_X, p.y, p.z);
+      lnk.rotation.x = Math.atan2(-(q.y - p.y), q.z - p.z);
+    }
+
+    const showFlow  = state.showGas;
+    const flowSpeed = dt * 0.4 * state.speedMul;
+
+    flow4W_L.balls.forEach(b => {
+      b.visible = showFlow && state.mode === '4W';
+      if (!b.visible) return;
+      b.userData.t = (b.userData.t + flowSpeed) % 1;
+      b.position.copy(path4W_L.getPoint(b.userData.t));
+    });
+    flow4W_R.balls.forEach(b => {
+      b.visible = showFlow && state.mode === '4W';
+      if (!b.visible) return;
+      b.userData.t = (b.userData.t + flowSpeed) % 1;
+      b.position.copy(path4W_R.getPoint(b.userData.t));
+    });
+    flow2W.balls.forEach(b => {
+      b.visible = showFlow && state.mode === '2W';
+      if (!b.visible) return;
+      b.userData.t = (b.userData.t - flowSpeed * 1.2 + 1) % 1;
+      b.position.copy(path2W.getPoint(b.userData.t));
+    });
+
+    /* Chip RPM (lightweight, only every few frames) */
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     RENDER LOOP
+     ═══════════════════════════════════════════════════════════ */
+  const clock = new THREE.Clock();
+  let frame = 0;
+
+  function animate() {
+    requestAnimationFrame(animate);
+    frame++;
+    const dt = Math.min(clock.getDelta(), 0.05);
+
+    /* Smooth camera transition */
+    if (camGoal) {
+      const k = 1 - Math.exp(-dt * 3.0);
+      camera.position.lerp(camGoal.pos, k);
+      controls.target.lerp(camGoal.target, k);
+      if (camera.position.distanceTo(camGoal.pos) < 0.05) camGoal = null;
+    }
+
+    if (state.playing) updateTrans(dt);
+
+    if (state.showLabels && frame % 2 === 0) {
+      const activeLabels   = state.mode === '4W' ? labels4W : labels2W;
+      const inactiveLabels = state.mode === '4W' ? labels2W : labels4W;
+      activeLabels.forEach(d => labels.project(d.id, d.pos, camera, wrap));
+      inactiveLabels.forEach(d => labels.hide(d.id));
+    } else if (!state.showLabels) {
+      labels.hideAll();
+    }
+
+    if (frame % 15 === 0) {
+      ui.chip.set('rpm', Math.round(400 + state.speedMul * 900));
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     INIT
+     ═══════════════════════════════════════════════════════════ */
+  setMode('4W');
+  camera.position.copy(CAM_PRESETS['4W'].pos);
+  controls.target.copy(CAM_PRESETS['4W'].target);
+  camGoal = null;
+  ui.chip.set('rpm', Math.round(400 + state.speedMul * 900));
+  animate();
+  bridge.setStatus('4-Wheeler Drive', '#3b82f6');
+  </script>
+</body>
+</html>
