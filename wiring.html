@@ -9,6 +9,401 @@
 <style>
 :root { --al-accent: #f43f5e; }
 html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
+
+#wh-ui {
+  position: fixed; top: 80px; right: 14px;
+  width: min(268px, calc(100vw - 28px));
+  max-height: min(78vh, 660px);
+  overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 10px 12px 12px; border-radius: 12px;
+  background: rgba(8,11,18,.85);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(148,163,184,.22);
+  color: #cbd5e1; user-select: none; -webkit-user-select: none;
+  z-index: 9999;
+  font: 600 11px/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 10px 32px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.25);
+  scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.35) transparent;
+}
+#wh-ui::-webkit-scrollbar { width: 6px; }
+#wh-ui::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); border-radius: 999px; }
+#wh-ui.hidden { display: none; }
+#wh-ui.dragging { box-shadow: 0 18px 44px rgba(0,0,0,.55), 0 4px 10px rgba(0,0,0,.3); }
+
+#wh-ui .wh-header {
+  display: flex; align-items: center; gap: 7px;
+  margin: -4px -6px 2px -6px; padding: 5px 6px 5px 8px;
+  border-radius: 8px; cursor: grab;
+  background: rgba(148,163,184,.08);
+  touch-action: none; flex-shrink: 0;
+  position: sticky; top: -10px; z-index: 1;
+  backdrop-filter: blur(6px);
+}
+#wh-ui.dragging .wh-header { cursor: grabbing; background: rgba(244,63,94,.14); }
+#wh-ui .wh-grip { color: #64748b; font-size: 13px; line-height: 1; letter-spacing: 1px; }
+#wh-ui.dragging .wh-grip { color: var(--al-accent, #f43f5e); }
+#wh-ui .wh-title { flex: 1; font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: #94a3b8; }
+#wh-ui .wh-icon { cursor: pointer; background: transparent; border: 0; color: #94a3b8; font-size: 14px; padding: 1px 6px; border-radius: 6px; line-height: 1; transition: background .12s, color .12s; }
+#wh-ui .wh-icon:hover { background: rgba(148,163,184,.18); color: #e2e8f0; }
+#wh-ui .wh-body { display: flex; flex-direction: column; gap: 9px; }
+#wh-ui.wh-collapsed .wh-body { display: none; }
+#wh-ui.wh-collapsed { max-height: 40px; overflow: hidden; }
+
+#wh-ui button { font: inherit; }
+#wh-ui .wh-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+#wh-ui .wh-lab { color: #94a3b8; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; min-width: 54px; }
+#wh-ui .wh-btn {
+  cursor: pointer; border: 1px solid rgba(148,163,184,.32);
+  background: rgba(15,23,42,.72); color: #e2e8f0;
+  border-radius: 999px; padding: 4px 9px; font-size: 10.5px;
+  transition: background .15s, border-color .15s, color .15s;
+}
+#wh-ui .wh-btn.on { background: var(--al-accent, #f43f5e); color: #fff; border-color: transparent; }
+#wh-ui .wh-btn.crit { border-color: rgba(239,68,68,.5); color: #fca5a5; }
+#wh-ui .wh-btn.crit.on { background: #ef4444; color: #fff; border-color: transparent; }
+#wh-ui .wh-btn.wide { width: 100%; padding: 7px; font-size: 11px; }
+#wh-ui .wh-btn.inspect {
+  background: linear-gradient(135deg, #f43f5e, #f97316);
+  color: #fff; border-color: transparent;
+  font-size: 11px; padding: 8px;
+}
+#wh-ui .wh-slider { display: flex; flex-direction: column; gap: 3px; }
+#wh-ui .wh-slider .wh-head {
+  display: flex; justify-content: space-between;
+  color: #94a3b8; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase;
+}
+#wh-ui .wh-slider .wh-val { color: #e2e8f0; }
+#wh-ui input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 3px;
+  background: rgba(148,163,184,.28); border-radius: 999px; outline: none;
+}
+#wh-ui input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+  background: var(--al-accent, #f43f5e); cursor: pointer; border: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+#wh-ui input[type=range]::-moz-range-thumb {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--al-accent, #f43f5e); cursor: pointer; border: 0;
+}
+#wh-ui .wh-stat {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: #94a3b8; letter-spacing: .04em; padding: 2px 0;
+}
+#wh-ui .wh-stat .v { color: #e2e8f0; }
+#wh-ui .wh-warn {
+  margin-top: 4px; padding: 6px 9px;
+  background: rgba(239,68,68,.12); border-left: 3px solid #ef4444;
+  border-radius: 4px; font-size: 10.5px; color: #fca5a5;
+  display: none;
+}
+#wh-ui .wh-warn.show { display: block; }
+
+#wh-ui-toggle {
+  position: fixed; right: 14px; bottom: 84px; z-index: 10000;
+  width: 42px; height: 42px; border-radius: 50%;
+  background: rgba(8,11,18,.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(148,163,184,.3);
+  color: var(--al-accent, #f43f5e);
+  font-size: 17px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.4);
+  transition: transform .15s; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+#wh-ui-toggle:active { transform: scale(.9); }
+#wh-ui-toggle.hidden { display: none; }
+
+/* ══ MODAL ══ */
+#fb-overlay {
+  position: fixed; inset: 0; z-index: 100000;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.75);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding: 16px;
+  font: 500 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #e2e8f0;
+  animation: fbFadeIn .18s ease;
+}
+#fb-overlay.open { display: flex; }
+@keyframes fbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+#fb-modal {
+  max-width: 960px; width: 100%;
+  max-height: calc(100vh - 32px);
+  background: #0d1017;
+  border: 1px solid rgba(148,163,184,.22);
+  border-radius: 16px;
+  box-shadow: 0 24px 72px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.03);
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: fbSlideIn .22s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes fbSlideIn { from { transform: translateY(16px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+
+#fb-modal .fb-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(148,163,184,.14);
+  background: linear-gradient(180deg, rgba(244,63,94,.08), transparent);
+  flex-shrink: 0;
+}
+#fb-modal .fb-head-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #f43f5e, #f97316);
+  font-size: 20px;
+  box-shadow: 0 4px 12px rgba(244,63,94,.35);
+}
+#fb-modal .fb-head-text { flex: 1; min-width: 0; }
+#fb-modal .fb-head-title { font-size: 15px; font-weight: 700; letter-spacing: .01em; }
+#fb-modal .fb-head-sub { font-size: 10px; color: #94a3b8; letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
+#fb-modal .fb-close {
+  background: transparent; border: 1px solid rgba(148,163,184,.3);
+  color: #94a3b8; width: 32px; height: 32px; border-radius: 50%;
+  cursor: pointer; font-size: 20px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s, border-color .15s;
+  flex-shrink: 0;
+}
+#fb-modal .fb-close:hover { background: rgba(148,163,184,.15); color: #e2e8f0; border-color: rgba(148,163,184,.5); }
+
+#fb-modal .fb-body {
+  display: flex; flex: 1; overflow: hidden; min-height: 0;
+}
+#fb-modal .fb-left {
+  flex: 1.15; padding: 18px; overflow-y: auto; min-width: 0;
+  border-right: 1px solid rgba(148,163,184,.14);
+}
+#fb-modal .fb-right {
+  flex: 1; padding: 18px; overflow-y: auto; min-width: 0;
+}
+
+.fb-grid {
+  display: flex; gap: 8px;
+  padding: 14px;
+  background: #0f1218;
+  background-image: linear-gradient(180deg, #161a22, #0a0d12);
+  border: 2px solid #23272f;
+  border-radius: 10px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.6), 0 2px 4px rgba(0,0,0,.5);
+  position: relative;
+}
+.fb-grid::before {
+  content: '';
+  position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+  width: 40px; height: 3px; background: #4a5058; border-radius: 2px;
+}
+.fb-col {
+  display: flex; flex-direction: column; gap: 5px;
+  flex: 1; min-width: 0;
+}
+.fb-fuse {
+  height: 28px;
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 10.5px ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,.5);
+  box-shadow: inset 0 -2px 3px rgba(0,0,0,.35),
+              inset 0 2px 2px rgba(255,255,255,.18),
+              0 1px 2px rgba(0,0,0,.3);
+  position: relative;
+  transition: transform .12s, box-shadow .12s;
+  user-select: none;
+  letter-spacing: .02em;
+}
+.fb-fuse:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 2px rgba(250,204,21,.7),
+              inset 0 -2px 3px rgba(0,0,0,.35),
+              inset 0 2px 2px rgba(255,255,255,.18),
+              0 2px 8px rgba(250,204,21,.4);
+  z-index: 3;
+}
+.fb-fuse.selected {
+  box-shadow: 0 0 0 2px #facc15,
+              inset 0 -2px 3px rgba(0,0,0,.35),
+              0 0 16px rgba(250,204,21,.55);
+  z-index: 3;
+}
+.fb-fuse .cat-dot {
+  position: absolute; top: 2px; right: 2px;
+  width: 7px; height: 7px; border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(0,0,0,.55);
+  pointer-events: none;
+}
+.fb-fuse .fb-amp {
+  font-size: 10.5px;
+  font-weight: 800;
+  pointer-events: none;
+}
+.fb-fuse .fb-icon {
+  position: absolute; left: 3px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  line-height: 1;
+  pointer-events: none;
+  opacity: .9;
+}
+.fb-relay {
+  height: 66px;
+  border-radius: 6px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,.5);
+  box-shadow: inset 0 -3px 6px rgba(0,0,0,.4),
+              inset 0 2px 4px rgba(255,255,255,.15),
+              0 1px 3px rgba(0,0,0,.4);
+  font: 700 9.5px ui-sans-serif, system-ui, sans-serif;
+  color: #fff;
+  transition: transform .12s, box-shadow .12s;
+  user-select: none;
+  position: relative;
+}
+.fb-relay:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 2px rgba(250,204,21,.7),
+              inset 0 -3px 6px rgba(0,0,0,.4),
+              0 2px 8px rgba(250,204,21,.4);
+  z-index: 3;
+}
+.fb-relay.selected {
+  box-shadow: 0 0 0 2px #facc15,
+              inset 0 -3px 6px rgba(0,0,0,.4),
+              0 0 16px rgba(250,204,21,.55);
+  z-index: 3;
+}
+.fb-relay .fb-relay-icon { font-size: 18px; }
+.fb-relay .cat-dot {
+  position: absolute; top: 3px; right: 3px;
+  width: 7px; height: 7px; border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(0,0,0,.55);
+}
+.fb-large { height: 38px; font-size: 11px; }
+
+.fb-legend {
+  margin-top: 14px;
+  display: flex; flex-wrap: wrap; gap: 10px 16px;
+  font-size: 10.5px; color: #94a3b8;
+  letter-spacing: .04em;
+}
+.fb-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.fb-legend i {
+  width: 12px; height: 12px; border-radius: 3px;
+  box-shadow: inset 0 -1px 2px rgba(0,0,0,.4), 0 0 0 1px rgba(0,0,0,.5);
+}
+
+.fb-info h3 { font-size: 15px; font-weight: 700; margin: 0 0 10px 0; color: #f8fafc; letter-spacing: .01em; }
+.fb-info h4 { font-size: 11px; font-weight: 700; margin: 18px 0 8px 0; color: #facc15; letter-spacing: .1em; text-transform: uppercase; }
+.fb-info p { margin: 0 0 10px 0; color: #cbd5e1; font-size: 12.5px; line-height: 1.6; }
+.fb-info ul { margin: 0 0 10px 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.6; }
+.fb-info ul li { margin-bottom: 5px; }
+.fb-info ul li b { color: #f8fafc; }
+.fb-info .fb-color-row {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin: 8px 0 12px 0;
+  font-size: 10.5px;
+  color: #e2e8f0;
+}
+.fb-info .fb-color-row span { display: inline-flex; align-items: center; gap: 5px; }
+.fb-info .fb-color-row i {
+  width: 14px; height: 14px; border-radius: 3px;
+  box-shadow: inset 0 -1px 2px rgba(0,0,0,.4), 0 0 0 1px rgba(0,0,0,.5);
+}
+.fb-info .fb-hint {
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: rgba(250,204,21,.08);
+  border-left: 3px solid #facc15;
+  border-radius: 4px;
+  font-size: 11.5px;
+  color: #fef3c7;
+}
+
+.fb-selected-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.fb-selected-big {
+  width: 62px; height: 62px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font: 800 18px ui-sans-serif, system-ui, sans-serif;
+  box-shadow: inset 0 -3px 6px rgba(0,0,0,.35), inset 0 3px 4px rgba(255,255,255,.2), 0 3px 8px rgba(0,0,0,.5);
+  flex-shrink: 0;
+}
+.fb-selected-meta h3 { margin: 0 0 2px 0; font-size: 16px; color: #f8fafc; }
+.fb-selected-meta .fb-selected-cat { font-size: 10.5px; color: #94a3b8; letter-spacing: .1em; text-transform: uppercase; }
+.fb-fuse-facts {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px 14px; margin: 12px 0 16px 0; padding: 12px;
+  background: rgba(148,163,184,.06);
+  border: 1px solid rgba(148,163,184,.14);
+  border-radius: 8px; font-size: 11.5px;
+}
+.fb-fuse-facts > div { display: flex; flex-direction: column; gap: 2px; }
+.fb-fuse-facts span { color: #94a3b8; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.fb-fuse-facts b { color: #f8fafc; font-weight: 600; }
+.fb-back {
+  background: transparent;
+  border: 1px solid rgba(148,163,184,.35);
+  color: #cbd5e1; padding: 7px 14px; border-radius: 8px;
+  cursor: pointer; font: inherit; font-size: 11.5px; margin-top: 12px;
+  transition: background .15s, color .15s;
+}
+.fb-back:hover { background: rgba(148,163,184,.12); color: #f8fafc; }
+
+#fb-inspect-btn {
+  position: fixed; left: 14px; bottom: 84px;
+  z-index: 9998;
+  padding: 9px 14px; border-radius: 999px;
+  border: 1px solid rgba(244,63,94,.5);
+  background: linear-gradient(135deg, rgba(244,63,94,.95), rgba(249,115,22,.95));
+  color: #fff;
+  font: 700 11.5px ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: .04em; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(244,63,94,.4), 0 0 0 1px rgba(255,255,255,.08);
+  transition: transform .15s, box-shadow .15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  display: flex; align-items: center; gap: 6px;
+}
+#fb-inspect-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(244,63,94,.55); }
+#fb-inspect-btn:active { transform: scale(.96); }
+#fb-inspect-btn .pulse {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: #fff; animation: fbPulse 1.6s ease-in-out infinite;
+  margin-left: 2px;
+}
+@keyframes fbPulse {
+  0%, 100% { opacity: .5; transform: scale(.85); }
+  50%      { opacity: 1;  transform: scale(1.2); }
+}
+
+@media (max-width: 768px) {
+  #wh-ui { top: 68px; right: 10px; width: min(258px, calc(100vw - 20px)); padding: 10px 12px 14px; max-height: 70vh; }
+  #wh-ui .wh-btn { padding: 6px 11px; font-size: 11.5px; }
+  #wh-ui .wh-header { padding: 7px 8px 7px 10px; }
+  #wh-ui .wh-grip { font-size: 15px; }
+  #wh-ui-toggle { bottom: 96px; width: 46px; height: 46px; font-size: 19px; }
+
+  #fb-modal .fb-body { flex-direction: column; }
+  #fb-modal .fb-left {
+    flex: none !important;
+    border-right: 0;
+    border-bottom: 1px solid rgba(148,163,184,.14);
+    max-height: 55vh;
+  }
+  #fb-modal .fb-right { flex: none !important; }
+  .fb-grid { padding: 10px; gap: 6px; }
+  .fb-fuse { height: 24px; font-size: 9.5px; }
+  .fb-fuse .fb-icon { display: none; }
+  .fb-relay { height: 54px; font-size: 8.5px; }
+  .fb-relay .fb-relay-icon { font-size: 15px; }
+  .fb-large { height: 32px; font-size: 10px; }
+  .fb-fuse-facts { grid-template-columns: 1fr; }
+
+  #fb-inspect-btn { bottom: 96px; left: 10px; padding: 8px 12px; font-size: 11px; }
+}
 </style>
 </head>
 <body>
@@ -16,7 +411,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
 <div id="labels-root"></div>
 
 <script src="guard.js"></script>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
     "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -28,44 +423,1485 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
 <script type="module">
 import { runGuidedModule } from './components.js';
 
-/* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "wiring", "title": "Wiring Harness", "kicker": "Electrical & Starting", "accent": "#f43f5e", "badge": "30 A protected circuit", "camPos": [4.6, 3.0, 8.2], "target": [0, -0.2, 0], "floorY": -1.8, "ctl": {"label": "Load current", "val": 35, "caption": "Circuit load"}, "chipLabel": "Current", "rows": [["fuse", "Fuse"], ["temp", "Wire temp"]], "ro": [["amps", "Current"], ["fuse", "Fuse (30 A)"], ["temp", "Wire temperature"], ["vd", "Voltage drop"], ["lamp", "Load"]], "legend": [["#ef4444", "Live (+)"], ["#374151", "Ground (−)"], ["#fde047", "Current flow"]], "overview": "<div class=\"al-sec\"><h4>Complete circuit<\/h4><p>Current only flows when the loop is complete: battery (+) → fuse → relay → load → ground → battery (−). Break it anywhere and the load stops.<\/p><\/div><div class=\"al-sec\"><h4>Fuse<\/h4><p>A fuse is a deliberate weak link. It must blow <b>before<\/b> the wire overheats. Blown fuses are a symptom – find the short or overload before replacing.<\/p><\/div><div class=\"al-sec\"><h4>Wire size<\/h4><p>Heat in a wire is I²R. Thin wire, long runs or bad crimps raise resistance, drop voltage and generate heat.<\/p><\/div>", "faults": [["Short to ground", "Fuse blows instantly; wires hot.", "Disconnect loads and use a test lamp or short-finder; inspect chafed harness spots."], ["High-resistance joint", "Voltage drop, warm terminal, dim/slow load.", "Measure voltage drop across the suspect connection under load."], ["Open circuit", "Dead load; battery voltage present at fuse.", "Trace with a multimeter from the fuse to the load and ground."]], "quiz": [["Heating in a wire is proportional to…", ["I²R", "V only", "Wire colour"], 0, "Power loss = I²R – doubling current quadruples heat."], ["A fuse should be rated…", ["Above the wire rating", "Below the wire’s current limit", "Any size"], 1, "It must open before the wire is damaged."], ["A voltage drop measurement finds…", ["High resistance", "Battery age", "Fuse size"], 0, "Voltage lost along a wire or joint shows resistance."]]};
+const CFG = {
+  "moduleId": "wiring",
+  "title": "Wiring Harness",
+  "kicker": "Electrical & Starting",
+  "accent": "#f43f5e",
+  "badge": "12 V protected circuits",
+  "camPos": [5.8, 3.8, 9.6],
+  "target": [0, 0.0, 0],
+  "floorY": -2.75,
+  "ctl": { "label": "Circuit current", "val": 35, "caption": "Load draw" },
+  "chipLabel": "Current",
+  "rows": [["fuse", "Fuse"], ["temp", "Wire temp"]],
+  "ro": [
+    ["amps", "Current"],
+    ["fuse", "Fuse status"],
+    ["temp", "Wire temp"],
+    ["vd",   "Voltage drop"],
+    ["pwr",  "Power loss"],
+    ["head", "Headroom"],
+    ["lamp", "Cluster"]
+  ],
+  "legend": [
+    ["#ef4444", "Live (+12 V)"],
+    ["#0a0a0a", "Ground"],
+    ["#fde047", "Current flow"],
+    ["#3b82f6", "Sensor signal"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Complete circuit<\/h4><p>Current only flows when the loop is complete: battery (+) → fuse → ECU/load → ground → battery (−). Break it anywhere and the load stops. Every wire has resistance, so a thin wire or a bad crimp drops voltage and gets hot.<\/p><\/div><div class=\"al-sec\"><h4>The fuse box<\/h4><p>The <b>fuse box<\/b> is the central distribution point of the electrical system. Every circuit is protected by a fuse rated slightly above the normal current it draws. Click the fuse box in the 3D scene (or the <b>Inspect Fuse Box<\/b> button) to open an interactive fuse-by-fuse layout.<\/p><\/div><div class=\"al-sec\"><h4>Wire size<\/h4><p>Heat in a wire is I²R. Doubling the current quadruples the heat. Thin wire, long runs or bad crimps all raise resistance and drop voltage at the load. A wire's safe current limit is its <b>ampacity<\/b> — the current at which its insulation reaches its rated temperature.<\/p><\/div>",
+  "faults": [
+    ["Short to ground", "Fuse blows instantly; wires hot.", "Disconnect loads and use a test lamp or short-finder; inspect chafed harness spots."],
+    ["High-resistance joint", "Voltage drop, warm terminal, dim/slow load.", "Measure voltage drop across the suspect connection under load."],
+    ["Open circuit", "Dead load; battery voltage present at fuse.", "Trace with a multimeter from the fuse to the load and ground."],
+    ["Wrong fuse fitted", "Harness can burn before the fuse blows.", "Always fit the rating stamped on the fuse box lid."]
+  ],
+  "quiz": [
+    ["Heating in a wire is proportional to…", ["I²R", "V only", "Wire colour"], 0, "Power loss = I²R – doubling current quadruples heat."],
+    ["A fuse should be rated…", ["Above the wire rating", "Below the wire's current limit", "Any size"], 1, "It must open before the wire is damaged."],
+    ["A voltage drop measurement finds…", ["High resistance", "Battery age", "Fuse size"], 0, "Voltage lost along a wire or joint shows resistance."],
+    ["18 AWG wire can safely carry about…", ["5 A", "10 A", "30 A"], 1, "Chassis wiring ampacity for 18 AWG is roughly 10 A."],
+    ["A short to ground on thin wire…", ["Blows the fuse slowly", "Limits current itself", "Doubles the current"], 1, "Thin wire has enough resistance to limit the current below what a thick wire would carry on the same short."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
-function build(H){
- const {box,cyl,sph,mat,glass,glow,pipe,stream,lc,clamp,root,THREE}=H;
- const wireM=new THREE.MeshStandardMaterial({color:0xef4444,metalness:.2,roughness:.6,emissive:0xff2a00,emissiveIntensity:0});
- const gnd=mat(0x374151,.2,.7);
- box(1.2,.8,.8,mat(0x2563eb,.4,.6),-3.4,-1.0,0); cyl(.08,.08,.16,mat(0xef4444,.4,.5),-3.65,-.55,0); cyl(.08,.08,.16,mat(0x111827,.4,.5),-3.15,-.55,0);
- box(1.7,.85,.6,mat(0x1f2937,.4,.6),-1.2,.3,0);
- const cols=[0xf59e0b,0x22c55e,0x3b82f6,0xf59e0b,0xef4444,0x22c55e], fuseM=[];
- cols.forEach((cl,i)=>{ const m=new THREE.MeshStandardMaterial({color:cl,metalness:.1,roughness:.5,emissive:0x000000}); fuseM.push(m); box(.32,.3,.1,m,-1.75+(i%3)*.55,.5-(Math.floor(i/3))*.42,.33); });
- box(.6,.6,.6,mat(0x1f2937,.4,.6),1.0,.3,0);
- const lampM=new THREE.MeshStandardMaterial({color:0xfff2b0,emissive:0xffe08a,emissiveIntensity:0,roughness:.4}); sph(.32,lampM,3.4,.8,0);
- box(.7,.12,.9,mat(0x9ca3af,.7,.4),3.4,-1.1,0);
- box(1.4,.5,.8,mat(0x1e293b,.4,.5),0,1.9,-1.0);
- const plus=[[-3.4,-.6,0],[-3.4,.3,0],[-2.05,.3,0]], p2=[[-.35,.3,0],[.7,.3,0]], p3=[[1.3,.3,0],[2.4,.3,0],[3.4,.35,0],[3.4,.5,0]], pg=[[3.4,-1.0,0],[3.4,-1.6,0],[-3.4,-1.6,0],[-3.4,-1.4,0]];
- [plus,p2,p3].forEach(p=>pipe(p,.07,wireM)); pipe(pg,.07,gnd);
- [0xfacc15,0x22c55e,0x38bdf8].forEach((cl,i)=>pipe([[-.6+i*.1,1.7,-.9],[-.5+i*.1,1.2,-.3],[-.3+i*.1,.5,.1]],.025,mat(cl,.2,.6)));
- const loop=stream([[-3.4,-.6,0],[-3.4,.3,0],[-2.0,.3,0],[-.3,.3,0],[.7,.3,0],[1.3,.3,0],[2.4,.3,0],[3.4,.35,0],[3.4,-1.0,0],[3.4,-1.6,0],[-3.4,-1.6,0],[-3.4,-1.2,0]],32,0xfde047,.11,true);
- let heat=0, blown=false, wt=25;
- return {
-  labels:[['Battery',[-3.4,-1.6,.5]],['Fuse box',[-1.2,1.0,0]],['Relay',[1.0,.85,0]],['Load (lamp)',[3.4,1.3,0]],['Ground return',[0,-1.95,0]],['ECU / harness',[0,2.3,-1.0]]],
-  update(c){
-   const k=c.k;
-   if(k<.05) { blown=false; heat=0; }
-   let I=blown?0:40*k;
-   if(!blown){ if(I>30) heat+=Math.pow(I/30,2)*c.dt*.55; else heat=Math.max(0,heat-c.dt*.6); if(heat>=1){ blown=true; I=0; } }
-   wt+=((25+.05*I*I)-wt)*Math.min(1,c.dt*1.5+.01);
-   wireM.emissiveIntensity=clamp((wt-70)/60)*.9;
-   fuseM[0].emissive.setHex(blown?0x000000:heat>.05?0xff5a00:0x000000); fuseM[0].emissiveIntensity=blown?0:heat*1.2; if(blown) fuseM[0].color.setHex(0x0b0b0b); else fuseM[0].color.setHex(0xf59e0b);
-   const vd=I*.03; lampM.emissiveIntensity=I>0?clamp((12.6-vd)/12.6)*Math.min(1,I/8)*1.6:0;
-   loop.update(c.t,.03+.09*(I/40),I>.5?clamp(.15+I/30):0);
-   const fs=blown?'BLOWN':heat>.1?'Heating':'OK';
-   return {big:I.toFixed(0),unit:' A',bar:I/40*100,rows:{fuse:fs,temp:wt.toFixed(0)+' °C'},
-    ro:{amps:[I.toFixed(1)+' A','hi'],fuse:[fs,blown?'crit':heat>.1?'warn':'ok'],temp:[wt.toFixed(0)+' °C',wt>80?'crit':wt>55?'warn':'ok'],vd:[vd.toFixed(2)+' V',vd>.6?'warn':''],lamp:[I>.5?'Powered':'Off','']},
-    status:[blown?'Fuse blown':'Circuit live',!blown],ctl:blown?'Fuse blown – lower slider':(40*k).toFixed(0)+' A'};
-  }};
+/* ═══════════════════════════════════════════════════════════
+   FUSE BOX DATA (unchanged)
+   ═══════════════════════════════════════════════════════════ */
+const CAT = {
+  eng:   { name: 'Engine / Power', color: '#22c55e', wire: '14–12 AWG', blow: 'Engine runs rough, warning light, no start' },
+  light: { name: 'Lighting',       color: '#3b82f6', wire: '16–14 AWG', blow: 'One side or the whole light fails' },
+  acc:   { name: 'Accessories',    color: '#eab308', wire: '16 AWG',    blow: 'That accessory stops working' },
+  hp:    { name: 'High Power',     color: '#dc2626', wire: '8–6 AWG',   blow: 'Major system dead, cascade failure' }
+};
+
+const FUSE_BOX = {
+  small: [
+    [
+      { a: 10, l:'Horn',        c:'acc',   i:'📢' },
+      { a: 5,  l:'Interior',    c:'light', i:'💡' },
+      { a: 10, l:'Radio',       c:'acc',   i:'📻' },
+      { a: 30, l:'Engine Ctrl', c:'eng',   i:'▣'  },
+      { a: 30, l:'Engine Ctrl', c:'eng',   i:'▣'  },
+      { a: 25, l:'Power Win',   c:'acc',   i:'🪟' },
+      { a: 5,  l:'Interior',    c:'light', i:'💡' },
+      { a: 30, l:'Cooling Fan', c:'eng',   i:'✿'  },
+      { a: 5,  l:'Interior',    c:'light', i:'💡' },
+      { a: null }
+    ],
+    [
+      { a: 10, l:'Horn',        c:'acc',   i:'📢' },
+      { a: 10, l:'Headlight L', c:'light', i:'💡' },
+      { a: 15, l:'Headlight',   c:'light', i:'💡' },
+      { a: 15, l:'Headlight',   c:'light', i:'💡' },
+      { a: 15, l:'Headlight',   c:'light', i:'💡' },
+      { a: 10, l:'Dash',        c:'acc',   i:'📊' },
+      { a: 10, l:'Dash',        c:'acc',   i:'📊' },
+      { a: 20, l:'Power Win',   c:'acc',   i:'🪟' },
+      { a: 25, l:'Ignition',    c:'eng',   i:'🔑' },
+      { a: 40, l:'Starter',     c:'hp',    i:'🔑' }
+    ],
+    [
+      { a: 5,  l:'IG Coil',     c:'eng',   i:'⚡' },
+      { a: 10, l:'Headlight R', c:'light', i:'💡' },
+      { a: 15, l:'Headlight',   c:'light', i:'💡' },
+      { a: 15, l:'Headlight',   c:'light', i:'💡' },
+      { a: 15, l:'Headlight',   c:'light', i:'💡' },
+      { a: 20, l:'A/C Clutch',  c:'eng',   i:'❄'  },
+      { a: 25, l:'Ignition',    c:'eng',   i:'🔑' },
+      { a: 30, l:'Cooling Fan', c:'eng',   i:'✿'  },
+      { a: 25, l:'Ignition',    c:'eng',   i:'🔑' },
+      { a: 100,l:'Main',        c:'hp',    i:'🔋' }
+    ]
+  ],
+  relays: [
+    { type:'relay', color:'#22c55e', l:'Starter Relay', c:'eng', i:'🔑',
+      desc:'High-current switch. Coil energised by the ignition switch closes contacts that feed the starter solenoid.',
+      failure:'No crank; clicking relay; burnt contacts.' },
+    { type:'relay', color:'#94a3b8', l:'Fuel Pump',     c:'eng', i:'⛽',
+      desc:'Powers the in-tank fuel pump. ECU closes the relay for 2–3 s at key-on, then continues when cranking or running.',
+      failure:'No start, no fuel pressure, engine stalls.' },
+    { type:'relay', color:'#94a3b8', l:'ECU Relay',     c:'eng', i:'▣',
+      desc:'Main relay that feeds the engine control unit and sensors. Critical to every engine function.',
+      failure:'No ECU power, no start, no communication with scan tool.' },
+    { a: 30, l:'A/C Clutch', c:'eng', i:'❄' }
+  ],
+  large: [
+    { a: 20,  l:'Fuel Pump',  c:'eng',   i:'⛽', size:'med' },
+    { a: 40,  l:'ABS',        c:'eng',   i:'⚙', size:'med' },
+    { a: 30,  l:'A/C Clutch', c:'eng',   i:'❄', size:'med' },
+    { a: 40,  l:'Starter',    c:'hp',    i:'🔑', size:'med' },
+    { a: 20,  l:'Ignition',   c:'eng',   i:'🔑', size:'med' },
+    { a: 10,  l:'Horn',       c:'acc',   i:'📢', size:'med' },
+    { a: 40,  l:'ABS Pump',   c:'hp',    i:'⚙', size:'med' },
+    { a: 20,  l:'Dash',       c:'acc',   i:'📊', size:'med' }
+  ]
+};
+
+function ampColor(a) {
+  if (a == null) return '#3a3f48';
+  if (a <= 5)    return '#d4b483';
+  if (a <= 7.5)  return '#92400e';
+  if (a <= 10)   return '#dc2626';
+  if (a <= 15)   return '#3b82f6';
+  if (a <= 20)   return '#eab308';
+  if (a <= 25)   return '#f1f5f9';
+  if (a <= 30)   return '#22c55e';
+  if (a <= 40)   return '#f97316';
+  return '#7f1d1d';
+}
+function ampTextColor(a) {
+  if (a == null) return '#94a3b8';
+  if (a <= 5)   return '#1a1a1a';
+  if (a === 20) return '#1a1a1a';
+  if (a === 25) return '#1a1a1a';
+  return '#ffffff';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INCANDESCENCE — wire glow colour by temperature
+   ═══════════════════════════════════════════════════════════ */
+const _c1 = [0x000000, 0x220000, 0x880000, 0xdd2200, 0xff8800, 0xffdd66, 0xffffcc];
+const _ct = [25, 300, 500, 700, 900, 1100, 1400];
+function tempToGlow(T) {
+  if (T <= _ct[0]) return new THREE.Color(_c1[0]);
+  for (let i = 1; i < _ct.length; i++) {
+    if (T <= _ct[i]) {
+      const f = (T - _ct[i-1]) / (_ct[i] - _ct[i-1]);
+      const a = new THREE.Color(_c1[i-1]);
+      const b = new THREE.Color(_c1[i]);
+      return a.lerp(b, f);
+    }
+  }
+  return new THREE.Color(_c1[_c1.length - 1]);
+}
+function tempToGlowIntensity(T) {
+  if (T < 200) return 0;
+  if (T < 700) return (T - 200) / 500 * 0.55;
+  return 0.55 + Math.min(1.6, (T - 700) / 500 * 1.6);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BUILD
+   ═══════════════════════════════════════════════════════════ */
+function build(H) {
+  const { box, cyl, sph, mat, glass, glow, pipe, stream, lc, clamp, root, THREE } = H;
+  const CL = clamp || ((v, a, b) => Math.max(a, Math.min(b, v)));
+
+  const matF = (c, m, r) => {
+    const mm = (mat ? mat(c, m, r) : null) ||
+      new THREE.MeshStandardMaterial({ color: c, metalness: m, roughness: r });
+    mm.side = THREE.DoubleSide;
+    return mm;
+  };
+
+  /* ── Materials ── */
+  const MRED   = matF(0xdc2626, .15, .55);
+  const MBLK   = matF(0x080808, .10, .82);
+  const MYEL   = matF(0xeab308, .15, .55);
+  const MBLU   = matF(0x3b82f6, .15, .55);
+  const MGRN   = matF(0x22c55e, .15, .55);
+  const MORG   = matF(0xf97316, .15, .55);
+  const MGRY   = matF(0x94a3b8, .20, .55);
+  const MMET   = matF(0xcbd5e1, .80, .28);
+  const MMDK   = matF(0x475569, .65, .38);
+  const MPLS   = matF(0x1c232f, .10, .82);
+  const MPLSL  = matF(0x2c3442, .10, .82);
+  const MDIF   = matF(0xf1f5f9, .05, .75);
+  const MBRS   = matF(0xd4a34a, .80, .35);
+  const MLOOM  = matF(0x0e0e0e, .05, .90);   // harness wrap
+  const MTIRE  = matF(0x0a0a0a, .05, .92);   // fat bundle
+  const MGLASSLID = new THREE.MeshStandardMaterial({
+    color: 0x222a36, metalness: .20, roughness: .12,
+    transparent: true, opacity: .48, side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  const MDIAL  = matF(0x0a0e14, .05, .85);
+  const MNEEDLE = matF(0xef4444, .20, .55);
+
+  /* dynamic */
+  const M_HOTWIRE = new THREE.MeshStandardMaterial({
+    color: 0xb91c1c, metalness: .15, roughness: .55,
+    emissive: 0x000000, emissiveIntensity: 0
+  });
+  const M_MAINFUSE = new THREE.MeshStandardMaterial({
+    color: 0xf59e0b, metalness: .10, roughness: .5,
+    emissive: 0x000000, emissiveIntensity: 0
+  });
+  const M_LAMP = new THREE.MeshStandardMaterial({
+    color: 0xfef3c7, emissive: 0xffe066, emissiveIntensity: 0, roughness: .4
+  });
+  const M_ARC = new THREE.LineBasicMaterial({
+    color: 0xc7f2ff, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+
+  /* ═══════════════ FLOOR PLATE ═══════════════ */
+  const floorGeo = new THREE.PlaneGeometry(22, 16);
+  const floorMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0c11, metalness: .15, roughness: .90, side: THREE.DoubleSide
+  });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -2.72;
+  root.add(floor);
+
+  /* ═══════════════ LAYOUT ═══════════════ */
+  const P = {
+    batt:  [-3.4, -0.35],
+    ign:   [-3.4,  1.20],
+    fuse:  [-1.5,  1.30],
+    ecu:   [-1.4, -0.60],
+    clu:   [ 1.0,  1.90],
+    obd:   [ 3.1,  1.90],
+    cool:  [ 3.1,  0.20],
+    oil:   [ 3.1, -1.40],
+    fuel:  [-2.9, -1.90],
+    gnd:   [ 0.0, -2.30]
+  };
+
+  /* ═══════════════ BATTERY ═══════════════ */
+  const battG = new THREE.Group();
+  battG.position.set(P.batt[0], P.batt[1], 0);
+  root.add(battG);
+
+  const battBody = new THREE.Mesh(new THREE.BoxGeometry(1.55, .92, .70), MPLS);
+  battG.add(battBody);
+  // dark ribbed top
+  const battTop = new THREE.Mesh(new THREE.BoxGeometry(1.42, .10, .62), MPLSL);
+  battTop.position.y = .51;
+  battG.add(battTop);
+  // cap rows
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .06, 12), MMDK);
+    cap.position.set(-.30 + c * .30, .58, -.10 + r * .20);
+    battG.add(cap);
+  }
+  // posts
+  const postPos = new THREE.Mesh(new THREE.CylinderGeometry(.10, .10, .26, 16), MRED);
+  postPos.position.set(-.50, .56, 0); battG.add(postPos);
+  const postNeg = new THREE.Mesh(new THREE.CylinderGeometry(.10, .10, .26, 16), MBLK);
+  postNeg.position.set(.50, .56, 0); battG.add(postNeg);
+  // post clamps (torus rings)
+  [postPos, postNeg].forEach(p => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.105, .022, 6, 16), MMET);
+    ring.position.copy(p.position);
+    ring.position.y += .04;
+    ring.rotation.x = Math.PI / 2;
+    battG.add(ring);
+  });
+  // label plate
+  const label = new THREE.Mesh(new THREE.BoxGeometry(1.05, .28, .02), MDIF);
+  label.position.set(0, -.05, .36);
+  battG.add(label);
+  // thin black frame around the label
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(1.10, .32, .015), MBLK);
+  frame.position.set(0, -.05, .365);
+  battG.add(frame);
+  // symbolic stripe
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(.9, .04, .01), MRED);
+  stripe.position.set(0, .05, .375);
+  battG.add(stripe);
+
+  /* ═══════════════ IGNITION SWITCH ═══════════════ */
+  const ignG = new THREE.Group();
+  ignG.position.set(P.ign[0], P.ign[1], 0);
+  root.add(ignG);
+
+  const ignBase = new THREE.Mesh(new THREE.CylinderGeometry(.38, .38, .22, 20), MMET);
+  ignG.add(ignBase);
+  const ignTower = new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, .30, 16), MMDK);
+  ignTower.position.y = .14;
+  ignG.add(ignTower);
+  const ignKey = new THREE.Mesh(new THREE.BoxGeometry(.07, .22, .08), matF(0x000000, .5, .8));
+  ignKey.position.set(0, .30, .13);
+  ignG.add(ignKey);
+  // back plate with three position dots
+  const backPlate = new THREE.Mesh(new THREE.BoxGeometry(1.10, .48, .06), MPLS);
+  backPlate.position.set(0, -.18, 0);
+  ignG.add(backPlate);
+  [
+    { x: -.36, c: 0x64748b },   // ACC
+    { x: 0,    c: 0x000000 },   // OFF
+    { x: .36,  c: 0x22c55e }    // START
+  ].forEach(d => {
+    const dot = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, .04, 10),
+      new THREE.MeshBasicMaterial({ color: d.c }));
+    dot.position.set(d.x, -.18, .045);
+    dot.rotation.x = Math.PI / 2;
+    ignG.add(dot);
+  });
+
+  /* ═══════════════ FUSE BOX ═══════════════ */
+  const fuseBoxGroup = new THREE.Group();
+  fuseBoxGroup.position.set(P.fuse[0], P.fuse[1], 0);
+  root.add(fuseBoxGroup);
+
+  // Case
+  const caseMesh = new THREE.Mesh(new THREE.BoxGeometry(2.05, .82, .62), MPLS);
+  caseMesh.userData.isFuseBox = true;
+  fuseBoxGroup.add(caseMesh);
+  // Slightly recessed interior (dark) so the fuses pop against a backdrop
+  const interior = new THREE.Mesh(new THREE.BoxGeometry(1.85, .66, .04), matF(0x05080f, .05, .9));
+  interior.position.y = .02;
+  interior.position.z = .30;
+  fuseBoxGroup.add(interior);
+
+  // Branch fuses — coloured cylinders that poke up
+  const fuseBranchCols = [
+    0xdc2626, 0x3b82f6, 0xeab308, 0xdc2626, 0x22c55e, 0xf1f5f9, 0xf97316
+  ];
+  const fuseBranchPos = [
+    [-0.72, +.12], [-0.36, +.12], [0, +.12], [.36, +.12], [.72, +.12],
+    [-0.54, -.14], [ 0, -.14]
+  ];
+  fuseBranchPos.forEach(([dx, dy], i) => {
+    const f = new THREE.Mesh(
+      new THREE.CylinderGeometry(.09, .09, .22, 12),
+      matF(fuseBranchCols[i], .10, .5)
+    );
+    f.position.set(dx, dy, .32);
+    f.userData.isFuseBox = true;
+    fuseBoxGroup.add(f);
+  });
+  // MAIN fuse (larger, animated)
+  const mainFuse = new THREE.Mesh(
+    new THREE.CylinderGeometry(.13, .13, .28, 16),
+    M_MAINFUSE
+  );
+  mainFuse.position.set(-0.90, .18, .34);
+  mainFuse.userData.isFuseBox = true;
+  fuseBoxGroup.add(mainFuse);
+
+  // Translucent lid
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(2.10, .08, .68), MGLASSLID);
+  lid.position.y = .46;
+  lid.userData.isFuseBox = true;
+  fuseBoxGroup.add(lid);
+  // Lid frame edges (dark plastic rim)
+  const lidRim = new THREE.Mesh(new THREE.BoxGeometry(2.14, .04, .72), MPLSL);
+  lidRim.position.y = .50;
+  fuseBoxGroup.add(lidRim);
+  // "FUSE" label on lid
+  const lidLabel = new THREE.Mesh(new THREE.BoxGeometry(1.0, .22, .02), MDIF);
+  lidLabel.position.set(0, .55, .30);
+  fuseBoxGroup.add(lidLabel);
+
+  // Glowing click hint ring
+  const hintRingMat = new THREE.MeshBasicMaterial({
+    color: 0xfacc15, transparent: true, opacity: 0.55,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+  const hintRing = new THREE.Mesh(new THREE.TorusGeometry(1.30, .028, 8, 56), hintRingMat);
+  hintRing.position.set(P.fuse[0], P.fuse[1] + .05, .55);
+  root.add(hintRing);
+
+  // Mounting posts
+  [[-0.94, -.44], [0.94, -.44]].forEach(([dx, dy]) => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, .12, 10), MMDK);
+    p.position.set(dx, dy, 0);
+    p.rotation.x = Math.PI / 2;
+    fuseBoxGroup.add(p);
+  });
+
+  /* ═══════════════ ECU ═══════════════ */
+  const ecuG = new THREE.Group();
+  ecuG.position.set(P.ecu[0], P.ecu[1], 0);
+  root.add(ecuG);
+
+  const ecuBody = new THREE.Mesh(new THREE.BoxGeometry(2.05, 1.05, .62), MMET);
+  ecuG.add(ecuBody);
+  // Heat sink fins on top
+  for (let i = 0; i < 8; i++) {
+    const f = new THREE.Mesh(new THREE.BoxGeometry(1.85, .045, .56), MMDK);
+    f.position.y = .30 + i * .062;
+    ecuG.add(f);
+  }
+  // Big connector block on one side
+  const conn = new THREE.Mesh(new THREE.BoxGeometry(.55, .85, .58), MPLS);
+  conn.position.set(1.15, 0, 0);
+  ecuG.add(conn);
+  // Pin rows
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) {
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .08, 8), MBRS);
+    pin.position.set(1.30 + .01, -.28 + r * .28, -.20 + c * .08);
+    pin.rotation.z = Math.PI / 2;
+    ecuG.add(pin);
+  }
+  // Label
+  const ecuLabel = new THREE.Mesh(new THREE.BoxGeometry(.9, .18, .02), MDIF);
+  ecuLabel.position.set(-.55, .22, .33);
+  ecuG.add(ecuLabel);
+
+  /* ═══════════════ INSTRUMENT CLUSTER ═══════════════ */
+  const cluG = new THREE.Group();
+  cluG.position.set(P.clu[0], P.clu[1], 0);
+  root.add(cluG);
+
+  const cluBody = new THREE.Mesh(new THREE.BoxGeometry(2.20, 1.05, .32), MPLS);
+  cluG.add(cluBody);
+  // Hood (visor)
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(2.20, .10, .55), MPLSL);
+  visor.position.set(0, .55, .18);
+  cluG.add(visor);
+
+  // Three dials
+  for (let i = 0; i < 3; i++) {
+    const dx = -0.70 + i * 0.70;
+    // Dial face
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(.28, .28, .02, 32), MDIAL);
+    face.rotation.x = Math.PI / 2;
+    face.position.set(dx, .10, .17);
+    cluG.add(face);
+    // Bezel
+    const bez = new THREE.Mesh(new THREE.TorusGeometry(.29, .018, 6, 32), MMDK);
+    bez.position.set(dx, .10, .18);
+    cluG.add(bez);
+    // Ticks (radiating)
+    for (let k = 0; k < 9; k++) {
+      const a = -Math.PI * 0.75 + k * (Math.PI * 1.5 / 8);
+      const tick = new THREE.Mesh(new THREE.BoxGeometry(.020, .055, .015),
+        new THREE.MeshBasicMaterial({ color: 0xe2e8f0 }));
+      tick.position.set(dx + Math.cos(a) * .21, .10 + Math.sin(a) * .21, .18);
+      tick.rotation.z = a - Math.PI / 2;
+      cluG.add(tick);
+    }
+    // Needle
+    const needle = new THREE.Mesh(new THREE.BoxGeometry(.19, .022, .012), MNEEDLE);
+    needle.position.set(dx + Math.cos(-Math.PI * 0.35) * .095,
+                        .10 + Math.sin(-Math.PI * 0.35) * .095, .19);
+    needle.rotation.z = -Math.PI * 0.35;
+    cluG.add(needle);
+    // Hub
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, .04, 12), MMDK);
+    hub.rotation.x = Math.PI / 2;
+    hub.position.set(dx, .10, .20);
+    cluG.add(hub);
+  }
+  // Warning light strip at bottom
+  for (let i = 0; i < 5; i++) {
+    const light = new THREE.Mesh(new THREE.SphereGeometry(.045, 8, 6), M_LAMP);
+    light.position.set(-0.64 + i * 0.32, -.30, .19);
+    cluG.add(light);
+  }
+
+  /* ═══════════════ OBD2 ═══════════════ */
+  const obdG = new THREE.Group();
+  obdG.position.set(P.obd[0], P.obd[1], 0);
+  root.add(obdG);
+  const obdBody = new THREE.Mesh(new THREE.BoxGeometry(.80, .60, .38), MPLS);
+  obdG.add(obdBody);
+  // D-shaped face (two bevels to fake the trapezoid)
+  const obdBevel = new THREE.Mesh(new THREE.BoxGeometry(.62, .34, .04), matF(0x11151c, .10, .80));
+  obdBevel.position.z = .21;
+  obdG.add(obdBevel);
+  // 16 pins in two rows
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 8; c++) {
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(.011, .011, .06, 8), MBRS);
+    pin.position.set(-.22 + c * .063, r === 0 ? .06 : -.06, .24);
+    pin.rotation.x = Math.PI / 2;
+    obdG.add(pin);
+  }
+
+  /* ═══════════════ COOLANT SENSOR ═══════════════ */
+  const coolG = new THREE.Group();
+  coolG.position.set(P.cool[0], P.cool[1], 0);
+  root.add(coolG);
+  const coolBody = new THREE.Mesh(new THREE.CylinderGeometry(.20, .15, .55, 20), MBRS);
+  coolBody.rotation.z = Math.PI / 2;
+  coolBody.position.x = -.22;
+  coolG.add(coolBody);
+  const coolHex = new THREE.Mesh(new THREE.CylinderGeometry(.20, .20, .10, 6), MMET);
+  coolHex.rotation.z = Math.PI / 2;
+  coolHex.position.x = .05;
+  coolG.add(coolHex);
+  const coolPlug = new THREE.Mesh(new THREE.BoxGeometry(.34, .34, .40), MPLS);
+  coolPlug.position.x = .38;
+  coolG.add(coolPlug);
+  const coolRing = new THREE.Mesh(new THREE.TorusGeometry(.11, .020, 6, 16), MBLU);
+  coolRing.position.set(.55, 0, 0);
+  coolRing.rotation.y = Math.PI / 2;
+  coolG.add(coolRing);
+
+  /* ═══════════════ OIL PRESSURE SENSOR ═══════════════ */
+  const oilG = new THREE.Group();
+  oilG.position.set(P.oil[0], P.oil[1], 0);
+  root.add(oilG);
+  const oilBody = new THREE.Mesh(new THREE.CylinderGeometry(.20, .15, .55, 20), MBRS);
+  oilBody.rotation.z = Math.PI / 2;
+  oilBody.position.x = -.22;
+  oilG.add(oilBody);
+  const oilHex = new THREE.Mesh(new THREE.CylinderGeometry(.20, .20, .10, 6), MMET);
+  oilHex.rotation.z = Math.PI / 2;
+  oilHex.position.x = .05;
+  oilG.add(oilHex);
+  const oilPlug = new THREE.Mesh(new THREE.BoxGeometry(.34, .34, .40), MPLS);
+  oilPlug.position.x = .38;
+  oilG.add(oilPlug);
+  const oilRing = new THREE.Mesh(new THREE.TorusGeometry(.11, .020, 6, 16), MGRN);
+  oilRing.position.set(.55, 0, 0);
+  oilRing.rotation.y = Math.PI / 2;
+  oilG.add(oilRing);
+
+  /* ═══════════════ FUEL SENDER ═══════════════ */
+  const fuelG = new THREE.Group();
+  fuelG.position.set(P.fuel[0], P.fuel[1], 0);
+  root.add(fuelG);
+  const tank = new THREE.Mesh(new THREE.BoxGeometry(1.65, .75, .58), MPLSL);
+  fuelG.add(tank);
+  // Top ridge
+  const ridge = new THREE.Mesh(new THREE.BoxGeometry(1.50, .06, .50), MMDK);
+  ridge.position.y = .40;
+  fuelG.add(ridge);
+  // Float arm
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(.030, .030, .85, 8), MMET);
+  arm.rotation.z = 0.55;
+  arm.position.set(-.28, .22, .20);
+  fuelG.add(arm);
+  // Float ball
+  const float = new THREE.Mesh(new THREE.SphereGeometry(.10, 12, 10), matF(0xea580c, .30, .60));
+  float.position.set(-.58, .48, .20);
+  fuelG.add(float);
+  // Sender top
+  const sender = new THREE.Mesh(new THREE.BoxGeometry(.38, .38, .36), MPLS);
+  sender.position.set(.50, .30, .20);
+  fuelG.add(sender);
+  const senderRing = new THREE.Mesh(new THREE.TorusGeometry(.10, .018, 6, 16), MYEL);
+  senderRing.position.set(.50, .30, .40);
+  fuelG.add(senderRing);
+
+  /* ═══════════════ GROUND BUS ═══════════════ */
+  const busG = new THREE.Group();
+  busG.position.set(P.gnd[0], P.gnd[1], 0);
+  root.add(busG);
+  const bus = new THREE.Mesh(new THREE.BoxGeometry(3.6, .12, .30), matF(0x374151, .85, .32));
+  busG.add(bus);
+  // Copper strip inset
+  const busInset = new THREE.Mesh(new THREE.BoxGeometry(3.4, .02, .18), MBRS);
+  busInset.position.y = .07;
+  busG.add(busInset);
+  // Bolted posts
+  for (let i = 0; i < 6; i++) {
+    const bx = -1.55 + i * .62;
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, .14, 10), MMET);
+    post.position.set(bx, .12, 0);
+    busG.add(post);
+    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(.035, .035, .06, 6), MBRS);
+    bolt.position.set(bx, .22, 0);
+    busG.add(bolt);
+  }
+  // Vertical strut dropping to the floor
+  const strut = new THREE.Mesh(new THREE.BoxGeometry(.10, .42, .10), matF(0x2a2f38, .80, .38));
+  strut.position.set(1.75, -.28, 0);
+  busG.add(strut);
+
+  /* ═══════════════ WIRES ═══════════════ */
+  const pth = (pts) => pts.map(p => [p[0], p[1], 0]);
+
+  function addLoomRings(points, wireR, count) {
+    const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(p[0], p[1], p[2] || 0)));
+    for (let i = 1; i <= count; i++) {
+      const u = i / (count + 1);
+      const p = curve.getPointAt(u);
+      const t = curve.getTangentAt(u);
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(wireR + .010, .011, 6, 12),
+        MLOOM
+      );
+      ring.position.copy(p);
+      ring.lookAt(p.clone().add(t));
+      root.add(ring);
+    }
+  }
+
+  // 1. Battery + → ignition
+  const pBatIgn = pth([
+    [P.batt[0] - .50, P.batt[1] + .85],
+    [P.batt[0] - 1.02, P.batt[1] + 1.00],
+    [P.batt[0] - 1.02, P.ign[1] + .05],
+    [P.ign[0] - .38, P.ign[1] + .05]
+  ]);
+  pipe(pBatIgn, .082, MRED);
+  addLoomRings(pBatIgn, .082, 3);
+
+  // 2. Ignition → fuse box main input
+  const pIgnFuse = pth([
+    [P.ign[0] + .38, P.ign[1] + .05],
+    [P.ign[0] + .90, P.ign[1] + .30],
+    [P.fuse[0] - 1.35, P.fuse[1] - .05],
+    [P.fuse[0] - .90, P.fuse[1] - .15]
+  ]);
+  pipe(pIgnFuse, .075, MORG);
+  addLoomRings(pIgnFuse, .075, 3);
+
+  // 3. Fuse box → ECU (hot wire — animated)
+  const hotPath = pth([
+    [P.fuse[0] - .90, P.fuse[1] - .30],
+    [P.fuse[0] - .90, P.fuse[1] - .70],
+    [P.fuse[0] - .70, P.ecu[1] + .80],
+    [P.ecu[0] - .90, P.ecu[1] + .75]
+  ]);
+  pipe(hotPath, .085, M_HOTWIRE);
+  addLoomRings(hotPath, .085, 3);
+
+  // 4. ECU → cluster (multiconductor bundle)
+  for (let i = 0; i < 3; i++) {
+    const off = (i - 1) * .058;
+    const col = [0x3b82f6, 0x22c55e, 0xeab308][i];
+    const path = pth([
+      [P.ecu[0] + .90, P.ecu[1] + .30 + off],
+      [P.ecu[0] + 1.45, P.ecu[1] + .70 + off],
+      [P.clu[0] - 1.20, P.clu[1] - .20 + off],
+      [P.clu[0] - .70, P.clu[1] + .05 + off]
+    ]);
+    pipe(path, .028, matF(col, .15, .55));
+  }
+
+  // 5. ECU → OBD2 (grey diagnostic bundle)
+  for (let i = 0; i < 2; i++) {
+    const off = i * .055;
+    const path = pth([
+      [P.ecu[0] + .95, P.ecu[1] + .15 + off],
+      [P.ecu[0] + 2.05, P.ecu[1] + .50 + off],
+      [P.obd[0] - .10, P.obd[1] - .50 + off],
+      [P.obd[0] - .10, P.obd[1] - .32]
+    ]);
+    pipe(path, .024, MGRY);
+  }
+
+  // 6. Coolant signal
+  pipe(pth([
+    [P.cool[0] - .50, P.cool[1]],
+    [P.cool[0] - 1.00, P.cool[1] + .05],
+    [P.ecu[0] + 2.10, P.ecu[1] + .35],
+    [P.ecu[0] + 1.50, P.ecu[1] + .30]
+  ]), .030, MBLU);
+
+  // 7. Oil signal
+  pipe(pth([
+    [P.oil[0] - .50, P.oil[1]],
+    [P.oil[0] - 1.05, P.oil[1] - .05],
+    [P.ecu[0] + 2.15, P.ecu[1] - .25],
+    [P.ecu[0] + 1.50, P.ecu[1] - .15]
+  ]), .030, MGRN);
+
+  // 8. Fuel sender signal
+  pipe(pth([
+    [P.fuel[0] + .75, P.fuel[1] + .40],
+    [P.fuel[0] + 1.30, P.fuel[1] + .65],
+    [P.ecu[0] - .40, P.ecu[1] - .95],
+    [P.ecu[0] + .50, P.ecu[1] - .95]
+  ]), .030, MYEL);
+
+  // 9. Chassis ground spine
+  const gndPath = pth([
+    [P.batt[0] + .50, P.batt[1] - .60],
+    [P.fuse[0] - 1.70, P.batt[1] - .60],
+    [P.gnd[0] + 1.80, P.gnd[1] - .25],
+    [P.gnd[0] + 1.80, P.gnd[1] + .05],
+    [P.gnd[0] - 1.80, P.gnd[1] + .05],
+    [P.gnd[0] - 1.80, P.gnd[1] - .25],
+    [P.fuel[0] + .55, P.gnd[1] - .25],
+    [P.fuel[0] + .55, P.fuel[1] - .55]
+  ]);
+  pipe(gndPath, .085, MBLK);
+  addLoomRings(gndPath, .085, 6);
+
+  // Ground drops
+  const gndDrops = [
+    [[P.ecu[0], P.ecu[1] - .60], [P.ecu[0], P.gnd[1] + .06]],
+    [[P.clu[0], P.clu[1] - .60], [P.clu[0], P.gnd[1] + .06]],
+    [[P.obd[0], P.obd[1] - .40], [P.obd[0], P.gnd[1] + .06]],
+    [[P.cool[0] + .38, P.cool[1] - .30], [P.cool[0] + .38, P.gnd[1] + .06]],
+    [[P.oil[0] + .38, P.oil[1] - .30], [P.oil[0] + .38, P.gnd[1] + .06]]
+  ];
+  gndDrops.forEach(([a, b]) => {
+    pipe(pth([a, [a[0], P.gnd[1] + .20], b]), .045, MBLK);
+  });
+
+  /* ═══════════════ STREAMS ═══════════════ */
+  const flowHot = stream(hotPath, 26, 0xfde047, .11, false);
+  const flowIgn = stream(pIgnFuse, 18, 0xfde047, .10, false);
+  const flowBat = stream(pBatIgn, 16, 0xfde047, .10, false);
+
+  /* ═══════════════ SHORT ARC ═══════════════ */
+  const ARC_N = 9;
+  const arcPts = new Float32Array(ARC_N * 3);
+  const arcGeo = new THREE.BufferGeometry();
+  arcGeo.setAttribute('position', new THREE.BufferAttribute(arcPts, 3));
+  const arc = new THREE.Line(arcGeo, M_ARC);
+  arc.frustumCulled = false;
+  root.add(arc);
+  const ARC_ORIGIN = [P.fuse[0] - .90, P.fuse[1] - .40];
+
+  /* ═══════════════ GAUGE DATA ═══════════════ */
+  const GAUGES = {
+    18: { ohmPerM: .0210, ampacity: 10 },
+    16: { ohmPerM: .0132, ampacity: 13 },
+    14: { ohmPerM: .0085, ampacity: 18 },
+    12: { ohmPerM: .0053, ampacity: 23 },
+    10: { ohmPerM: .0033, ampacity: 33 }
+  };
+  const HARNESS_LEN = 2.5;
+
+  /* ═══════════════ STATE ═══════════════ */
+  const state = {
+    gauge: 16,
+    fuseRating: 30,
+    fault: 'none',
+    fuseBlown: false,
+    fuseProgress: 0,   // 0 → 1 (heat/overload accumulator)
+    wireTemp: 25,
+    flowPaused: false,
+    phase: 0
+  };
+
+  /* ═══════════════ FLOATING PANEL ═══════════════ */
+  let statWireR = null, statWireAmp = null, warnBox = null;
+  let openFuseBoxModal = () => {};
+
+  try {
+    const panel = document.createElement('div');
+    panel.id = 'wh-ui';
+    document.body.appendChild(panel);
+
+    const header = document.createElement('div');
+    header.className = 'wh-header';
+    const grip = document.createElement('span');
+    grip.className = 'wh-grip'; grip.textContent = '⠿';
+    header.appendChild(grip);
+    const title = document.createElement('span');
+    title.className = 'wh-title'; title.textContent = 'Wiring Harness';
+    header.appendChild(title);
+    const collapseBtn = document.createElement('button');
+    collapseBtn.type = 'button';
+    collapseBtn.className = 'wh-icon';
+    collapseBtn.textContent = '—';
+    collapseBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      panel.classList.toggle('wh-collapsed');
+      collapseBtn.textContent = panel.classList.contains('wh-collapsed') ? '+' : '—';
+    });
+    header.appendChild(collapseBtn);
+    panel.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'wh-body';
+    panel.appendChild(body);
+
+    function makeRow(label, options, initial, onPick) {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px';
+      const lab = document.createElement('div');
+      lab.className = 'wh-lab';
+      lab.textContent = label;
+      wrap.appendChild(lab);
+      const row = document.createElement('div');
+      row.className = 'wh-row';
+      const btns = {};
+      options.forEach(([key, text, crit]) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'wh-btn' + (crit ? ' crit' : '');
+        b.textContent = text;
+        b.addEventListener('click', e => {
+          e.stopPropagation();
+          onPick(key); select(key);
+        });
+        btns[key] = b;
+        row.appendChild(b);
+      });
+      function select(key) {
+        Object.keys(btns).forEach(k => btns[k].classList.toggle('on', k === key));
+      }
+      select(initial);
+      wrap.appendChild(row);
+      body.appendChild(wrap);
+      return select;
+    }
+
+    makeRow('Wire gauge',
+      [['18','18'],['16','16'],['14','14'],['12','12'],['10','10']],
+      '16', v => { state.gauge = parseInt(v, 10); });
+
+    makeRow('Fuse rating',
+      [['5','5 A'],['10','10 A'],['15','15 A'],['20','20 A'],['30','30 A']],
+      '30', v => {
+        state.fuseRating = parseInt(v, 10);
+        state.fuseProgress = 0;
+      });
+
+    makeRow('Circuit fault',
+      [['none','Normal'],['open','Open'],['resistive','High-R'],['short','Short', true]],
+      'none', v => { state.fault = v; });
+
+    const inspectBtn = document.createElement('button');
+    inspectBtn.type = 'button';
+    inspectBtn.className = 'wh-btn wide inspect';
+    inspectBtn.innerHTML = '⚡  Open Fuse Box View';
+    inspectBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      openFuseBoxModal();
+    });
+    body.appendChild(inspectBtn);
+
+    const rep = document.createElement('button');
+    rep.type = 'button';
+    rep.className = 'wh-btn wide';
+    rep.textContent = '⟲  Replace fuse';
+    rep.addEventListener('click', e => {
+      e.stopPropagation();
+      state.fuseBlown = false;
+      state.fuseProgress = 0;
+      state.wireTemp = 25;
+    });
+    body.appendChild(rep);
+
+    makeRow('Flow', [['on','Animated'],['off','Static']], 'on', v => {
+      state.flowPaused = (v === 'off');
+    });
+
+    const statWrap = document.createElement('div');
+    statWrap.style.cssText = 'border-top:1px solid rgba(148,163,184,.14);padding-top:6px;display:flex;flex-direction:column;gap:2px';
+    const statHead = document.createElement('div');
+    statHead.style.cssText = 'color:#94a3b8;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase';
+    statHead.textContent = 'Harness';
+    statWrap.appendChild(statHead);
+    statWireR = document.createElement('div');
+    statWireR.className = 'wh-stat';
+    statWireR.innerHTML = '<span>Loop resistance</span><span class="v">—</span>';
+    statWrap.appendChild(statWireR);
+    statWireAmp = document.createElement('div');
+    statWireAmp.className = 'wh-stat';
+    statWireAmp.innerHTML = '<span>Ampacity</span><span class="v">—</span>';
+    statWrap.appendChild(statWireAmp);
+    body.appendChild(statWrap);
+
+    warnBox = document.createElement('div');
+    warnBox.className = 'wh-warn';
+    body.appendChild(warnBox);
+
+    (function makeDraggable(el, handle) {
+      let dragging = false, pid = null, sx = 0, sy = 0, sl = 0, st = 0;
+      handle.addEventListener('pointerdown', e => {
+        if (e.target.closest('button, input, canvas, a, select, textarea')) return;
+        e.preventDefault(); e.stopPropagation();
+        dragging = true; pid = e.pointerId;
+        const r = el.getBoundingClientRect();
+        sl = r.left; st = r.top;
+        sx = e.clientX; sy = e.clientY;
+        el.style.right = 'auto';
+        el.style.left = sl + 'px';
+        el.style.top  = st + 'px';
+        el.classList.add('dragging');
+        try { handle.setPointerCapture(pid); } catch (_) {}
+      });
+      handle.addEventListener('pointermove', e => {
+        if (!dragging || e.pointerId !== pid) return;
+        e.preventDefault();
+        const dx = e.clientX - sx, dy = e.clientY - sy;
+        const w = el.offsetWidth, h = el.offsetHeight;
+        let nl = sl + dx, nt = st + dy;
+        const mv = 48;
+        nl = Math.max(-w + mv, Math.min(window.innerWidth - mv, nl));
+        nt = Math.max(0, Math.min(window.innerHeight - 32, nt));
+        el.style.left = nl + 'px';
+        el.style.top  = nt + 'px';
+      });
+      const end = () => {
+        if (!dragging) return;
+        dragging = false;
+        el.classList.remove('dragging');
+        try { handle.releasePointerCapture(pid); } catch (_) {}
+      };
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+      handle.addEventListener('lostpointercapture', end);
+    })(panel, header);
+
+    const fab = document.createElement('button');
+    fab.id = 'wh-ui-toggle';
+    fab.type = 'button';
+    fab.innerHTML = '×';
+    fab.title = 'Hide controls';
+    fab.addEventListener('click', () => {
+      const hidden = panel.classList.toggle('hidden');
+      fab.innerHTML = hidden ? '⚙' : '×';
+      fab.title = hidden ? 'Show controls' : 'Hide controls';
+    });
+    document.body.appendChild(fab);
+
+    window.addEventListener('resize', () => {
+      if (!panel.style.left) return;
+      const w = panel.offsetWidth, h = panel.offsetHeight;
+      let l = parseFloat(panel.style.left) || 0;
+      let t = parseFloat(panel.style.top)  || 0;
+      const mv = 48;
+      l = Math.max(-w + mv, Math.min(window.innerWidth - mv, l));
+      t = Math.max(0, Math.min(window.innerHeight - 32, t));
+      panel.style.left = l + 'px';
+      panel.style.top  = t + 'px';
+    });
+  } catch (e) { /* overlay optional */ }
+
+  /* ═══════════════ INSPECT BUTTON ═══════════════ */
+  try {
+    const fbInspectBtn = document.createElement('button');
+    fbInspectBtn.id = 'fb-inspect-btn';
+    fbInspectBtn.type = 'button';
+    fbInspectBtn.innerHTML = '⚡ Inspect Fuse Box<span class="pulse"></span>';
+    fbInspectBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      openFuseBoxModal();
+    });
+    document.body.appendChild(fbInspectBtn);
+  } catch (e) {}
+
+  /* ═══════════════ MODAL ═══════════════ */
+  (function buildFuseBoxModal() {
+    const overlay = document.createElement('div');
+    overlay.id = 'fb-overlay';
+    const modal = document.createElement('div');
+    modal.id = 'fb-modal';
+    overlay.appendChild(modal);
+
+    const head = document.createElement('div');
+    head.className = 'fb-head';
+    head.innerHTML = `
+      <div class="fb-head-icon">⚡</div>
+      <div class="fb-head-text">
+        <div class="fb-head-title">Fuse Box</div>
+        <div class="fb-head-sub">Distribution &amp; protection</div>
+      </div>
+    `;
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'fb-close';
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', close);
+    head.appendChild(closeBtn);
+    modal.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'fb-body';
+    modal.appendChild(body);
+
+    const left = document.createElement('div');
+    left.className = 'fb-left';
+    body.appendChild(left);
+
+    const grid = document.createElement('div');
+    grid.className = 'fb-grid';
+    left.appendChild(grid);
+
+    const allClickables = [];
+
+    function makeFuse(item, col, size) {
+      if (!item || item.a == null) {
+        const empty = document.createElement('div');
+        empty.className = 'fb-fuse' + (size === 'large' ? ' fb-large' : '');
+        empty.style.background = 'rgba(20,24,32,.7)';
+        empty.style.border = '1px dashed rgba(148,163,184,.15)';
+        empty.style.cursor = 'default';
+        empty.style.boxShadow = 'inset 0 0 6px rgba(0,0,0,.4)';
+        col.appendChild(empty);
+        return;
+      }
+      const el = document.createElement('div');
+      el.className = 'fb-fuse' + (size === 'large' ? ' fb-large' : '');
+      el.style.background = ampColor(item.a);
+      el.style.color = ampTextColor(item.a);
+
+      const dot = document.createElement('span');
+      dot.className = 'cat-dot';
+      dot.style.background = CAT[item.c].color;
+      el.appendChild(dot);
+
+      if (item.i) {
+        const ic = document.createElement('span');
+        ic.className = 'fb-icon';
+        ic.textContent = item.i;
+        el.appendChild(ic);
+      }
+
+      const amp = document.createElement('span');
+      amp.className = 'fb-amp';
+      amp.textContent = item.a + 'A';
+      el.appendChild(amp);
+
+      el.addEventListener('click', () => selectFuse(item, el));
+      el.addEventListener('mouseenter', () => { el.title = item.l + ' · ' + item.a + 'A · ' + CAT[item.c].name; });
+      allClickables.push(el);
+
+      col.appendChild(el);
+    }
+
+    function makeRelay(item, col) {
+      const el = document.createElement('div');
+      el.className = 'fb-relay';
+      el.style.background = `linear-gradient(180deg, ${item.color}, ${shade(item.color, -25)})`;
+      el.style.color = '#fff';
+
+      const dot = document.createElement('span');
+      dot.className = 'cat-dot';
+      dot.style.background = CAT[item.c].color;
+      el.appendChild(dot);
+
+      const ic = document.createElement('span');
+      ic.className = 'fb-relay-icon';
+      ic.textContent = item.i || '▭';
+      el.appendChild(ic);
+
+      const txt = document.createElement('span');
+      txt.textContent = item.l.replace(' Relay', '');
+      el.appendChild(txt);
+
+      el.addEventListener('click', () => selectRelay(item, el));
+      el.addEventListener('mouseenter', () => { el.title = item.l + ' — ' + CAT[item.c].name; });
+      allClickables.push(el);
+
+      col.appendChild(el);
+    }
+
+    const smallCols = [];
+    for (let c = 0; c < 3; c++) {
+      const col = document.createElement('div');
+      col.className = 'fb-col';
+      smallCols.push(col);
+      grid.appendChild(col);
+    }
+    for (let c = 0; c < 3; c++) {
+      FUSE_BOX.small[c].forEach(item => makeFuse(item, smallCols[c]));
+    }
+
+    const relayCol = document.createElement('div');
+    relayCol.className = 'fb-col';
+    grid.appendChild(relayCol);
+    FUSE_BOX.relays.forEach(item => {
+      if (item.type === 'relay') makeRelay(item, relayCol);
+      else makeFuse(item, relayCol);
+    });
+
+    const largeCol = document.createElement('div');
+    largeCol.className = 'fb-col';
+    grid.appendChild(largeCol);
+    FUSE_BOX.large.forEach(item => makeFuse(item, largeCol, 'large'));
+
+    const legend = document.createElement('div');
+    legend.className = 'fb-legend';
+    legend.innerHTML = `
+      <span><i style="background:${CAT.eng.color}"></i>Engine / Power</span>
+      <span><i style="background:${CAT.light.color}"></i>Lighting</span>
+      <span><i style="background:${CAT.acc.color}"></i>Accessories</span>
+      <span><i style="background:${CAT.hp.color}"></i>High Power</span>
+    `;
+    left.appendChild(legend);
+
+    const right = document.createElement('div');
+    right.className = 'fb-right';
+    body.appendChild(right);
+
+    const info = document.createElement('div');
+    info.className = 'fb-info';
+    right.appendChild(info);
+
+    function showDefault() {
+      info.innerHTML = `
+        <h3>What is a fuse box?</h3>
+        <p>A <b>fuse box</b> (also called a fuse block, or in modern cars a <b>BCM</b> or <b>power distribution module</b>) is the central hub for a vehicle's electrical system. Every circuit in the car — lights, motors, sensors, computers, pumps — starts here, fed by the battery through a protected path.</p>
+
+        <h4>How it protects the harness</h4>
+        <p>Each fuse is a deliberately weak link in series with its circuit. The element inside is calibrated to melt when current exceeds its rating. If a motor jams or a wire shorts to earth, the fuse opens <b>before</b> the wire overheats and starts a fire.</p>
+
+        <h4>Reading the ratings</h4>
+        <p>The body colour and stamped number tell you the rating at a glance:</p>
+        <div class="fb-color-row">
+          <span><i style="background:#d4b483"></i>5 A</span>
+          <span><i style="background:#dc2626"></i>10 A</span>
+          <span><i style="background:#3b82f6"></i>15 A</span>
+          <span><i style="background:#eab308"></i>20 A</span>
+          <span><i style="background:#f1f5f9"></i>25 A</span>
+          <span><i style="background:#22c55e"></i>30 A</span>
+          <span><i style="background:#f97316"></i>40 A</span>
+        </div>
+
+        <h4>Functional categories</h4>
+        <ul>
+          <li><b>Engine / Power</b> — ECU, injectors, ignition coils, cooling fan, fuel pump.</li>
+          <li><b>Lighting</b> — headlamps, indicators, interior lamps.</li>
+          <li><b>Accessories</b> — radio, windows, mirrors, horn, wipers.</li>
+          <li><b>High Power</b> — starter, ABS pump, main battery feed. Usually 40–100 A.</li>
+        </ul>
+
+        <h4>Common failures</h4>
+        <ul>
+          <li><b>Short to ground</b> — fuse blows instantly; find the chafed wire.</li>
+          <li><b>Overload</b> — jammed motor or added accessory draws too much current.</li>
+          <li><b>Corrosion</b> — water ingress causes intermittent faults and voltage drop.</li>
+          <li><b>Wrong fuse fitted</b> — a higher-rated fuse stops protecting the wire; the harness can burn.</li>
+        </ul>
+
+        <h4>Testing</h4>
+        <ul>
+          <li>Pull the fuse and check continuity with a multimeter.</li>
+          <li>Use a test lamp across the fuse socket with the circuit switched on.</li>
+          <li>Measure voltage drop across the fuse under load — should be under 0.1 V.</li>
+        </ul>
+
+        <div class="fb-hint">👉 <b>Click any fuse in the diagram</b> to see what it protects and what happens if it blows.</div>
+      `;
+    }
+
+    function showFuse(item, origin) {
+      allClickables.forEach(el => el.classList.remove('selected'));
+      if (origin) origin.classList.add('selected');
+
+      const cat = CAT[item.c];
+      const facts = `
+        <div><span>Rating</span><b>${item.a} A</b></div>
+        <div><span>Category</span><b>${cat.name}</b></div>
+        <div><span>Typical wire</span><b>${cat.wire}</b></div>
+        <div><span>Fuse colour</span><b style="color:${ampColor(item.a)}">${colorName(item.a)}</b></div>
+      `;
+      info.innerHTML = `
+        <div class="fb-selected-head">
+          <div class="fb-selected-big" style="background:${ampColor(item.a)};color:${ampTextColor(item.a)}">${item.a}A</div>
+          <div class="fb-selected-meta">
+            <h3>${item.l}</h3>
+            <div class="fb-selected-cat" style="color:${cat.color}">${cat.name}</div>
+          </div>
+        </div>
+        <div class="fb-fuse-facts">${facts}</div>
+        <h4>What it protects</h4>
+        <p>${describeFuse(item)}</p>
+        <h4>If it blows</h4>
+        <p>${cat.blow}. Always find the cause before replacing — a repeat blow means the fault is still present.</p>
+        <h4>Never oversize</h4>
+        <p>Fitting a higher-rated fuse "to stop it blowing" removes the protection. The wire becomes the fuse and can burn the harness. Always fit the rating stamped on the fuse box lid.</p>
+        <button class="fb-back" type="button">← Back to overview</button>
+      `;
+      info.querySelector('.fb-back').addEventListener('click', () => {
+        allClickables.forEach(el => el.classList.remove('selected'));
+        showDefault();
+      });
+    }
+
+    function showRelay(item, origin) {
+      allClickables.forEach(el => el.classList.remove('selected'));
+      if (origin) origin.classList.add('selected');
+
+      const cat = CAT[item.c];
+      info.innerHTML = `
+        <div class="fb-selected-head">
+          <div class="fb-selected-big" style="background:linear-gradient(180deg, ${item.color}, ${shade(item.color, -25)});color:#fff;font-size:12px">RELAY</div>
+          <div class="fb-selected-meta">
+            <h3>${item.l}</h3>
+            <div class="fb-selected-cat" style="color:${cat.color}">${cat.name}</div>
+          </div>
+        </div>
+        <div class="fb-fuse-facts">
+          <div><span>Type</span><b>Electromechanical relay</b></div>
+          <div><span>Coil</span><b>12 V, ~150 mA</b></div>
+          <div><span>Contacts</span><b>30–40 A typical</b></div>
+          <div><span>Category</span><b>${cat.name}</b></div>
+        </div>
+        <h4>What it does</h4>
+        <p>${item.desc}</p>
+        <h4>Why a relay</h4>
+        <p>The switch that commands this circuit (ignition key, ECU output) can only handle a few hundred milliamps. The relay lets that small signal control a much larger current without burning the switch contacts.</p>
+        <h4>Failure symptoms</h4>
+        <p>${item.failure}</p>
+        <button class="fb-back" type="button">← Back to overview</button>
+      `;
+      info.querySelector('.fb-back').addEventListener('click', () => {
+        allClickables.forEach(el => el.classList.remove('selected'));
+        showDefault();
+      });
+    }
+
+    function selectFuse(item, origin) { showFuse(item, origin); }
+    function selectRelay(item, origin) { showRelay(item, origin); }
+
+    showDefault();
+
+    let isOpen = false;
+    function open() {
+      if (isOpen) return;
+      isOpen = true;
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+    function close() {
+      if (!isOpen) return;
+      isOpen = false;
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    openFuseBoxModal = open;
+
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) close();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && isOpen) close();
+    });
+
+    document.body.appendChild(overlay);
+  })();
+
+  function describeFuse(item) {
+    const l = (item.l || '').toLowerCase();
+    if (l.includes('headlight')) return 'The left or right headlamp circuit — main beam, dipped beam, or the whole cluster depending on how the car is wired. Protected so that a shorted bulb or water-damaged connector does not start a fire.';
+    if (l.includes('horn')) return 'The horn compressor or solenoid. A brief, high-current pulse — usually 10 A.';
+    if (l.includes('interior')) return 'Dome light, glovebox, boot, and any interior courtesy lamps. Small load, 5 A typical.';
+    if (l.includes('radio')) return 'The head unit and any amplifier feeds. Usually 10–15 A.';
+    if (l.includes('engine') || l.includes('ecu')) return 'The engine control module, injectors, ignition coils and sensors. One of the most critical circuits in the car.';
+    if (l.includes('ignition')) return 'The ignition switch supply to the coils or the main relay coil. Fed from the key.';
+    if (l.includes('cooling')) return 'The electric radiator cooling fan motor. Surges above 30 A when it starts, so 30 A is normal.';
+    if (l.includes('power win')) return 'One or more window lift motors. Jammed windows draw huge current, which is why the fuse is often 20–30 A.';
+    if (l.includes('a/c')) return 'The A/C compressor clutch electromagnetic coil. 20–30 A typical.';
+    if (l.includes('dash')) return 'Instrument cluster, warning lamps and dashboard illumination.';
+    if (l.includes('ig coil')) return 'Direct feed to the ignition coils. A short here kills the engine.';
+    if (l.includes('fuel')) return 'The in-tank or inline fuel pump. Interrupting this stalls the engine.';
+    if (l.includes('starter')) return 'The starter solenoid control circuit. High current, protected by a 40 A or dedicated link.';
+    if (l.includes('abs')) return 'The ABS hydraulic pump motor or the ABS control module. Failure leaves conventional brakes but disables anti-lock.';
+    if (l.includes('main')) return 'The main high-current fuse that feeds the entire fuse box. 80–150 A. If this blows, nothing works.';
+    return 'A protected vehicle circuit. See the wiring diagram for exact routing.';
+  }
+  function colorName(a) {
+    if (a <= 5)   return 'tan';
+    if (a <= 7.5) return 'brown';
+    if (a <= 10)  return 'red';
+    if (a <= 15)  return 'blue';
+    if (a <= 20)  return 'yellow';
+    if (a <= 25)  return 'clear';
+    if (a <= 30)  return 'green';
+    if (a <= 40)  return 'orange';
+    return 'high-power red';
+  }
+  function shade(hex, pct) {
+    const n = parseInt(hex.replace('#',''), 16);
+    const r = Math.max(0, Math.min(255, (n >> 16) + pct));
+    const g = Math.max(0, Math.min(255, ((n >> 8) & 0xff) + pct));
+    const b = Math.max(0, Math.min(255, (n & 0xff) + pct));
+    return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     UPDATE — physics rewritten from scratch
+     ═══════════════════════════════════════════════════════════ */
+  let prevT = 0;
+
+  return {
+    labels: [
+      ['Battery 12 V',        [P.batt[0] - .30, P.batt[1] + 1.15, .3]],
+      ['Ignition switch',     [P.ign[0], P.ign[1] + .60, .3]],
+      ['Fuse box · click',    [P.fuse[0], P.fuse[1] + .85, .3]],
+      ['Engine Control Unit', [P.ecu[0] + .60, P.ecu[1] - .95, .3]],
+      ['Instrument cluster',  [P.clu[0], P.clu[1] + .80, .3]],
+      ['OBD2 port',           [P.obd[0], P.obd[1] + .60, .3]],
+      ['Coolant sensor',      [P.cool[0] - .50, P.cool[1] - .45, .3]],
+      ['Oil pressure sensor', [P.oil[0] - .50, P.oil[1] - .45, .3]],
+      ['Fuel level sender',   [P.fuel[0], P.fuel[1] - .60, .3]]
+    ],
+
+    update(c) {
+      const t = (typeof c.t === 'number' ? c.t : 0);
+      const dt = Math.min(0.05, Math.max(0.001, c.dt || 0.016));
+
+      /* pulse the hint ring */
+      hintRingMat.opacity = state.fuseBlown
+        ? 0.15
+        : 0.35 + 0.35 * Math.abs(Math.sin(t * 1.8));
+      hintRing.rotation.z = t * 0.6;
+
+      /* ── gauge data ── */
+      const gauge = GAUGES[state.gauge];
+      const Rpos  = gauge.ohmPerM * (HARNESS_LEN * 0.7);
+      const Rgnd  = gauge.ohmPerM * (HARNESS_LEN * 0.3);
+      const Rtotal = Rpos + Rgnd;
+      const extraR = (state.fault === 'resistive') ? 0.9 : 0;
+
+      /* ── load current from framework slider ── */
+      let loadI = 40 * CL(c.k, 0, 1);
+
+      /* ── fault modes ── */
+      if (state.fault === 'open') {
+        loadI = 0;
+      } else if (state.fault === 'resistive') {
+        loadI = loadI * 0.75;
+      } else if (state.fault === 'short') {
+        // Short to ground: current limited by wire resistance + a small
+        // contact resistance at the short (0.02 Ω). Thin wire limits current.
+        const Rshort = 0.02;
+        loadI = 12.6 / (Rpos + Rshort);
+      }
+
+      /* ── fuse blow model: I²t curve ── */
+      if (!state.fuseBlown) {
+        const ratio = loadI / state.fuseRating;
+        if (ratio > 1.0) {
+          // t_blow = 1.5 / (ratio² − 1) seconds, clamped to [0.05, 3]
+          const tBlowRaw = 1.5 / (ratio * ratio - 1);
+          const tBlow = CL(tBlowRaw, 0.05, 3.0);
+          state.fuseProgress += dt / tBlow;
+        } else {
+          state.fuseProgress = Math.max(0, state.fuseProgress - dt * 0.6);
+        }
+        if (state.fuseProgress >= 1) {
+          state.fuseBlown = true;
+          state.fuseProgress = 1;
+        }
+      }
+
+      /* ── actual current after fuse consideration ── */
+      const I = state.fuseBlown ? 0 : loadI;
+
+      /* ── voltage drop & power ── */
+      const Vdrop = I * (Rtotal + extraR);
+      const Pwire = I * I * (Rtotal + extraR);
+
+      /* ── wire heating model (normalized to ampacity) ── */
+      const Tamb = 25;
+      // At ampacity the insulation reaches ~105 °C (ΔT = 80 K).
+      // ΔT scales with (I / ampacity)².
+      const ratio2 = Math.pow(I / gauge.ampacity, 2);
+      const TeqUncapped = Tamb + 80 * ratio2;
+      const Teq = Math.min(TeqUncapped, 1200);
+
+      // Thermal time constants: fast to heat, slower to cool (insulation mass)
+      const tau = state.wireTemp < Teq ? 2.5 : 5.0;
+      state.wireTemp += (Teq - state.wireTemp) * Math.min(1, dt / tau);
+
+      /* ── emission from temperature ── */
+      const glow = tempToGlow(state.wireTemp);
+      const glowInt = tempToGlowIntensity(state.wireTemp);
+      M_HOTWIRE.emissive.copy(glow);
+      M_HOTWIRE.emissiveIntensity = glowInt;
+
+      /* ── main fuse visual ── */
+      if (state.fuseBlown) {
+        M_MAINFUSE.color.setHex(0x080808);
+        M_MAINFUSE.emissive.setHex(0x000000);
+        M_MAINFUSE.emissiveIntensity = 0;
+      } else {
+        M_MAINFUSE.color.setHex(0xf59e0b);
+        // Fuse glows hotter as it approaches its blow point
+        const fuseHeat = state.fuseProgress;
+        M_MAINFUSE.emissive.setHex(fuseHeat > 0.02 ? 0xff5a00 : 0x000000);
+        M_MAINFUSE.emissiveIntensity = fuseHeat * 1.6;
+      }
+
+      /* ── short arc ── */
+      const arcActive = state.fault === 'short' && !state.fuseBlown && I > 20;
+      if (arcActive) {
+        M_ARC.opacity = 0.7 + 0.3 * Math.abs(Math.sin(t * 55));
+        for (let i = 0; i < ARC_N; i++) {
+          const f = i / (ARC_N - 1);
+          const j = (i === 0 || i === ARC_N - 1) ? 0 : 0.09;
+          arcPts[i * 3    ] = ARC_ORIGIN[0] + (Math.random() - 0.5) * j;
+          arcPts[i * 3 + 1] = ARC_ORIGIN[1] + (Math.random() - 0.5) * j;
+          arcPts[i * 3 + 2] = (Math.random() - 0.5) * j;
+        }
+        arcGeo.attributes.position.needsUpdate = true;
+        arcGeo.computeBoundingSphere();
+      } else {
+        M_ARC.opacity = 0;
+      }
+
+      /* ── cluster brightness ── */
+      const Vload = Math.max(0, 12.6 - Vdrop);
+      const lampOn = I > 0.4 && !state.fuseBlown;
+      M_LAMP.emissiveIntensity = lampOn
+        ? CL(Vload / 12.6, 0, 1) * Math.min(1, I / 6) * 1.8
+        : 0;
+
+      /* ── flow particles ── */
+      if (!state.flowPaused) state.phase = (state.phase + dt * 0.55) % 1;
+      const flowSpeed = state.fuseBlown ? 0 : (0.03 + 0.10 * Math.min(I / 40, 2));
+      const flowAlpha = state.fuseBlown ? 0 : CL(0.12 + I / 34, 0, 1);
+
+      flowBat.update(t, flowSpeed, flowAlpha);
+      flowIgn.update(t, flowSpeed, flowAlpha);
+      flowHot.update(t, flowSpeed, flowAlpha);
+
+      /* ── panel readouts ── */
+      if (statWireR) statWireR.querySelector('.v').textContent = (Rtotal + extraR).toFixed(3) + ' Ω';
+      if (statWireAmp) statWireAmp.querySelector('.v').textContent = gauge.ampacity + ' A (' + state.gauge + ' AWG)';
+
+      /* ── warning box ── */
+      let warnMsg = '';
+      if (state.wireTemp > 105 && !state.fuseBlown) {
+        warnMsg = '⚠ Wire above insulation rating. Ampacity exceeded.';
+      }
+      if (state.wireTemp > 500) {
+        warnMsg = '🔥 Wire glowing — insulation will fail.';
+      }
+      if (state.fuseBlown) {
+        warnMsg = '✕ Fuse blown — circuit open. Find the fault before replacing.';
+      }
+      if (warnBox) {
+        if (warnMsg) {
+          warnBox.textContent = warnMsg;
+          warnBox.classList.add('show');
+        } else {
+          warnBox.classList.remove('show');
+        }
+      }
+
+      /* ── HUD ── */
+      const fuseStatus = state.fuseBlown ? 'BLOWN'
+                       : state.fuseProgress > 0.55 ? 'About to blow'
+                       : state.fuseProgress > 0.15 ? 'Heating'
+                       : 'OK';
+      const fuseCls = state.fuseBlown ? 'crit'
+                    : state.fuseProgress > 0.15 ? 'warn' : 'ok';
+      const tempCls = state.wireTemp > 200 ? 'crit'
+                    : state.wireTemp > 105 ? 'warn' : 'ok';
+      const lampTxt = state.fuseBlown ? 'Dead'
+                    : Vload < 11.0 ? 'Dim'
+                    : lampOn ? 'Bright' : 'Off';
+
+      // Headroom: how much of the wire's ampacity is left
+      const headroom = (I > 0) ? gauge.ampacity / I : Infinity;
+      const headTxt = !isFinite(headroom) ? '—'
+                    : headroom > 1 ? (headroom.toFixed(1) + '×')
+                    : 'overloaded';
+      const headCls = !isFinite(headroom) ? ''
+                    : headroom >= 1.2 ? 'ok'
+                    : headroom >= 0.9 ? 'warn' : 'crit';
+
+      return {
+        big: I.toFixed(0),
+        unit: ' A',
+        bar: CL((I / Math.max(state.fuseRating * 1.2, 40)) * 100, 0, 100),
+        rows: {
+          fuse: fuseStatus,
+          temp: state.wireTemp.toFixed(0) + ' °C'
+        },
+        ro: {
+          amps: [I.toFixed(1) + ' A', 'hi'],
+          fuse: [fuseStatus, fuseCls],
+          temp: [state.wireTemp.toFixed(0) + ' °C', tempCls],
+          vd:   [Vdrop.toFixed(2) + ' V', Vdrop > 0.8 ? 'warn' : ''],
+          pwr:  [Pwire.toFixed(1) + ' W', Pwire > 20 ? 'warn' : ''],
+          head: [headTxt, headCls],
+          lamp: [lampTxt, state.fuseBlown ? 'crit' : lampOn ? 'ok' : '']
+        },
+        status: [
+          state.fuseBlown ? 'Fuse blown — circuit open'
+            : state.fault === 'short' ? 'SHORT TO GROUND'
+            : state.fault === 'open'  ? 'Open circuit'
+            : state.wireTemp > 200    ? 'Wire overheating'
+            : lampOn ? 'Circuit live' : 'No load',
+          !state.fuseBlown && state.fault !== 'short' && state.wireTemp < 200
+        ],
+        ctl: state.fuseBlown ? 'Fuse blown — replace' : I.toFixed(0) + ' A'
+      };
+    }
+  };
 }
 
 runGuidedModule(CFG, build);
