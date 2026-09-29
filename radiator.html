@@ -9,6 +9,49 @@
 <style>
 :root { --al-accent: #06b6d4; }
 html.light-theme { --al-accent: color-mix(in oklch, #06b6d4 68%, black); }
+
+/* ── module-local UI: extra controls + rolling graph ─────────────── */
+#rad-panel{
+  position:fixed; left:12px; top:12px; z-index:30;
+  width:264px; max-width:46vw;
+  padding:10px 12px 12px;
+  border:1px solid var(--border,#333);
+  border-radius:10px;
+  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38);
+  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
+  color:var(--text-dim,#9aa4b2);
+  max-height:calc(100dvh - 24px); overflow:auto;
+}
+#rad-panel.folded .rad-body{ display:none; }
+.rad-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.rad-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
+.rad-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
+.rad-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.rad-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.rad-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-mute,#6b7280); }
+.rad-w b{ color:var(--text,#e5e7eb); font-weight:700; }
+#rad-panel .al-range{ height:22px; }
+#rad-panel .al-sel{ min-height:32px; font-size:11px; }
+.rad-btns{ display:flex; gap:6px; margin-bottom:8px; }
+.rad-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
+.rad-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.rad-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(6,182,212,.14); }
+#rad-cold{ color:#38bdf8; border-color:rgba(56,189,248,.4); }
+#rad-cold:hover{ border-color:#38bdf8; }
+.rad-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
+  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
+  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
+.rad-warn.show{ display:block; }
+#rad-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
+  border-radius:6px; background:rgba(0,0,0,.28); }
+.rad-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
+.rad-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+@media (max-width:700px){ #rad-panel{ width:208px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -29,36 +72,582 @@ html.light-theme { --al-accent: color-mix(in oklch, #06b6d4 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "radiator", "title": "Radiator", "kicker": "Cooling", "accent": "#06b6d4", "badge": "Downflow · Electric fan", "camPos": [4.8, 2.6, 7.2], "target": [0, 0, 0], "floorY": -1.9, "ctl": {"label": "Airflow (speed + fan)", "val": 55, "caption": "Cooling air"}, "chipLabel": "Heat rejected", "rows": [["tin", "Coolant in"], ["tout", "Coolant out"]], "ro": [["tin", "Coolant in"], ["tout", "Coolant out"], ["dt", "Temperature drop"], ["q", "Heat rejected"], ["state", "State"]], "legend": [["#f97316", "Hot coolant"], ["#38bdf8", "Cooled coolant"], ["#7dd3fc", "Air through fins"]], "overview": "<div class=\"al-sec\"><h4>Heat exchanger<\/h4><p>Hot coolant flows through many thin tubes; air flows across large fins bonded to them. Heat moves from coolant → tubes → fins → air.<\/p><\/div><div class=\"al-sec\"><h4>Airflow<\/h4><ul><li><b>At speed<\/b> – ram air is enough.<\/li><li><b>In traffic<\/b> – the electric fan pulls air through.<\/li><li>Fan shroud stops air recirculating around the fan.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Pressure cap<\/h4><p>The cap holds about 1–1.4 bar, raising the boiling point of coolant to ~120 °C and letting coolant expand into the reservoir.<\/p><\/div>", "faults": [["Blocked core", "Overheating in traffic or at speed.", "Look for debris between condenser and radiator; check ΔT across the radiator with an IR thermometer."], ["Leaking tank or hose", "Coolant loss, sweet smell, low level.", "Pressure-test the system with a hand pump."], ["Fan not switching on", "Overheats when stationary, fine at speed.", "Check fan relay, fuse and the ECU cooling command."]], "quiz": [["Why fins on the radiator?", ["Decoration", "More surface area for heat transfer", "Slow the coolant"], 1, "Fins massively increase the surface in contact with air."], ["Overheating only in traffic suggests…", ["Fan or airflow fault", "Thermostat stuck open", "Low oil"], 0, "At speed ram air masks a failed fan."], ["The pressure cap…", ["Raises boiling point", "Lowers coolant pressure", "Adds coolant"], 0, "Higher pressure raises the boiling point of the coolant."]]};
+const CFG = {
+  "moduleId": "radiator",
+  "title": "Radiator",
+  "kicker": "Cooling",
+  "accent": "#06b6d4",
+  "badge": "Downflow · Electric fan",
+  "camPos": [4.8, 2.6, 7.2],
+  "target": [0, 0, 0],
+  "floorY": -1.9,
+  "ctl": { "label": "Engine load", "val": 40, "caption": "Engine load" },
+  "chipLabel": "Heat rejected",
+  "rows": [["tin", "Coolant in"], ["tout", "Coolant out"]],
+  "ro": [
+    ["tin",  "Coolant in"],
+    ["tout", "Coolant out"],
+    ["dt",   "Radiator dT"],
+    ["qin",  "Heat in"],
+    ["qout", "Heat rejected"],
+    ["flow", "Coolant flow"],
+    ["air",  "Airflow"],
+    ["boil", "Boiling point"],
+    ["head", "Headroom"],
+    ["lvl",  "Coolant level"],
+    ["state", "State"]
+  ],
+  "legend": [
+    ["#f97316", "Hot coolant"],
+    ["#38bdf8", "Cooled coolant"],
+    ["#7dd3fc", "Air through fins"],
+    ["#06b6d4", "Electric fan"],
+    ["#b91c1c", "Overheat glow"],
+    ["#1a1410", "Blocked fins (fault)"],
+    ["#e5e7eb", "Steam / boiling"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Heat exchanger<\/h4><p>Hot coolant flows through many thin tubes; air flows across large fins bonded to them. Heat moves coolant &rarr; tubes &rarr; fins &rarr; air. The whole system is an energy balance: whatever the engine produces must be rejected to the air or the temperature rises.<\/p><\/div><div class=\"al-sec\"><h4>Thermostat, fan, ram air<\/h4><ul><li><b>Below ~85&nbsp;&deg;C<\/b> the thermostat is closed &mdash; coolant recirculates through the block and warms up quickly.<\/li><li><b>At speed<\/b> ram air is enough; the fan is not needed.<\/li><li><b>In traffic<\/b> the electric fan pulls air through the core. The fan shroud stops air recirculating around the fan.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Pressure cap<\/h4><p>The cap holds about 1.2&nbsp;bar, raising the boiling point of coolant to ~126&nbsp;&deg;C. That headroom is what stops local boiling inside the cylinder head. A failed cap drops the boiling point to roughly 100&nbsp;&deg;C.<\/p><\/div><div class=\"al-sec\"><h4>Coolant level<\/h4><p>Coolant is the heat carrier <i>and<\/i> part of the thermal mass. Low coolant means less flow through the radiator and a smaller buffer &mdash; temperature swings get larger and the system boils over much sooner.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Set high load and rpm with the car stopped. The coolant climbs, the fan kicks in, but the core eventually heat-soaks and temperature stabilises around 100&nbsp;&deg;C. Now select <b>Blocked core<\/b> or <b>Failed fan<\/b> and watch the readouts head for the red. Reset with <b>Cold start<\/b> to see the thermostat delay for yourself.<\/p><\/div>",
+  "faults": [
+    ["Blocked core (fins / tubes)", "Overheating in traffic and at speed. Bugs, leaves, mud or a collapsed tube stop air reaching the fins; the driver may also notice the A/C weakening (the condenser sits in front).", "Look for debris between condenser and radiator; check dT across the radiator with an IR thermometer."],
+    ["Low coolant", "Temperature swings fast, heater blows cold, sweet smell. Air pockets in the head cause local hot spots that the gauge may not even show.", "Pressure-test the system, check the coolant level when cold, look for leaks at the water pump, hoses and heater matrix."],
+    ["Failed cooling fan", "Overheats when stationary, fine at speed. The gauge climbs in traffic and falls again on the move.", "Check fan relay, fuse and the ECU cooling command; test the fan directly with 12 V."],
+    ["Collapsed hose", "Overheating under load; the lower hose can suck closed when cold and the pump cannot circulate coolant.", "Squeeze the hoses when cold (should be firm but flexible); replace any that feel soft, cracked or springy."],
+    ["Pressure cap not holding", "Coolant boils at ~100 C so the engine vents steam under light load, coolant is lost and the system refills with air.", "Pressure-test the cap; replace it if it releases below its rated pressure."]
+  ],
+  "quiz": [
+    ["Why fins on the radiator?", ["Decoration", "More surface area for heat transfer", "Slow the coolant"], 1, "Fins massively increase the surface area in contact with air, which is what actually removes the heat."],
+    ["Overheating only in traffic suggests…", ["A fan or airflow fault", "Thermostat stuck open", "Low oil"], 0, "At speed ram air masks a failed fan; in traffic, only the fan can pull air through."],
+    ["The pressure cap…", ["Raises the boiling point of the coolant", "Lowers coolant pressure", "Adds coolant"], 0, "Higher pressure raises the boiling point, giving headroom against local hot spots in the head."],
+    ["Which quantity is fixed by the engine, not the radiator?", ["Heat input from combustion", "Heat rejected to air", "Coolant temperature"], 0, "The engine determines heat input; the radiator's job is to reject that heat fast enough to hold a target temperature."],
+    ["Low coolant makes the engine run hotter because…", ["Less heat carrier and less thermal mass", "It has more oxygen", "The fan spins slower"], 0, "Coolant is both the transport medium and the buffer - with less of it, flow drops and temperature swings grow."],
+    ["A collapsed lower hose is worst when…", ["At high rpm, because pump suction sucks it shut", "At idle", "When cold and stationary"], 0, "The pump inlet is upstream of the engine; high flow collapses a soft hose and starves circulation."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   PHYSICS MODEL — pure, named functions.
+   Simplified physical trends, not a bench lookup table.
+   ═══════════════════════════════════════════════════════════════════ */
+
+function clampN(x, a, b) {
+  if (!Number.isFinite(x)) return a;
+  return x < a ? a : (x > b ? b : x);
+}
+const num = (x, d) => (Number.isFinite(x) ? x : d);
+
+/* ── named constants ─────────────────────────────────────────────── */
+const HEAT_IDLE    = 4.0;   /* kW of heat to coolant at idle                     */
+const HEAT_LOAD    = 48.0;  /* kW extra at full load + redline                   */
+const K_RAD        = 0.85;  /* kW per K at full airflow & full coolant flow      */
+const CAPACITY     = 33.0;  /* kJ/K, bulk coolant thermal capacity at full level */
+const BOIL_BASE    = 100;   /* °C boiling point at zero cap pressure             */
+const BOIL_PER_BAR = 22;    /* °C rise per bar of cap pressure                   */
+const CAP_HEALTHY  = 1.2;   /* bar, a healthy pressure cap                       */
+const CAP_FAILED   = 0.15;  /* bar, when the cap cannot hold pressure            */
+const THERM_START  = 85;    /* °C, thermostat starts opening                     */
+const THERM_END    = 98;    /* °C, thermostat fully open                         */
+const TAU_LEVEL    = 10;    /* s, coolant level chases its target                */
+const COLD_START_T = 25;    /* °C, coolant temperature on a cold start           */
+
+/* Heat the engine dumps into the coolant. Direction: more load, more
+   rpm -> more heat. Simplified: (idle) + (load term scaled by rpm). */
+function engineHeatInput(load, rpm) {
+  const L = clampN(load, 0, 1);
+  const N = clampN((num(rpm, 800) - 800) / 4200, 0, 1);
+  return HEAT_IDLE + HEAT_LOAD * L * (0.55 + 0.45 * N);
+}
+
+/* Thermostat opening 0..1. Direction: cold coolant -> closed; hot ->
+   open; a linear ramp between 85 and 98 C. */
+function thermostatOpen(Tcool) {
+  return clampN((num(Tcool, 0) - THERM_START) / (THERM_END - THERM_START), 0, 1);
+}
+
+/* Coolant flow normalised 0..1.2. Rises with rpm (water pump speed),
+   reduced by a collapsed hose or by low coolant level. Direction:
+   more rpm -> more flow; low coolant -> less circulation. */
+function coolantFlow(rpm, fault, coolantLevel) {
+  const N = 0.30 + 0.70 * clampN((num(rpm, 800) - 800) / 4200, 0, 1);
+  let f = N;
+  if (fault === 'hose') f *= 0.15;
+  if (fault === 'lowcoolant') f *= (0.35 + 0.65 * clampN(coolantLevel, 0, 1));
+  return clampN(f, 0.02, 1.2);
+}
+
+/* Airflow normalised 0..1.05. Ram air from road speed + fan pull; a
+   blocked core cuts whatever is left. Direction: faster/fan on ->
+   more air; blocked -> less. */
+function radiatorAirflow(speedKmh, fanRunning, fault) {
+  const ram = 0.08 + 0.85 * clampN(num(speedKmh, 0) / 130, 0, 1);
+  const fan = fanRunning ? 0.30 : 0;
+  let a = clampN(ram + fan, 0.05, 1.05);
+  if (fault === 'blocked') a *= 0.45;
+  return a;
+}
+
+/* Heat rejected by the radiator (kW). Proportional to airflow, coolant
+   flow and the temperature difference; the thermostat gates the whole
+   radiator path. Direction: bigger dT or more flow -> more rejected. */
+function radiatorRejection(airflow, coolantFlowNorm, dT, thermOpen, fault) {
+  let k = K_RAD;
+  if (fault === 'blocked') k *= 0.55;
+  const drive = clampN(dT, 0, 200);
+  return clampN(k * airflow * coolantFlowNorm * drive * thermOpen, 0, 500);
+}
+
+/* Coolant boiling point from cap pressure. Direction: more cap
+   pressure -> higher boiling point. */
+function boilingPoint(capBar) {
+  return BOIL_BASE + BOIL_PER_BAR * clampN(capBar, 0, 2.5);
+}
+
+const FAULT_INFO = {
+  none:       { label: 'None (healthy)',                     warn: '' },
+  blocked:    { label: 'Blocked core (fins / tubes)',        warn: 'Radiator air path is blocked. Airflow is down, dT across the core is up and the coolant temperature is climbing. Check for debris in front of the condenser and inspect the fins for bent or crushed tubes.' },
+  lowcoolant: { label: 'Low coolant',                        warn: 'Coolant level low - the system has less thermal mass and less flow through the core. Temperature swings will be much larger and local hot spots in the head can form.' },
+  nofan:      { label: 'Failed cooling fan',                 warn: 'The cooling fan is not running. The engine overheats in traffic but is fine at speed - classic fan relay, fuse or ECU command fault.' },
+  hose:       { label: 'Collapsed hose',                     warn: 'A soft lower hose is collapsing under pump suction, starving the radiator of flow. Temperature will climb under load even with a healthy core and fan.' },
+  cap:        { label: 'Pressure cap not holding',           warn: 'Cap is releasing at low pressure, so the coolant boils at roughly 100 C. Above that temperature the system vents steam, loses coolant and ingests air.' }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXTRA CONTROLS (built here; the runtime only provides one slider)
+   ═══════════════════════════════════════════════════════════════════ */
+const S = {
+  rpm: 800,
+  speedKmh: 0,
+  ambient: 25,
+  fanMode: 'auto',
+  fault: 'none',
+  speed: 1
+};
+
+const panel = document.createElement('div');
+panel.id = 'rad-panel';
+let faultOptions = '';
+for (const id in FAULT_INFO) {
+  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
+}
+panel.innerHTML =
+  '<div class="rad-h"><span>Radiator simulation</span><button type="button" id="rad-fold" aria-label="Collapse controls">&#8211;</button></div>' +
+  '<div class="rad-body">' +
+    '<div class="rad-w"><label for="rad-rpm">Engine speed <b id="rad-rpm-v">800 rpm</b></label>' +
+      '<input id="rad-rpm" class="al-range" type="range" min="800" max="5000" step="50" value="800" aria-label="Engine speed"></div>' +
+    '<div class="rad-w"><label for="rad-kph">Vehicle speed <b id="rad-kph-v">0 km/h</b></label>' +
+      '<input id="rad-kph" class="al-range" type="range" min="0" max="160" step="1" value="0" aria-label="Vehicle speed"></div>' +
+    '<div class="rad-w"><label for="rad-amb">Ambient air <b id="rad-amb-v">25 &deg;C</b></label>' +
+      '<input id="rad-amb" class="al-range" type="range" min="-10" max="45" step="1" value="25" aria-label="Ambient air temperature"></div>' +
+    '<div class="rad-w"><label for="rad-fan">Cooling fan</label>' +
+      '<select id="rad-fan" class="al-sel" aria-label="Cooling fan mode">' +
+        '<option value="auto" selected>Auto (ECU)</option>' +
+        '<option value="on">Forced on</option>' +
+        '<option value="off">Forced off</option>' +
+      '</select></div>' +
+    '<div class="rad-w"><label for="rad-fault">Fault injection</label>' +
+      '<select id="rad-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
+    '<div class="rad-w"><label>Simulation speed</label>' +
+      '<div class="rad-btns" id="rad-speed">' +
+        '<button type="button" data-sp="1" class="on">1&times;</button>' +
+        '<button type="button" data-sp="5">5&times;</button>' +
+        '<button type="button" data-sp="20">20&times;</button>' +
+      '</div></div>' +
+    '<div class="rad-btns">' +
+      '<button type="button" id="rad-cold">Cold start</button>' +
+      '<button type="button" id="rad-reset">Reset</button>' +
+    '</div>' +
+    '<div class="rad-warn" id="rad-warn"></div>' +
+    '<canvas id="rad-graph" width="480" height="150" aria-label="Coolant temperature and heat rejected history"></canvas>' +
+    '<div class="rad-key"><span><i style="background:#06b6d4"></i>Coolant &deg;C</span><span><i style="background:#fb923c"></i>Heat kW</span></div>' +
+  '</div>';
+document.body.appendChild(panel);
+
+const elFold  = document.getElementById('rad-fold');
+const elRpm   = document.getElementById('rad-rpm');
+const elRpmV  = document.getElementById('rad-rpm-v');
+const elKph   = document.getElementById('rad-kph');
+const elKphV  = document.getElementById('rad-kph-v');
+const elAmb   = document.getElementById('rad-amb');
+const elAmbV  = document.getElementById('rad-amb-v');
+const elFan   = document.getElementById('rad-fan');
+const elFault = document.getElementById('rad-fault');
+const elSpeed = document.getElementById('rad-speed');
+const elCold  = document.getElementById('rad-cold');
+const elReset = document.getElementById('rad-reset');
+const elWarn  = document.getElementById('rad-warn');
+const gcv     = document.getElementById('rad-graph');
+const gctx    = gcv.getContext('2d');
+
+elFold.addEventListener('click', () => {
+  panel.classList.toggle('folded');
+  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
+});
+elRpm.addEventListener('input', () => {
+  S.rpm = Number(elRpm.value) || 800;
+  elRpmV.textContent = S.rpm + ' rpm';
+});
+elKph.addEventListener('input', () => {
+  S.speedKmh = Number(elKph.value) || 0;
+  elKphV.textContent = S.speedKmh + ' km/h';
+});
+elAmb.addEventListener('input', () => {
+  S.ambient = Number(elAmb.value) || 0;
+  elAmbV.textContent = S.ambient + ' \u00B0C';
+});
+elFan.addEventListener('change', () => { S.fanMode = elFan.value; });
+elFault.addEventListener('change', () => { S.fault = elFault.value; });
+elSpeed.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sp]');
+  if (!b) return;
+  S.speed = Number(b.dataset.sp) || 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
+});
+elCold.addEventListener('click', () => {
+  sim.Tcool = COLD_START_T;
+  sim.coolantLevel = 1.0;
+});
+
+/* ── simulation state (module level so Reset can reach it) ───────── */
+const GRAPH_N = 150;
+const sim = {
+  Tcool: COLD_START_T,
+  coolantLevel: 1.0,
+  lastT: -1,
+  samples: []
+};
+
+function resetModel() {
+  sim.Tcool = COLD_START_T;
+  sim.coolantLevel = 1.0;
+  sim.lastT = -1;
+  sim.samples.length = 0;
+}
+function resetAll() {
+  S.rpm = 800;      elRpm.value = 800;   elRpmV.textContent = '800 rpm';
+  S.speedKmh = 0;   elKph.value = 0;     elKphV.textContent = '0 km/h';
+  S.ambient = 25;   elAmb.value = 25;    elAmbV.textContent = '25 \u00B0C';
+  S.fanMode = 'auto'; elFan.value = 'auto';
+  S.fault = 'none'; elFault.value = 'none';
+  S.speed = 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
+  resetModel();
+  const ctlEl = document.getElementById('ctl');
+  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+elReset.addEventListener('click', resetAll);
+
+/* ── rolling graph ───────────────────────────────────────────────── */
+function drawGraph() {
+  const W = gcv.width, Hh = gcv.height;
+  gctx.clearRect(0, 0, W, Hh);
+  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
+  gctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = Math.round(Hh * i / 4) + 0.5;
+    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+  }
+  const n = sim.samples.length;
+  if (n < 2) return;
+  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
+  const yT  = (v) => Hh - clampN((v - 20) / 110, 0, 1) * (Hh - 6) - 3;
+  const yQ  = (v) => Hh - clampN(v / 70, 0, 1) * (Hh - 6) - 3;
+
+  /* coolant temperature filled area */
+  gctx.beginPath();
+  gctx.moveTo(xAt(0), Hh);
+  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yT(sim.samples[i].T));
+  gctx.lineTo(xAt(n - 1), Hh);
+  gctx.closePath();
+  gctx.fillStyle = 'rgba(6,182,212,0.18)';
+  gctx.fill();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yT(sim.samples[i].T);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#06b6d4'; gctx.lineWidth = 1.6; gctx.stroke();
+
+  /* heat rejected line */
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yQ(sim.samples[i].Q);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.6; gctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE SCENE (per-module 3D parts)
+   ═══════════════════════════════════════════════════════════════════ */
 function build(H){
- const {box,cyl,cylX,cylZ,mat,pipe,stream,lc,clamp,root,THREE}=H;
- const alu=mat(0xc5ccd6,.75,.35), tube=mat(0x334155,.6,.5), tank=mat(0x64748b,.7,.4), hose=mat(0x1f2937,.2,.8);
- for(let i=0;i<29;i++) box(.025,2.5,.8,i%4===0?tube:alu,-1.75+i*.125,0,0);
- cylX(.32,.32,3.9,tank,0,1.45,0); cylX(.32,.32,3.9,tank,0,-1.45,0);
- pipe([[-1.7,1.45,0],[-2.5,1.45,0],[-3.2,.9,0]],.2,hose); pipe([[1.7,-1.45,0],[2.5,-1.45,0],[3.2,-.9,0]],.2,hose);
- cyl(.12,.12,.25,mat(0xb91c1c,.3,.5),1.2,1.85,0);
- H.put(new THREE.Mesh(new THREE.TorusGeometry(1.15,.06,8,40),tank),0,0,-.95);
- const fan=new THREE.Group(); fan.position.set(0,0,-1.0); root.add(fan);
- cylZ(.25,.25,.2,mat(0x111827,.3,.6),0,0,0,fan);
- for(let i=0;i<7;i++){ const a=i/7*Math.PI*2, b=box(.85,.05,.3,mat(0x1f2937,.2,.6),0,0,0,fan); b.position.set(Math.cos(a)*.6,Math.sin(a)*.6,0); b.rotation.z=a; b.rotation.x=.35; }
- const top=[],bot=[],air=[];
- [-1.2,0,1.2].forEach(x=>{ top.push(stream([[x,1.45,0],[x,0,0]],8,0xf97316,.1)); bot.push(stream([[x,0,0],[x,-1.45,0]],8,0xf97316,.1)); });
- [[-1.2,.6],[0,.6],[1.2,.6],[-1.2,-.6],[0,-.6],[1.2,-.6]].forEach(p=>air.push(stream([[p[0],p[1],2.4],[p[0],p[1],-2.0]],9,0x7dd3fc,.08)));
- let fa=0;
+ const { box, cyl, cylX, cylZ, mat, glass, pipe, stream, lc, clamp, root, THREE, lowEnd, put } = H;
+
+ /* ── base materials ────────────────────────────────────────────── */
+ const alu = mat(0xc5ccd6, 0.75, 0.35);
+ const tube = mat(0x334155, 0.6, 0.5);
+ const tankIn  = mat(0x64748b, 0.7, 0.4);
+ const tankOut = mat(0x64748b, 0.7, 0.4);
+ const hose = mat(0x1f2937, 0.2, 0.8);
+
+ /* ── core: 29 vertical fins ────────────────────────────────────── */
+ for (let i = 0; i < 29; i++) box(0.025, 2.5, 0.8, i % 4 === 0 ? tube : alu, -1.75 + i * 0.125, 0, 0);
+
+ /* ── top & bottom tanks ────────────────────────────────────────── */
+ cylX(0.32, 0.32, 3.9, tankIn,  0,  1.45, 0);
+ cylX(0.32, 0.32, 3.9, tankOut, 0, -1.45, 0);
+
+ /* ── hoses ─────────────────────────────────────────────────────── */
+ pipe([[-1.7, 1.45, 0], [-2.5, 1.45, 0], [-3.2, 0.9, 0]], 0.2, hose);
+ pipe([[ 1.7,-1.45, 0], [ 2.5,-1.45, 0], [ 3.2,-0.9, 0]], 0.2, hose);
+
+ /* ── pressure cap ──────────────────────────────────────────────── */
+ const capMat = mat(0xb91c1c, 0.3, 0.5, { emissive: 0x000000, emissiveIntensity: 0 });
+ cyl(0.12, 0.12, 0.25, capMat, 1.2, 1.85, 0);
+
+ /* ── shroud ring ──────────────────────────────────────────────── */
+ put(new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.06, 8, 40), mat(0x64748b, 0.7, 0.4)), 0, 0, -0.95);
+
+ /* ── electric fan ──────────────────────────────────────────────── */
+ const fan = new THREE.Group(); fan.position.set(0, 0, -1.0); root.add(fan);
+ const fanHubMat = new THREE.MeshStandardMaterial({ color: 0x111827, emissive: 0x06b6d4, emissiveIntensity: 0, metalness: 0.3, roughness: 0.6 });
+ cylZ(0.25, 0.25, 0.2, fanHubMat, 0, 0, 0, fan);
+ for (let i = 0; i < 7; i++) {
+   const a = i / 7 * Math.PI * 2;
+   const b = box(0.85, 0.05, 0.3, mat(0x1f2937, 0.2, 0.6), 0, 0, 0, fan);
+   b.position.set(Math.cos(a) * 0.6, Math.sin(a) * 0.6, 0);
+   b.rotation.z = a;
+   b.rotation.x = 0.35;
+ }
+
+ /* ── blocked-fin overlay ──────────────────────────────────────── */
+ const blockMat = new THREE.MeshBasicMaterial({ color: 0x1a1410, transparent: true, opacity: 0, depthWrite: false });
+ const blocks = new THREE.Group();
+ for (let i = 0; i < 8; i++) {
+   const b = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.55, 0.55), blockMat);
+   b.position.set(-1.55 + i * 0.44, (i % 2 === 0) ? 0.7 : -0.7, 0.35);
+   blocks.add(b);
+ }
+ blocks.visible = false;
+ root.add(blocks);
+
+ /* ── overheat glow patch (radiator core) ──────────────────────── */
+ const glowMat = new THREE.MeshBasicMaterial({ color: 0xff3a00, transparent: true, opacity: 0, depthWrite: false });
+ const glow = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 2.4), glowMat);
+ glow.position.set(0, 0, 0.45);
+ root.add(glow);
+
+ /* ── particle streams ─────────────────────────────────────────── */
+ const nTop = lowEnd ?  8 : 14;
+ const nBot = lowEnd ?  8 : 14;
+ const nAmb = lowEnd ?  6 : 10;
+ const nSteam = lowEnd ? 8 : 14;
+
+ const topS = [], botS = [], ambS = [];
+ [-1.2, 0, 1.2].forEach(x => {
+   topS.push(stream([[x, 1.45, 0], [x, 0, 0]], nTop, 0xf97316, 0.10));
+   botS.push(stream([[x, 0, 0], [x, -1.45, 0]], nBot, 0xf97316, 0.10));
+ });
+ [[-1.2, 0.6], [0, 0.6], [1.2, 0.6], [-1.2, -0.6], [0, -0.6], [1.2, -0.6]].forEach(p => {
+   ambS.push(stream([[p[0], p[1], 2.4], [p[0], p[1], -2.0]], nAmb, 0x7dd3fc, 0.08));
+ });
+ const steamS = stream([[1.2, 2.0, 0], [1.6, 3.0, 0.3], [2.2, 4.0, 0.6]], nSteam, 0xe5e7eb, 0.14);
+
+ let fanSpin = 0;
+ let lastDom = 0;
+
  return {
-  labels:[['Inlet (hot)',[-3.2,1.3,0]],['Outlet (cool)',[3.2,-.6,0]],['Core & fins',[0,0,.55]],['Cooling fan',[0,1.3,-1.0]],['Pressure cap',[1.2,2.15,0]],['Top tank',[-1.4,1.85,.3]]],
+  labels: [
+    ['Inlet (hot)', [-3.2, 1.3, 0]],
+    ['Outlet (cool)', [3.2, -0.6, 0]],
+    ['Core & fins', [0, 0, 0.55]],
+    ['Cooling fan', [0, 1.3, -1.0]],
+    ['Pressure cap', [1.2, 2.15, 0]],
+    ['Top tank', [-1.4, 1.85, 0.3]],
+    ['Ambient airflow', [0, -1.35, 2.0]]
+  ],
   update(c){
-   const k=c.k; let Tin=98+clamp(1-k*6)*10; const dT=4+14*Math.sqrt(k), Tout=Tin-dT, q=4.3*dT;
-   fa+=c.dt*(4+12*k); fan.rotation.z=-fa;
-   const sp=.14; top.forEach(s=>s.update(c.t,sp,1)); bot.forEach(s=>{s.update(c.t,sp,1);}); air.forEach(s=>s.update(c.t,.1+.5*k,.4+.6*k));
-   const cool=lc(0xf97316,0x38bdf8,dT/18*.8); bot.forEach(s=>s.mat.color.copy(cool)); top.forEach(s=>s.mat.color.copy(lc(0xf97316,0xff5a2a,clamp(Tin-98,0,10)/10)));
-   const st=Tin>104?'Overheating risk':k<.3?'Marginal':'Healthy';
-   return {big:q.toFixed(0),unit:' kW',bar:q/78*100,rows:{tin:Tin.toFixed(0)+' °C',tout:Tout.toFixed(0)+' °C'},
-    ro:{tin:[Tin.toFixed(0)+' °C',Tin>104?'crit':''],tout:[Tout.toFixed(0)+' °C','ok'],dt:[dT.toFixed(0)+' °C','hi'],q:[q.toFixed(0)+' kW',''],state:[st,Tin>104?'crit':k<.3?'warn':'ok']},
-    status:[st,true],ctl:Math.round(k*100)+' %'};
-  }};
+   /* ── 1. inputs ─────────────────────────────────────────────── */
+   const dt      = Math.max(0, num(c.dt, 0)) * S.speed;
+   const L       = clampN(c.k, 0, 1);
+   const rpm     = num(S.rpm, 800);
+   const Tamb    = num(S.ambient, 25);
+   const fault   = S.fault;
+
+   /* toolbar Reset rewinds simT -> detect and clear the model */
+   if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) resetModel();
+   sim.lastT = c.t;
+
+   /* ── 2. cap pressure & boiling point ──────────────────────── */
+   const capBar = (fault === 'cap') ? CAP_FAILED : CAP_HEALTHY;
+   const Tboil  = boilingPoint(capBar);
+
+   /* ── 3. fan logic ─────────────────────────────────────────── */
+   let fanRunning;
+   if (fault === 'nofan')          fanRunning = false;
+   else if (S.fanMode === 'on')    fanRunning = true;
+   else if (S.fanMode === 'off')   fanRunning = false;
+   else                            fanRunning = sim.Tcool > 92;
+
+   /* ── 4. heat balance ──────────────────────────────────────── */
+   const Q_in  = engineHeatInput(L, rpm);
+   const cf    = coolantFlow(rpm, fault, sim.coolantLevel);
+   const af    = radiatorAirflow(S.speedKmh, fanRunning, fault);
+   const therm = thermostatOpen(sim.Tcool);
+   const dTrad = sim.Tcool - Tamb;
+   const Q_out = radiatorRejection(af, cf, dTrad, therm, fault);
+
+   /* ── 5. coolant temperature integration ───────────────────── */
+   const levelF   = 0.35 + 0.65 * clampN(sim.coolantLevel, 0, 1);
+   const capacity = CAPACITY * levelF;
+   if (dt > 0) {
+     const net = (Q_in - Q_out) / Math.max(8, capacity);   /* K/s */
+     sim.Tcool += net * dt;
+   }
+   sim.Tcool = clampN(sim.Tcool, Tamb - 15, 180);
+
+   /* ── 6. boiling / coolant loss ────────────────────────────── */
+   let levelTarget = 1.0;
+   if (fault === 'lowcoolant') levelTarget = 0.40;
+   let boiling = false;
+   if (sim.Tcool > Tboil) {
+     boiling = true;
+     const excess = clampN((sim.Tcool - Tboil) / 20, 0, 1.2);
+     levelTarget = Math.max(0.10, levelTarget - 0.30 * excess);
+   }
+   if (dt > 0) {
+     sim.coolantLevel += (levelTarget - sim.coolantLevel) * (1 - Math.exp(-dt / TAU_LEVEL));
+   }
+   sim.coolantLevel = clampN(sim.coolantLevel, 0.05, 1.0);
+
+   /* ── 7. outlet temperature & actual coolant flow in L/s ──── */
+   const flowLs = 0.5 + 2.5 * cf;
+   const dT_rad = clampN(Q_out / Math.max(0.4, flowLs * 4.18), 0, 25);
+   const Tout   = sim.Tcool - dT_rad;
+
+   /* ── 8. derived status ────────────────────────────────────── */
+   let stateTxt;
+   if (boiling)                    stateTxt = 'BOILING - ' + Tboil.toFixed(0) + ' \u00B0C';
+   else if (sim.Tcool > 108)       stateTxt = 'OVERHEATING';
+   else if (sim.Tcool > 98)        stateTxt = 'Hot';
+   else if (sim.Tcool < 60)        stateTxt = 'Warming up';
+   else                            stateTxt = 'Normal';
+
+   /* ── 9. 3D visuals ────────────────────────────────────────── */
+   /* tank & tube colours follow coolant temperature */
+   const hotV   = clampN((sim.Tcool - 45) / 65, 0, 1);
+   const overV  = clampN((sim.Tcool - 98) / 15, 0, 1);
+   tankIn.color.copy(lc(0x64748b, 0xb91c1c, hotV));
+   tankIn.emissive.copy(lc(0x000000, 0xff2a00, overV * 0.85));
+   tankIn.emissiveIntensity = overV * 0.85;
+   tankOut.color.copy(lc(0x64748b, 0xd97c4a, clampN((Tout - 30) / 70, 0, 1)));
+
+   /* radiator core glow when overheating */
+   glowMat.opacity = overV * 0.42;
+
+   /* blocked overlay */
+   blocks.visible = (fault === 'blocked');
+   blockMat.opacity = fault === 'blocked' ? 0.88 : 0;
+
+   /* cap pulses red when its fault is active */
+   if (fault === 'cap') {
+     capMat.emissive.setHex(0xef4444);
+     capMat.emissiveIntensity = 0.45 + 0.35 * Math.abs(Math.sin(c.t * 4));
+   } else {
+     capMat.emissive.setHex(0x000000);
+     capMat.emissiveIntensity = 0;
+   }
+
+   /* fan hub glows cyan when the fan is running */
+   fanHubMat.emissiveIntensity = fanRunning ? (0.35 + 0.9 * clampN(af / 0.6, 0, 1)) : 0;
+
+   /* fan spin: faster with airflow */
+   const spinRate = (fanRunning ? 3.2 : 0.2) * af;
+   fanSpin += spinRate * dt * 5;
+   fan.rotation.z = -fanSpin;
+
+   /* coolant streams: colour and speed follow coolant temperature */
+   const streamSpd = 0.05 + 0.30 * cf;
+   const coolIn  = lc(0xf97316, 0xff3020, hotV);
+   const coolOut = lc(0xf97316, 0x38bdf8, clampN(dT_rad / 8, 0, 1));
+   for (let i = 0; i < topS.length; i++) {
+     topS[i].update(c.t, streamSpd, 0.4 + 0.6 * cf);
+     topS[i].mat.color.copy(coolIn);
+   }
+   for (let i = 0; i < botS.length; i++) {
+     botS[i].update(c.t, streamSpd, 0.4 + 0.6 * cf);
+     botS[i].mat.color.copy(coolOut);
+   }
+
+   /* ambient air through the core */
+   const ambSpd = 0.15 + 0.55 * (S.speedKmh / 130);
+   for (let i = 0; i < ambS.length; i++) ambS[i].update(c.t, ambSpd, af);
+
+   /* steam above the cap when boiling */
+   steamS.update(c.t, 0.35, boiling ? clampN(0.5 + (sim.Tcool - Tboil) / 20, 0.4, 1.2) : 0);
+
+   /* ── 10. throttled DOM work (graph + warning) ─────────────── */
+   const now = performance.now();
+   if (now - lastDom > 140) {
+     lastDom = now;
+     if (dt > 0) {
+       sim.samples.push({ T: sim.Tcool, Q: Q_out });
+       if (sim.samples.length > GRAPH_N) sim.samples.shift();
+       drawGraph();
+     }
+     let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
+     if (!warn) {
+       if (boiling) {
+         warn = 'Coolant is boiling at ' + Tboil.toFixed(0) + ' \u00B0C - steam is venting and the system is losing coolant. Stop the engine as soon as it is safe.';
+       } else if (sim.Tcool > 108) {
+         warn = 'Coolant at ' + sim.Tcool.toFixed(0) + ' \u00B0C - overheating. Reduce load and increase airflow.';
+       } else if (sim.coolantLevel < 0.6) {
+         warn = 'Coolant level at ' + (sim.coolantLevel * 100).toFixed(0) + ' % - check for leaks and top up when cold.';
+       } else if (sim.Tcool > 98) {
+         warn = 'Coolant temperature is high (' + sim.Tcool.toFixed(0) + ' \u00B0C). Watch the gauge in traffic.';
+       }
+     }
+     elWarn.textContent = warn;
+     elWarn.classList.toggle('show', !!warn);
+   }
+
+   /* ── 11. readouts ─────────────────────────────────────────── */
+   const head = Tboil - sim.Tcool;
+   const tinState  = sim.Tcool > 108 ? 'crit' : (sim.Tcool > 98 ? 'warn' : (sim.Tcool < 55 ? 'hi' : 'ok'));
+   const toutState = Tout > 95 ? 'warn' : 'ok';
+   const qoutState = Q_out > 40 ? 'warn' : 'hi';
+   const flowState = cf < 0.25 ? 'crit' : (cf < 0.45 ? 'warn' : 'ok');
+   const headState = head < 5 ? 'crit' : (head < 20 ? 'warn' : 'ok');
+   const lvlState  = sim.coolantLevel < 0.35 ? 'crit' : (sim.coolantLevel < 0.7 ? 'warn' : 'ok');
+   const stState   = (boiling || sim.Tcool > 108) ? 'crit'
+                   : (sim.Tcool > 98 || sim.coolantLevel < 0.7) ? 'warn'
+                   : 'ok';
+
+   return {
+     big: Q_out.toFixed(0),
+     unit: ' kW',
+     bar: clampN(Q_out / 70 * 100, 0, 100),
+     rows: {
+       tin:  sim.Tcool.toFixed(0) + ' \u00B0C',
+       tout: Tout.toFixed(0) + ' \u00B0C'
+     },
+     ro: {
+       tin:   [sim.Tcool.toFixed(0) + ' \u00B0C', tinState],
+       tout:  [Tout.toFixed(0) + ' \u00B0C', toutState],
+       dt:    [dT_rad.toFixed(1) + ' K', 'hi'],
+       qin:   [Q_in.toFixed(1) + ' kW', ''],
+       qout:  [Q_out.toFixed(1) + ' kW', qoutState],
+       flow:  [flowLs.toFixed(2) + ' L/s', flowState],
+       air:   [(af * 100).toFixed(0) + ' %', ''],
+       boil:  [Tboil.toFixed(0) + ' \u00B0C', fault === 'cap' ? 'warn' : ''],
+       head:  [head.toFixed(1) + ' K', headState],
+       lvl:   [(sim.coolantLevel * 100).toFixed(0) + ' %', lvlState],
+       state: [stateTxt, stState]
+     },
+     status: [stateTxt, true],
+     ctl: (L * 100).toFixed(0) + ' %'
+   };
+  }
+ };
 }
 
 runGuidedModule(CFG, build);
