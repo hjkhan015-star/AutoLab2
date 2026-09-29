@@ -1,5 +1,5 @@
 /* Auto Lab service worker — offline cache */
-const VERSION = 'autolab-v7.0';
+const VERSION = 'autolab-v7.1';
 const CORE    = VERSION + '-core';
 const RUNTIME = VERSION + '-runtime';
 
