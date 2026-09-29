@@ -9,6 +9,49 @@
 <style>
 :root { --al-accent: #f97316; }
 html.light-theme { --al-accent: color-mix(in oklch, #f97316 68%, black); }
+
+/* ── module-local UI: extra controls + rolling graph ─────────────── */
+#cr-panel{
+  position:fixed; left:12px; top:12px; z-index:30;
+  width:270px; max-width:46vw;
+  padding:10px 12px 12px;
+  border:1px solid var(--border,#333);
+  border-radius:10px;
+  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38);
+  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
+  color:var(--text-dim,#9aa4b2);
+  max-height:calc(100dvh - 24px); overflow:auto;
+}
+#cr-panel.folded .cr-body{ display:none; }
+.cr-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.cr-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
+.cr-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
+.cr-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.cr-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.cr-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-mute,#6b7280); }
+.cr-w b{ color:var(--text,#e5e7eb); font-weight:700; }
+#cr-panel .al-range{ height:22px; }
+#cr-panel .al-sel{ min-height:32px; font-size:11px; }
+.cr-btns{ display:flex; gap:6px; margin-bottom:8px; }
+.cr-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
+.cr-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.cr-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(249,115,22,.14); }
+#cr-cold{ color:#22d3ee; border-color:rgba(34,211,238,.4); }
+#cr-cold:hover{ border-color:#22d3ee; }
+.cr-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
+  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
+  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
+.cr-warn.show{ display:block; }
+#cr-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
+  border-radius:6px; background:rgba(0,0,0,.28); }
+.cr-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
+.cr-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+@media (max-width:700px){ #cr-panel{ width:210px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -29,42 +72,629 @@ html.light-theme { --al-accent: color-mix(in oklch, #f97316 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "commonrail", "title": "Diesel Common Rail", "kicker": "Fuel Supply", "accent": "#f97316", "badge": "Up to 2000 bar", "camPos": [5.6, 3.0, 7.4], "target": [0.2, 0.2, 0], "floorY": -1.4, "ctl": {"label": "Rail pressure", "val": 60, "caption": "Common rail"}, "chipLabel": "Rail pressure", "rows": [["vel", "Spray speed"], ["ev", "Injection"]], "ro": [["press", "Rail pressure"], ["vel", "Spray speed"], ["drop", "Droplet size"], ["ev", "Events / cycle"], ["inj", "Firing cylinder"]], "legend": [["#86efac", "Low-pressure feed"], ["#f97316", "High-pressure rail"], ["#ffb347", "Fuel spray"]], "overview": "<div class=\"al-sec\"><h4>One rail, many injectors<\/h4><p>A high-pressure pump fills a shared rail; the ECU opens each injector with a solenoid or piezo actuator. Because pressure is independent of engine speed, injection timing and quantity are fully flexible.<\/p><\/div><div class=\"al-sec\"><h4>Why high pressure?<\/h4><p>Higher pressure atomises diesel into finer droplets that mix faster – cleaner combustion, less noise and better economy. Modern systems reach 1800–2500 bar.<\/p><\/div><div class=\"al-sec\"><h4>Multiple injections<\/h4><ul><li><b>Pilot<\/b> – small early shot to soften combustion noise.<\/li><li><b>Main<\/b> – delivers most of the torque.<\/li><li><b>Post<\/b> – helps regenerate the DPF.<\/li><\/ul><\/div>", "faults": [["Injector leak-off or stuck open", "Hard start, misfire, smoke, fuel in oil.", "Return-flow test per injector and compare correction values."], ["Rail pressure sensor / regulator", "Limp mode, low power, rail pressure codes.", "Compare desired vs actual pressure with a scan tool."], ["Contaminated fuel", "Pump and injector wear, poor starting.", "Inspect the filter and water separator; drain water regularly."]], "quiz": [["Why is rail pressure independent of engine speed?", ["A shared rail stores pressurised fuel", "Each injector has its own pump", "The turbo supplies it"], 0, "The rail acts as an accumulator, so pressure can be set freely and injection timed separately."], ["A pilot injection is used to…", ["Increase noise", "Soften combustion and reduce noise", "Clean the DPF"], 1, "A small early shot starts combustion gently, cutting the sharp diesel knock."], ["Higher pressure produces…", ["Larger droplets", "Finer droplets and cleaner burn", "Lower fuel economy"], 1, "Finer atomisation mixes better with air and burns more completely."]]};
+const CFG = {
+  "moduleId": "commonrail",
+  "title": "Diesel Common Rail",
+  "kicker": "Fuel Supply",
+  "accent": "#f97316",
+  "badge": "Up to 2000 bar",
+  "camPos": [5.6, 3.0, 7.4],
+  "target": [0.2, 0.2, 0],
+  "floorY": -1.4,
+  "ctl": { "label": "Engine load", "val": 45, "caption": "Engine load" },
+  "chipLabel": "Rail pressure",
+  "rows": [["t_rail", "Rail temp"], ["qty", "Injection"]],
+  "ro": [
+    ["press",  "Rail pressure"],
+    ["target", "Target pressure"],
+    ["cap",    "Pump capability"],
+    ["qty",    "Quantity / stroke"],
+    ["ev",     "Events / cycle"],
+    ["vel",    "Spray velocity"],
+    ["drop",   "Droplet SMD"],
+    ["tfuel",  "Fuel / rail temp"],
+    ["inj",    "Firing cylinder"],
+    ["state",  "State"]
+  ],
+  "legend": [
+    ["#86efac", "Low-pressure feed"],
+    ["#f97316", "High-pressure rail"],
+    ["#ffb347", "Fuel spray"],
+    ["#ef4444", "Injector leak (fault)"],
+    ["#a855f7", "Post injection (DPF)"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>One rail, many injectors<\/h4><p>A high-pressure pump fills a shared rail; the ECU opens each injector with a solenoid or piezo actuator. Because pressure is stored in the rail and not generated per injector, injection pressure is <b>independent of engine speed<\/b> &mdash; timing and quantity are fully flexible.<\/p><\/div><div class=\"al-sec\"><h4>Why high pressure?<\/h4><p>Higher pressure atomises diesel into finer droplets that mix faster with air &mdash; cleaner combustion, less noise and better economy. Modern systems reach 1800&ndash;2500&nbsp;bar. Droplet size falls roughly as the &minus;0.35 power of pressure, so going from 300 to 2000&nbsp;bar halves the Sauter mean diameter.<\/p><\/div><div class=\"al-sec\"><h4>Pressure control<\/h4><p>A <b>suction or metering valve<\/b> on the HP pump sets how much fuel enters the pump, and a <b>pressure-control valve (PCV)<\/b> on the rail bleeds excess back to the tank. Together they hold rail pressure at the ECU's target within a few milliseconds.<\/p><\/div><div class=\"al-sec\"><h4>Multiple injections<\/h4><ul><li><b>Pilot<\/b> &mdash; a small early shot that softens the sharp diesel knock at low load.<\/li><li><b>Main<\/b> &mdash; delivers most of the torque.<\/li><li><b>Post<\/b> &mdash; a late shot that helps raise exhaust temperature for DPF regeneration.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Watch rail pressure rise as load increases. Now select <b>Weak HP pump<\/b>: the target keeps rising but the rail can only reach the pump's capability ceiling. Then try <b>Leaking injector<\/b> &mdash; pressure drops sharply at idle and the return line runs hot.<\/p><\/div>",
+  "faults": [
+    ["Leaking injector (return flow)", "P0263 cylinder 1 contribution/balance. One injector drips continuously, so the pump cannot hold the target pressure at low load, return flow is high and that cylinder may run rich or misfire.", "Compare injector return flow per cylinder and read the ECU correction values; replace the affected injector."],
+    ["Weak high-pressure pump", "P0087 fuel rail/system pressure too low. Pressure stops rising partway and the engine derates at high load. Often a worn pump, a clogged suction valve or a badly contaminated fuel filter.", "Compare desired vs actual rail pressure under load; check the fuel filter and fuel quality."],
+    ["Stuck pressure-control valve", "P0089 fuel pressure regulator performance. The valve is stuck shut, so the rail cannot bleed excess fuel and pressure overshoots at idle, causing rough running and higher fuel temperature.", "Command the PCV with a scan tool and listen for a change; replace if it does not respond."],
+    ["Air in fuel", "P008A low-pressure fuel system pressure too low. Air compresses, so rail pressure builds slowly and drops quickly at idle. Hard starting, misfire and a long crank.", "Bleed the low-pressure side; check for leaks on the suction side between tank and HP pump."]
+  ],
+  "quiz": [
+    ["Why is rail pressure independent of engine speed?", ["A shared rail stores pressurised fuel", "Each injector has its own pump", "The turbo supplies it"], 0, "The rail is an accumulator: pressure can be set freely while injection is timed separately."],
+    ["A pilot injection is used to…", ["Increase noise", "Soften combustion and reduce diesel knock", "Clean the DPF"], 1, "A small early shot starts combustion gently, cutting the sharp diesel knock at low load."],
+    ["Higher rail pressure produces…", ["Larger droplets", "Finer droplets and cleaner burn", "Lower fuel economy"], 1, "Finer atomisation mixes better with air and burns more completely."],
+    ["A pressure-control valve stuck shut causes…", ["Rail pressure to overshoot", "Rail pressure to drop to zero", "Injectors to open too early"], 0, "The valve is the pressure relief - if it cannot bleed excess fuel, pressure runs above target."],
+    ["Air in the fuel system is a problem because…", ["Air compresses, so pressure builds slowly and drops quickly", "It makes the fuel colder", "It attacks the injector nozzle"], 0, "Compressibility ruins the hydraulic stiffness of the rail, so pressure control becomes sluggish and idle unstable."],
+    ["A post injection is used to…", ["Raise exhaust temperature for DPF regeneration", "Increase peak torque", "Reduce NOx in the cylinder"], 0, "Late fuel that burns in the exhaust raises the temperature the DPF needs to regenerate."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   PHYSICS MODEL — pure, named functions.
+   Simplified physical trends, not a bench lookup table.
+   ═══════════════════════════════════════════════════════════════════ */
+function clampN(x, a, b) {
+  if (!Number.isFinite(x)) return a;
+  return x < a ? a : (x > b ? b : x);
+}
+const num = (x, d) => (Number.isFinite(x) ? x : d);
+
+/* ── named constants ─────────────────────────────────────────────── */
+const P_IDLE      = 280;    /* bar, target rail pressure at idle             */
+const P_MAX       = 2000;   /* bar, target rail pressure at WOT/redline      */
+const TAU_RAIL    = 0.35;   /* s, rail pressure response time constant       */
+const TAU_AIR     = 1.10;   /* s, slower pressure response with air in fuel  */
+const DIESEL_RHO  = 830;    /* kg/m3                                         */
+const RAIL_K_PER_BAR = 0.030;/* °C rail temp rise per bar of pressure        */
+
+/* Target rail pressure from the ECU. Direction: more load and more
+   rpm -> higher commanded pressure. Simple saturating curve. */
+function railPressureTarget(load, rpm) {
+  const L = clampN(load, 0, 1);
+  const N = clampN((num(rpm, 800) - 800) / 4200, 0, 1);
+  const f = clampN(0.05 + 0.70 * L + 0.30 * N, 0, 1);
+  return clampN(P_IDLE + (P_MAX - P_IDLE) * f, 180, 2200);
+}
+
+/* HP pump capability (bar). Rises with pump drive speed; a weak pump
+   fault halves the ceiling so high-load targets become unreachable.
+   Direction: more rpm -> more pressure the pump can deliver. */
+function hpPumpCapability(rpm, fault) {
+  const N = clampN((num(rpm, 400) - 400) / 4600, 0, 1);
+  let cap = 1500 + 900 * Math.pow(N, 0.5);
+  if (fault === 'weakpump') cap *= 0.55;
+  if (fault === 'air')      cap *= 0.92;
+  return clampN(cap, 200, 2400);
+}
+
+/* Main injection quantity per stroke (mg). Direction: rises with load
+   almost linearly. Idle ~5 mg, full load ~60 mg per cylinder. */
+function mainQuantity(load) {
+  return clampN(5 + 55 * clampN(load, 0, 1), 2, 80);
+}
+
+/* Pilot injection quantity (mg). Roughly constant, slightly rising
+   with load. Direction: small early shot, always <5 mg. */
+function pilotQuantity(load) {
+  return clampN(1 + 2.5 * clampN(load, 0, 1), 0.4, 5);
+}
+
+/* Post injection quantity (mg) for DPF regeneration. Roughly fixed. */
+function postQuantity() {
+  return 6;
+}
+
+/* Spray exit velocity from Bernoulli: v = sqrt(2·dP/rho). Direction:
+   higher rail pressure -> faster jet. ~250 m/s at idle, ~690 m/s at 2000 bar. */
+function sprayVelocity(P_rail) {
+  const dP = Math.max(0, num(P_rail, 0) - 50) * 1e5;  /* bar -> Pa */
+  return clampN(Math.sqrt(2 * dP / DIESEL_RHO), 0, 720);
+}
+
+/* Sauter mean droplet diameter (µm). Drops as the -0.35 power of
+   pressure; hotter fuel atomises a little finer. Direction: higher
+   pressure or hotter fuel -> smaller droplets. */
+function dropletSize(P_rail, T_fuel) {
+  const p = clampN(num(P_rail, 300), 100, 2500);
+  const base = 45 * Math.pow(300 / p, 0.35);
+  const tf = clampN(num(T_fuel, 20), -20, 120);
+  const tempF = clampN(1 - (tf - 20) * 0.004, 0.78, 1.15);
+  return clampN(base * tempF, 4, 60);
+}
+
+/* Rail fuel temperature = tank fuel temp + compression/pump heat.
+   Direction: higher pressure -> hotter rail (roughly linear). */
+function railTemperature(P_rail, fuelTemp) {
+  return clampN(num(fuelTemp, 20) + RAIL_K_PER_BAR * num(P_rail, 0), -20, 160);
+}
+
+const FAULT_INFO = {
+  none:     { label: 'None (healthy)',                              warn: '' },
+  leak:     { label: 'Leaking injector (P0263)',                    warn: 'P0263 - cylinder 1 contribution / balance fault. One injector drips continuously, so the pump cannot hold the target rail pressure at low load. Return flow is high and the ECU sees one cylinder contributing less than the others.' },
+  weakpump: { label: 'Weak HP pump (P0087)',                        warn: 'P0087 - fuel rail/system pressure too low. The pump cannot reach the ECU target at high load, so the engine derates. Check the fuel filter, suction valve and fuel quality.' },
+  stuckpcv: { label: 'Stuck pressure-control valve (P0089)',        warn: 'P0089 - fuel pressure regulator performance. The PCV is stuck shut, so the rail cannot bleed excess fuel and pressure overshoots - especially at idle, where the engine runs rough and the rail temperature climbs.' },
+  air:      { label: 'Air in fuel (P008A)',                         warn: 'P008A - low-pressure fuel system pressure too low. Air compresses, so rail pressure builds slowly, is noisy, and drops quickly at idle. Hard starting and a long crank are typical.' }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXTRA CONTROLS (built here; the runtime only provides one slider)
+   ═══════════════════════════════════════════════════════════════════ */
+const S = {
+  rpm: 1800,
+  fuelTemp: 20,
+  strategy: 'pilot',
+  fault: 'none',
+  speed: 1
+};
+
+const panel = document.createElement('div');
+panel.id = 'cr-panel';
+let faultOptions = '';
+for (const id in FAULT_INFO) {
+  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
+}
+panel.innerHTML =
+  '<div class="cr-h"><span>Common rail simulation</span><button type="button" id="cr-fold" aria-label="Collapse controls">&#8211;</button></div>' +
+  '<div class="cr-body">' +
+    '<div class="cr-w"><label for="cr-rpm">Engine speed <b id="cr-rpm-v">1800 rpm</b></label>' +
+      '<input id="cr-rpm" class="al-range" type="range" min="800" max="5000" step="50" value="1800" aria-label="Engine speed"></div>' +
+    '<div class="cr-w"><label for="cr-fuelt">Fuel temperature <b id="cr-fuelt-v">20 &deg;C</b></label>' +
+      '<input id="cr-fuelt" class="al-range" type="range" min="-10" max="60" step="1" value="20" aria-label="Fuel temperature"></div>' +
+    '<div class="cr-w"><label for="cr-strat">Injection strategy</label>' +
+      '<select id="cr-strat" class="al-sel" aria-label="Injection strategy">' +
+        '<option value="normal">Main only</option>' +
+        '<option value="pilot" selected>Pilot + Main</option>' +
+        '<option value="post">Pilot + Main + Post (DPF)</option>' +
+      '</select></div>' +
+    '<div class="cr-w"><label for="cr-fault">Fault injection</label>' +
+      '<select id="cr-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
+    '<div class="cr-w"><label>Simulation speed</label>' +
+      '<div class="cr-btns" id="cr-speed">' +
+        '<button type="button" data-sp="1" class="on">1&times;</button>' +
+        '<button type="button" data-sp="5">5&times;</button>' +
+        '<button type="button" data-sp="20">20&times;</button>' +
+      '</div></div>' +
+    '<div class="cr-btns">' +
+      '<button type="button" id="cr-cold">Bleed fuel</button>' +
+      '<button type="button" id="cr-reset">Reset</button>' +
+    '</div>' +
+    '<div class="cr-warn" id="cr-warn"></div>' +
+    '<canvas id="cr-graph" width="480" height="150" aria-label="Rail pressure history"></canvas>' +
+    '<div class="cr-key"><span><i style="background:#f97316"></i>Rail bar</span><span><i style="background:#fde68a"></i>Target bar</span></div>' +
+  '</div>';
+document.body.appendChild(panel);
+
+const elFold   = document.getElementById('cr-fold');
+const elRpm    = document.getElementById('cr-rpm');
+const elRpmV   = document.getElementById('cr-rpm-v');
+const elFuelT  = document.getElementById('cr-fuelt');
+const elFuelTV = document.getElementById('cr-fuelt-v');
+const elStrat  = document.getElementById('cr-strat');
+const elFault  = document.getElementById('cr-fault');
+const elSpeed  = document.getElementById('cr-speed');
+const elCold   = document.getElementById('cr-cold');
+const elReset  = document.getElementById('cr-reset');
+const elWarn   = document.getElementById('cr-warn');
+const gcv      = document.getElementById('cr-graph');
+const gctx     = gcv.getContext('2d');
+
+elFold.addEventListener('click', () => {
+  panel.classList.toggle('folded');
+  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
+});
+elRpm.addEventListener('input', () => {
+  S.rpm = Number(elRpm.value) || 800;
+  elRpmV.textContent = S.rpm + ' rpm';
+});
+elFuelT.addEventListener('input', () => {
+  S.fuelTemp = Number(elFuelT.value) || 0;
+  elFuelTV.textContent = S.fuelTemp + ' \u00B0C';
+});
+elStrat.addEventListener('change', () => { S.strategy = elStrat.value; });
+elFault.addEventListener('change', () => { S.fault = elFault.value; });
+elSpeed.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sp]');
+  if (!b) return;
+  S.speed = Number(b.dataset.sp) || 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
+});
+elCold.addEventListener('click', () => {
+  sim.P_rail = 150;
+  sim.fuelNoise = 0;
+});
+
+/* ── simulation state (module level so Reset can reach it) ───────── */
+const GRAPH_N = 150;
+const sim = {
+  P_rail: 280,
+  simTime: 0,
+  fuelNoise: 0,
+  lastT: -1,
+  samples: []
+};
+
+function resetModel() {
+  sim.P_rail = 280;
+  sim.simTime = 0;
+  sim.fuelNoise = 0;
+  sim.lastT = -1;
+  sim.samples.length = 0;
+}
+function resetAll() {
+  S.rpm = 1800;       elRpm.value = 1800;   elRpmV.textContent = '1800 rpm';
+  S.fuelTemp = 20;    elFuelT.value = 20;   elFuelTV.textContent = '20 \u00B0C';
+  S.strategy = 'pilot'; elStrat.value = 'pilot';
+  S.fault = 'none';   elFault.value = 'none';
+  S.speed = 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
+  resetModel();
+  const ctlEl = document.getElementById('ctl');
+  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+elReset.addEventListener('click', resetAll);
+
+/* ── rolling graph ───────────────────────────────────────────────── */
+function drawGraph() {
+  const W = gcv.width, Hh = gcv.height;
+  gctx.clearRect(0, 0, W, Hh);
+  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
+  gctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = Math.round(Hh * i / 4) + 0.5;
+    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+  }
+  const n = sim.samples.length;
+  if (n < 2) return;
+  const xAt  = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
+  const yP   = (v) => Hh - clampN(v / 2200, 0, 1) * (Hh - 6) - 3;
+
+  /* filled area under actual rail pressure */
+  gctx.beginPath();
+  gctx.moveTo(xAt(0), Hh);
+  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yP(sim.samples[i].P));
+  gctx.lineTo(xAt(n - 1), Hh);
+  gctx.closePath();
+  gctx.fillStyle = 'rgba(249,115,22,0.20)';
+  gctx.fill();
+
+  /* target pressure line */
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yP(sim.samples[i].T);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#fde68a'; gctx.lineWidth = 1.2; gctx.stroke();
+
+  /* actual rail pressure line */
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yP(sim.samples[i].P);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#f97316'; gctx.lineWidth = 1.8; gctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE SCENE (per-module 3D parts)
+   ═══════════════════════════════════════════════════════════════════ */
 function build(H){
- const {box,cyl,cylX,cylZ,mat,pipe,stream,lc,clamp,THREE,glass}=H;
- const steel=mat(0x94a3b8,.85,.28), dark=mat(0x374151,.5,.5), blue=mat(0x2563eb,.5,.4);
- cylX(.16,.16,4.4,steel,0,.9,0);
- cylZ(.55,.55,1.1,blue,-3.4,.9,0);
- [-.35,0,.35].forEach(z=>cyl(.1,.1,.5,steel,-3.4,1.5,z));
- pipe([[-2.85,.9,0],[-2.4,.9,0],[-2.1,.9,0]],.07,steel);
- const inj=[], cones=[];
- [-1.5,-.5,.5,1.5].forEach(x=>{
-   cyl(.12,.12,.9,steel,x,.35,0); cyl(.12,.035,.25,mat(0xe5e7eb,.9,.2),x,-.25,0);
-   box(.75,.3,.75,glass(0x64748b,.25),x,-.6,0);
-   const cm=new THREE.MeshBasicMaterial({color:0xffb347,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending});
-   const cone=cyl(.03,.32,.5,cm,x,-.5,0); cones.push(cone); inj.push(cm);
+ const { box, cyl, cylX, cylZ, mat, glass, pipe, stream, lc, clamp, root, THREE, lowEnd, put } = H;
+
+ /* ── base materials ────────────────────────────────────────────── */
+ const steel = mat(0x94a3b8, 0.85, 0.28);
+ const blue  = mat(0x2563eb, 0.5, 0.4);
+ const dark  = mat(0x374151, 0.5, 0.5);
+ const pipeM = mat(0x475569, 0.4, 0.6);
+
+ /* ── fuel tank (small box on far left) ────────────────────────── */
+ box(1.1, 0.75, 0.85, dark, -5.1, -0.55, 0);
+
+ /* ── low-pressure feed pipe from tank to HP pump ──────────────── */
+ pipe([[-4.55, -0.4, 0], [-4.0, -0.4, 0], [-3.8, 0.4, 0], [-3.6, 0.85, 0]], 0.085, pipeM);
+
+ /* ── HP pump body ─────────────────────────────────────────────── */
+ cylZ(0.55, 0.55, 1.05, blue, -3.4, 0.9, 0);
+
+ /* ── HP pump drive wheel (spinning) ───────────────────────────── */
+ const pumpWheelMat = mat(0x94a3b8, 0.8, 0.35);
+ const pumpWheel = new THREE.Group();
+ pumpWheel.position.set(-4.1, 0.9, 0);
+ root.add(pumpWheel);
+ cylX(0.26, 0.26, 0.14, pumpWheelMat, 0, 0, 0, pumpWheel);
+ for (let i = 0; i < 8; i++) {
+   const a = i * Math.PI / 4;
+   const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.09, 0.09), pumpWheelMat);
+   tooth.position.set(0, Math.cos(a) * 0.30, Math.sin(a) * 0.30);
+   tooth.rotation.x = a;
+   pumpWheel.add(tooth);
+ }
+
+ /* ── three visible pump plungers ──────────────────────────────── */
+ const plungers = [];
+ [-0.35, 0, 0.35].forEach(z => {
+   const p = cyl(0.10, 0.10, 0.5, steel, -3.4, 1.5, z);
+   plungers.push(p);
  });
- const feed=stream([[-4.3,-.2,0],[-4,.9,0],[-3.4,.9,0]],10,0x86efac,.1);
- const rail=stream([[-2.7,.9,0],[2.1,.9,0]],22,0xf97316,.12);
- const order=[0,2,3,1];
+
+ /* ── common rail ──────────────────────────────────────────────── */
+ cylX(0.16, 0.16, 4.4, steel, 0, 0.9, 0);
+
+ /* ── HP pipe from pump to rail ───────────────────────────────── */
+ pipe([[-2.85, 0.9, 0], [-2.4, 0.9, 0], [-2.1, 0.9, 0]], 0.07, steel);
+
+ /* ── pressure-control valve (PCV) at the left end of the rail ─── */
+ const pcvMat = new THREE.MeshStandardMaterial({
+   color: 0xd97706, emissive: 0x000000, emissiveIntensity: 0,
+   metalness: 0.7, roughness: 0.4
+ });
+ const pcv = new THREE.Group();
+ pcv.position.set(-2.35, 1.15, 0);
+ root.add(pcv);
+ cyl(0.15, 0.15, 0.34, pcvMat, 0, 0, 0, pcv);
+ cyl(0.05, 0.05, 0.16, steel, 0, 0.26, 0, pcv);
+
+ /* ── return line from PCV back to tank ───────────────────────── */
+ pipe([[-2.35, 1.35, 0], [-2.7, 1.55, 0], [-3.7, 1.55, 0], [-4.5, 0.6, 0], [-4.7, -0.3, 0]], 0.055, pipeM);
+
+ /* ── four injectors ──────────────────────────────────────────── */
+ const sprayCones = [];
+ const sprayMats  = [];
+ const injBodies  = [];
+ [-1.5, -0.5, 0.5, 1.5].forEach(x => {
+   /* body */
+   const body = cyl(0.12, 0.12, 0.9, steel, x, 0.35, 0);
+   injBodies.push(body);
+   /* nozzle */
+   cyl(0.12, 0.035, 0.25, mat(0xe5e7eb, 0.9, 0.2), x, -0.25, 0);
+   /* glass combustion chamber */
+   box(0.75, 0.30, 0.75, glass(0x64748b, 0.25), x, -0.60, 0);
+   /* spray cone (animated) */
+   const cm = new THREE.MeshBasicMaterial({
+     color: 0xffb347, transparent: true, opacity: 0, depthWrite: false,
+     blending: THREE.AdditiveBlending
+   });
+   const cone = cyl(0.03, 0.32, 0.50, cm, x, -0.50, 0);
+   sprayCones.push(cone);
+   sprayMats.push(cm);
+ });
+
+ /* ── particle streams ────────────────────────────────────────── */
+ const nFeed = lowEnd ?  8 : 14;
+ const nRail = lowEnd ? 14 : 24;
+ const nRet  = lowEnd ? 10 : 16;
+ const nLeak = lowEnd ?  6 : 10;
+
+ const feedS = stream([[-4.55, -0.4, 0], [-4.0, -0.4, 0], [-3.8, 0.4, 0], [-3.6, 0.85, 0]], nFeed, 0x86efac, 0.10);
+ const railS = stream([[-2.7, 0.9, 0], [2.1, 0.9, 0]],                                        nRail, 0xf97316, 0.12);
+ const retS  = stream([[-2.35, 1.35, 0], [-2.7, 1.55, 0], [-3.7, 1.55, 0], [-4.5, 0.6, 0], [-4.7, -0.3, 0]], nRet, 0xf97316, 0.09);
+ const leakS = stream([[-1.5, -0.78, 0], [-1.5, -1.30, 0]],                                    nLeak, 0xff3a3a, 0.10);
+
+ let lastDom = 0;
+
  return {
-  labels:[['HP pump',[-3.4,1.6,0]],['Common rail',[0,1.25,0]],['Injector',[-.5,.95,.4]],['Spray',[.5,-.95,0]],['Feed from tank',[-4.2,.3,0]]],
-  update(c){
-   const k=c.k, P=300+1700*k, p=(c.t*1.6)%1, slot=Math.floor(p*4), u=p*4-slot, active=order[slot];
-   feed.update(c.t,.2,1); rail.update(c.t,.03+.05*k,.4+.6*k);
-   let ev='—';
-   for(let i=0;i<4;i++){
-     let o=0;
-     if(i===active){ const pilot=k>.35&&u<.1?1:0, main=(u>.32&&u<.68)?1:0; o=Math.max(pilot*.7,main); if(pilot)ev='Pilot'; if(main)ev=k>.35?'Main':'Main'; }
-     inj[i].opacity=o*.75; const L=.6+.9*k; cones[i].scale.set(1,L*Math.max(o,.01),1); cones[i].position.y=-.4-.25*L*Math.max(o,.01);
+  labels: [
+    ['HP pump',       [-3.4, 1.85, 0]],
+    ['Pressure valve',[-2.35, 1.55, 0]],
+    ['Common rail',   [ 0.0, 1.22, 0]],
+    ['Injector 1',    [-1.5, 0.90, 0.55]],
+    ['Combustion chamber', [-0.5, -0.65, 0.55]],
+    ['Fuel tank',     [-5.1, 0.15, 0]],
+    ['Low-pressure feed', [-4.6, -0.60, 0]]
+  ],
+  update(c) {
+   /* ── 1. inputs ─────────────────────────────────────────────── */
+   const dt      = Math.max(0, num(c.dt, 0)) * S.speed;
+   const L       = clampN(c.k, 0, 1);
+   const rpm     = num(S.rpm, 1800);
+   const fuelT   = num(S.fuelTemp, 20);
+   const strat   = S.strategy;
+   const fault   = S.fault;
+
+   sim.simTime += dt;
+   if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) resetModel();
+   sim.lastT = c.t;
+
+   /* ── 2. desired & achievable rail pressure ─────────────────── */
+   const desired = railPressureTarget(L, rpm);
+   const cap     = hpPumpCapability(rpm, fault);
+   let P_target  = Math.min(desired, cap);
+
+   /* fault: air in fuel lowers achievable target and slows response */
+   if (fault === 'air') P_target *= 0.75;
+   /* fault: stuck PCV cannot bleed excess -> pressure runs high */
+   if (fault === 'stuckpcv') P_target = Math.max(P_target, 1500);
+   /* fault: leaking injector bleeds pressure, especially at idle */
+   if (fault === 'leak') {
+     const leakPenalty = 0.60 + 0.30 * L;   /* worst at idle */
+     P_target *= leakPenalty;
    }
-   const vel=.7*Math.sqrt(2*(P-50)*1e5/830), drop=Math.round(45-27*k);
-   return {big:P.toFixed(0),unit:' bar',bar:k*100,rows:{vel:vel.toFixed(0)+' m/s',ev:k>.35?'Pilot+Main':'Main'},
-    ro:{press:[P.toFixed(0)+' bar','hi'],vel:[vel.toFixed(0)+' m/s',''],drop:['~'+drop+' µm','ok'],ev:[k>.35?'2 (pilot + main)':'1 (main)',''],inj:['#'+(active+1)+' (1-3-4-2)','']},
-    status:[ev==='—'?'Between injections':ev+' injection',ev!=='—'],ctl:P.toFixed(0)+' bar'};
-  }};
+
+   /* ── 3. rail pressure first-order lag toward target ────────── */
+   const tau = (fault === 'air') ? TAU_AIR : TAU_RAIL;
+   if (dt > 0) {
+     const a = 1 - Math.exp(-dt / tau);
+     sim.P_rail += (P_target - sim.P_rail) * a;
+   }
+   /* small ripple from injector leak / air bubbles */
+   if (fault === 'leak' || fault === 'air') {
+     sim.fuelNoise += (Math.random() - 0.5) * dt * 30;
+     sim.fuelNoise *= Math.exp(-dt * 1.5);
+   } else {
+     sim.fuelNoise *= Math.exp(-dt * 3);
+   }
+   const P_shown = clampN(sim.P_rail + sim.fuelNoise * 40, 0, 2500);
+
+   /* ── 4. rail temperature & atomization ─────────────────────── */
+   const T_rail = railTemperature(P_shown, fuelT);
+   const vel    = sprayVelocity(P_shown);
+   const drop   = dropletSize(P_shown, T_rail);
+
+   /* ── 5. injection quantities ───────────────────────────────── */
+   const qMain  = mainQuantity(L);
+   const qPilot = (strat !== 'normal') ? pilotQuantity(L) : 0;
+   const qPost  = (strat === 'post')   ? postQuantity()     : 0;
+   const qTotal = qMain + qPilot + qPost;
+   const events = 1 + (strat !== 'normal' ? 1 : 0) + (strat === 'post' ? 1 : 0);
+
+   /* ── 6. injection event animation (firing order 1-3-4-2) ──── */
+   const ORDER = [0, 2, 3, 1];                        /* cyl indices in firing order */
+   const cycRate = 0.55 + rpm / 3600;                 /* visual cycles per second   */
+   const cyc = (sim.simTime * cycRate) % 1;
+
+   const intensities = [0, 0, 0, 0];
+   let activeName = 'Idle';
+   let activeInj  = -1;
+   let maxI       = 0;
+
+   for (let ci = 0; ci < 4; ci++) {
+     const seqIdx = ORDER.indexOf(ci);
+     let local = cyc - seqIdx * 0.25;
+     if (local < 0) local += 1;
+     if (local >= 0.25) continue;                     /* not in this cylinder's window */
+     const u = local / 0.25;                          /* 0..1 inside the slot           */
+
+     let I = 0, name = '-';
+     /* Main injection (always, when running) */
+     if (u >= 0.30 && u < 0.62) { I = 1.0; name = 'Main'; }
+     /* Pilot injection (early, softens combustion) */
+     if (strat !== 'normal' && u >= 0.08 && u < 0.22) {
+       I = Math.max(I, 0.55);
+       if (name === '-') name = 'Pilot';
+     }
+     /* Post injection (late, raises exhaust temperature for DPF) */
+     if (strat === 'post' && u >= 0.78 && u < 0.92) {
+       I = Math.max(I, 0.72);
+       name = 'Post';
+     }
+     intensities[ci] = I;
+     if (I > maxI) { maxI = I; activeInj = ci; activeName = name; }
+   }
+
+   /* ── 7. 3D visuals ─────────────────────────────────────────── */
+   /* rail glow follows pressure */
+   const pN = clampN(P_shown / P_MAX, 0, 1);
+   railS.mat.color.copy(lc(0x8a3010, 0xffc060, pN * 0.85));
+
+   /* pump wheel spins with rpm */
+   const pumpSpin = 1.5 + rpm / 500;
+   pumpWheel.rotation.x += pumpSpin * dt * 3;
+
+   /* plungers bob up and down */
+   for (let i = 0; i < plungers.length; i++) {
+     const ph = sim.simTime * (3 + rpm / 800) + i * 2.1;
+     plungers[i].position.y = 1.5 + 0.06 * Math.sin(ph);
+   }
+
+   /* PCV glows amber when regulating; red when stuck */
+   if (fault === 'stuckpcv') {
+     pcvMat.emissive.setHex(0xef4444);
+     pcvMat.emissiveIntensity = 0.35 + 0.25 * Math.abs(Math.sin(sim.simTime * 4));
+   } else {
+     const reg = clampN(Math.abs(P_shown - P_target) / 300, 0, 1);
+     pcvMat.emissive.setHex(0xd97706);
+     pcvMat.emissiveIntensity = 0.15 + 0.55 * reg;
+   }
+
+   /* injector body glow: leak fault highlights injector 1 */
+   injBodies.forEach((b, i) => {
+     if (fault === 'leak' && i === 0) {
+       b.material.color.setHex(0xb91c1c);
+     } else {
+       b.material.color.setHex(0x94a3b8);
+     }
+   });
+
+   /* spray cone per cylinder - length scales with pressure */
+   const baseLen = 0.35 + 0.60 * pN;
+   for (let ci = 0; ci < 4; ci++) {
+     const I = intensities[ci];
+     sprayMats[ci].opacity = I * 0.82;
+     /* colour: pilot dim, main bright yellow, post purple */
+     if (I > 0 && intensities[ci] === 0.72) {
+       sprayMats[ci].color.setHex(0xa855f7);
+     } else {
+       sprayMats[ci].color.setHex(0xffb347);
+     }
+     const h = baseLen * Math.max(0.05, I);
+     sprayCones[ci].scale.y = h / 0.5;
+     sprayCones[ci].position.y = -0.25 - h / 2;
+   }
+
+   /* streams */
+   feedS.update(sim.simTime, 0.20, 0.85);
+   railS.update(sim.simTime, 0.05 + 0.08 * pN, 0.35 + 0.65 * pN);
+   retS.update(sim.simTime, 0.10 + 0.25 * (1 - pN), fault === 'stuckpcv' ? 0.05 : 0.55);
+   leakS.mat.opacity = (fault === 'leak') ? 0.85 : 0;
+   leakS.update(sim.simTime, 0.25, fault === 'leak' ? 0.9 : 0);
+
+   /* ── 8. throttled DOM work (graph + warning banner) ────────── */
+   const now = performance.now();
+   if (now - lastDom > 140) {
+     lastDom = now;
+     if (dt > 0) {
+       sim.samples.push({ P: P_shown, T: P_target });
+       if (sim.samples.length > GRAPH_N) sim.samples.shift();
+       drawGraph();
+     }
+     let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
+     if (!warn) {
+       if (P_shown < 0.70 * P_target && P_target > 500) {
+         warn = 'Rail pressure ' + P_shown.toFixed(0) + ' bar is well below target ' + P_target.toFixed(0) + ' bar - check the HP pump, PCV and fuel supply.';
+       } else if (P_shown > 1.20 * P_target && P_target > 300) {
+         warn = 'Rail pressure ' + P_shown.toFixed(0) + ' bar is above target - the pressure-control valve is not regulating.';
+       } else if (T_rail > 90) {
+         warn = 'Rail fuel temperature ' + T_rail.toFixed(0) + ' \u00B0C - high, which reduces lubricity and can shorten injector life.';
+       } else if (drop > 35 && L > 0.4) {
+         warn = 'Droplet SMD ' + drop.toFixed(0) + ' \u00B5m at load ' + (L * 100).toFixed(0) + ' % - atomisation is poor, expect smoke and higher soot.';
+       }
+     }
+     elWarn.textContent = warn;
+     elWarn.classList.toggle('show', !!warn);
+   }
+
+   /* ── 9. derived state ──────────────────────────────────────── */
+   let stateTxt;
+   if (fault === 'leak' && L < 0.4)          stateTxt = 'Rough idle - leak';
+   else if (fault === 'weakpump' && P_shown < desired - 100) stateTxt = 'Under-pressure - derate';
+   else if (fault === 'stuckpcv' && P_shown > P_target + 150) stateTxt = 'Over-pressure (PCV stuck)';
+   else if (fault === 'air' && P_shown < desired * 0.8)       stateTxt = 'Unstable - air in fuel';
+   else if (P_shown < 0.75 * P_target && P_target > 500)      stateTxt = 'Pressure low';
+   else if (P_shown > 1.15 * P_target && P_target > 300)      stateTxt = 'Pressure high';
+   else if (activeName === 'Pilot')                            stateTxt = 'Pilot injection';
+   else if (activeName === 'Main')                             stateTxt = 'Main injection';
+   else if (activeName === 'Post')                             stateTxt = 'Post injection';
+   else                                                         stateTxt = 'Between injections';
+
+   /* ── 10. readouts ──────────────────────────────────────────── */
+   const pState = (P_shown < 0.75 * P_target && P_target > 500) ? 'crit'
+                : (P_shown > 1.15 * P_target && P_target > 300) ? 'crit'
+                : (Math.abs(P_shown - P_target) > 150) ? 'warn' : 'ok';
+   const capState = (cap < desired) ? 'warn' : 'ok';
+   const velState = vel < 300 ? 'crit' : (vel < 450 ? 'warn' : 'ok');
+   const dropState = drop > 40 ? 'crit' : (drop > 30 ? 'warn' : 'ok');
+   const tfState = (T_rail > 100) ? 'crit' : (T_rail > 85 ? 'warn' : 'ok');
+   const stState = (stateTxt.indexOf('Under') >= 0 || stateTxt.indexOf('Over') >= 0 ||
+                    stateTxt.indexOf('Unstable') >= 0 || stateTxt.indexOf('Rough') >= 0) ? 'crit'
+                 : (Math.abs(P_shown - P_target) > 150) ? 'warn' : 'ok';
+
+   const injName = (activeInj >= 0) ? ('#' + (activeInj + 1) + ' - ' + activeName) : '-';
+
+   return {
+     big: P_shown.toFixed(0),
+     unit: ' bar',
+     bar: clampN(P_shown / P_MAX, 0, 1) * 100,
+     rows: {
+       t_rail: T_rail.toFixed(0) + ' \u00B0C',
+       qty: qTotal.toFixed(1) + ' mg'
+     },
+     ro: {
+       press:  [P_shown.toFixed(0) + ' bar', pState],
+       target: [P_target.toFixed(0) + ' bar', ''],
+       cap:    [cap.toFixed(0) + ' bar', capState],
+       qty:    [qTotal.toFixed(1) + ' mg', 'hi'],
+       ev:     [events + (strat !== 'normal' ? (strat === 'post' ? ' (P+M+Post)' : ' (P+M)') : ' (Main)'), ''],
+       vel:    [vel.toFixed(0) + ' m/s', velState],
+       drop:   ['~' + drop.toFixed(0) + ' \u00B5m', dropState],
+       tfuel:  [fuelT.toFixed(0) + ' / ' + T_rail.toFixed(0) + ' \u00B0C', tfState],
+       inj:    [injName, ''],
+       state:  [stateTxt, stState]
+     },
+     status: [stateTxt, true],
+     ctl: L * 100 + ' %'
+   };
+  }
+ };
 }
 
 runGuidedModule(CFG, build);
