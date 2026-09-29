@@ -9,6 +9,48 @@
 <style>
 :root { --al-accent: #10b981; }
 html.light-theme { --al-accent: color-mix(in oklch, #10b981 68%, black); }
+
+#fp-panel{
+  position:fixed; left:12px; top:12px; z-index:30;
+  width:264px; max-width:46vw;
+  padding:10px 12px 12px;
+  border:1px solid var(--border,#333);
+  border-radius:10px;
+  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38);
+  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
+  color:var(--text-dim,#9aa4b2);
+  max-height:calc(100dvh - 24px); overflow:auto;
+}
+#fp-panel.folded .fp-body{ display:none; }
+.fp-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.fp-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
+.fp-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
+.fp-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.fp-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.fp-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-mute,#6b7280); }
+.fp-w b{ color:var(--text,#e5e7eb); font-weight:700; }
+#fp-panel .al-range{ height:22px; }
+#fp-panel .al-sel{ min-height:32px; font-size:11px; }
+.fp-btns{ display:flex; gap:6px; margin-bottom:8px; }
+.fp-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
+.fp-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.fp-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(16,185,129,.14); }
+#fp-refuel{ color:#38bdf8; border-color:rgba(56,189,248,.4); }
+#fp-refuel:hover{ border-color:#38bdf8; }
+.fp-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
+  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
+  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
+.fp-warn.show{ display:block; }
+#fp-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
+  border-radius:6px; background:rgba(0,0,0,.28); }
+.fp-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
+.fp-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+@media (max-width:700px){ #fp-panel{ width:208px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -29,40 +71,525 @@ html.light-theme { --al-accent: color-mix(in oklch, #10b981 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "fuelpump", "title": "Fuel Pump & Tank", "kicker": "Fuel Supply", "accent": "#10b981", "badge": "In-tank electric pump", "camPos": [5.6, 3.4, 7.2], "target": [1.2, 0, 0], "floorY": -1.6, "ctl": {"label": "Engine demand", "val": 40, "caption": "Load"}, "chipLabel": "Fuel pressure", "rows": [["flow", "Flow"], ["cur", "Pump current"]], "ro": [["press", "Rail pressure"], ["flow", "Pump flow"], ["cur", "Pump current"], ["lvl", "Tank level"], ["ret", "Return flow"]], "legend": [["#f59e0b", "Fuel"], ["#38bdf8", "Filter"], ["#a3e635", "Regulator"]], "overview": "<div class=\"al-sec\"><h4>Job of the system<\/h4><p>The tank stores fuel; the electric pump lifts it and pushes it through the filter to the fuel rail at a steady pressure (about 3–4 bar for port injection).<\/p><\/div><div class=\"al-sec\"><h4>Parts<\/h4><ul><li><b>Tank &amp; baffles<\/b> – stop fuel surging away from the pickup.<\/li><li><b>In-tank pump<\/b> – cooled and lubricated by the fuel.<\/li><li><b>Filter<\/b> – traps particles down to ~10 µm.<\/li><li><b>Regulator<\/b> – returns surplus fuel to hold rail pressure.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Demand<\/h4><p>Higher load needs more flow; the pump runs harder and draws more current. A weak pump shows up as pressure dropping under load.<\/p><\/div>", "faults": [["Weak pump", "Loss of power under load, hesitation, long cranking.", "Measure rail pressure at idle and under load; check pump current draw."], ["Clogged filter", "Starving at high speed, low pressure.", "Compare pressure before and after the filter."], ["Stuck regulator", "Rich (pressure high) or lean (pressure low) running.", "Watch pressure while pinching the return line (carefully) or use the regulator vacuum test."]], "quiz": [["Why is the pump inside the tank?", ["To save space only", "Fuel cools and lubricates it", "To heat the fuel"], 1, "Submerged, the pump is cooled and lubricated by the fuel – running low can overheat it."], ["What does the regulator do?", ["Filters dirt", "Holds rail pressure by returning surplus", "Measures fuel level"], 1, "It bleeds off surplus so pressure stays constant regardless of flow."], ["A clogged filter typically causes…", ["Low pressure under load", "Higher octane", "Colder intake"], 0, "Restriction limits flow so pressure falls when the engine needs most fuel."]]};
+const CFG = {
+  "moduleId": "fuelpump",
+  "title": "Fuel Pump & Tank",
+  "kicker": "Fuel Supply",
+  "accent": "#10b981",
+  "badge": "In-tank electric pump",
+  "camPos": [5.6, 3.4, 7.2],
+  "target": [1.2, 0, 0],
+  "floorY": -1.6,
+  "ctl": { "label": "Engine demand", "val": 40, "caption": "Load" },
+  "chipLabel": "Rail pressure",
+  "rows": [["supply", "Supply"], ["cur", "Pump current"]],
+  "ro": [
+    ["press",  "Rail pressure"],
+    ["supply", "Pump supply"],
+    ["demand", "Engine demand"],
+    ["cur",    "Pump current"],
+    ["lvl",    "Tank level"],
+    ["temp",   "Fuel temperature"],
+    ["filt",   "Filter drop"],
+    ["state",  "State"]
+  ],
+  "legend": [
+    ["#f59e0b", "Fuel (cool)"],
+    ["#b45309", "Fuel (hot)"],
+    ["#38bdf8", "Filter"],
+    ["#a3e635", "Regulator"],
+    ["#ef4444", "Low pressure warning"],
+    ["#f1f5f9", "Vapour / no prime"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Job of the system<\/h4><p>The tank stores fuel; the electric pump lifts it and pushes it through the filter to the fuel rail at a steady pressure (about 3–4&nbsp;bar for port injection). The regulator returns whatever the engine does not need.<\/p><\/div><div class=\"al-sec\"><h4>Parts<\/h4><ul><li><b>Tank &amp; baffles<\/b> – stop fuel surging away from the pickup under cornering.<\/li><li><b>In-tank pump<\/b> – a small DC motor driving a roller or turbine element; cooled and lubricated by the fuel itself.<\/li><li><b>Filter \/ sock<\/b> – traps particles down to ~10&nbsp;&micro;m.<\/li><li><b>Pressure regulator<\/b> – bleeds surplus fuel back to the tank so rail pressure stays constant as demand changes.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Flow, not pressure<\/h4><p>The pump is a <i>flow<\/i> device. The regulator turns that flow into a pressure by holding a spring-loaded seat closed. If the pump cannot deliver more than the engine uses, the regulator has nothing to return and the rail pressure collapses — the engine runs lean.<\/p><\/div><div class=\"al-sec\"><h4>Why voltage matters<\/h4><p>A DC motor's speed is roughly proportional to its supply voltage. A tired battery, a corroded connector or a failing relay all reduce voltage at the pump, and flow falls with it. A 30&nbsp;% voltage drop can be a 30&nbsp;% flow loss right when the engine needs fuel most.<\/p><\/div><div class=\"al-sec\"><h4>Heat and vapour lock<\/h4><p>Fuel absorbs heat from the pump motor and from the returned fuel. With a low tank level there is less fuel to absorb it, so temperature climbs and light ends start to vaporise — the pump then tries to compress a gas instead of a liquid and flow collapses.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Set full load and drag the <b>Battery voltage<\/b> down to 9&nbsp;V — watch supply fall below demand and the rail pressure sag. Then select <b>Failed relay \/ no prime<\/b> and see everything drop to zero. Refuel and reset to recover.<\/p><\/div>",
+  "faults": [
+    ["Weak pump (worn / low voltage)", "Loss of power under load, hesitation, long cranking. Rail pressure falls as demand rises but returns at idle.", "Measure rail pressure at idle and under load; measure voltage at the pump connector while running; check pump current draw."],
+    ["Clogged filter / sock", "Starving at high speed and high load; pressure drops away as flow demand increases. Pump may whine.", "Compare pressure before and after the filter; inspect the in-tank sock for debris; replace the filter."],
+    ["Stuck regulator (high)", "Rich running, black smoke, high fuel consumption, fuel smell, hard hot starting. Rail pressure well above spec at idle.", "Check rail pressure at idle against spec; pull the vacuum hose on a vacuum-referenced regulator and watch for fuel or no change."],
+    ["Stuck regulator (low)", "Lean running, misfire, hesitation, P0171. Rail pressure low at all loads even with a healthy pump.", "Measure rail pressure; clamp the return line briefly (carefully) — if pressure jumps, the regulator is bypassing."],
+    ["Failed relay / no prime", "Engine cranks but will not start, or dies immediately. No pump noise on key-on.", "Check the fuel pump fuse and relay, listen for the two-second prime, and measure voltage at the pump connector during cranking."],
+    ["Vapour lock (hot fuel)", "Hot restart problems, lean stumble at low tank level in summer traffic.", "Check fuel temperature, keep the tank above a quarter, and verify the tank return line is not restricted."]
+  ],
+  "quiz": [
+    ["Why is the pump inside the tank?", ["To save space only", "Fuel cools and lubricates it", "To heat the fuel"], 1, "Submerged, the pump is cooled and lubricated by the fuel - running consistently low can overheat it."],
+    ["What does the regulator do?", ["Filters dirt", "Holds rail pressure by returning surplus fuel", "Measures fuel level"], 1, "It bleeds off surplus so pressure stays constant regardless of how much the engine is using."],
+    ["A clogged filter typically causes…", ["Low pressure under load", "Higher octane", "Colder intake"], 0, "Restriction limits flow, so pressure falls exactly when the engine needs fuel most."],
+    ["Pump flow falls when…", ["Supply voltage falls", "Fuel is cold", "Tank is full"], 0, "A DC motor's speed is roughly proportional to supply voltage, so flow tracks voltage."],
+    ["Rail pressure sags below the regulator setting when…", ["Supply is less than engine demand", "The tank is full", "The engine is idling"], 0, "With no surplus to return the regulator cannot hold pressure - the engine runs lean."],
+    ["Hot fuel at a low tank level is a problem because…", ["Less liquid fuel to absorb heat, so vapour forms", "It is heavier", "It damages the filter"], 0, "Vapour in the pump destroys flow - the pump cannot move gas efficiently."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   PHYSICS MODEL — pure, named functions.
+   Simplified physical trends, not a bench lookup table.
+   ═══════════════════════════════════════════════════════════════════ */
+
+function clampN(x, a, b) {
+  if (!Number.isFinite(x)) return a;
+  return x < a ? a : (x > b ? b : x);
+}
+const num = (x, d) => (Number.isFinite(x) ? x : d);
+
+/* ── named constants ─────────────────────────────────────────────── */
+const V_NOM        = 13.5;   /* V, nominal supply with the alternator charging   */
+const V_CUTIN      = 6.0;    /* V, below this the pump motor will not turn       */
+const FLOW_NOM     = 120;    /* L/h, free flow at nominal voltage                */
+const REG_SET      = 3.5;    /* bar, healthy regulator set pressure              */
+const DEMAND_IDLE  = 4;      /* L/h, idle consumption                            */
+const DEMAND_MAX   = 90;     /* L/h, extra at full load + redline                */
+const TANK_LITRES  = 50;     /* L, tank capacity (for the level drain rate)      */
+const TAU_FUELT    = 60;     /* s, fuel temperature time constant                */
+const TAU_LEVEL    = 2.0;    /* s, level slosh / settle time constant            */
+const VAPOUR_C     = 65;     /* °C, fuel temperature where vapour lock is a risk */
+const FILT_NORMAL  = 0.08;   /* fraction of flow lost to a healthy filter        */
+const FILT_CLOGGED = 0.72;   /* fraction lost with a clogged filter              */
+
+/* Pump free-flow (L/h). Direction: more volts -> faster motor -> more
+   flow; more filter restriction -> less. A dead relay gives zero. */
+function pumpFlowLph(volts, filtRestriction, fault) {
+  const V = clampN(num(volts, V_NOM), 0, 15);
+  const vN = clampN((V - V_CUTIN) / (V_NOM - V_CUTIN), 0, 1.20);
+  let f = FLOW_NOM * vN;
+  f *= (1 - 0.65 * clampN(num(filtRestriction, 0), 0, 1));
+  if (fault === 'relay') f = 0;
+  if (fault === 'weak')  f *= 0.45;
+  if (fault === 'vapour') f *= 0.30;
+  return clampN(f, 0, 200);
+}
+
+/* Engine fuel demand (L/h). Direction: more load, more rpm -> more. */
+function fuelDemandLph(load, rpm) {
+  const L = clampN(num(load, 0), 0, 1);
+  const n = clampN((num(rpm, 800) - 800) / 5200, 0, 1);
+  return DEMAND_IDLE + DEMAND_MAX * L * (0.50 + 0.50 * n);
+}
+
+/* Rail pressure (bar). The regulator holds its setting while the pump
+   can supply at least the engine demand; below that the rail sags
+   proportionally. A stuck regulator scales the whole curve. */
+function railPressureBar(supplyLph, demandLph, fault) {
+  const s = Math.max(0, num(supplyLph, 0));
+  const d = Math.max(1, num(demandLph, 1));
+  if (s < 0.5) return 0;
+  const ratio = clampN(s / d, 0, 1.30);
+  let k = 1.0;
+  if (fault === 'reghigh') k = 1.55;
+  if (fault === 'reglow')  k = 0.45;
+  return clampN(REG_SET * k * Math.min(1, ratio), 0, 8);
+}
+
+/* Pump current (A). Direction: more flow -> more torque -> more
+   current; lower supply voltage -> more current for the same power;
+   a weak pump draws noticeably less. */
+function pumpCurrentA(volts, flowLph, fault) {
+  if (fault === 'relay') return 0;
+  const base = 3.0 + 5.5 * clampN(num(flowLph, 0) / FLOW_NOM, 0, 1.2);
+  const vDrop = clampN((V_NOM - clampN(num(volts, V_NOM), 6, 15)) / V_NOM, 0, 0.6);
+  let i = base * (1 + 0.8 * vDrop);
+  if (fault === 'weak')   i *= 0.60;
+  if (fault === 'vapour') i *= 0.55;
+  return clampN(i, 0, 20);
+}
+
+/* Fuel temperature the tank settles at. Direction: more load (more
+   return heat) and a lower tank level (less thermal mass) -> hotter. */
+function fuelTempTarget(load, level, ambient) {
+  const L   = clampN(num(load, 0), 0, 1);
+  const lvl = clampN(num(level, 1), 0, 1);
+  const amb = clampN(num(ambient, 25), -10, 50);
+  const low = clampN((0.50 - lvl) / 0.50, 0, 1);
+  return 28 + 0.20 * amb + 15 * L + 40 * low;
+}
+
+const FAULT_INFO = {
+  none:    { label: 'None (healthy)',               warn: '' },
+  weak:    { label: 'Weak pump (worn / low voltage)', warn: 'The pump cannot deliver its rated flow. Supply falls below engine demand under load, so rail pressure sags and the mixture goes lean. Diagnostic: P0087 fuel rail pressure too low.' },
+  filter:  { label: 'Clogged filter / sock',        warn: 'The filter is restricted. Flow is throttled, pressure drop across the filter is high and the rail starves at high demand. Diagnostic: P0087 / P0088 at high load only.' },
+  reghigh: { label: 'Stuck regulator (high)',       warn: 'The regulator is jammed closed so it cannot return surplus fuel. Rail pressure sits well above spec: rich running, black smoke, fuel smell. Diagnostic: P0088.' },
+  reglow:  { label: 'Stuck regulator (low)',        warn: 'The regulator is stuck open and bypasses fuel straight back to the tank. Rail pressure stays low at all loads. Diagnostic: P0087 / P0171 lean bank.' },
+  relay:   { label: 'Failed relay / no prime',      warn: 'The pump never runs - no prime on key-on. The engine cranks but will not start. Check fuse, relay and voltage at the pump connector.' },
+  vapour:  { label: 'Vapour lock (hot fuel)',       warn: 'Fuel is hot enough at this tank level that light ends are vaporising. The pump is moving gas, not liquid, so flow and pressure collapse. Diagnostic: hot-restart lean stumble.' }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXTRA CONTROLS (built here; the runtime only provides one slider)
+   ═══════════════════════════════════════════════════════════════════ */
+const S = {
+  volts: 13.5,
+  ambient: 25,
+  fault: 'none',
+  speed: 1
+};
+
+const panel = document.createElement('div');
+panel.id = 'fp-panel';
+let faultOptions = '';
+for (const id in FAULT_INFO) {
+  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
+}
+panel.innerHTML =
+  '<div class="fp-h"><span>Fuel pump simulation</span><button type="button" id="fp-fold" aria-label="Collapse controls">&#8211;</button></div>' +
+  '<div class="fp-body">' +
+    '<div class="fp-w"><label for="fp-volts">Battery voltage <b id="fp-volts-v">13.5 V</b></label>' +
+      '<input id="fp-volts" class="al-range" type="range" min="800" max="1500" step="10" value="1350" aria-label="Battery voltage">' +
+    '</div>' +
+    '<div class="fp-w"><label for="fp-amb">Under-bonnet temp <b id="fp-amb-v">25 &deg;C</b></label>' +
+      '<input id="fp-amb" class="al-range" type="range" min="-10" max="50" step="1" value="25" aria-label="Under-bonnet temperature"></div>' +
+    '<div class="fp-w"><label for="fp-fault">Fault injection</label>' +
+      '<select id="fp-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
+    '<div class="fp-w"><label>Simulation speed</label>' +
+      '<div class="fp-btns" id="fp-speed">' +
+        '<button type="button" data-sp="1" class="on">1&times;</button>' +
+        '<button type="button" data-sp="5">5&times;</button>' +
+        '<button type="button" data-sp="20">20&times;</button>' +
+      '</div></div>' +
+    '<div class="fp-btns">' +
+      '<button type="button" id="fp-refuel">Refuel</button>' +
+      '<button type="button" id="fp-reset">Reset</button>' +
+    '</div>' +
+    '<div class="fp-warn" id="fp-warn"></div>' +
+    '<canvas id="fp-graph" width="480" height="150" aria-label="Rail pressure and fuel temperature history"></canvas>' +
+    '<div class="fp-key"><span><i style="background:#10b981"></i>Rail bar</span><span><i style="background:#fb923c"></i>Fuel &deg;C</span></div>' +
+  '</div>';
+document.body.appendChild(panel);
+
+const elFold   = document.getElementById('fp-fold');
+const elVolts  = document.getElementById('fp-volts');
+const elVoltsV = document.getElementById('fp-volts-v');
+const elAmb    = document.getElementById('fp-amb');
+const elAmbV   = document.getElementById('fp-amb-v');
+const elFault  = document.getElementById('fp-fault');
+const elSpeed  = document.getElementById('fp-speed');
+const elRefuel = document.getElementById('fp-refuel');
+const elReset  = document.getElementById('fp-reset');
+const elWarn   = document.getElementById('fp-warn');
+const gcv      = document.getElementById('fp-graph');
+const gctx     = gcv.getContext('2d');
+
+function voltsText() { return (S.volts).toFixed(1) + ' V'; }
+function ambText()   { return Math.round(S.ambient) + ' \u00B0C'; }
+
+elFold.addEventListener('click', () => {
+  panel.classList.toggle('folded');
+  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
+});
+elVolts.addEventListener('input', () => {
+  S.volts = (Number(elVolts.value) || 1350) / 100;
+  elVoltsV.textContent = voltsText();
+});
+elAmb.addEventListener('input', () => {
+  S.ambient = Number(elAmb.value) || 0;
+  elAmbV.textContent = ambText();
+});
+elFault.addEventListener('change', () => { S.fault = elFault.value; });
+elSpeed.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sp]');
+  if (!b) return;
+  S.speed = Number(b.dataset.sp) || 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
+});
+elRefuel.addEventListener('click', () => { sim.level = 1.0; });
+
+/* ── simulation state (module level so Reset can reach it) ───────── */
+const GRAPH_N = 150;
+const sim = {
+  level: 0.85,
+  Tfuel: 30,
+  lastT: -1,
+  samples: []
+};
+
+function resetModel() {
+  sim.level = 0.85;
+  sim.Tfuel = 30;
+  sim.lastT = -1;
+  sim.samples.length = 0;
+}
+function resetAll() {
+  S.volts = 13.5; elVolts.value = 1350; elVoltsV.textContent = voltsText();
+  S.ambient = 25; elAmb.value = 25;     elAmbV.textContent = ambText();
+  S.fault = 'none'; elFault.value = 'none';
+  S.speed = 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
+  resetModel();
+  const ctlEl = document.getElementById('ctl');
+  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+elReset.addEventListener('click', resetAll);
+
+/* ── rolling graph ───────────────────────────────────────────────── */
+function drawGraph() {
+  const W = gcv.width, Hh = gcv.height;
+  gctx.clearRect(0, 0, W, Hh);
+  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
+  gctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = Math.round(Hh * i / 4) + 0.5;
+    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+  }
+  const n = sim.samples.length;
+  if (n < 2) return;
+  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
+  const yP  = (v) => Hh - clampN(v / 6, 0, 1) * (Hh - 6) - 3;
+  const yT  = (v) => Hh - clampN(v / 110, 0, 1) * (Hh - 6) - 3;
+
+  gctx.beginPath();
+  gctx.moveTo(xAt(0), Hh);
+  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yP(sim.samples[i].P));
+  gctx.lineTo(xAt(n - 1), Hh);
+  gctx.closePath();
+  gctx.fillStyle = 'rgba(16,185,129,0.16)';
+  gctx.fill();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yP(sim.samples[i].P);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#10b981'; gctx.lineWidth = 1.6; gctx.stroke();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yT(sim.samples[i].T);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.4; gctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE SCENE (per-module 3D parts)
+   ═══════════════════════════════════════════════════════════════════ */
 function build(H){
- const {box,cyl,cylX,cylZ,mat,glass,pipe,stream,clamp,THREE}=H;
- const steel=mat(0x8a93a5,.8,.3), blue=mat(0x38bdf8,.5,.4), hose=mat(0x1f2937,.2,.8), grn=mat(0xa3e635,.5,.4);
- box(3.4,1.4,2.2,glass(0x94a3b8,.16),0,0,0);
- const fuel=box(3.3,1.3,2.1,glass(0xf59e0b,.42),0,0,0);
- const pump=cyl(.34,.34,.9,glass(0x64748b,.45),-.9,-.15,0);
- const imp=new THREE.Group(); imp.position.set(-.9,-.15,0); H.root.add(imp);
- for(let i=0;i<6;i++){ const v=box(.3,.7,.04,mat(0xf97316,.4,.4),0,0,0,imp); v.rotation.y=i*Math.PI/6; }
- cyl(.36,.36,.14,steel,-.9,.37,0);
- cyl(.35,.35,1.2,blue,2.0,.5,0);
- cylZ(.15,.15,2.2,steel,4.0,-.25,0); [-.8,-.27,.27,.8].forEach(z=>cyl(.08,.08,.5,steel,4.0,-.55,z));
- cyl(.2,.2,.5,grn,3.2,-.6,.95);
- pipe([[-.9,.4,0],[-.9,1.5,0],[2,1.5,0],[2,1.1,0]],.07,hose);
- pipe([[2,-.1,0],[2,-.6,0],[3.2,-.6,0],[4,-.6,0]],.07,hose);
- pipe([[4,-.3,.95],[3.2,-.3,.95],[2.6,-.3,.95],[1.4,-.3,.95]],.06,hose);
- const sA=stream([[-.9,.4,0],[-.9,1.5,0],[2,1.5,0],[2,1.1,0]],18,0xf59e0b,.11);
- const sB=stream([[2,-.1,0],[2,-.6,0],[3.2,-.6,0],[4,-.6,0]],14,0xf59e0b,.11);
- const sC=stream([[4,-.3,.95],[3.2,-.3,.95],[2.6,-.3,.95],[1.4,-.3,.95]],12,0xf59e0b,.09);
- let ang=0;
+ const { box, cyl, cylX, cylZ, mat, glass, pipe, stream, lc, clamp, root, THREE, lowEnd } = H;
+
+ const steel = mat(0x8a93a5, .80, .30);
+ const blue  = mat(0x38bdf8, .50, .40);
+ const hose  = mat(0x1f2937, .20, .80);
+ const grn   = mat(0xa3e635, .50, .40, { emissive: 0x000000, emissiveIntensity: 0 });
+
+ /* ── tank + baffles ───────────────────────────────────────────── */
+ box(3.4, 1.4, 2.2, glass(0x94a3b8, .16), 0, 0, 0);
+ box(0.06, 1.3, 2.0, mat(0x64748b, .5, .5), -0.6, 0, 0);
+ box(0.06, 1.3, 2.0, mat(0x64748b, .5, .5),  0.9, 0, 0);
+
+ /* ── fuel (scales with level) ─────────────────────────────────── */
+ const fuelMat = glass(0xf59e0b, .46);
+ const fuel = box(3.3, 1.3, 2.1, fuelMat, 0, 0, 0);
+
+ /* ── in-tank pump + impeller ──────────────────────────────────── */
+ const pumpMat = glass(0x64748b, .45);
+ cyl(.34, .34, .90, pumpMat, -0.9, -.15, 0);
+ const imp = new THREE.Group(); imp.position.set(-0.9, -.15, 0); root.add(imp);
+ for (let i = 0; i < 6; i++) {
+   const v = box(.30, .70, .04, mat(0xf97316, .4, .4), 0, 0, 0, imp);
+   v.rotation.y = i * Math.PI / 6;
+ }
+ cyl(.36, .36, .14, steel, -0.9, .37, 0);
+
+ /* ── filter canister ──────────────────────────────────────────── */
+ const filtMat = mat(0x38bdf8, .50, .40, { emissive: 0x000000, emissiveIntensity: 0 });
+ cyl(.35, .35, 1.20, filtMat, 2.0, .50, 0);
+
+ /* ── fuel rail + bosses ───────────────────────────────────────── */
+ const railMat = mat(0x9aa3b2, .85, .30, { emissive: 0x000000, emissiveIntensity: 0 });
+ cylZ(.15, .15, 2.20, railMat, 4.0, -.25, 0);
+ [-0.8, -0.27, 0.27, 0.8].forEach(z => cyl(.08, .08, .50, steel, 4.0, -.55, z));
+
+ /* ── pressure regulator ───────────────────────────────────────── */
+ const regMat = mat(0xa3e635, .50, .40, { emissive: 0x000000, emissiveIntensity: 0 });
+ cyl(.20, .20, .50, regMat, 3.2, -.60, .95);
+
+ /* ── hoses ────────────────────────────────────────────────────── */
+ pipe([[-0.9, .4, 0], [-0.9, 1.5, 0], [2, 1.5, 0], [2, 1.1, 0]], .07, hose);
+ pipe([[2, -.1, 0], [2, -.6, 0], [3.2, -.6, 0], [4, -.6, 0]], .07, hose);
+ pipe([[4, -.3, .95], [3.2, -.3, .95], [2.6, -.3, .95], [1.4, -.3, .95]], .06, hose);
+
+ /* ── particle streams ─────────────────────────────────────────── */
+ const nA = lowEnd ? 10 : 18;
+ const nB = lowEnd ?  8 : 14;
+ const nC = lowEnd ?  8 : 12;
+ const nV = lowEnd ?  6 : 10;
+
+ const sA = stream([[-0.9, .4, 0], [-0.9, 1.5, 0], [2, 1.5, 0], [2, 1.1, 0]], nA, 0xf59e0b, .11);
+ const sB = stream([[2, -.1, 0], [2, -.6, 0], [3.2, -.6, 0], [4, -.6, 0]], nB, 0xf59e0b, .11);
+ const sC = stream([[4, -.3, .95], [3.2, -.3, .95], [2.6, -.3, .95], [1.4, -.3, .95]], nC, 0xf59e0b, .09);
+ const vap = stream([[1.4, -.55, .95], [2.4, -.45, .95], [3.4, -.55, .95]], nV, 0xf1f5f9, .10);
+
+ /* ── injector spray stubs (rail -> engine) ────────────────────── */
+ const inj = [];
+ [-0.8, -0.27, 0.27, 0.8].forEach(z => {
+   inj.push(stream([[4.0, -.85, z], [4.0, -1.35, z]], lowEnd ? 4 : 6, 0xf59e0b, .09));
+ });
+
+ let ang = 0, lastDom = 0;
+ const tmpCol = new THREE.Color();
+
  return {
-  labels:[['Fuel tank',[-1.3,.95,1.1]],['In-tank pump',[-.9,.75,0]],['Fuel filter',[2.0,1.25,0]],['Fuel rail',[4.0,.05,0]],['Regulator',[3.2,-.2,.95]],['Return line',[1.9,-.05,.95]]],
+  labels: [
+    ['Fuel tank', [-1.3, .95, 1.1]],
+    ['In-tank pump', [-0.9, .75, 0]],
+    ['Fuel filter', [2.0, 1.25, 0]],
+    ['Fuel rail', [4.0, .05, 0]],
+    ['Pressure regulator', [3.2, -.20, .95]],
+    ['Return line', [1.9, -.05, .95]]
+  ],
   update(c){
-   const k=c.k, rpm=.5+2.6*(.35+k); ang+=c.dt*rpm*8; imp.rotation.y=ang;
-   const lvl=.92-((c.t*.012*(.4+k))%.75);
-   fuel.scale.y=lvl; fuel.position.y=-.65+1.3*lvl/2;
-   const flow=40+130*k, press=3.0-.3*k, cur=3+5.5*k, ret=1-k*.85;
-   sA.update(c.t,.1+.35*k,1); sB.update(c.t,.1+.35*k,1); sC.update(c.t,.1+.3*(1-k*.5),clamp(ret*.9+.1));
-   return {big:press.toFixed(1),unit:' bar',bar:k*100,rows:{flow:flow.toFixed(0)+' L/h',cur:cur.toFixed(1)+' A'},
-    ro:{press:[press.toFixed(1)+' bar','hi'],flow:[flow.toFixed(0)+' L/h',''],cur:[cur.toFixed(1)+' A',cur>7?'warn':'ok'],lvl:[(lvl*100).toFixed(0)+' %',lvl<.25?'warn':''],ret:[(ret*100).toFixed(0)+' %','']},
-    status:[k>.85?'High demand':'Delivering',true],ctl:Math.round(k*100)+' % load'};
-  }};
+   /* ── 1. inputs ─────────────────────────────────────────────── */
+   const dt    = Math.max(0, num(c.dt, 0)) * S.speed;
+   const k     = clampN(c.k, 0, 1);
+   const rpm   = 800 + 5200 * k;
+   const fault = S.fault;
+
+   if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) resetModel();
+   sim.lastT = c.t;
+
+   /* ── 2. filter restriction ────────────────────────────────── */
+   const filt = (fault === 'filter') ? FILT_CLOGGED : FILT_NORMAL;
+
+   /* ── 3. flow, demand, pressure ────────────────────────────── */
+   const supply = pumpFlowLph(S.volts, filt, fault);
+   const demand = fuelDemandLph(k, rpm);
+   const press  = railPressureBar(supply, demand, fault);
+   const cur    = pumpCurrentA(S.volts, supply, fault);
+
+   /* ── 4. tank level state ──────────────────────────────────── */
+   if (dt > 0) {
+     const drain = demand / 3600 / TANK_LITRES;    /* fraction per second */
+     sim.level -= drain * dt * 12;                 /* x12 so the demo is watchable */
+   }
+   if (fault === 'vapour' || sim.Tfuel > VAPOUR_C) sim.level = Math.max(0.05, sim.level - 0.0000);
+   sim.level = clampN(sim.level, 0.03, 1.0);
+
+   /* ── 5. fuel temperature state ────────────────────────────── */
+   const Ttgt = fuelTempTarget(k, sim.level, S.ambient);
+   if (dt > 0) sim.Tfuel += (Ttgt - sim.Tfuel) * (1 - Math.exp(-dt / TAU_FUELT));
+   sim.Tfuel = clampN(sim.Tfuel, -20, 120);
+
+   const vapouring = (sim.Tfuel > VAPOUR_C && sim.level < 0.30) || fault === 'vapour';
+
+   /* ── 6. status text ───────────────────────────────────────── */
+   let stateTxt;
+   if (fault === 'relay' || supply < 0.5)  stateTxt = 'NO PRIME';
+   else if (press < 1.8)                   stateTxt = 'LEAN / LOW PRESS';
+   else if (press > 4.6)                   stateTxt = 'OVER-PRESSURE';
+   else if (vapouring)                     stateTxt = 'VAPOUR RISK';
+   else if (sim.level < 0.12)              stateTxt = 'LOW FUEL';
+   else                                    stateTxt = 'Normal';
+
+   /* ── 7. 3D visuals ────────────────────────────────────────── */
+   const lvl = clampN(sim.level, 0.05, 1);
+   fuel.scale.y = lvl;
+   fuel.position.y = -0.65 + 1.3 * lvl / 2;
+   fuelMat.color.copy(lc(0xf59e0b, 0xb45309, clampN((sim.Tfuel - 20) / 70, 0, 1)));
+
+   /* impeller spin follows voltage (and stops with a dead relay) */
+   const running = (fault !== 'relay') && supply > 0.5;
+   const motorRpm = running ? (S.volts / V_NOM) * 3000 : 0;
+   ang += (motorRpm / 60) * Math.PI * 2 * dt;
+   imp.rotation.y = ang;
+
+   /* filter / regulator / rail feedback */
+   filtMat.emissive.setHex(fault === 'filter' ? 0xef4444 : 0x000000);
+   filtMat.emissiveIntensity = fault === 'filter' ? 0.45 + 0.35 * Math.abs(Math.sin(c.t * 3.5)) : 0;
+   filtMat.color.copy(lc(0x38bdf8, 0x1a1410, fault === 'filter' ? 0.75 : 0));
+
+   if (fault === 'reghigh' || fault === 'reglow') {
+     regMat.emissive.setHex(0xef4444);
+     regMat.emissiveIntensity = 0.45 + 0.35 * Math.abs(Math.sin(c.t * 4));
+     regMat.color.copy(fault === 'reghigh' ? lc(0xa3e635, 0xef4444, 0.8) : lc(0xa3e635, 0x1f2937, 0.8));
+   } else {
+     regMat.emissive.setHex(0x000000);
+     regMat.emissiveIntensity = 0;
+     regMat.color.setHex(0xa3e635);
+   }
+
+   const railGlow = clampN((press - 2.6) / 2.0, 0, 1);
+   railMat.emissive.copy(lc(0x000000, 0xff3a00, railGlow * 0.7));
+   railMat.emissiveIntensity = railGlow * 0.7;
+   railMat.color.copy(lc(0x9aa3b2, 0xef4444, press < 1.8 ? 0.7 : 0));
+
+   /* streams */
+   const flowN = clampN(supply / FLOW_NOM, 0, 1.2);
+   const spd   = 0.06 + 0.42 * flowN;
+   const dens  = running ? (0.18 + 0.82 * flowN) : 0;
+   tmpCol.copy(lc(0xf59e0b, 0xb45309, clampN((sim.Tfuel - 20) / 70, 0, 1)));
+   if (vapouring) tmpCol.lerp(new THREE.Color(0xf1f5f9), 0.65);
+
+   sA.update(c.t, spd, dens);      sA.mat.color.copy(tmpCol);
+   sB.update(c.t, spd, dens);      sB.mat.color.copy(tmpCol);
+   const retFrac = clampN(1 - demand / Math.max(1, supply), 0, 1);
+   sC.update(c.t, 0.06 + 0.35 * flowN, dens * (0.15 + 0.85 * retFrac));
+   sC.mat.color.copy(tmpCol);
+   vap.update(c.t, 0.30, vapouring ? 0.85 : 0);
+
+   const injDens = running ? clampN(0.25 + 0.75 * k, 0, 1) : 0;
+   for (let i = 0; i < inj.length; i++) {
+     inj[i].update(c.t, 0.55 + 0.4 * k, injDens);
+     inj[i].mat.color.copy(tmpCol);
+   }
+
+   /* ── 8. throttled DOM work (graph + warning) ──────────────── */
+   const now = performance.now();
+   if (now - domLast > 140) {
+     domLast = now;
+     if (dt > 0) {
+       sim.samples.push({ P: press, T: sim.Tfuel });
+       if (sim.samples.length > GRAPH_N) sim.samples.shift();
+       drawGraph();
+     }
+     let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
+     if (!warn) {
+       if (supply < 0.5) {
+         warn = 'No fuel supply - the pump is not running. Check the fuse, relay and voltage at the pump connector.';
+       } else if (press < 1.8) {
+         warn = 'Rail pressure ' + press.toFixed(2) + ' bar - supply (' + supply.toFixed(0) + ' L/h) is below engine demand (' + demand.toFixed(0) + ' L/h). The engine will run lean.';
+       } else if (press > 4.6) {
+         warn = 'Rail pressure ' + press.toFixed(2) + ' bar - well above spec. Expect rich running, black smoke and hard hot starting.';
+       } else if (vapouring) {
+         warn = 'Fuel at ' + sim.Tfuel.toFixed(0) + ' \u00B0C with a ' + (sim.level * 100).toFixed(0) + ' % tank - vapour lock risk. Keep the tank above a quarter.';
+       } else if (sim.level < 0.15) {
+         warn = 'Tank level at ' + (sim.level * 100).toFixed(0) + ' % - the pump relies on fuel for cooling. Refuel before it runs dry.';
+       }
+     }
+     elWarn.textContent = warn;
+     elWarn.classList.toggle('show', !!warn);
+   }
+
+   /* ── 9. readouts ──────────────────────────────────────────── */
+   const pState   = press < 1.8 ? 'crit' : (press < 2.6 ? 'warn' : (press > 4.6 ? 'crit' : 'ok'));
+   const supState = supply < demand ? 'warn' : 'ok';
+   const curState = cur > 8.5 ? 'warn' : (cur < 1 ? 'crit' : 'ok');
+   const lvlState = sim.level < 0.15 ? 'crit' : (sim.level < 0.35 ? 'warn' : 'ok');
+   const tState   = sim.Tfuel > VAPOUR_C ? 'crit' : (sim.Tfuel > 50 ? 'warn' : 'ok');
+   const fState   = filt > 0.4 ? 'warn' : 'ok';
+   const stState  = (press < 1.8 || supply < 0.5) ? 'crit'
+                  : (press > 4.6 || vapouring || sim.level < 0.15) ? 'warn'
+                  : 'ok';
+
+   return {
+     big: press.toFixed(2),
+     unit: ' bar',
+     bar: clampN(press / 5 * 100, 0, 100),
+     rows: {
+       supply: supply.toFixed(0) + ' L/h',
+       cur:    cur.toFixed(1) + ' A'
+     },
+     ro: {
+       press:  [press.toFixed(2) + ' bar', pState],
+       supply: [supply.toFixed(0) + ' L/h', supState],
+       demand: [demand.toFixed(0) + ' L/h', ''],
+       cur:    [cur.toFixed(1) + ' A', curState],
+       lvl:    [(sim.level * 100).toFixed(0) + ' %', lvlState],
+       temp:   [sim.Tfuel.toFixed(0) + ' \u00B0C', tState],
+       filt:   ['-' + (filt * 100).toFixed(0) + ' % flow', fState],
+       state:  [stateTxt, stState]
+     },
+     status: [stateTxt, true],
+     ctl: Math.round(k * 100) + ' % load'
+   };
+  }
+ };
 }
 
 runGuidedModule(CFG, build);
