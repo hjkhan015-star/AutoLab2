@@ -1,5 +1,12 @@
 # Changelog
 
+## 7.0.0 - Sharper, richer visuals
+- Sharpness: v6.0's adaptive resolution was too eager and dropped pixel ratio on ordinary frame dips. It now starts at full resolution, waits out the warm-up, only steps down after two windows below ~30 fps, never goes under 80% of full, and recovers quickly. Removed `backface-visibility` on the module frame (could soften compositing).
+- Higher pixel-ratio caps (low 1.75, mid 2, high 2.5); antialiasing on low-end screens under 2x DPR; 4096 shadow map on desktop high-end.
+- Colour: studio environment map (512x256 with soft cool/warm light boxes) replaces the dark 64px gradient, so metals reflect properly; brighter key/hemisphere lights; higher tone-mapping exposure; tone mapping now on for low-end too; +14% saturation / +5% contrast on the canvas (skipped on low-end).
+- Cache `autolab-v7.0`.
+
+
 ## 6.1.0
 - Fixed label wobble in all modules except cooling. Causes: (1) a CSS `transition` on label `transform` stacked on top of JS smoothing; (2) the JS eased the label's absolute screen position, so it lagged behind moving anchors; (3) collision avoidance re-ran every frame and flipped labels between slots.
 - Fix, modelled on cooling's callouts: label = anchor + stored offset (rigid, no lag); offsets are solved at most 4x/second with a sticky preferred slot; flip-side hysteresis; sub-pixel anchor deadband; whole-pixel transforms.

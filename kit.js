@@ -36,15 +36,15 @@ function detectQuality() {
   const isLowEnd = cores <= 4 || mem <= 2;
   const isMidEnd = !isLowEnd && (cores <= 6 || mem <= 4 || (isCoarse && dpr >= 2.5));
   const isHighEnd = !isLowEnd && !isMidEnd;
-  const dprCap = isLowEnd ? 1.5 : isMidEnd ? 1.75 : 2;
+  const dprCap = isLowEnd ? 1.75 : isMidEnd ? 2 : 2.5;
   const look = isLowEnd
-    ? { antialias:false, shadows:false, shadowMapSize:0, rimLight:false,
-        grid:false, floorSegments:32, fogDensityMul:1.15, toneMapping:false, exposure:1.0 }
+    ? { antialias: dpr < 2, shadows:false, shadowMapSize:0, rimLight:false,
+        grid:false, floorSegments:32, fogDensityMul:1.15, toneMapping:true, exposure:1.1, enhance:false }
     : isMidEnd
-    ? { antialias:true, shadows:true, shadowMapSize:1024, rimLight:true,
-        grid:true, floorSegments:48, fogDensityMul:1.0, toneMapping:true, exposure:1.05 }
-    : { antialias:true, shadows:true, shadowMapSize:2048, rimLight:true,
-        grid:true, floorSegments:64, fogDensityMul:0.9, toneMapping:true, exposure:1.1 };
+    ? { antialias:true, shadows:true, shadowMapSize:2048, rimLight:true,
+        grid:true, floorSegments:48, fogDensityMul:1.0, toneMapping:true, exposure:1.18, enhance:true }
+    : { antialias:true, shadows:true, shadowMapSize:isCoarse ? 2048 : 4096, rimLight:true,
+        grid:true, floorSegments:64, fogDensityMul:0.9, toneMapping:true, exposure:1.25, enhance:true };
   return { isCoarse, cores, mem, dpr, isLowEnd, isMidEnd, isHighEnd, dprCap, look };
 }
 
@@ -249,25 +249,27 @@ export function buildScene(opts = {}) {
     stencil: false, alpha: false
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, dprCap));
-  /* Adaptive resolution: if frames run slow, quietly lower the pixel ratio; raise it again when there is headroom. */
+  /* Adaptive resolution (conservative): stay at full sharpness; only step down when the
+     device is clearly struggling (<~30 fps for two consecutive windows), never below 80%
+     of full resolution, and step back up as soon as there is headroom. */
   (function () {
-    const maxR = Math.min(window.devicePixelRatio || 1, dprCap), minR = Math.min(1, maxR);
+    const maxR = Math.min(window.devicePixelRatio || 1, dprCap), minR = Math.max(1, maxR * 0.8);
     if (maxR <= minR) return;
     const origRender = renderer.render.bind(renderer);
-    let ratio = maxR, last = 0, sum = 0, n = 0, calm = 0;
+    let ratio = maxR, last = 0, sum = 0, n = 0, slow = 0, calm = 0, warm = 0;
     renderer.render = function (scene, cam) {
       const t = performance.now();
-      if (last) { const dt = t - last; if (dt < 120) { sum += dt; n++; } }
+      if (++warm > 150 && last) { const dt = t - last; if (dt < 200) { sum += dt; n++; } }
       last = t;
-      if (n >= 40) {
+      if (n >= 60) {
         const avg = sum / n; sum = 0; n = 0;
-        if (avg > 24 && ratio > minR) { ratio = Math.max(minR, ratio - 0.25); calm = 0; renderer.setPixelRatio(ratio); }
-        else if (avg < 15 && ratio < maxR) { if (++calm >= 4) { ratio = Math.min(maxR, ratio + 0.25); calm = 0; renderer.setPixelRatio(ratio); } }
-        else calm = 0;
+        if (avg > 34) { calm = 0; if (++slow >= 2 && ratio > minR) { ratio = Math.max(minR, ratio - 0.25); slow = 0; renderer.setPixelRatio(ratio); } }
+        else if (avg < 20) { slow = 0; if (++calm >= 2 && ratio < maxR) { ratio = Math.min(maxR, ratio + 0.25); calm = 0; renderer.setPixelRatio(ratio); } }
+        else { slow = 0; calm = 0; }
       }
       return origRender(scene, cam);
     };
-    document.addEventListener('visibilitychange', () => { last = 0; sum = 0; n = 0; });
+    document.addEventListener('visibilitychange', () => { last = 0; sum = 0; n = 0; warm = 0; });
   })();
   renderer.shadowMap.enabled = look.shadows;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -276,6 +278,7 @@ export function buildScene(opts = {}) {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = look.exposure;
   }
+  if (look.enhance) renderer.domElement.style.filter = 'saturate(1.14) contrast(1.05)';
   wrap.appendChild(renderer.domElement);
   renderer.domElement.setAttribute('role', 'img');
   renderer.domElement.setAttribute('aria-label', (document.title || 'Auto Lab').replace(/\s*—\s*Auto Lab$/, '') + ' — interactive 3D model');
@@ -303,10 +306,10 @@ export function buildScene(opts = {}) {
   controls.rotateSpeed = isCoarse ? 0.6 : 0.9;
   controls.zoomSpeed   = isCoarse ? 0.7 : 1.0;
 
-  const hemi = new THREE.HemisphereLight(0xb8d0ff, 0x1a1520, isLowEnd ? 0.7 : 0.55);
+  const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x2a2030, isLowEnd ? 0.75 : 0.7);
   scene.add(hemi);
 
-  const key = new THREE.DirectionalLight(0xfff4e6, isLowEnd ? 1.0 : (isMidEnd ? 1.2 : 1.3));
+  const key = new THREE.DirectionalLight(0xfff4e6, isLowEnd ? 1.1 : (isMidEnd ? 1.4 : 1.55));
   key.position.set(4, 8, 5);
   if (look.shadows) {
     key.castShadow = true;
@@ -314,7 +317,7 @@ export function buildScene(opts = {}) {
     key.shadow.camera.near = 1; key.shadow.camera.far = 25;
     key.shadow.camera.left = -6; key.shadow.camera.right = 6;
     key.shadow.camera.top = 6;   key.shadow.camera.bottom = -6;
-    key.shadow.bias = -0.0005;
+    key.shadow.bias = -0.0003;
     key.shadow.normalBias = 0.02;
   }
   scene.add(key);
@@ -353,15 +356,29 @@ export function buildScene(opts = {}) {
   }
 
   if (!isLowEnd) {
+    const EW = 512, EH = 256;
     const envCanvas = document.createElement('canvas');
-    envCanvas.width = 64; envCanvas.height = 64;
+    envCanvas.width = EW; envCanvas.height = EH;
     const ctx = envCanvas.getContext('2d');
-    const grd = ctx.createLinearGradient(0, 0, 0, 64);
-    grd.addColorStop(0.0, '#3a4a68');
-    grd.addColorStop(0.5, '#1a2030');
-    grd.addColorStop(1.0, '#0a0d13');
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, 0, 64, 64);
+    const grd = ctx.createLinearGradient(0, 0, 0, EH);
+    grd.addColorStop(0.00, '#dbe8ff');
+    grd.addColorStop(0.28, '#7f9cc9');
+    grd.addColorStop(0.47, '#3a4866');
+    grd.addColorStop(0.53, '#232b3d');
+    grd.addColorStop(0.75, '#10141d');
+    grd.addColorStop(1.00, '#07090e');
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, EW, EH);
+    /* soft studio light boxes: cool key, warm fill, thin rim strips */
+    const box = (cx, cy, rx, ry, c0, a0) => {
+      ctx.save(); ctx.translate(cx, cy); ctx.scale(1, ry / rx);
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+      g.addColorStop(0, c0); g.addColorStop(0.55, c0.replace('1)', a0 + ')')); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    };
+    box(EW * 0.18, EH * 0.22, 70, 40, 'rgba(255,255,255,1)', 0.55);
+    box(EW * 0.62, EH * 0.18, 90, 40, 'rgba(255,236,210,1)', 0.5);
+    box(EW * 0.88, EH * 0.32, 50, 26, 'rgba(140,190,255,1)', 0.45);
+    box(EW * 0.40, EH * 0.46, 120, 10, 'rgba(255,255,255,1)', 0.35);
     const envTex = new THREE.CanvasTexture(envCanvas);
     envTex.mapping = THREE.EquirectangularReflectionMapping;
     envTex.colorSpace = THREE.SRGBColorSpace;
