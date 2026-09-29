@@ -9,6 +9,49 @@
 <style>
 :root { --al-accent: #84cc16; }
 html.light-theme { --al-accent: color-mix(in oklch, #84cc16 68%, black); }
+
+/* ── module-local UI: extra controls + rolling graph ─────────────── */
+#oilp-panel{
+  position:fixed; left:12px; top:12px; z-index:30;
+  width:264px; max-width:46vw;
+  padding:10px 12px 12px;
+  border:1px solid var(--border,#333);
+  border-radius:10px;
+  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38);
+  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
+  color:var(--text-dim,#9aa4b2);
+  max-height:calc(100dvh - 24px); overflow:auto;
+}
+#oilp-panel.folded .oilp-body{ display:none; }
+.oilp-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.oilp-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
+.oilp-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
+.oilp-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.oilp-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.oilp-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-mute,#6b7280); }
+.oilp-w b{ color:var(--text,#e5e7eb); font-weight:700; }
+#oilp-panel .al-range{ height:22px; }
+#oilp-panel .al-sel{ min-height:32px; font-size:11px; }
+.oilp-btns{ display:flex; gap:6px; margin-bottom:8px; }
+.oilp-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
+.oilp-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.oilp-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(132,204,22,.14); }
+#oilp-cold{ color:#38bdf8; border-color:rgba(56,189,248,.4); }
+#oilp-cold:hover{ border-color:#38bdf8; }
+.oilp-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
+  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
+  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
+.oilp-warn.show{ display:block; }
+#oilp-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
+  border-radius:6px; background:rgba(0,0,0,.28); }
+.oilp-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
+.oilp-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+@media (max-width:700px){ #oilp-panel{ width:208px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -29,39 +72,551 @@ html.light-theme { --al-accent: color-mix(in oklch, #84cc16 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "oilpump", "title": "Oil Pump Types", "kicker": "Lubrication", "accent": "#84cc16", "badge": "External gear pump", "camPos": [4.6, 2.4, 6.8], "target": [0.6, 0, 0], "floorY": -3.1, "ctl": {"label": "Pump speed", "val": 35, "caption": "Crank rpm"}, "chipLabel": "Oil pressure", "rows": [["flow", "Flow"], ["relief", "Relief valve"]], "ro": [["rpm", "Pump speed"], ["press", "Oil pressure"], ["flow", "Flow"], ["relief", "Relief valve"], ["type", "Type"]], "legend": [["#fbbf24", "Engine oil"], ["#94a3b8", "Gears"], ["#a3e635", "Relief valve"]], "overview": "<div class=\"al-sec\"><h4>Making flow, not pressure<\/h4><p>The pump only delivers <b>flow<\/b>. Pressure builds because oil has to squeeze through bearing clearances. The relief valve caps the maximum so cold, thick oil cannot burst the filter.<\/p><\/div><div class=\"al-sec\"><h4>Pump types<\/h4><ul><li><b>External gear<\/b> – two meshing gears carry oil round the outer walls (shown).<\/li><li><b>Gerotor<\/b> – inner rotor with one tooth fewer than the outer; compact and often crank-driven.<\/li><li><b>Vane<\/b> – variable-displacement versions save fuel by cutting flow at low load.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Relief valve<\/h4><p>A spring-loaded plunger. Above the set pressure (about 4–5 bar) it lifts and dumps oil back to the sump.<\/p><\/div>", "faults": [["Worn pump gears", "Low pressure when hot, low-oil-pressure light at idle.", "Measure oil pressure at idle and 3000 rpm with a gauge; inspect gear end-float."], ["Stuck relief valve", "Too high pressure (open failure = low pressure).", "Remove and check the plunger moves freely; check the spring length."], ["Blocked pickup strainer", "Pump cavitation, noise, low pressure.", "Drop the sump and clean the strainer; check for sludge."]], "quiz": [["Oil pump directly creates…", ["Pressure", "Flow", "Viscosity"], 1, "The pump moves a volume; resistance to that flow creates pressure."], ["The relief valve opens to…", ["Increase flow", "Limit maximum pressure", "Cool the oil"], 1, "It bleeds oil back to the sump, protecting the filter and seals."], ["A gerotor pump has…", ["Two equal gears", "An inner rotor with one tooth fewer than the outer", "Vanes only"], 1, "The tooth-count difference creates the expanding and collapsing chambers."]]};
+const CFG = {
+  "moduleId": "oilpump",
+  "title": "Oil Pump Types",
+  "kicker": "Lubrication",
+  "accent": "#84cc16",
+  "badge": "Gear · Gerotor · Vane",
+  "camPos": [4.6, 2.4, 6.8],
+  "target": [0.6, 0, 0],
+  "floorY": -3.1,
+  "ctl": { "label": "Engine speed", "val": 35, "caption": "Crank rpm" },
+  "chipLabel": "Oil pressure",
+  "rows": [["flow", "Pump flow"], ["relief", "Relief valve"]],
+  "ro": [
+    ["press",  "Oil pressure"],
+    ["flow",   "Pump flow"],
+    ["relief", "Relief valve"],
+    ["temp",   "Oil temperature"],
+    ["visc",   "Viscosity"],
+    ["aer",    "Aeration"],
+    ["clr",    "Bearing clearance"],
+    ["type",   "Pump type"],
+    ["state",  "State"]
+  ],
+  "legend": [
+    ["#fbbf24", "Warm oil"],
+    ["#b45309", "Hot, thin oil"],
+    ["#f1f5f9", "Aerated / cavitating oil"],
+    ["#94a3b8", "Rotors / gears"],
+    ["#a3e635", "Relief valve"],
+    ["#ef4444", "Worn pump warning"],
+    ["#1a1410", "Clogged pickup screen (fault)"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Making flow, not pressure<\/h4><p>The pump only delivers <b>flow<\/b>. Pressure builds because oil has to squeeze through bearing clearances. The relief valve caps the maximum so cold, thick oil cannot burst the filter.<\/p><\/div><div class=\"al-sec\"><h4>Pump types<\/h4><ul><li><b>External gear<\/b> – two meshing gears carry oil round the outer walls. Cheap, rugged, but the biggest pressure ripple.<\/li><li><b>Gerotor<\/b> – inner rotor with one tooth fewer than the outer; compact, smooth, often crank-driven.<\/li><li><b>Vane<\/b> – sliding vanes in a rotor; variable-displacement versions cut flow at low load to save fuel. Lowest ripple.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Viscosity is everything<\/h4><p>Oil is ~100&nbsp;cSt at 40&nbsp;&deg;C and only ~10&nbsp;cSt at 100&nbsp;&deg;C. Thick, cold oil makes enormous pressure at idle (so the relief valve opens); thin, hot oil makes far less. That is why a healthy engine shows high pressure cold and lower pressure hot.<\/p><\/div><div class=\"al-sec\"><h4>Wear and leakage<\/h4><p>All the pressure is held back by the bearing clearances. As they open up with wear, more oil leaks past and pressure falls – first at hot idle, exactly where the low-pressure light lives.<\/p><\/div><div class=\"al-sec\"><h4>Aeration and cavitation<\/h4><p>If the pickup screen is clogged or the sump is low, the pump sucks air instead of oil at high rpm. Flow collapses, pressure becomes erratic and the pump can be damaged.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Watch the pressure at hot idle, then rev it – the relief valve opens and the plunger lifts. Switch pump type and compare the pressure ripple. Now crank <b>Bearing wear<\/b> to 80&nbsp;% and watch hot-idle pressure collapse, then select <b>Clogged pickup screen<\/b> and rev it to see aeration spike.<\/p><\/div>",
+  "faults": [
+    ["Worn pump (gears / rotors)", "Low oil pressure when hot, low-pressure light flickering at idle, top-end rattle. Pressure rises with rpm but never reaches the relief setting.", "Measure oil pressure with a gauge at idle and 3000 rpm hot; inspect gear end-float and housing scoring."],
+    ["Relief valve stuck open", "Low pressure at all speeds and temperatures; the plunger is held off its seat so oil bypasses straight back to the sump.", "Remove the plunger and check for a sticking bore, a broken spring or swarf; verify the cracking pressure on a bench."],
+    ["Clogged pickup screen", "Pressure drops and becomes erratic at high rpm, pump whines or growls, aeration rises. Worse when the oil is cold and thick.", "Drop the sump, clean the strainer, check for sludge and debris; verify the pickup O-ring is sealing."],
+    ["Low oil level", "Aeration and pressure fluctuation under cornering or high rpm; the pump intermittently draws air.", "Check the dipstick when cold; look for leaks at the sump plug, rear main seal and cooler lines."],
+    ["Blocked oil filter bypass", "Pressure spikes cold, filter can ruptures, unfiltered oil circulates.", "Replace the filter; check the bypass valve in the filter housing."]
+  ],
+  "quiz": [
+    ["Oil pump directly creates…", ["Pressure", "Flow", "Viscosity"], 1, "The pump moves a volume; resistance to that flow creates pressure."],
+    ["Hot oil gives lower pressure because…", ["It is thinner and leaks past the bearings more easily", "The pump turns slower", "The relief valve closes"], 0, "Viscosity falls with temperature, so bearing-clearance leakage rises and pressure drops."],
+    ["Which pump type has the lowest pressure ripple?", ["External gear", "Gerotor", "Vane"], 2, "Vane pumps deliver the smoothest flow; gear pumps have the largest ripple because of the meshing teeth."],
+    ["The relief valve opens to…", ["Increase flow", "Limit maximum pressure", "Cool the oil"], 1, "It bleeds oil back to the sump, protecting the filter and seals when the oil is cold and thick."],
+    ["Aeration is worst when…", ["High rpm with a low sump or clogged screen", "Idle with a full sump", "Cold oil with a clean screen"], 0, "The pump can only move liquid; air entering the inlet collapses flow and makes pressure erratic."],
+    ["Bearing wear lowers oil pressure because…", ["Clearances open and more oil escapes", "The pump slows down", "Oil viscosity rises"], 0, "The bearings are the restriction that creates pressure — bigger clearances mean less restriction."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   PHYSICS MODEL — pure, named functions.
+   Simplified physical trends, not a bench lookup table.
+   ═══════════════════════════════════════════════════════════════════ */
+
+function clampN(x, a, b) {
+  if (!Number.isFinite(x)) return a;
+  return x < a ? a : (x > b ? b : x);
+}
+const num = (x, d) => (Number.isFinite(x) ? x : d);
+
+/* ── named constants ─────────────────────────────────────────────── */
+const VISC_40     = 100;     /* cSt, reference kinematic viscosity at 40 °C        */
+const VISC_SLOPE  = 0.0385;  /* 1/°C, exponential fall of viscosity with temp      */
+const VISC_MIN    = 2.5;     /* cSt, floor for very hot oil                        */
+const VISC_MAX    = 4000;    /* cSt, ceiling for very cold oil                     */
+const R_BASE      = 0.80;    /* bar per L/min at reference viscosity & new bearings*/
+const CLEAR_WEAR  = 1.2;     /* extra clearance factor at 100 % bearing wear       */
+const RELIEF_SET  = 4.5;     /* bar, healthy relief cracking pressure              */
+const RELIEF_STUCK= 1.2;     /* bar, when the relief valve is stuck open           */
+const TAU_OIL     = 45;      /* s, oil warm-up time constant                       */
+const OIL_COLD    = 20;      /* °C, oil temperature on a cold start                */
+const DISP_CC     = { gear: 12, gerotor: 10, vane: 14 };   /* cc per pump revolution */
+const RIPPLE      = { gear: 0.075, gerotor: 0.035, vane: 0.018 }; /* ±fraction */
+const TYPE_NAME   = { gear: 'External gear', gerotor: 'Gerotor', vane: 'Vane' };
+
+/* Kinematic viscosity of engine oil. Direction: hotter oil -> thinner.
+   Simplified exponential (Walther-ish), not a full ASTM chart. */
+function oilViscosity(Tc) {
+  const T = clampN(num(Tc, 90), -20, 160);
+  return clampN(VISC_40 * Math.exp(-VISC_SLOPE * (T - 40)), VISC_MIN, VISC_MAX);
+}
+
+/* Volumetric efficiency 0.15..0.99. Direction: more wear -> worse
+   sealing -> less flow; thicker oil -> better sealing -> more flow. */
+function pumpVolEff(wear, Tc) {
+  const w = clampN(num(wear, 0), 0, 1);
+  const seal = clampN((oilViscosity(Tc) - 3) / 50, 0, 1);
+  return clampN(0.94 - 0.40 * w + 0.05 * seal, 0.15, 0.99);
+}
+
+/* Delivered flow (L/min). Direction: more rpm -> more flow; more wear
+   -> less; entrained air -> much less. */
+function pumpFlowLpm(rpm, type, wear, Tc, aeration) {
+  const disp = DISP_CC[type] || DISP_CC.gear;
+  const eff = pumpVolEff(wear, Tc) * (1 - 0.55 * clampN(aeration, 0, 1));
+  return Math.max(0, clampN(num(rpm, 800), 0, 8000) * disp / 1000 * eff);
+}
+
+/* Oil pressure (bar) developed across the bearings. Direction: more
+   flow / thicker oil -> more pressure; bigger bearing clearance (wear)
+   -> less. Capped by the relief valve setting. */
+function oilPressure(flowLpm, Tc, wear, reliefSet) {
+  const viscR = clampN(oilViscosity(Tc) / 60, 0.04, 8);
+  const clearance = 1 + CLEAR_WEAR * clampN(num(wear, 0), 0, 1);
+  const raw = Math.max(0, num(flowLpm, 0)) * R_BASE * viscR / clearance;
+  const set = clampN(num(reliefSet, RELIEF_SET), 0.2, 12);
+  return { p: Math.min(raw, set), raw: raw, open: raw > set };
+}
+
+/* Entrained-air fraction 0..0.95. Direction: high rpm + low sump level
+   or a restricted pickup screen -> the pump draws air. */
+function aerationPct(rpm, level, screenClog) {
+  const rpmN = clampN((num(rpm, 800) - 1400) / 5000, 0, 1);
+  const lowL = clampN((0.55 - clampN(num(level, 1), 0, 1)) / 0.55, 0, 1);
+  const clog = clampN(num(screenClog, 0), 0, 1);
+  return clampN(100 * (0.55 * rpmN * lowL + 0.75 * rpmN * clog), 0, 95);
+}
+
+/* Oil temperature the engine settles at. Direction: more rpm / more
+   load -> hotter oil. The state chases this with a first-order lag. */
+function oilTempTarget(rpm, load) {
+  const rpmN = clampN((num(rpm, 800) - 800) / 5700, 0, 1);
+  return 80 + 22 * rpmN + 15 * clampN(num(load, 0), 0, 1);
+}
+
+/* Bearing clearance in mm for display. Direction: more wear -> bigger. */
+function bearingClearanceMm(wear) {
+  return 0.040 + 0.060 * clampN(num(wear, 0), 0, 1);
+}
+
+const FAULT_INFO = {
+  none:     { label: 'None (healthy)',          warn: '' },
+  worn:     { label: 'Worn pump (gears / rotors)', warn: 'Pump wear is high - internal leakage across the rotor tips and end plates. Expect low pressure when the oil is hot and thin, rising with rpm but never reaching the relief setting. Diagnostic: low hot-idle oil pressure, P0524.' },
+  relief:   { label: 'Relief valve stuck open', warn: 'The relief plunger is held off its seat, so oil bypasses back to the sump at all times. Pressure stays low even when the oil is cold and thick. Diagnostic: low pressure at all temperatures.' },
+  screen:   { label: 'Clogged pickup screen',   warn: 'The pickup screen is restricted, so the pump cavitates at higher rpm. Flow collapses, pressure becomes erratic and the pump whines. Diagnostic: aeration, pressure fluctuation, P06DD.' },
+  lowlevel: { label: 'Low oil level',           warn: 'Sump level is low. Under load the pickup uncovers and the pump draws air - pressure fluctuates and the top end is starved.' },
+  filter:   { label: 'Filter bypass blocked',   warn: 'The filter bypass is stuck shut so cold, thick oil cannot get through. Pressure spikes on start-up and the filter can rupture.' }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXTRA CONTROLS (built here; the runtime only provides one slider)
+   ═══════════════════════════════════════════════════════════════════ */
+const S = {
+  load: 0.30,
+  wear: 0.00,
+  type: 'gear',
+  fault: 'none',
+  speed: 1
+};
+
+const panel = document.createElement('div');
+panel.id = 'oilp-panel';
+let faultOptions = '';
+for (const id in FAULT_INFO) {
+  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
+}
+panel.innerHTML =
+  '<div class="oilp-h"><span>Oil pump simulation</span><button type="button" id="oilp-fold" aria-label="Collapse controls">&#8211;</button></div>' +
+  '<div class="oilp-body">' +
+    '<div class="oilp-w"><label for="oilp-type">Pump type</label>' +
+      '<select id="oilp-type" class="al-sel" aria-label="Pump type">' +
+        '<option value="gear" selected>External gear</option>' +
+        '<option value="gerotor">Gerotor</option>' +
+        '<option value="vane">Vane</option>' +
+      '</select></div>' +
+    '<div class="oilp-w"><label for="oilp-load">Engine load <b id="oilp-load-v">30 %</b></label>' +
+      '<input id="oilp-load" class="al-range" type="range" min="0" max="100" step="1" value="30" aria-label="Engine load"></div>' +
+    '<div class="oilp-w"><label for="oilp-wear">Bearing wear <b id="oilp-wear-v">0 %</b></label>' +
+      '<input id="oilp-wear" class="al-range" type="range" min="0" max="100" step="1" value="0" aria-label="Bearing wear"></div>' +
+    '<div class="oilp-w"><label for="oilp-fault">Fault injection</label>' +
+      '<select id="oilp-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
+    '<div class="oilp-w"><label>Simulation speed</label>' +
+      '<div class="oilp-btns" id="oilp-speed">' +
+        '<button type="button" data-sp="1" class="on">1&times;</button>' +
+        '<button type="button" data-sp="5">5&times;</button>' +
+        '<button type="button" data-sp="20">20&times;</button>' +
+      '</div></div>' +
+    '<div class="oilp-btns">' +
+      '<button type="button" id="oilp-cold">Cold start</button>' +
+      '<button type="button" id="oilp-reset">Reset</button>' +
+    '</div>' +
+    '<div class="oilp-warn" id="oilp-warn"></div>' +
+    '<canvas id="oilp-graph" width="480" height="150" aria-label="Oil pressure and temperature history"></canvas>' +
+    '<div class="oilp-key"><span><i style="background:#84cc16"></i>Pressure bar</span><span><i style="background:#fb923c"></i>Oil &deg;C</span></div>' +
+  '</div>';
+document.body.appendChild(panel);
+
+const elFold  = document.getElementById('oilp-fold');
+const elType  = document.getElementById('oilp-type');
+const elLoad  = document.getElementById('oilp-load');
+const elLoadV = document.getElementById('oilp-load-v');
+const elWear  = document.getElementById('oilp-wear');
+const elWearV = document.getElementById('oilp-wear-v');
+const elFault = document.getElementById('oilp-fault');
+const elSpeed = document.getElementById('oilp-speed');
+const elCold  = document.getElementById('oilp-cold');
+const elReset = document.getElementById('oilp-reset');
+const elWarn  = document.getElementById('oilp-warn');
+const gcv     = document.getElementById('oilp-graph');
+const gctx    = gcv.getContext('2d');
+
+elFold.addEventListener('click', () => {
+  panel.classList.toggle('folded');
+  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
+});
+elType.addEventListener('change', () => { S.type = elType.value; });
+elLoad.addEventListener('input', () => {
+  S.load = (Number(elLoad.value) || 0) / 100;
+  elLoadV.textContent = Math.round(S.load * 100) + ' %';
+});
+elWear.addEventListener('input', () => {
+  S.wear = (Number(elWear.value) || 0) / 100;
+  elWearV.textContent = Math.round(S.wear * 100) + ' %';
+});
+elFault.addEventListener('change', () => { S.fault = elFault.value; });
+elSpeed.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sp]');
+  if (!b) return;
+  S.speed = Number(b.dataset.sp) || 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
+});
+elCold.addEventListener('click', () => { sim.Toil = OIL_COLD; });
+
+/* ── simulation state (module level so Reset can reach it) ───────── */
+const GRAPH_N = 150;
+const sim = {
+  Toil: 92,
+  lastT: -1,
+  samples: []
+};
+
+function resetModel() {
+  sim.Toil = 92;
+  sim.lastT = -1;
+  sim.samples.length = 0;
+}
+function resetAll() {
+  S.load = 0.30; elLoad.value = 30; elLoadV.textContent = '30 %';
+  S.wear = 0.00; elWear.value = 0;  elWearV.textContent = '0 %';
+  S.type = 'gear'; elType.value = 'gear';
+  S.fault = 'none'; elFault.value = 'none';
+  S.speed = 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
+  resetModel();
+  const ctlEl = document.getElementById('ctl');
+  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+elReset.addEventListener('click', resetAll);
+
+/* ── rolling graph ───────────────────────────────────────────────── */
+function drawGraph() {
+  const W = gcv.width, Hh = gcv.height;
+  gctx.clearRect(0, 0, W, Hh);
+  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
+  gctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = Math.round(Hh * i / 4) + 0.5;
+    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+  }
+  const n = sim.samples.length;
+  if (n < 2) return;
+  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
+  const yP  = (v) => Hh - clampN(v / 6, 0, 1) * (Hh - 6) - 3;
+  const yT  = (v) => Hh - clampN((v - 0) / 140, 0, 1) * (Hh - 6) - 3;
+
+  gctx.beginPath();
+  gctx.moveTo(xAt(0), Hh);
+  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yP(sim.samples[i].P));
+  gctx.lineTo(xAt(n - 1), Hh);
+  gctx.closePath();
+  gctx.fillStyle = 'rgba(132,204,22,0.16)';
+  gctx.fill();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yP(sim.samples[i].P);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#84cc16'; gctx.lineWidth = 1.6; gctx.stroke();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yT(sim.samples[i].T);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.4; gctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE SCENE (per-module 3D parts)
+   ═══════════════════════════════════════════════════════════════════ */
 function build(H){
- const {box,cyl,cylZ,mat,glass,pipe,stream,lc,clamp,root,THREE,Base}=H;
- const steel=mat(0x94a3b8,.85,.3), gm=mat(0xb8c0cc,.85,.3), dark=mat(0x3d4555,.6,.5), N=10;
- box(2.6,1.9,.12,dark,0,0,-.55); box(2.6,1.9,.9,glass(0x94a3b8,.2),0,0,0);
- function gear(x){ const w=new THREE.Group(); w.position.set(x,0,0); root.add(w); const g=Base.makeCog(.42,.6,N,.16,.14,gm,gm); g.rotation.x=Math.PI/2; w.add(g); cylZ(.1,.1,1.4,steel,0,0,0,w); return w; }
- const gA=gear(-.5), gB=gear(.5);
- box(3.6,.5,2.0,glass(0xf59e0b,.36),0,-2.75,0); cyl(.38,.38,.35,mat(0x64748b,.4,.6),0,-2.3,0);
- pipe([[0,-2.3,0],[0,-.85,0]],.16,dark); pipe([[0,.85,0],[0,1.7,0],[2.6,1.7,0]],.16,dark);
- cyl(.3,.3,1.0,glass(0x64748b,.35),2.0,1.05,0); cyl(.36,.36,.14,dark,2.0,.5,0);
- const plunger=cyl(.2,.2,.3,mat(0xa3e635,.6,.4),2.0,.75,0);
- const spring=H.put(Base.makeHelixSpring(.14,.025,7,1,mat(0x9aa3b2,.8,.3),40),2.0,0,0); 
- const inL=stream([[0,-2.3,0],[0,-.9,0]],10,0xfbbf24,.11);
- const L=stream([[0,-.9,0],[-.75,-.75,0],[-.95,0,0],[-.75,.75,0],[0,.9,0]],12,0xfbbf24,.1);
- const R=stream([[0,-.9,0],[.75,-.75,0],[.95,0,0],[.75,.75,0],[0,.9,0]],12,0xfbbf24,.1);
- const out=stream([[0,.9,0],[0,1.7,0],[2.6,1.7,0],[3.6,1.7,0]],16,0xfbbf24,.11);
- let a=0;
+ const { box, cyl, cylZ, mat, glass, pipe, stream, lc, clamp, root, THREE, lowEnd } = H;
+
+ const steel = mat(0x94a3b8, .85, .30);
+ const gm    = mat(0xb8c0cc, .85, .30);
+ const dark  = mat(0x3d4555, .60, .50);
+ const N = 10;
+
+ /* ── housing ──────────────────────────────────────────────────── */
+ box(2.6, 1.9, .12, dark, 0, 0, -.55);
+ box(2.6, 1.9, .90, glass(0x94a3b8, .20), 0, 0, 0);
+
+ /* ── gear pump internals ──────────────────────────────────────── */
+ const gearGroup = new THREE.Group(); root.add(gearGroup);
+ function gear(x){
+   const w = new THREE.Group(); w.position.set(x, 0, 0); gearGroup.add(w);
+   const g = Base.makeCog(.42, .6, N, .16, .14, gm, gm);
+   g.rotation.x = Math.PI / 2; w.add(g);
+   cylZ(.10, .10, 1.40, steel, 0, 0, 0, w);
+   return w;
+ }
+ const gA = gear(-.5), gB = gear(.5);
+
+ /* ── gerotor internals ────────────────────────────────────────── */
+ const gerotorGroup = new THREE.Group(); gerotorGroup.visible = false; root.add(gerotorGroup);
+ const gerOuterG = new THREE.Group(); gerotorGroup.add(gerOuterG);
+ const gerOuter = Base.makeCog(.50, .6, 10, .16, .12, gm, gm);
+ gerOuter.rotation.x = Math.PI / 2; gerOuterG.add(gerOuter);
+ const gerInnerG = new THREE.Group(); gerotorGroup.add(gerInnerG);
+ const gerInner = Base.makeCog(.33, .6, 9, .16, .12, steel, steel);
+ gerInner.rotation.x = Math.PI / 2; gerInnerG.add(gerInner);
+ cylZ(.10, .10, 1.40, steel, 0, 0, 0, gerotorGroup);
+
+ /* ── vane internals ───────────────────────────────────────────── */
+ const vaneGroup = new THREE.Group(); vaneGroup.visible = false; root.add(vaneGroup);
+ cylZ(.62, .62, .50, glass(0x64748b, .30), 0, 0, 0, vaneGroup);
+ cylZ(.22, .22, .50, gm, 0, 0, 0, vaneGroup);
+ for (let i = 0; i < 5; i++) {
+   const a = i / 5 * Math.PI * 2;
+   const v = box(.09, .36, .46, steel, Math.cos(a) * .34, Math.sin(a) * .34, 0, vaneGroup);
+   v.rotation.z = a;
+ }
+ cylZ(.10, .10, 1.40, steel, 0, 0, 0, vaneGroup);
+
+ /* ── wear warning ring around the pump ────────────────────────── */
+ const wearMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xef4444, emissiveIntensity: 0, transparent: true, opacity: 0.95 });
+ H.put(new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.045, 8, 44), wearMat), 0, 0, 0.46);
+
+ /* ── sump + oil ───────────────────────────────────────────────── */
+ box(3.6, .5, 2.0, glass(0x94a3b8, .14), 0, -2.75, 0);
+ const sumpOilMat = glass(0xf59e0b, .44);
+ const sumpOil = box(3.4, .46, 1.8, sumpOilMat, 0, -2.75, 0);
+
+ /* ── pickup + strainer ────────────────────────────────────────── */
+ cyl(.38, .38, .35, mat(0x64748b, .4, .6), 0, -2.3, 0);
+ const clogMat = glass(0x1a1410, 0.0);
+ const clogMesh = cyl(.44, .44, .40, clogMat, 0, -2.3, 0);
+ clogMesh.visible = false;
+
+ /* ── pipes + relief valve ─────────────────────────────────────── */
+ pipe([[0, -2.3, 0], [0, -.85, 0]], .16, dark);
+ pipe([[0, .85, 0], [0, 1.7, 0], [2.6, 1.7, 0]], .16, dark);
+ cyl(.30, .30, 1.00, glass(0x64748b, .35), 2.0, 1.05, 0);
+ cyl(.36, .36, .14, dark, 2.0, .50, 0);
+ const reliefMat = mat(0xa3e635, .6, .4, { emissive: 0x000000, emissiveIntensity: 0 });
+ const plunger = cyl(.20, .20, .30, reliefMat, 2.0, .75, 0);
+ const spring = H.put(Base.makeHelixSpring(.14, .025, 7, 1, mat(0x9aa3b2, .8, .3), 40), 2.0, 0, 0);
+
+ /* ── particle streams ─────────────────────────────────────────── */
+ const nIn  = lowEnd ?  8 : 14;
+ const nG   = lowEnd ? 10 : 18;
+ const nOut = lowEnd ? 10 : 18;
+ const nCav = lowEnd ?  6 : 10;
+
+ const inL = stream([[0, -2.3, 0], [0, -.9, 0]], nIn, 0xfbbf24, .11);
+ const sL  = stream([[0, -.9, 0], [-.75, -.75, 0], [-.95, 0, 0], [-.75, .75, 0], [0, .9, 0]], nG, 0xfbbf24, .10);
+ const sR  = stream([[0, -.9, 0], [.75, -.75, 0], [.95, 0, 0], [.75, .75, 0], [0, .9, 0]], nG, 0xfbbf24, .10);
+ const outS = stream([[0, .9, 0], [0, 1.7, 0], [2.6, 1.7, 0], [3.6, 1.7, 0]], nOut, 0xfbbf24, .11);
+ const cavS = stream([[0, -2.05, 0], [0, -1.55, 0], [0, -1.0, 0]], nCav, 0xf1f5f9, .10);
+
+ let spin = 0, lastDom = 0;
+ const tmpCol = new THREE.Color();
+
  return {
-  labels:[['Drive gear',[-.5,.85,.5]],['Driven gear',[.5,-.85,.5]],['Inlet strainer',[0,-2.0,.6]],['Outlet to galleries',[3.0,2.05,0]],['Relief valve',[2.0,1.7,.5]],['Sump',[-1.7,-2.5,1]]],
+  labels: [
+    ['Drive gear', [-.5, .85, .5]],
+    ['Driven gear', [.5, -.85, .5]],
+    ['Pump rotors', [0, 0, .55]],
+    ['Pickup strainer', [0, -2.0, .6]],
+    ['Outlet to galleries', [3.0, 2.05, 0]],
+    ['Relief valve', [2.0, 1.7, .5]],
+    ['Sump', [-1.7, -2.5, 1]]
+  ],
   update(c){
-   const rpm=800+5200*c.k, raw=.8+rpm*.0012, P=Math.min(raw,4.5+.3*(raw-4.5)), flow=rpm*.0065;
-   a+=c.dt*(rpm/60)*.9; gA.rotation.z=-a; gB.rotation.z=a+Math.PI/N;
-   const lift=clamp((raw-4.5)/2.0)*.3, py=.75+lift;
-   plunger.position.y=py; spring.position.y=py+.15; spring.scale.y=Math.max(.15,(1.55-(py+.15)));
-   const sp=.05+.35*(rpm/6000);
-   inL.update(c.t,sp,1); L.update(c.t,sp,1); R.update(c.t,sp,1); out.update(c.t,sp,1);
-   const relief=raw>4.5;
-   return {big:P.toFixed(1),unit:' bar',bar:P/5*100,rows:{flow:flow.toFixed(0)+' L/min',relief:relief?'Open':'Closed'},
-    ro:{rpm:[rpm.toFixed(0),'hi'],press:[P.toFixed(1)+' bar',P<1.2?'crit':'ok'],flow:[flow.toFixed(0)+' L/min',''],relief:[relief?'Bypassing':'Closed',relief?'warn':'ok'],type:['External gear','']},
-    status:[relief?'Relief open':'Pumping',true],ctl:rpm.toFixed(0)+' rpm'};
-  }};
+   /* ── 1. inputs ─────────────────────────────────────────────── */
+   const dt    = Math.max(0, num(c.dt, 0)) * S.speed;
+   const k     = clampN(c.k, 0, 1);
+   const rpm   = 800 + 5700 * k;
+   const fault = S.fault;
+   const type  = TYPE_NAME[S.type] ? S.type : 'gear';
+
+   /* toolbar Reset rewinds simT -> detect and clear the model */
+   if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) resetModel();
+   sim.lastT = c.t;
+
+   /* ── 2. wear, level, screen, relief set ───────────────────── */
+   let wear = clampN(S.wear, 0, 1);
+   if (fault === 'worn') wear = Math.max(wear, 0.85);
+   const level      = (fault === 'lowlevel') ? 0.22 : 0.92;
+   const screenClog = (fault === 'screen') ? 0.85 : 0;
+   let reliefSet = (fault === 'relief') ? RELIEF_STUCK : RELIEF_SET;
+   if (fault === 'filter') reliefSet = RELIEF_SET;
+
+   /* ── 3. aeration ──────────────────────────────────────────── */
+   const aer = aerationPct(rpm, level, screenClog) / 100;
+
+   /* ── 4. flow with pump-type ripple ────────────────────────── */
+   const ripple = 1 + RIPPLE[type] * (0.5 * Math.sin(c.t * 9.0) + 0.5 * Math.sin(c.t * 15.3));
+   const flow = pumpFlowLpm(rpm, type, wear, sim.Toil, aer) * ripple;
+
+   /* ── 5. pressure ──────────────────────────────────────────── */
+   const pres = oilPressure(flow, sim.Toil, wear, reliefSet);
+   let p = pres.p;
+   if (fault === 'filter') p = Math.min(reliefSet, p + 1.4);   /* bypass blocked -> spike */
+   p *= (1 - 0.14 * Math.abs(Math.sin(c.t * 3.1)) * aer);
+
+   /* ── 6. oil temperature state ─────────────────────────────── */
+   const Ttgt = oilTempTarget(rpm, S.load);
+   if (dt > 0) sim.Toil += (Ttgt - sim.Toil) * (1 - Math.exp(-dt / TAU_OIL));
+   sim.Toil = clampN(sim.Toil, 0, 145);
+
+   const visc = oilViscosity(sim.Toil);
+   const clr  = bearingClearanceMm(wear);
+
+   /* ── 7. status text ───────────────────────────────────────── */
+   let stateTxt;
+   if (aer > 0.35)          stateTxt = 'CAVITATING';
+   else if (p < 1.0)        stateTxt = 'LOW PRESSURE';
+   else if (pres.open)      stateTxt = 'Relief open';
+   else if (sim.Toil < 50)  stateTxt = 'Warming up';
+   else                     stateTxt = 'Normal';
+
+   /* ── 8. 3D visuals ────────────────────────────────────────── */
+   gearGroup.visible    = (type === 'gear');
+   gerotorGroup.visible = (type === 'gerotor');
+   vaneGroup.visible    = (type === 'vane');
+
+   spin += (rpm / 60) * Math.PI * 2 * dt;
+   gA.rotation.z = -spin;
+   gB.rotation.z =  spin + Math.PI / N;
+   gerOuterG.rotation.z = spin * 0.80;
+   gerInnerG.rotation.z = spin;
+   vaneGroup.rotation.z = spin;
+
+   /* wear ring glows red with wear */
+   wearMat.emissiveIntensity = clampN((wear - 0.35) / 0.65, 0, 1) * (0.55 + 0.45 * Math.abs(Math.sin(c.t * 3.5)));
+
+   /* relief plunger lift */
+   const lift = clampN((pres.raw - reliefSet) / 2.5, 0, 1) * 0.30;
+   const py = 0.75 + lift;
+   plunger.position.y = py;
+   spring.position.y  = py + 0.15;
+   spring.scale.y     = Math.max(0.15, (1.55 - (py + 0.15)));
+   if (fault === 'relief') {
+     reliefMat.emissive.setHex(0xef4444);
+     reliefMat.emissiveIntensity = 0.45 + 0.35 * Math.abs(Math.sin(c.t * 4));
+     plunger.position.y = 1.05;
+     spring.scale.y = 0.30;
+   } else {
+     reliefMat.emissive.setHex(0x000000);
+     reliefMat.emissiveIntensity = 0;
+   }
+
+   /* clogged screen overlay + sump level */
+   clogMesh.visible = (screenClog > 0.05);
+   clogMat.opacity = screenClog * 0.92;
+   const lvlScale = clampN(level, 0.05, 1);
+   sumpOil.scale.y = Math.max(0.12, lvlScale);
+   sumpOil.position.y = -2.75 - (1 - lvlScale) * 0.22;
+   sumpOilMat.color.copy(lc(0xf59e0b, 0xb45309, clampN((sim.Toil - 20) / 110, 0, 1)));
+
+   /* stream speed / density / colour */
+   const flowN = clampN(flow / 70, 0, 1.3);
+   const spd   = 0.05 + 0.45 * flowN;
+   const dens  = 0.20 + 0.80 * flowN;
+   tmpCol.copy(lc(0xfbbf24, 0xb45309, clampN((sim.Toil - 20) / 110, 0, 1)));
+   tmpCol.lerp(new THREE.Color(0xf1f5f9), clampN(aer, 0, 1) * 0.8);
+
+   inL.update(c.t, spd, dens);  inL.mat.color.copy(tmpCol);
+   sL.update(c.t, spd, dens);   sL.mat.color.copy(tmpCol);
+   sR.update(c.t, spd, dens);   sR.mat.color.copy(tmpCol);
+   outS.update(c.t, spd, dens); outS.mat.color.copy(tmpCol);
+   cavS.update(c.t, 0.35, clampN(aer * 1.4, 0, 1));
+
+   /* ── 9. throttled DOM work (graph + warning) ──────────────── */
+   const now = performance.now();
+   if (now - lastDom > 140) {
+     lastDom = now;
+     if (dt > 0) {
+       sim.samples.push({ P: p, T: sim.Toil });
+       if (sim.samples.length > GRAPH_N) sim.samples.shift();
+       drawGraph();
+     }
+     let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
+     if (!warn) {
+       if (aer > 0.35) {
+         warn = 'Aeration at ' + (aer * 100).toFixed(0) + ' % - the pump is drawing air. Check the sump level and the pickup screen before revving further.';
+       } else if (p < 1.0) {
+         warn = 'Oil pressure ' + p.toFixed(2) + ' bar - below the low-pressure threshold. Stop the engine and check the level before driving.';
+       } else if (p < 2.0) {
+         warn = 'Oil pressure is low (' + p.toFixed(2) + ' bar). Typical of worn bearings or a weak pump when the oil is hot.';
+       } else if (sim.Toil > 130) {
+         warn = 'Oil temperature ' + sim.Toil.toFixed(0) + ' \u00B0C - the oil is thinning fast. Reduce load and let it cool.';
+       }
+     }
+     elWarn.textContent = warn;
+     elWarn.classList.toggle('show', !!warn);
+   }
+
+   /* ── 10. readouts ─────────────────────────────────────────── */
+   const pState    = p < 1.0 ? 'crit' : (p < 2.0 ? 'warn' : (p > 5.6 ? 'warn' : 'ok'));
+   const flowState = flow < 4 ? 'crit' : (flow < 10 ? 'warn' : 'ok');
+   const relState  = pres.open ? 'warn' : 'ok';
+   const tState    = sim.Toil > 130 ? 'crit' : (sim.Toil > 115 ? 'warn' : 'ok');
+   const vState    = visc > 600 ? 'warn' : (visc < 5 ? 'warn' : 'ok');
+   const aState    = aer > 0.40 ? 'crit' : (aer > 0.15 ? 'warn' : 'ok');
+   const cState    = clr > 0.085 ? 'warn' : 'ok';
+   const sState    = (aer > 0.40 || p < 1.0) ? 'crit' : ((p < 2.0 || pres.open) ? 'warn' : 'ok');
+
+   return {
+     big: p.toFixed(2),
+     unit: ' bar',
+     bar: clampN(p / 6 * 100, 0, 100),
+     rows: {
+       flow:   flow.toFixed(1) + ' L/min',
+       relief: pres.open ? 'Open (bypassing)' : 'Closed'
+     },
+     ro: {
+       press:  [p.toFixed(2) + ' bar', pState],
+       flow:   [flow.toFixed(1) + ' L/min', flowState],
+       relief: [pres.open ? 'Open (bypassing)' : 'Closed', relState],
+       temp:   [sim.Toil.toFixed(0) + ' \u00B0C', tState],
+       visc:   [visc.toFixed(1) + ' cSt', vState],
+       aer:    [(aer * 100).toFixed(0) + ' %', aState],
+       clr:    [clr.toFixed(3) + ' mm', cState],
+       type:   [TYPE_NAME[type], ''],
+       state:  [stateTxt, sState]
+     },
+     status: [stateTxt, true],
+     ctl: rpm.toFixed(0) + ' rpm'
+   };
+  }
+ };
 }
 
 runGuidedModule(CFG, build);
