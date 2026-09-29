@@ -9,6 +9,48 @@
 <style>
 :root { --al-accent: #a78bfa; }
 html.light-theme { --al-accent: color-mix(in oklch, #a78bfa 68%, black); }
+
+#egr-panel{
+  position:fixed; left:12px; top:12px; z-index:30;
+  width:264px; max-width:46vw;
+  padding:10px 12px 12px;
+  border:1px solid var(--border,#333);
+  border-radius:10px;
+  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38);
+  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
+  color:var(--text-dim,#9aa4b2);
+  max-height:calc(100dvh - 24px); overflow:auto;
+}
+#egr-panel.folded .egr-body{ display:none; }
+.egr-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.egr-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
+.egr-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
+.egr-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.egr-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.egr-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-mute,#6b7280); }
+.egr-w b{ color:var(--text,#e5e7eb); font-weight:700; }
+#egr-panel .al-range{ height:22px; }
+#egr-panel .al-sel{ min-height:32px; font-size:11px; }
+.egr-btns{ display:flex; gap:6px; margin-bottom:8px; }
+.egr-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
+  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
+.egr-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
+.egr-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(167,139,250,.14); }
+#egr-clean{ color:#38bdf8; border-color:rgba(56,189,248,.4); }
+#egr-clean:hover{ border-color:#38bdf8; }
+.egr-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
+  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
+  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
+.egr-warn.show{ display:block; }
+#egr-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
+  border-radius:6px; background:rgba(0,0,0,.28); }
+.egr-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
+.egr-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+@media (max-width:700px){ #egr-panel{ width:208px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -29,34 +71,533 @@ html.light-theme { --al-accent: color-mix(in oklch, #a78bfa 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "egr", "title": "Exhaust Gas Recirculation", "kicker": "Exhaust & Emissions", "accent": "#a78bfa", "badge": "NOx reduction", "camPos": [5.6, 3.0, 7.6], "target": [0, 0, 0], "floorY": -2.4, "ctl": {"label": "EGR rate", "val": 40, "caption": "Recirculation"}, "chipLabel": "NOx (relative)", "rows": [["lift", "Valve lift"], ["temp", "Peak temp"]], "ro": [["rate", "EGR rate"], ["lift", "EGR valve lift"], ["nox", "NOx output"], ["temp", "Peak flame temp"], ["note", "Effect"]], "legend": [["#f97316", "Exhaust gas"], ["#7dd3fc", "Fresh air"], ["#a1a1aa", "Air + EGR mix"]], "overview": "<div class=\"al-sec\"><h4>Cooler, cleaner combustion<\/h4><p>EGR routes a metered part of the exhaust back to the intake. The inert gas dilutes the oxygen and soaks up heat, lowering peak flame temperature – the main cause of NOx.<\/p><\/div><div class=\"al-sec\"><h4>Parts<\/h4><ul><li><b>EGR valve<\/b> – pintle valve driven by a motor or vacuum.<\/li><li><b>EGR cooler<\/b> – cools recirculated gas for greater effect.<\/li><li><b>ECU map<\/b> – uses load and rpm to set the rate.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Trade-offs<\/h4><p>Too much EGR raises soot and roughness; carbon builds up in the valve and intake over time.<\/p><\/div>", "faults": [["Carboned-up valve", "Rough idle, stalling, hesitation, EGR flow codes (P0401).", "Remove and clean the pintle; verify smooth valve movement."], ["Cooler leak", "Coolant loss, white smoke.", "Pressure-test the cooler for coolant leaks to exhaust side."], ["Stuck open", "Rough idle at low load, poor throttle response.", "Command the valve closed with a scan tool and watch idle."]], "quiz": [["EGR mainly reduces…", ["NOx", "CO₂", "Noise"], 0, "Lower peak combustion temperature cuts NOx formation."], ["EGR gas is…", ["Fresh air", "Inert exhaust that dilutes the charge", "Fuel vapour"], 1, "It carries little oxygen and absorbs heat."], ["A stuck-open EGR valve at idle causes…", ["Rough idle", "Higher power", "Colder exhaust only"], 0, "Too much inert gas at idle destabilises combustion."]]};
+const CFG = {
+  "moduleId": "egr",
+  "title": "Exhaust Gas Recirculation",
+  "kicker": "Exhaust & Emissions",
+  "accent": "#a78bfa",
+  "badge": "NOx reduction",
+  "camPos": [5.6, 3.0, 7.6],
+  "target": [0, 0, 0],
+  "floorY": -2.4,
+  "ctl": { "label": "EGR command", "val": 40, "caption": "Recirculation" },
+  "chipLabel": "NOx (ppm)",
+  "rows": [["lift", "Valve lift"], ["temp", "Peak flame temp"]],
+  "ro": [
+    ["rate",  "EGR rate"],
+    ["lift",  "Valve lift"],
+    ["nox",   "NOx output"],
+    ["temp",  "Peak flame temp"],
+    ["soot",  "Soot index"],
+    ["tin",   "Intake charge"],
+    ["carbon","Carbon build-up"],
+    ["cool",  "Coolant level"],
+    ["state", "State"]
+  ],
+  "legend": [
+    ["#f97316", "Exhaust gas"],
+    ["#7dd3fc", "Fresh air"],
+    ["#a1a1aa", "Air + EGR mix"],
+    ["#38bdf8", "EGR cooler (coolant)"],
+    ["#a78bfa", "EGR valve"],
+    ["#1a1410", "Carboned-up valve"],
+    ["#f1f5f9", "Coolant leak (white smoke)"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Cooler, cleaner combustion<\/h4><p>EGR routes a metered part of the exhaust back to the intake. The inert gas dilutes the oxygen and soaks up heat, lowering <b>peak flame temperature<\/b> – the main driver of NOx formation.<\/p><\/div><div class=\"al-sec\"><h4>The trade-off<\/h4><p>NOx falls almost exponentially with peak temperature, so a small amount of EGR buys a large NOx reduction. But past a knee (which moves lower as load rises) oxygen runs short and <b>soot<\/b> climbs steeply; combustion also gets rougher and power drops because exhaust is displacing fresh air.<\/p><\/div><div class=\"al-sec\"><h4>Parts<\/h4><ul><li><b>EGR valve<\/b> – a pintle driven by a stepper motor or vacuum actuator, with real actuator lag.<\/li><li><b>EGR cooler<\/b> – a small heat exchanger that drops the gas temperature so more mass fits in the cylinder for the same volume. A clogged cooler loses most of that benefit.<\/li><li><b>ECU map<\/b> – schedules the rate by load and rpm, and disables EGR at idle and at high load.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Carbon build-up<\/h4><p>Soot-laden gas deposits on the pintle and the cooler tubes over time. Flow area shrinks, commanded and actual rate diverge and the ECU eventually flags insufficient flow (P0401).<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Set load to 80&nbsp;% and sweep the EGR command. Watch NOx collapse and then soot take off past the knee. Then select <b>Stuck closed<\/b> to see NOx spike, or <b>Stuck open<\/b> and drop the load to idle to see rough running. <b>Coolant leak<\/b> drains the coolant level and pours white vapour out of the tailpipe.<\/p><\/div>",
+  "faults": [
+    ["Carboned-up valve (P0401)", "Rough idle, stalling, hesitation, insufficient EGR flow codes. Actual rate falls below commanded as the pintle and ports close up.", "Remove and clean the pintle and ports; verify smooth valve movement with a scan tool; check the differential pressure sensor."],
+    ["EGR cooler leak", "Coolant loss with no external leak, white smoke from the tailpipe, sweet smell, possible misfire on start. Coolant is entering the exhaust through a cracked tube.", "Pressure-test the cooler on the coolant side with the gas side open; look for coolant residue in the EGR pipe."],
+    ["Valve stuck open", "Rough idle at low load, unstable combustion, poor throttle response, black smoke. Too much inert gas at low load quenches combustion.", "Command the valve closed with a scan tool and watch idle quality; remove the valve and check for a jammed pintle."],
+    ["Valve stuck closed", "NOx goes up sharply, possible P0401. Driveability is fine so the fault is often only found at inspection.", "Monitor commanded vs actual EGR position; check the actuator wiring and the valve for carbon seizure."],
+    ["Clogged EGR cooler", "Intake charge temperature rises, NOx creeps up even with normal EGR rate, power drops slightly.", "Measure the temperature drop across the cooler; back-flush or replace the cooler."]
+  ],
+  "quiz": [
+    ["EGR mainly reduces…", ["NOx", "CO\u2082", "Noise"], 0, "Lower peak combustion temperature cuts thermal NOx formation."],
+    ["EGR gas is…", ["Fresh air", "Inert exhaust that dilutes the charge", "Fuel vapour"], 1, "It carries little oxygen and absorbs heat, so peak temperature falls."],
+    ["A stuck-open EGR valve at idle causes…", ["Rough idle", "Higher power", "Colder exhaust only"], 0, "Too much inert gas at low load destabilises combustion."],
+    ["Past a certain EGR rate, which pollutant rises steeply?", ["Soot / particulates", "NOx", "CO\u2082"], 0, "Oxygen becomes scarce and the fuel-rich pockets pyrolyse into soot."],
+    ["Why does the EGR cooler help?", ["It lowers charge temperature so more inert mass fits in the cylinder", "It adds oxygen", "It filters soot"], 0, "Cooler gas is denser, so the same valve lift delivers more inert mass and a bigger NOx benefit."],
+    ["Carbon build-up matters because…", ["It reduces flow area so actual EGR falls below commanded", "It raises NOx", "It cools the gas too much"], 0, "Restricted passages mean the ECU's commanded rate is not delivered - the classic P0401."]
+  ]
+};
 
-/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   PHYSICS MODEL — pure, named functions.
+   Simplified physical trends, not a bench lookup table.
+   ═══════════════════════════════════════════════════════════════════ */
+
+function clampN(x, a, b) {
+  if (!Number.isFinite(x)) return a;
+  return x < a ? a : (x > b ? b : x);
+}
+const num = (x, d) => (Number.isFinite(x) ? x : d);
+
+/* ── named constants ─────────────────────────────────────────────── */
+const EGR_MAX      = 0.30;   /* maximum EGR fraction of the charge             */
+const TAU_VALVE    = 0.28;   /* s, EGR valve actuator time constant            */
+const TAU_CARBON   = 90;     /* s, carbon accumulation time constant at full soot */
+const COOLER_OK    = 0.78;   /* EGR cooler effectiveness, healthy              */
+const COOLER_CLOG  = 0.16;   /* EGR cooler effectiveness, clogged              */
+const COOLANT_C    = 90;     /* °C, engine coolant temperature                 */
+const EXH_TEMP_C   = 620;    /* °C, exhaust gas entering the EGR cooler        */
+const FRESH_AIR_C  = 30;     /* °C, fresh charge air                           */
+const NOX_SCALE    = 1500;   /* ppm, NOx at 2400 °C peak flame temperature     */
+const NOX_T_REF    = 2400;   /* °C, reference peak temperature                 */
+const NOX_T_SPAN   = 300;    /* °C, exponential sensitivity of NOx to temperature */
+const LIFT_MAX_MM  = 6.0;    /* mm, full pintle travel                         */
+
+/* Peak flame temperature (°C). Direction: more load -> hotter; more
+   EGR -> cooler, because the inert gas absorbs heat. Simplified. */
+function peakFlameTempC(load, egrFrac) {
+  const L = clampN(num(load, 0), 0, 1);
+  const e = clampN(num(egrFrac, 0), 0, EGR_MAX);
+  const base = 850 + 1550 * L;
+  return clampN(base - 3600 * e * L, 500, 2600);
+}
+
+/* NOx concentration (ppm). Direction: falls almost exponentially as
+   peak flame temperature drops — the Zeldovich trend, simplified. */
+function noxPpm(Tpeak) {
+  const T = clampN(num(Tpeak, 1200), 500, 3000);
+  return clampN(NOX_SCALE * Math.exp((T - NOX_T_REF) / NOX_T_SPAN), 8, 2500);
+}
+
+/* Soot index 0..1. Direction: rises steeply once EGR passes a knee
+   that itself falls as load rises (less oxygen to spare). */
+function sootIndex(load, egrFrac) {
+  const L = clampN(num(load, 0), 0, 1);
+  const e = clampN(num(egrFrac, 0), 0, EGR_MAX);
+  const knee = 0.18 - 0.06 * L;
+  const excess = clampN(e - knee, 0, 0.2);
+  return clampN(0.04 + 8.0 * excess * L, 0, 1);
+}
+
+/* Power lost to EGR displacement 0..40 %. Direction: more EGR ->
+   less fresh air -> less torque. */
+function powerLossPct(egrFrac) {
+  return clampN(80 * clampN(num(egrFrac, 0), 0, EGR_MAX), 0, 40);
+}
+
+/* EGR cooler outlet temperature (°C). Direction: higher effectiveness
+   and a colder coolant pull the gas temperature further down. */
+function egrCoolerOutC(egrInC, coolantC, effectiveness) {
+  const inC = clampN(num(egrInC, EXH_TEMP_C), 0, 1200);
+  const cw  = clampN(num(coolantC, COOLANT_C), 0, 130);
+  const eff = clampN(num(effectiveness, COOLER_OK), 0, 1);
+  return clampN(inC - (inC - cw) * eff, cw, inC);
+}
+
+/* Intake charge temperature (°C): a mass-weighted blend of fresh air
+   and cooled EGR. Direction: hotter EGR -> hotter charge. */
+function intakeChargeC(freshC, egrC, egrFrac) {
+  const frac = clampN(num(egrFrac, 0), 0, EGR_MAX) / EGR_MAX;
+  const f = clampN(num(freshC, FRESH_AIR_C), -20, 120);
+  const e = clampN(num(egrC, EXH_TEMP_C), -20, 900);
+  return clampN(f + (e - f) * frac, -20, 900);
+}
+
+/* EGR rate the ECU would schedule for a given load — EGR is disabled
+   at idle and pulled back near full load. Direction: peak in the
+   mid-load cruise region. */
+function ecuEgrSchedule(load) {
+  const L = clampN(num(load, 0), 0, 1);
+  if (L < 0.10) return 0;
+  return clampN(EGR_MAX * (1 - Math.pow(Math.abs(L - 0.45) / 0.55, 1.6)), 0, EGR_MAX);
+}
+
+const FAULT_INFO = {
+  none:     { label: 'None (healthy)',            warn: '' },
+  carboned: { label: 'Carboned-up valve (P0401)',  warn: 'The pintle and ports are caked with soot, so the actual EGR rate falls well below the commanded rate. Expect rough idle, hesitation and a P0401 insufficient-flow code.' },
+  stuckopen:{ label: 'Valve stuck open',           warn: 'The valve is jammed off its seat. Even at idle the engine swallows inert gas, combustion becomes unstable and idle quality collapses. Black smoke and a strong diesel smell are common.' },
+  stuckshut:{ label: 'Valve stuck closed',         warn: 'The valve will not open, so no EGR is delivered. Driveability is normal but NOx rises sharply — this fault is usually only found at emissions inspection or via P0401.' },
+  coolerleak:{ label: 'EGR cooler leak',           warn: 'Coolant is leaking through a cracked cooler tube into the exhaust. White smoke from the tailpipe, coolant loss with no external leak and a sweet smell. Coolant level is falling.' },
+  clogcooler:{ label: 'Clogged EGR cooler',        warn: 'The cooler tubes are sooted up so heat transfer has collapsed. Charge temperature rises, NOx creeps back up even with the valve working correctly.' }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXTRA CONTROLS (built here; the runtime only provides one slider)
+   ═══════════════════════════════════════════════════════════════════ */
+const S = {
+  load: 0.45,
+  rpm: 2200,
+  auto: false,
+  fault: 'none',
+  speed: 1
+};
+
+const panel = document.createElement('div');
+panel.id = 'egr-panel';
+let faultOptions = '';
+for (const id in FAULT_INFO) {
+  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
+}
+panel.innerHTML =
+  '<div class="egr-h"><span>EGR simulation</span><button type="button" id="egr-fold" aria-label="Collapse controls">&#8211;</button></div>' +
+  '<div class="egr-body">' +
+    '<div class="egr-w"><label for="egr-load">Engine load <b id="egr-load-v">45 %</b></label>' +
+      '<input id="egr-load" class="al-range" type="range" min="0" max="100" step="1" value="45" aria-label="Engine load"></div>' +
+    '<div class="egr-w"><label for="egr-rpm">Engine speed <b id="egr-rpm-v">2200 rpm</b></label>' +
+      '<input id="egr-rpm" class="al-range" type="range" min="800" max="4500" step="50" value="2200" aria-label="Engine speed"></div>' +
+    '<div class="egr-w"><label for="egr-fault">Fault injection</label>' +
+      '<select id="egr-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
+    '<div class="egr-w"><label>Simulation speed</label>' +
+      '<div class="egr-btns" id="egr-speed">' +
+        '<button type="button" data-sp="1" class="on">1&times;</button>' +
+        '<button type="button" data-sp="5">5&times;</button>' +
+        '<button type="button" data-sp="20">20&times;</button>' +
+      '</div></div>' +
+    '<div class="egr-btns">' +
+      '<button type="button" id="egr-clean">Clean valve</button>' +
+      '<button type="button" id="egr-reset">Reset</button>' +
+    '</div>' +
+    '<div class="egr-warn" id="egr-warn"></div>' +
+    '<canvas id="egr-graph" width="480" height="150" aria-label="NOx and peak flame temperature history"></canvas>' +
+    '<div class="egr-key"><span><i style="background:#a78bfa"></i>NOx ppm</span><span><i style="background:#f97316"></i>Peak &deg;C</span></div>' +
+  '</div>';
+document.body.appendChild(panel);
+
+const elFold   = document.getElementById('egr-fold');
+const elLoad   = document.getElementById('egr-load');
+const elLoadV  = document.getElementById('egr-load-v');
+const elRpm    = document.getElementById('egr-rpm');
+const elRpmV   = document.getElementById('egr-rpm-v');
+const elFault  = document.getElementById('egr-fault');
+const elSpeed  = document.getElementById('egr-speed');
+const elClean  = document.getElementById('egr-clean');
+const elReset  = document.getElementById('egr-reset');
+const elWarn   = document.getElementById('egr-warn');
+const gcv      = document.getElementById('egr-graph');
+const gctx     = gcv.getContext('2d');
+
+elFold.addEventListener('click', () => {
+  panel.classList.toggle('folded');
+  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
+});
+elLoad.addEventListener('input', () => {
+  S.load = (Number(elLoad.value) || 0) / 100;
+  elLoadV.textContent = Math.round(S.load * 100) + ' %';
+});
+elRpm.addEventListener('input', () => {
+  S.rpm = Number(elRpm.value) || 800;
+  elRpmV.textContent = S.rpm + ' rpm';
+});
+elFault.addEventListener('change', () => { S.fault = elFault.value; });
+elSpeed.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sp]');
+  if (!b) return;
+  S.speed = Number(b.dataset.sp) || 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
+});
+elClean.addEventListener('click', () => { sim.carbon = 0.0; });
+
+/* ── simulation state (module level so Reset can reach it) ───────── */
+const GRAPH_N = 150;
+const sim = {
+  valve: 0.0,
+  carbon: 0.0,
+  coolant: 1.0,
+  lastT: -1,
+  samples: []
+};
+
+function resetModel() {
+  sim.valve = 0.0;
+  sim.carbon = 0.0;
+  sim.coolant = 1.0;
+  sim.lastT = -1;
+  sim.samples.length = 0;
+}
+function resetAll() {
+  S.load = 0.45; elLoad.value = 45; elLoadV.textContent = '45 %';
+  S.rpm = 2200;  elRpm.value = 2200; elRpmV.textContent = '2200 rpm';
+  S.fault = 'none'; elFault.value = 'none';
+  S.speed = 1;
+  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
+  resetModel();
+  const ctlEl = document.getElementById('ctl');
+  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+elReset.addEventListener('click', resetAll);
+
+/* ── rolling graph ───────────────────────────────────────────────── */
+function drawGraph() {
+  const W = gcv.width, Hh = gcv.height;
+  gctx.clearRect(0, 0, W, Hh);
+  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
+  gctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = Math.round(Hh * i / 4) + 0.5;
+    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+  }
+  const n = sim.samples.length;
+  if (n < 2) return;
+  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
+  const yN  = (v) => Hh - clampN(v / 1600, 0, 1) * (Hh - 6) - 3;
+  const yT  = (v) => Hh - clampN((v - 600) / 2000, 0, 1) * (Hh - 6) - 3;
+
+  gctx.beginPath();
+  gctx.moveTo(xAt(0), Hh);
+  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yN(sim.samples[i].N));
+  gctx.lineTo(xAt(n - 1), Hh);
+  gctx.closePath();
+  gctx.fillStyle = 'rgba(167,139,250,0.16)';
+  gctx.fill();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yN(sim.samples[i].N);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#a78bfa'; gctx.lineWidth = 1.6; gctx.stroke();
+
+  gctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i), y = yT(sim.samples[i].T);
+    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = '#f97316'; gctx.lineWidth = 1.4; gctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE SCENE (per-module 3D parts)
+   ═══════════════════════════════════════════════════════════════════ */
 function build(H){
- const {box,cyl,cylX,mat,glass,pipe,stream,lc,clamp,root,THREE}=H;
- const steel=mat(0x8a93a5,.8,.35), dark=mat(0x374151,.5,.5);
- const blockM=new THREE.MeshStandardMaterial({color:0x4a5160,metalness:.55,roughness:.55,emissive:0xff6a1a,emissiveIntensity:.3});
- box(4.4,1.4,1.6,blockM,0,0,0);
- cylX(.5,.5,7.4,glass(0x7dd3fc,.24),0,1.7,0,null,32,true); cylX(.45,.45,7.4,glass(0xf97316,.28),0,-1.7,0,null,32,true);
- [-1.5,-.5,.5,1.5].forEach(x=>{ cyl(.16,.16,.6,steel,x,1.0,0); cyl(.16,.16,.6,steel,x,-1.0,0); });
- pipe([[-2.8,-1.7,0],[-3.5,-1.7,0],[-3.5,-.2,0],[-3.5,1.0,0],[-2.8,1.7,0]],.15,mat(0x6b7280,.7,.4));
- box(.55,1.0,.55,mat(0xc5ccd6,.7,.4),-3.5,-.85,0);
- cyl(.3,.3,.6,dark,-3.5,.7,0); const pin=cyl(.09,.09,.6,steel,-3.5,1.15,0); box(.5,.5,.5,dark,-3.5,1.65,0);
- const air=stream([[-3.9,1.7,0],[-2.8,1.7,0]],8,0x7dd3fc,.11);
- const mix=stream([[-2.7,1.7,0],[3.7,1.7,0]],22,0xa1a1aa,.11);
- const exh=stream([[3.7,-1.7,0],[-3.5,-1.7,0]],22,0xf97316,.12);
- const egr=stream([[-3.5,-1.7,0],[-3.5,-.2,0],[-3.5,1.0,0],[-2.8,1.7,0]],10,0xf97316,.1);
+ const { box, cyl, cylX, mat, glass, pipe, stream, lc, clamp, root, THREE, lowEnd } = H;
+
+ const steel = mat(0x8a93a5, .80, .35);
+ const dark  = mat(0x374151, .50, .50);
+ const valveMat = mat(0xa78bfa, .50, .40, { emissive: 0x000000, emissiveIntensity: 0 });
+ const blockM = new THREE.MeshStandardMaterial({ color: 0x4a5160, metalness: .55, roughness: .55, emissive: 0xff6a1a, emissiveIntensity: .30 });
+
+ /* ── engine block ─────────────────────────────────────────────── */
+ box(4.4, 1.4, 1.6, blockM, 0, 0, 0);
+
+ /* ── manifolds (x-ray glass) ──────────────────────────────────── */
+ const intakeMat = glass(0x7dd3fc, .24);
+ const exhaustMat = glass(0xf97316, .28);
+ cylX(.50, .50, 7.4, intakeMat, 0, 1.7, 0, null, 32, true);
+ cylX(.45, .45, 7.4, exhaustMat, 0, -1.7, 0, null, 32, true);
+
+ /* ── runners ──────────────────────────────────────────────────── */
+ [-1.5, -.5, .5, 1.5].forEach(x => {
+   cyl(.16, .16, .60, steel, x,  1.0, 0);
+   cyl(.16, .16, .60, steel, x, -1.0, 0);
+ });
+
+ /* ── EGR transfer pipe ────────────────────────────────────────── */
+ pipe([[-2.8, -1.7, 0], [-3.5, -1.7, 0], [-3.5, -.2, 0], [-3.5, 1.0, 0], [-2.8, 1.7, 0]], .15, mat(0x6b7280, .7, .4));
+
+ /* ── EGR cooler ───────────────────────────────────────────────── */
+ const coolerMat = new THREE.MeshStandardMaterial({ color: 0xc5ccd6, metalness: .70, roughness: .40, emissive: 0x000000, emissiveIntensity: 0 });
+ box(.55, 1.00, .55, coolerMat, -3.5, -.85, 0);
+ cyl(-3.5, -3.5, 0, steel, 0, 0, 0);      /* placeholder no-op to keep destructuring honest */
+
+ /* ── EGR valve body, pintle and actuator ──────────────────────── */
+ cyl(.30, .30, .60, dark, -3.5, .70, 0);
+ const pin = cyl(.09, .09, .60, valveMat, -3.5, 1.15, 0);
+ box(.50, .50, .50, dark, -3.5, 1.65, 0);
+
+ /* ── carbon build-up shells (opacity driven by sim.carbon) ───── */
+ const carbonMat = glass(0x1a1410, 0.0);
+ const carbonPin = cyl(.13, .13, .58, carbonMat, -3.5, 1.15, 0);
+ const carbonPort = cyl(.34, .34, .58, carbonMat, -3.5, .70, 0);
+
+ /* ── coolant leak plume (white, visible only on the leak fault) ─ */
+ const plumeMat = new THREE.PointsMaterial({ color: 0xf1f5f9, size: .13, map: H.Base ? undefined : undefined, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending });
+
+ /* ── particle streams ─────────────────────────────────────────── */
+ const nAir = lowEnd ?  8 : 14;
+ const nMix = lowEnd ? 14 : 24;
+ const nExh = lowEnd ? 14 : 24;
+ const nEgr = lowEnd ?  8 : 12;
+ const nLk  = lowEnd ?  6 : 10;
+
+ const air = stream([[-3.9, 1.7, 0], [-2.8, 1.7, 0]], nAir, 0x7dd3fc, .11);
+ const mix = stream([[-2.7, 1.7, 0], [3.7, 1.7, 0]], nMix, 0xa1a1aa, .11);
+ const exh = stream([[3.7, -1.7, 0], [-3.5, -1.7, 0]], nExh, 0xf97316, .12);
+ const egr = stream([[-3.5, -1.7, 0], [-3.5, -.2, 0], [-3.5, 1.0, 0], [-2.8, 1.7, 0]], nEgr, 0xf97316, .10);
+ const leak = stream([[-3.5, -1.7, 0], [-4.2, -2.4, 0], [-4.6, -3.0, 0]], nLk, 0xf1f5f9, .13);
+
+ let lastDom = 0;
+ const tmpCol = new THREE.Color();
+
  return {
-  labels:[['Intake manifold',[2.4,2.3,0]],['Exhaust manifold',[2.4,-2.3,0]],['EGR cooler',[-3.5,-1.55,.4]],['EGR valve',[-3.5,.15,.4]],['Engine',[0,.95,0]]],
+  labels: [
+    ['Intake manifold', [2.4, 2.3, 0]],
+    ['Exhaust manifold', [2.4, -2.3, 0]],
+    ['EGR cooler', [-3.5, -1.55, .40]],
+    ['EGR valve', [-3.5, .15, .40]],
+    ['Engine', [0, .95, 0]],
+    ['EGR pipe', [-3.5, -.20, .40]]
+  ],
   update(c){
-   const k=c.k, egrPct=25*k, nox=Math.exp(-.05*egrPct)*100, tp=2400-8*egrPct;
-   pin.position.y=1.15+.35*k; blockM.emissiveIntensity=.42*(1-.4*k);
-   air.update(c.t,.16,1); mix.update(c.t,.16,1); mix.mat.color.copy(lc(0x7dd3fc,0xa1a1aa,k)); exh.update(c.t,.16,1); egr.update(c.t,.14,k>.02?clamp(k*1.2):0);
-   const note=egrPct<3?'NOx high':egrPct<20?'Balanced':'Soot / roughness risk';
-   return {big:nox.toFixed(0),unit:' %',bar:egrPct/25*100,rows:{lift:(k*6).toFixed(1)+' mm',temp:tp.toFixed(0)+' °C'},
-    ro:{rate:[egrPct.toFixed(0)+' %','hi'],lift:[(k*6).toFixed(1)+' mm',''],nox:[nox.toFixed(0)+' %',nox<40?'ok':'warn'],temp:[tp.toFixed(0)+' °C',''],note:[note,egrPct>20?'warn':'ok']},
-    status:[egrPct<3?'EGR closed':'Recirculating',true],ctl:egrPct.toFixed(0)+' %'};
-  }};
+   /* ── 1. inputs ─────────────────────────────────────────────── */
+   const dt    = Math.max(0, num(c.dt, 0)) * S.speed;
+   const k     = clampN(c.k, 0, 1);          /* main slider = EGR command  */
+   const load  = clampN(S.load, 0, 1);
+   const rpm   = clampN(S.rpm, 800, 4500);
+   const fault = S.fault;
+
+   if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) resetModel();
+   sim.lastT = c.t;
+
+   /* ── 2. commanded vs actual valve position (with actuator lag) ─ */
+   let cmd = k * 1.0;                          /* 0..1 of full pintle travel */
+   if (fault === 'stuckopen')  cmd = 1.0;
+   if (fault === 'stuckshut')  cmd = 0.0;
+
+   if (dt > 0) sim.valve += (cmd - sim.valve) * (1 - Math.exp(-dt / TAU_VALVE));
+   sim.valve = clampN(sim.valve, 0, 1);
+
+   /* carbon restricts flow area: actual rate < commanded rate */
+   const areaFactor = clampN(1 - 0.85 * sim.carbon, 0.10, 1.0);
+   let egrFrac = sim.valve * EGR_MAX * areaFactor;
+   if (fault === 'stuckshut') egrFrac = 0;
+   if (fault === 'stuckopen') egrFrac = Math.max(egrFrac, 0.24);
+
+   /* ── 3. combustion model ──────────────────────────────────── */
+   const Tpeak = peakFlameTempC(load, egrFrac);
+   const nox   = noxPpm(Tpeak);
+   const soot  = sootIndex(load, egrFrac);
+   const ploss = powerLossPct(egrFrac);
+
+   /* ── 4. EGR cooler + intake charge ────────────────────────── */
+   let eff = (fault === 'clogcooler') ? COOLER_CLOG : COOLER_OK;
+   if (fault === 'coolerleak') eff = COOLER_OK * 0.55;
+   const egrOutC = egrCoolerOutC(EXH_TEMP_C, COOLANT_C, eff);
+   const chargeC = intakeChargeC(FRESH_AIR_C, egrOutC, egrFrac);
+
+   /* ── 5. carbon accumulation ───────────────────────────────── */
+   if (dt > 0) {
+     const rate = (fault === 'carboned' ? 4.5 : 1.0) * soot * (0.25 + egrFrac / EGR_MAX);
+     sim.carbon += (rate - sim.carbon / TAU_CARBON) * (dt / 12);
+   }
+   sim.carbon = clampN(sim.carbon, 0, 0.95);
+
+   /* ── 6. coolant leak state ────────────────────────────────── */
+   if (fault === 'coolerleak') {
+     if (dt > 0) sim.coolant -= dt * 0.006;
+   } else if (dt > 0) {
+     sim.coolant += (1.0 - sim.coolant) * (1 - Math.exp(-dt / 30));
+   }
+   sim.coolant = clampN(sim.coolant, 0.05, 1.0);
+
+   /* ── 7. status text ───────────────────────────────────────── */
+   let stateTxt;
+   if (fault === 'stuckopen')      stateTxt = 'ROUGH IDLE (valve open)';
+   else if (fault === 'stuckshut') stateTxt = 'NO EGR - HIGH NOx';
+   else if (fault === 'coolerleak')stateTxt = 'COOLANT LEAK';
+   else if (sim.carbon > 0.55)     stateTxt = 'CARBONED (P0401)';
+   else if (soot > 0.55)           stateTxt = 'Soot / roughness risk';
+   else if (egrFrac < 0.01)        stateTxt = 'EGR closed';
+   else                            stateTxt = 'Recirculating';
+
+   /* ── 8. 3D visuals ────────────────────────────────────────── */
+   pin.position.y = 1.15 + 0.35 * sim.valve;
+   carbonPin.position.y = pin.position.y;
+   carbonMat.opacity = sim.carbon * 0.88;
+   carbonPin.visible = sim.carbon > 0.03;
+   carbonPort.visible = sim.carbon > 0.03;
+
+   /* valve colour tracks position (more open = brighter violet) */
+   valveMat.emissive.setHex(0xa78bfa);
+   valveMat.emissiveIntensity = 0.20 + 0.85 * sim.valve;
+   valveMat.color.copy(lc(0x6b7280, 0xa78bfa, sim.valve));
+
+   /* cooler glow when clogged or leaking */
+   if (fault === 'clogcooler' || fault === 'coolerleak') {
+     coolerMat.emissive.setHex(0xef4444);
+     coolerMat.emissiveIntensity = 0.35 + 0.30 * Math.abs(Math.sin(c.t * 3.4));
+     coolerMat.color.copy(lc(0xc5ccd6, 0xb91c1c, 0.55));
+   } else {
+     coolerMat.emissive.setHex(0x000000);
+     coolerMat.emissiveIntensity = 0;
+     coolerMat.color.setHex(0xc5ccd6);
+   }
+
+   /* block glow follows peak flame temperature */
+   blockM.emissiveIntensity = clampN((Tpeak - 900) / 1700, 0, 1) * 0.55;
+
+   /* manifold tints follow charge / exhaust temperature */
+   intakeMat.color.copy(lc(0x7dd3fc, 0xfca5a5, clampN((chargeC - 30) / 320, 0, 1)));
+   exhaustMat.color.copy(lc(0xf97316, 0xffe4e6, clampN((Tpeak - 1800) / 800, 0, 1)));
+
+   /* stream density and colour */
+   const flowN = egrFrac / EGR_MAX;
+   const exhSpd = 0.10 + 0.45 * clampN(rpm / 4500, 0, 1);
+   const mixCol = new THREE.Color().copy(lc(0x7dd3fc, 0xa1a1aa, clampN(flowN, 0, 1)));
+   mixCol.lerp(new THREE.Color(0xfca5a5), clampN((chargeC - 60) / 300, 0, 1) * 0.5);
+
+   air.update(c.t, exhSpd, 0.25 + 0.75 * clampN(load + 0.3, 0, 1));
+   mix.update(c.t, exhSpd, 0.35 + 0.65 * clampN(load + 0.3, 0, 1));
+   mix.mat.color.copy(mixCol);
+   exh.update(c.t, exhSpd, 0.25 + 0.75 * clampN(load + 0.25, 0, 1));
+   egr.update(c.t, 0.10 + 0.30 * flowN, flowN > 0.02 ? clampN(0.25 + 1.1 * flowN, 0, 1.15) : 0);
+   egr.mat.color.copy(lc(0xf97316, 0xffe4e6, clampN((chargeC - 200) / 400, 0, 1) * 0.6));
+
+   leak.update(c.t, 0.28, (fault === 'coolerleak') ? 0.9 : 0);
+
+   /* ── 9. throttled DOM work (graph + warning) ──────────────── */
+   const now = performance.now();
+   if (now - lastDom > 140) {
+     lastDom = now;
+     if (dt > 0) {
+       sim.samples.push({ N: nox, T: Tpeak });
+       if (sim.samples.length > GRAPH_N) sim.samples.shift();
+       drawGraph();
+     }
+     let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
+     if (!warn) {
+       if (sim.carbon > 0.55) {
+         warn = 'Carbon build-up at ' + (sim.carbon * 100).toFixed(0) + ' % - the actual EGR rate is falling below commanded. Expect P0401 and rough running. Use "Clean valve" to clear it.';
+       } else if (soot > 0.55) {
+         warn = 'Soot index ' + (soot * 100).toFixed(0) + ' % - EGR is past the soot knee at this load. The engine will feel rough and the DPF will load quickly.';
+       } else if (chargeC > 260) {
+         warn = 'Intake charge at ' + chargeC.toFixed(0) + ' \u00B0C - the cooler is not doing its job, so NOx will creep back up.';
+       } else if (nox > 900) {
+         warn = 'NOx at ' + nox.toFixed(0) + ' ppm - very high. Add EGR to bring peak flame temperature down.';
+       }
+     }
+     elWarn.textContent = warn;
+     elWarn.classList.toggle('show', !!warn);
+   }
+
+   /* ── 10. readouts ─────────────────────────────────────────── */
+   const noxState    = nox > 900 ? 'crit' : (nox > 400 ? 'warn' : 'ok');
+   const tempState   = Tpeak > 2100 ? 'crit' : (Tpeak > 1800 ? 'warn' : 'ok');
+   const sootState   = soot > 0.60 ? 'crit' : (soot > 0.30 ? 'warn' : 'ok');
+   const tinState    = chargeC > 260 ? 'crit' : (chargeC > 140 ? 'warn' : 'ok');
+   const carbonState = sim.carbon > 0.55 ? 'crit' : (sim.carbon > 0.25 ? 'warn' : 'ok');
+   const coolState   = sim.coolant < 0.35 ? 'crit' : (sim.coolant < 0.70 ? 'warn' : 'ok');
+   const rateState   = (flowN < 0.02) ? 'warn' : 'ok';
+   const stState     = (nox > 900 || sim.coolant < 0.35 || fault === 'coolerleak') ? 'crit'
+                     : (soot > 0.55 || sim.carbon > 0.5 || fault === 'stuckopen') ? 'warn'
+                     : 'ok';
+
+   return {
+     big: nox.toFixed(0),
+     unit: ' ppm',
+     bar: clampN(nox / 1600 * 100, 0, 100),
+     rows: {
+       lift: (sim.valve * LIFT_MAX_MM).toFixed(1) + ' mm',
+       temp: Tpeak.toFixed(0) + ' \u00B0C'
+     },
+     ro: {
+       rate:   [(egrFrac / EGR_MAX * 100).toFixed(0) + ' %', rateState],
+       lift:   [(sim.valve * LIFT_MAX_MM).toFixed(1) + ' mm', 'hi'],
+       nox:    [nox.toFixed(0) + ' ppm', noxState],
+       temp:   [Tpeak.toFixed(0) + ' \u00B0C', tempState],
+       soot:   [(soot * 100).toFixed(0) + ' %', sootState],
+       tin:    [chargeC.toFixed(0) + ' \u00B0C', tinState],
+       carbon: [(sim.carbon * 100).toFixed(0) + ' %', carbonState],
+       cool:   [(sim.coolant * 100).toFixed(0) + ' %', coolState],
+       state:  [stateTxt, stState]
+     },
+     status: [stateTxt, true],
+     ctl: (egrFrac / EGR_MAX * 100).toFixed(0) + ' % EGR'
+   };
+  }
+ };
 }
 
 runGuidedModule(CFG, build);
