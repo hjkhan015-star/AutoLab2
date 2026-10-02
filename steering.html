@@ -246,8 +246,7 @@
   const WHEEL_MAX_ANGLE = Math.PI;
 
   /* ═══════════════════════════════════════════════════════════
-     4. STATE — declared BEFORE UI.create so widget onMount can
-        safely reference them (fixes TDZ crash that halted init).
+     4. STATE
      ═══════════════════════════════════════════════════════════ */
   let steerWheelEl = null;
   let steerRotorEl = null;
@@ -732,31 +731,6 @@
     group.children[2].scale.set(1, 1 / len, 1);
   }
 
-  function makeSimpleWheel() {
-    const g = new THREE.Group();
-    const rim = new THREE.Mesh(
-      new THREE.TorusGeometry(0.30, 0.042, 12, 48), mat.leather
-    );
-    g.add(rim);
-    const hub = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.085, 0.085, 0.10, 20), mat.steelDark);
-    hub.rotation.x = Math.PI / 2; g.add(hub);
-    const hubFace = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.07, 0.07, 0.02, 20), mat.steel);
-    hubFace.rotation.x = Math.PI / 2; hubFace.position.z = 0.055; g.add(hubFace);
-    for (let i = 0; i < 3; i++) {
-      const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
-      const spoke = new THREE.Mesh(
-        new THREE.BoxGeometry(0.26, 0.055, 0.035), mat.steelDark);
-      spoke.position.set(Math.cos(a) * 0.155, Math.sin(a) * 0.155, 0);
-      spoke.rotation.z = a; g.add(spoke);
-    }
-    const marker = new THREE.Mesh(
-      new THREE.BoxGeometry(0.06, 0.06, 0.05), mat.markerViolet);
-    marker.position.set(0, 0.30, 0); g.add(marker);
-    return g;
-  }
-
   /* ═══════════════════════════════════════════════════════════
      10. LABELS
      ═══════════════════════════════════════════════════════════ */
@@ -776,6 +750,10 @@
 
   /* ═══════════════════════════════════════════════════════════
      11. EXTRA STEERING SYSTEMS
+         Rebuilt from the same detailed component kit as the
+         rack-and-pinion hero model so all four layouts share
+         consistent geometry quality and correctly aligned
+         tie rods / drag links.
      ═══════════════════════════════════════════════════════════ */
   const extraSteering = (function () {
 
@@ -785,206 +763,438 @@
         transparent: true, opacity: 0.42, depthWrite: false,
         side: THREE.DoubleSide, clearcoat: 0.8, clearcoatRoughness: 0.2
       }),
-      worm: new THREE.MeshStandardMaterial({ color: 0xd8a44a, metalness: 0.92, roughness: 0.20 }),
-      sector: new THREE.MeshStandardMaterial({ color: 0xc9a961, metalness: 0.90, roughness: 0.24 }),
-      ballNut: new THREE.MeshStandardMaterial({ color: 0xe8c060, metalness: 0.94, roughness: 0.16 }),
-      pitman: new THREE.MeshStandardMaterial({ color: 0xe0a94a, metalness: 0.90, roughness: 0.22,
-        emissive: 0x3a2400, emissiveIntensity: 0.22 }),
-      pumpBody: new THREE.MeshStandardMaterial({ color: 0x2a2f38, metalness: 0.75, roughness: 0.42 }),
-      hoseBlue: new THREE.MeshStandardMaterial({ color: 0x1e5fae, metalness: 0.15, roughness: 0.72,
-        emissive: 0x1e5fae, emissiveIntensity: 0.4 }),
-      hoseRed:  new THREE.MeshStandardMaterial({ color: 0xa02a2a, metalness: 0.15, roughness: 0.72,
-        emissive: 0xa02a2a, emissiveIntensity: 0.4 }),
-      valve:    new THREE.MeshStandardMaterial({ color: 0x2e6fbf, metalness: 0.72, roughness: 0.30,
-        emissive: 0x1e4f8f, emissiveIntensity: 0.28 }),
-      ram:      new THREE.MeshStandardMaterial({ color: 0x3b4a5a, metalness: 0.85, roughness: 0.28 }),
-      motor:    new THREE.MeshStandardMaterial({ color: 0x2c3a4a, metalness: 0.78, roughness: 0.36,
-        emissive: 0x0a1a2a, emissiveIntensity: 0.4 }),
-      ecu:      new THREE.MeshStandardMaterial({ color: 0x1a1f2a, metalness: 0.42, roughness: 0.62 }),
-      torque:   new THREE.MeshStandardMaterial({ color: 0x8b5cf6, metalness: 0.55, roughness: 0.35,
-        emissive: 0x8b5cf6, emissiveIntensity: 0.6 }),
-      wire:     new THREE.MeshStandardMaterial({ color: 0x22c55e, metalness: 0.20, roughness: 0.65,
-        emissive: 0x22c55e, emissiveIntensity: 0.35 })
+      worm:      new THREE.MeshStandardMaterial({ color:0xd8a44a, metalness:0.92, roughness:0.20 }),
+      sector:    new THREE.MeshStandardMaterial({ color:0xc9a961, metalness:0.90, roughness:0.24 }),
+      ballNut:   new THREE.MeshStandardMaterial({ color:0xe8c060, metalness:0.94, roughness:0.16 }),
+      pitman:    new THREE.MeshStandardMaterial({ color:0xe0a94a, metalness:0.90, roughness:0.22,
+                    emissive:0x3a2400, emissiveIntensity:0.22 }),
+      pumpBody:  new THREE.MeshStandardMaterial({ color:0x2a2f38, metalness:0.75, roughness:0.42 }),
+      hoseBlue:  new THREE.MeshStandardMaterial({ color:0x1e5fae, metalness:0.15, roughness:0.72,
+                    emissive:0x1e5fae, emissiveIntensity:0.4 }),
+      hoseRed:   new THREE.MeshStandardMaterial({ color:0xa02a2a, metalness:0.15, roughness:0.72,
+                    emissive:0xa02a2a, emissiveIntensity:0.4 }),
+      valve:     new THREE.MeshStandardMaterial({ color:0x2e6fbf, metalness:0.72, roughness:0.30,
+                    emissive:0x1e4f8f, emissiveIntensity:0.28 }),
+      ram:       new THREE.MeshStandardMaterial({ color:0x3b4a5a, metalness:0.85, roughness:0.28 }),
+      motor:     new THREE.MeshStandardMaterial({ color:0x2c3a4a, metalness:0.78, roughness:0.36,
+                    emissive:0x0a1a2a, emissiveIntensity:0.4 }),
+      ecu:       new THREE.MeshStandardMaterial({ color:0x1a1f2a, metalness:0.42, roughness:0.62 }),
+      torque:    new THREE.MeshStandardMaterial({ color:0x8b5cf6, metalness:0.55, roughness:0.35,
+                    emissive:0x8b5cf6, emissiveIntensity:0.6 }),
+      wire:      new THREE.MeshStandardMaterial({ color:0x22c55e, metalness:0.20, roughness:0.65,
+                    emissive:0x22c55e, emissiveIntensity:0.35 })
     };
 
-    function buildBaseRack() {
-      const rig = new THREE.Group();
+    /* ── Shared high-detail sub-assemblies ───────────────────── */
 
-      const rackTube = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.09, 0.09, 2.6, TUBE_SEGS, 1, true),
-        mat.housingGlass
-      );
-      rackTube.rotation.z = Math.PI / 2;
-      rig.add(rackTube);
+    function buildDetailedRack() {
+      const rk = new THREE.Group();
 
       const bar = new THREE.Mesh(
-        new THREE.BoxGeometry(2.5, 0.10, 0.11), mat.steelDark);
-      rig.add(bar);
+        new THREE.BoxGeometry(RACK_HALF * 2, RACK_BAR_H, RACK_BAR_D),
+        mat.steelDark
+      );
+      bar.castShadow = true;
+      bar.receiveShadow = true;
+      rk.add(bar);
 
-      const pinHouse = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.10, 0.10, 0.24, 12), mat.steel);
-      pinHouse.rotation.x = Math.PI / 2;
-      pinHouse.position.set(0, 0.12, 0);
-      rig.add(pinHouse);
+      const strip = new THREE.Mesh(
+        new THREE.BoxGeometry(RACK_HALF * 2 * 0.98, 0.006, RACK_BAR_D * 0.6),
+        mat.steelBright
+      );
+      strip.position.y = RACK_BAR_H / 2 - 0.001;
+      rk.add(strip);
 
-      const pinion = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.075, 0.075, 0.14, 16), mat.steel);
-      pinion.rotation.x = Math.PI / 2;
-      pinion.position.set(0, 0.12, 0);
-      rig.add(pinion);
+      const ldx    = (TOOTH_H / 2) * Math.tan(PRESSURE);
+      const lwBase = PITCH / 4 + ldx;
+      const lwTip  = PITCH / 4 - ldx;
+      const s = new THREE.Shape();
+      s.moveTo(-lwBase, 0); s.lineTo( lwBase, 0);
+      s.lineTo( lwTip,  TOOTH_H); s.lineTo(-lwTip, TOOTH_H);
+      s.closePath();
+      const tGeo = new THREE.ExtrudeGeometry(s, { depth: RACK_BAR_D * 0.98, bevelEnabled: false });
+      tGeo.translate(0, 0, -RACK_BAR_D * 0.49);
 
-      const column = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.04, 0.04, 1.40, 12), mat.steel);
-      column.rotation.x = -COL_TILT;
-      column.position.set(0, 0.90, 0.55);
-      rig.add(column);
+      const N = Math.floor((RACK_HALF * 2) / PITCH);
+      const teeth = new THREE.InstancedMesh(tGeo, mat.steel, N);
+      const dm = new THREE.Object3D();
+      for (let i = 0; i < N; i++) {
+        const x = (i - (N - 1) / 2) * PITCH;
+        dm.position.set(x, RACK_BASE_Y, 0);
+        dm.updateMatrix();
+        teeth.setMatrixAt(i, dm.matrix);
+      }
+      teeth.instanceMatrix.needsUpdate = true;
+      teeth.castShadow = true;
+      rk.add(teeth);
 
-      const wheel = makeSimpleWheel();
-      wheel.position.set(0, 1.74, 1.14);
-      wheel.rotation.x = -COL_TILT;
-      rig.add(wheel);
+      [-1, 1].forEach(dir => {
+        const cap = new THREE.Mesh(
+          new THREE.CylinderGeometry(RACK_BAR_H * 0.85, RACK_BAR_H * 0.85, 0.10, TUBE_SEGS),
+          mat.steelDark
+        );
+        cap.rotation.z = Math.PI / 2;
+        cap.position.set(dir * (RACK_HALF + 0.05), 0, 0);
+        rk.add(cap);
 
-      const wL = makeRoadWheel(-1);
-      const wR = makeRoadWheel( 1);
-      rig.add(wL); rig.add(wR);
+        const eye = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.055, 0.055, 0.11, TUBE_SEGS),
+          mat.steelBright
+        );
+        eye.rotation.z = Math.PI / 2;
+        eye.position.set(dir * RACK_HALF, 0, 0);
+        rk.add(eye);
+      });
 
+      return { rackGroup: rk, bar };
+    }
+
+    function buildDetailedPinion() {
+      const g = new THREE.Group();
+      g.position.set(0, PINION_Y, 0);
+
+      const geo = makePinionGeometry(PINION_R, PINION_N, MODULE, PINION_W);
+      geo.rotateZ(-Math.PI / 2 - Math.PI / PINION_N);
+      const mesh = new THREE.Mesh(geo, mat.steel);
+      mesh.castShadow = true;
+      g.add(mesh);
+
+      const disc = new THREE.Mesh(
+        new THREE.CylinderGeometry(PINION_R * 0.95, PINION_R * 0.95, 0.02, TUBE_SEGS),
+        mat.steelDark
+      );
+      disc.rotation.x = Math.PI / 2;
+      disc.position.z = -PINION_W / 2 - 0.01;
+      g.add(disc);
+
+      const marker = new THREE.Mesh(
+        new THREE.BoxGeometry(0.04, 0.11, 0.05), mat.markerViolet
+      );
+      marker.position.set(0, PINION_R * 0.62, PINION_W / 2 + 0.015);
+      g.add(marker);
+
+      return g;
+    }
+
+    function buildDetailedColumn() {
+      const g = new THREE.Group();
+
+      const tube = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.045, 0.045, COL_LEN, TUBE_SEGS),
+        mat.steel
+      );
+      tube.rotation.x = Math.PI / 2;
+      tube.position.set(0, PINION_Y, COL_LEN / 2);
+      tube.castShadow = true;
+      g.add(tube);
+
+      const inner = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.028, 0.028, COL_LEN * 0.96, TUBE_SEGS),
+        mat.steelDark
+      );
+      inner.rotation.x = Math.PI / 2;
+      inner.position.set(0, PINION_Y, COL_LEN / 2);
+      g.add(inner);
+
+      const uj = new THREE.Group();
+      uj.position.set(0, PINION_Y, 0.10);
+      g.add(uj);
+      uj.add(new THREE.Mesh(new THREE.SphereGeometry(0.058, 20, 14), mat.steelDark));
+      const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.14, 10), mat.steelBright);
+      p1.rotation.z = Math.PI / 2; uj.add(p1);
+      const p2 = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.14, 10), mat.steelBright);
+      p2.rotation.x = Math.PI / 2; uj.add(p2);
+
+      return g;
+    }
+
+    function buildDetailedWheel() {
+      const g = new THREE.Group();
+      g.position.set(0, PINION_Y, COL_LEN);
+
+      const rim = new THREE.Mesh(
+        new THREE.TorusGeometry(0.30, 0.042, isLowEnd ? 10 : 16, isLowEnd ? 40 : 64),
+        mat.leather
+      );
+      g.add(rim);
+
+      for (let i = 0; i < GRIP_COUNT; i++) {
+        const a = (i / GRIP_COUNT) * Math.PI * 2;
+        const bump = new THREE.Mesh(
+          new THREE.TorusGeometry(0.042, 0.006, 6, 12, Math.PI * 0.15),
+          mat.grip
+        );
+        bump.rotation.z = a;
+        bump.position.set(Math.cos(a) * 0.30, Math.sin(a) * 0.30, 0);
+        g.add(bump);
+      }
+
+      const hub = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.085, 0.085, 0.10, isLowEnd ? 16 : 24),
+        mat.steelDark
+      );
+      hub.rotation.x = Math.PI / 2;
+      g.add(hub);
+
+      const face = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.07, 0.02, isLowEnd ? 16 : 24),
+        mat.steel
+      );
+      face.rotation.x = Math.PI / 2; face.position.z = 0.055;
+      g.add(face);
+
+      const logo = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.028, 0.028, 0.01, isLowEnd ? 14 : 20),
+        mat.markerViolet
+      );
+      logo.rotation.x = Math.PI / 2; logo.position.z = 0.066;
+      g.add(logo);
+
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+        const spoke = new THREE.Mesh(
+          new THREE.BoxGeometry(0.26, 0.055, 0.035), mat.steelDark
+        );
+        spoke.position.set(Math.cos(a) * 0.155, Math.sin(a) * 0.155, 0);
+        spoke.rotation.z = a; spoke.castShadow = true;
+        g.add(spoke);
+
+        const accent = new THREE.Mesh(
+          new THREE.BoxGeometry(0.24, 0.012, 0.038), mat.markerViolet
+        );
+        accent.position.copy(spoke.position);
+        accent.rotation.z = a;
+        g.add(accent);
+      }
+
+      const marker = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.06, 0.05), mat.markerBlue
+      );
+      marker.position.set(0, 0.30, 0);
+      g.add(marker);
+
+      return g;
+    }
+
+    function buildKingpins() {
+      const g = new THREE.Group();
       [-1, 1].forEach(dir => {
         const kp = new THREE.Mesh(
           new THREE.CylinderGeometry(0.055, 0.055, 0.72, TUBE_SEGS),
-          mat.steelDark);
+          mat.steelDark
+        );
         kp.position.set(dir * WHEEL_X, WHEEL_Y, WHEEL_Z);
-        rig.add(kp);
+        kp.castShadow = true;
+        g.add(kp);
+
+        const cap = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.07, 0.07, 0.04, TUBE_SEGS),
+          mat.steelBright
+        );
+        cap.position.set(dir * WHEEL_X, WHEEL_Y + 0.36, WHEEL_Z);
+        g.add(cap);
       });
-
-      const tieL = makeTieRod(); rig.add(tieL);
-      const tieR = makeTieRod(); rig.add(tieR);
-
-      return { rig, bar, pinion, column, wheel, wL, wR, tieL, tieR };
+      return g;
     }
 
-    /* ── Recirculating ball ── */
+    /* Common rig: detailed rack + pinion + column + wheel + wheels + tie rods */
+    function buildCommonRig() {
+      const rig = new THREE.Group();
+
+      const wL = makeRoadWheel(-1);
+      const wR = makeRoadWheel( 1);
+      rig.add(wL, wR);
+      rig.add(buildKingpins());
+
+      const ga = new THREE.Group();
+      ga.rotation.x = -COL_TILT;
+      rig.add(ga);
+
+      const { rackGroup: rk, bar } = buildDetailedRack();
+      ga.add(rk);
+
+      const ps = buildDetailedPinion();
+      ga.add(ps);
+
+      ga.add(buildDetailedColumn());
+      const ws = buildDetailedWheel();
+      ga.add(ws);
+
+      const trL = makeTieRod();
+      const trR = makeTieRod();
+      rig.add(trL, trR);
+
+      return { rig, gearAssembly: ga, rackGroup: rk, bar, pinionSpin: ps,
+               wheelSpin: ws, wL, wR, tieRodL: trL, tieRodR: trR };
+    }
+
+    /* Reusable step for the three rack-and-pinion configs */
+    function makeRackStep(refs) {
+      return function (theta) {
+        const rackOffset = PINION_R * theta;
+        const roadAngle  = Math.asin(
+          Math.max(-1, Math.min(1, rackOffset / STEER_ARM_LEN))
+        );
+
+        refs.pinionSpin.rotation.z = theta;
+        if (refs.wheelSpin) refs.wheelSpin.rotation.z = theta;
+        refs.rackGroup.position.x = rackOffset;
+        refs.wL.rotation.y = roadAngle;
+        refs.wR.rotation.y = roadAngle;
+
+        const armL = new THREE.Vector3(
+          -WHEEL_X + Math.sin(roadAngle) * STEER_ARM_LEN,
+          WHEEL_Y + STEER_ARM_Y,
+          WHEEL_Z + Math.cos(roadAngle) * STEER_ARM_LEN
+        );
+        const armR = new THREE.Vector3(
+           WHEEL_X + Math.sin(roadAngle) * STEER_ARM_LEN,
+           WHEEL_Y + STEER_ARM_Y,
+           WHEEL_Z + Math.cos(roadAngle) * STEER_ARM_LEN
+        );
+        const tipL = new THREE.Vector3(-RACK_HALF + rackOffset, 0, 0);
+        const tipR = new THREE.Vector3( RACK_HALF + rackOffset, 0, 0);
+
+        alignTieRod(refs.tieRodL, tipL, armL);
+        alignTieRod(refs.tieRodR, tipR, armR);
+      };
+    }
+
+    /* ── 11a. Recirculating-Ball Steering ─────────────────────── */
     function createRecirculatingBall() {
       const rig = new THREE.Group();
 
       const wL = makeRoadWheel(-1);
       const wR = makeRoadWheel( 1);
-      rig.add(wL); rig.add(wR);
+      rig.add(wL, wR);
+      rig.add(buildKingpins());
 
-      [-1, 1].forEach(dir => {
-        const kp = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.055, 0.055, 0.72, TUBE_SEGS),
-          mat.steelDark);
-        kp.position.set(dir * WHEEL_X, WHEEL_Y, WHEEL_Z);
-        rig.add(kp);
-      });
-
-      const wheel = makeSimpleWheel();
-      wheel.position.set(0, 1.78, 1.02);
-      wheel.rotation.x = -COL_TILT;
-      rig.add(wheel);
-
-      const column = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.042, 0.042, 1.30, 12), mat.steel);
-      column.rotation.x = -COL_TILT;
-      column.position.set(0, 1.00, 0.62);
-      rig.add(column);
-
+      /* Gear box housing — sits between column base and pitman arm */
       const gearBox = new THREE.Group();
-      gearBox.position.set(0, 0.28, 0.05);
+      gearBox.position.set(0, 0.45, 0.40);
       rig.add(gearBox);
 
-      const housingGeo = new THREE.BoxGeometry(0.60, 0.70, 0.56);
+      const housingGeo = new THREE.BoxGeometry(0.62, 0.72, 0.56);
       const housing = new THREE.Mesh(housingGeo, exMat.boxHousing);
       gearBox.add(housing);
 
-      const housingEdges = new THREE.LineSegments(
+      gearBox.add(new THREE.LineSegments(
         new THREE.EdgesGeometry(housingGeo),
         new THREE.LineBasicMaterial({ color: 0xd8a44a, transparent: true, opacity: 0.55 })
-      );
-      gearBox.add(housingEdges);
+      ));
 
+      /* Worm shaft (vertical) with ball-groove rings */
       const worm = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.052, 0.052, 0.52, 20), exMat.worm);
+        new THREE.CylinderGeometry(0.052, 0.052, 0.52, 20), exMat.worm
+      );
       gearBox.add(worm);
 
       for (let i = 0; i < 8; i++) {
-        const ry = -0.22 + i * 0.062;
         const ring = new THREE.Mesh(
-          new THREE.TorusGeometry(0.058, 0.006, 6, 16), exMat.sector);
+          new THREE.TorusGeometry(0.058, 0.006, 6, 16), exMat.sector
+        );
         ring.rotation.x = Math.PI / 2;
-        ring.position.y = ry;
+        ring.position.y = -0.22 + i * 0.062;
         worm.add(ring);
       }
 
+      /* Ball nut rides on the worm */
       const ballNut = new THREE.Group();
       gearBox.add(ballNut);
-      const nutBody = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.105, 0.105, 0.16, 20), exMat.ballNut);
-      ballNut.add(nutBody);
+
+      ballNut.add(new THREE.Mesh(
+        new THREE.CylinderGeometry(0.105, 0.105, 0.16, 20), exMat.ballNut
+      ));
+
       for (let i = 0; i < 12; i++) {
         const a = (i / 12) * Math.PI * 2;
-        const ball = new THREE.Mesh(
-          new THREE.SphereGeometry(0.011, 6, 5), mat.markerBlue);
-        ball.position.set(Math.cos(a) * 0.105, 0, Math.sin(a) * 0.105);
-        ballNut.add(ball);
+        const b = new THREE.Mesh(
+          new THREE.SphereGeometry(0.011, 6, 5), mat.markerBlue
+        );
+        b.position.set(Math.cos(a) * 0.105, 0, Math.sin(a) * 0.105);
+        ballNut.add(b);
       }
 
+      /* Sector gear meshes with the ball nut */
       const sector = new THREE.Group();
       sector.position.set(0, -0.20, 0.02);
       gearBox.add(sector);
 
-      const sectorDisc = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.14, 0.14, 0.09, 20, 1, false, Math.PI * 1.1, Math.PI * 0.8),
-        exMat.sector);
-      sectorDisc.rotation.x = Math.PI / 2;
-      sector.add(sectorDisc);
+      const secDisc = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.14, 0.14, 0.09, 20, 1, false,
+          Math.PI * 1.1, Math.PI * 0.8), exMat.sector
+      );
+      secDisc.rotation.x = Math.PI / 2;
+      sector.add(secDisc);
+
       for (let i = 0; i < 7; i++) {
         const a = Math.PI * 1.1 + (i / 6) * Math.PI * 0.8;
         const tooth = new THREE.Mesh(
-          new THREE.BoxGeometry(0.05, 0.04, 0.07), exMat.sector);
+          new THREE.BoxGeometry(0.05, 0.04, 0.07), exMat.sector
+        );
         tooth.position.set(Math.cos(a) * 0.16, Math.sin(a) * 0.16, 0);
         tooth.rotation.z = a - Math.PI / 2;
         sector.add(tooth);
       }
 
+      /* Sector shaft (horizontal, exits box) */
       const sectorShaft = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.042, 0.042, 0.55, 14), mat.steelDark);
+        new THREE.CylinderGeometry(0.042, 0.042, 0.55, 14), mat.steelDark
+      );
       sectorShaft.rotation.z = Math.PI / 2;
       sectorShaft.position.set(0, -0.20, 0.02);
       gearBox.add(sectorShaft);
 
+      /* Pitman arm attached to sector shaft */
       const pitman = new THREE.Group();
       pitman.position.set(0.30, -0.20, 0.02);
       gearBox.add(pitman);
-      const arm = new THREE.Mesh(
-        new THREE.BoxGeometry(0.075, 0.055, 0.44), exMat.pitman);
-      arm.position.set(0, 0, 0.22);
-      pitman.add(arm);
-      const ball = new THREE.Mesh(
-        new THREE.SphereGeometry(0.055, 14, 10), mat.joint);
-      ball.position.set(0, 0, 0.44);
-      pitman.add(ball);
 
+      const pArm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.075, 0.055, 0.44), exMat.pitman
+      );
+      pArm.position.set(0, 0, 0.22);
+      pArm.castShadow = true;
+      pitman.add(pArm);
+
+      const pBall = new THREE.Mesh(
+        new THREE.SphereGeometry(0.055, 14, 10), mat.joint
+      );
+      pBall.position.set(0, 0, 0.44);
+      pitman.add(pBall);
+
+      /* Column + detailed wheel (rooted at top of worm) */
+      const column = buildDetailedColumn();
+      column.position.set(0, 1.05, 0.42);
+      column.rotation.x = -COL_TILT;
+      rig.add(column);
+
+      const wheel = buildDetailedWheel();
+      wheel.position.set(0, 1.80, 1.00);
+      wheel.rotation.x = -COL_TILT;
+      rig.add(wheel);
+
+      /* Drag link (pitman → L wheel arm) + tie rod (L → R wheel arm) */
       const dragLink = makeTieRod(); rig.add(dragLink);
-      const tieRod = makeTieRod(); rig.add(tieRod);
+      const tieRod   = makeTieRod(); rig.add(tieRod);
 
       function step(theta) {
         worm.rotation.y = theta * 3.2;
-
-        const nutOffset = THREE.MathUtils.clamp(theta * 0.22, -0.20, 0.20);
-        ballNut.position.y = nutOffset;
+        ballNut.position.y = THREE.MathUtils.clamp(theta * 0.22, -0.20, 0.20);
 
         const sectorAngle = theta * 0.85;
-        sector.rotation.z = -sectorAngle;
-
-        pitman.rotation.x = -sectorAngle * 0.9;
+        sector.rotation.z  = -sectorAngle;
+        pitman.rotation.x  = -sectorAngle * 0.9;
 
         const roadAngle = sectorAngle * 0.9;
         wL.rotation.y = roadAngle;
         wR.rotation.y = roadAngle;
 
+        /* Compute pitman ball world position (needs up-to-date world matrix) */
+        rig.updateMatrixWorld(true);
         const tipP = new THREE.Vector3();
-        ball.getWorldPosition(tipP);
+        pBall.getWorldPosition(tipP);
+
         const armL = new THREE.Vector3(
           -WHEEL_X + Math.sin(roadAngle) * STEER_ARM_LEN,
           WHEEL_Y + STEER_ARM_Y,
@@ -993,9 +1203,9 @@
         alignTieRod(dragLink, tipP, armL);
 
         const armR = new THREE.Vector3(
-          WHEEL_X + Math.sin(roadAngle) * STEER_ARM_LEN,
-          WHEEL_Y + STEER_ARM_Y,
-          WHEEL_Z + Math.cos(roadAngle) * STEER_ARM_LEN
+           WHEEL_X + Math.sin(roadAngle) * STEER_ARM_LEN,
+           WHEEL_Y + STEER_ARM_Y,
+           WHEEL_Z + Math.cos(roadAngle) * STEER_ARM_LEN
         );
         alignTieRod(tieRod, armL, armR);
       }
@@ -1017,100 +1227,87 @@
       };
     }
 
-    /* ── Hydraulic Power Steering ── */
+    /* ── 11b. Hydraulic Power Steering ────────────────────────── */
     function createHydraulicPower() {
-      const base = buildBaseRack();
-      const { rig, bar, pinion, wheel, wL, wR, tieL, tieR } = base;
+      const refs = buildCommonRig();
+      const step = makeRackStep(refs);
 
+      /* Rotary control valve atop the pinion */
       const valve = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.13, 0.13, 0.11, 16), exMat.valve);
+        new THREE.CylinderGeometry(0.13, 0.13, 0.11, 16), exMat.valve
+      );
       valve.rotation.x = Math.PI / 2;
-      valve.position.set(0, 0.22, 0);
-      rig.add(valve);
+      valve.position.set(0, PINION_Y + 0.16, 0);
+      refs.gearAssembly.add(valve);
 
-      const ramCyl = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.10, 0.10, 1.60, 16), exMat.ram);
-      ramCyl.rotation.z = Math.PI / 2;
-      ramCyl.position.set(0, 0, 0.20);
-      rig.add(ramCyl);
+      /* Power cylinder piggy-backing the rack */
+      const cyl = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.10, 0.10, 1.60, 16), exMat.ram
+      );
+      cyl.rotation.z = Math.PI / 2;
+      cyl.position.set(0, RACK_BASE_Y + 0.20, 0);
+      refs.rackGroup.add(cyl);
 
-      const rodPiston = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.045, 0.045, 2.40, 12), mat.steelBright);
-      rodPiston.rotation.z = Math.PI / 2;
-      rodPiston.position.set(0, 0, 0.20);
-      rig.add(rodPiston);
+      const rod = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.045, 0.045, 2.40, 12), mat.steelBright
+      );
+      rod.rotation.z = Math.PI / 2;
+      rod.position.set(0, RACK_BASE_Y + 0.20, 0);
+      refs.rackGroup.add(rod);
 
+      /* Belt-driven pump */
       const pump = new THREE.Group();
-      pump.position.set(-1.40, -0.30, 0.85);
-      rig.add(pump);
+      pump.position.set(-1.35, 0.65, -0.55);
+      refs.rig.add(pump);
+
       const pumpBody = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.16, 0.16, 0.30, 16), exMat.pumpBody);
+        new THREE.CylinderGeometry(0.16, 0.16, 0.30, 16), exMat.pumpBody
+      );
       pumpBody.rotation.x = Math.PI / 2;
       pump.add(pumpBody);
+
       const pumpPulley = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.18, 0.18, 0.05, 20), mat.steelDark);
+        new THREE.CylinderGeometry(0.18, 0.18, 0.05, 20), mat.steelDark
+      );
       pumpPulley.rotation.x = Math.PI / 2;
       pumpPulley.position.z = 0.18;
       pump.add(pumpPulley);
 
-      const hose1 = new THREE.Mesh(
+      /* Hydraulic hoses */
+      const hoseHp = new THREE.Mesh(
         new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-          new THREE.Vector3(-1.40, -0.05, 0.85),
-          new THREE.Vector3(-1.00, 0.15, 0.60),
-          new THREE.Vector3(-0.35, 0.30, 0.30),
-          new THREE.Vector3(-0.10, 0.22, 0.15)
+          new THREE.Vector3(-1.35, 0.65, -0.55),
+          new THREE.Vector3(-1.05, 0.35, -0.20),
+          new THREE.Vector3(-0.55, 0.20,  0.25),
+          new THREE.Vector3(-0.20, 0.10,  0.05)
         ]), 28, 0.022, 8, false),
         exMat.hoseBlue
       );
-      rig.add(hose1);
+      refs.rig.add(hoseHp);
 
-      const hose2 = new THREE.Mesh(
+      const hoseLp = new THREE.Mesh(
         new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-          new THREE.Vector3(-1.40, -0.05, 0.85),
-          new THREE.Vector3(-0.90, -0.25, 0.60),
-          new THREE.Vector3(-0.30, -0.12, 0.35),
-          new THREE.Vector3(0.10, 0.05, 0.22)
+          new THREE.Vector3(-1.35, 0.65, -0.55),
+          new THREE.Vector3(-0.85, 0.15, -0.35),
+          new THREE.Vector3(-0.30, 0.05,  0.05),
+          new THREE.Vector3( 0.10, 0.08,  0.10)
         ]), 28, 0.022, 8, false),
         exMat.hoseRed
       );
-      rig.add(hose2);
+      refs.rig.add(hoseLp);
 
-      function step(theta) {
-        const rackOffset = PINION_R * theta;
-        const roadAngle = Math.asin(
-          Math.max(-1, Math.min(1, rackOffset / STEER_ARM_LEN))
-        );
-
-        bar.position.x = rackOffset;
-        pinion.rotation.z = theta;
-        wheel.rotation.z = theta;
-        wL.rotation.y = roadAngle;
-        wR.rotation.y = roadAngle;
-
-        const armL = new THREE.Vector3(
-          -WHEEL_X + Math.sin(roadAngle) * STEER_ARM_LEN,
-          WHEEL_Y + STEER_ARM_Y,
-          WHEEL_Z + Math.cos(roadAngle) * STEER_ARM_LEN
-        );
-        const armR = new THREE.Vector3(
-          WHEEL_X + Math.sin(roadAngle) * STEER_ARM_LEN,
-          WHEEL_Y + STEER_ARM_Y,
-          WHEEL_Z + Math.cos(roadAngle) * STEER_ARM_LEN
-        );
-        const rackTipL = new THREE.Vector3(-RACK_HALF + rackOffset, 0, 0);
-        const rackTipR = new THREE.Vector3( RACK_HALF + rackOffset, 0, 0);
-        alignTieRod(tieL, rackTipL, armL);
-        alignTieRod(tieR, rackTipR, armR);
-
+      const baseStep = step;
+      const finalStep = (theta) => {
+        baseStep(theta);
         const flow = Math.min(1, Math.abs(theta) * 2.2);
         exMat.hoseBlue.emissiveIntensity = 0.4 + flow * 1.1;
         exMat.hoseRed.emissiveIntensity  = 0.4 + flow * 1.1;
         exMat.valve.emissiveIntensity    = 0.28 + flow * 0.9;
-      }
+      };
 
       return {
-        group: rig,
-        step,
+        group: refs.rig,
+        step: finalStep,
         title: 'Hydraulic Power Steering (HPAS)',
         kicker: 'Steering · Assisted',
         badge: { text: 'Hydraulic Assist', color: '#2e6fbf' },
@@ -1119,143 +1316,106 @@
                pinion senses the twist between the steering wheel and the pinion, and routes pressurised
                fluid to one side or the other of a <strong>power piston</strong> piggybacking the rack.
                The piston's thrust adds to the driver's effort — heavy steering at parking speeds feels
-               light. Fluid returns to the reservoir through a low-pressure line. The classic assisted
-               system on cars from the 1960s through the 2000s.`
+               light. Fluid returns to the reservoir through a low-pressure line.`
       };
     }
 
-    /* ── Electric Power Steering ── */
+    /* ── 11c. Electric Power Steering ─────────────────────────── */
     function createElectricPower() {
-      const base = buildBaseRack();
-      const { rig, bar, pinion, wheel, wL, wR, tieL, tieR } = base;
+      const refs = buildCommonRig();
+      const step = makeRackStep(refs);
 
+      /* Torque sensor ring on column */
       const torque = new THREE.Mesh(
-        new THREE.TorusGeometry(0.06, 0.018, 8, 24), exMat.torque);
-      const colAxis = new THREE.Vector3(0, Math.cos(COL_TILT), Math.sin(COL_TILT));
-      const colMid = new THREE.Vector3(0, 0.90, 0.55).addScaledVector(colAxis, -0.30);
-      torque.position.copy(colMid);
-      torque.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), colAxis);
-      rig.add(torque);
+        new THREE.TorusGeometry(0.060, 0.018, 8, 24), exMat.torque
+      );
+      torque.position.set(0, PINION_Y, 0.35);
+      refs.gearAssembly.add(torque);
 
+      /* Electric assist motor */
       const motor = new THREE.Group();
-      motor.position.set(0.55, 0.72, 0.55);
-      rig.add(motor);
+      motor.position.set(0.42, PINION_Y + 0.20, 0.55);
+      refs.gearAssembly.add(motor);
 
-      const motorBody = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.15, 0.15, 0.32, 18), exMat.motor);
-      motorBody.rotation.x = Math.PI / 2;
-      motor.add(motorBody);
+      const mBody = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.15, 0.32, 18), exMat.motor
+      );
+      mBody.rotation.x = Math.PI / 2;
+      motor.add(mBody);
 
-      const motorEnd = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.13, 0.13, 0.05, 18), mat.steelDark);
-      motorEnd.rotation.x = Math.PI / 2;
-      motorEnd.position.z = -0.18;
-      motor.add(motorEnd);
+      const mEnd = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.13, 0.13, 0.05, 18), mat.steelDark
+      );
+      mEnd.rotation.x = Math.PI / 2;
+      mEnd.position.z = -0.18;
+      motor.add(mEnd);
 
-      const motorGear = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.09, 0.09, 0.05, 20), mat.steel);
-      motorGear.rotation.x = Math.PI / 2;
-      motorGear.position.z = 0.19;
-      motor.add(motorGear);
+      const mGear = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.09, 0.05, 20), mat.steel
+      );
+      mGear.rotation.x = Math.PI / 2;
+      mGear.position.z = 0.19;
+      motor.add(mGear);
 
-      const colGear = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.11, 0.11, 0.05, 22), mat.steelBright);
-      colGear.position.set(0, 0.72, 0.55);
-      colGear.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), colAxis);
-      rig.add(colGear);
-
+      /* ECU + status LED */
       const ecu = new THREE.Mesh(
-        new THREE.BoxGeometry(0.42, 0.28, 0.16), exMat.ecu);
-      ecu.position.set(-1.15, 0.20, 0.55);
-      rig.add(ecu);
+        new THREE.BoxGeometry(0.42, 0.28, 0.16), exMat.ecu
+      );
+      ecu.position.set(-0.95, -0.10, 0.35);
+      refs.rig.add(ecu);
 
-      const ecuLed = new THREE.Mesh(
+      const led = new THREE.Mesh(
         new THREE.SphereGeometry(0.02, 10, 8),
-        new THREE.MeshBasicMaterial({ color: 0x22c55e }));
-      ecuLed.position.set(-1.00, 0.30, 0.64);
-      rig.add(ecuLed);
+        new THREE.MeshBasicMaterial({ color: 0x22c55e })
+      );
+      led.position.set(-0.78, 0.02, 0.44);
+      refs.rig.add(led);
 
-      const wire1 = new THREE.Mesh(
+      /* Signal wires */
+      const wire = new THREE.Mesh(
         new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-          new THREE.Vector3(-0.94, 0.20, 0.55),
-          new THREE.Vector3(-0.30, 0.42, 0.55),
-          new THREE.Vector3(0.30, 0.62, 0.55),
-          new THREE.Vector3(0.55, 0.68, 0.55)
+          new THREE.Vector3(-0.74, -0.02, 0.35),
+          new THREE.Vector3(-0.30,  0.15, 0.35),
+          new THREE.Vector3( 0.10,  0.35, 0.45),
+          new THREE.Vector3( 0.35,  0.55, 0.55)
         ]), 24, 0.012, 8, false),
         exMat.wire
       );
-      rig.add(wire1);
+      refs.rig.add(wire);
 
-      const wire2 = new THREE.Mesh(
-        new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-          new THREE.Vector3(-0.02, 0.62, 0.40),
-          new THREE.Vector3(-0.35, 0.45, 0.48),
-          new THREE.Vector3(-0.85, 0.28, 0.52),
-          new THREE.Vector3(-1.00, 0.22, 0.55)
-        ]), 24, 0.010, 8, false),
-        exMat.wire
-      );
-      rig.add(wire2);
-
-      function step(theta) {
-        const rackOffset = PINION_R * theta;
-        const roadAngle = Math.asin(
-          Math.max(-1, Math.min(1, rackOffset / STEER_ARM_LEN))
-        );
-
-        bar.position.x = rackOffset;
-        pinion.rotation.z = theta;
-        wheel.rotation.z = theta;
-        colGear.rotation.z = theta * 1.5;
-        motorGear.rotation.y = -theta * 3.5;
-        wL.rotation.y = roadAngle;
-        wR.rotation.y = roadAngle;
-
-        const armL = new THREE.Vector3(
-          -WHEEL_X + Math.sin(roadAngle) * STEER_ARM_LEN,
-          WHEEL_Y + STEER_ARM_Y,
-          WHEEL_Z + Math.cos(roadAngle) * STEER_ARM_LEN
-        );
-        const armR = new THREE.Vector3(
-          WHEEL_X + Math.sin(roadAngle) * STEER_ARM_LEN,
-          WHEEL_Y + STEER_ARM_Y,
-          WHEEL_Z + Math.cos(roadAngle) * STEER_ARM_LEN
-        );
-        const rackTipL = new THREE.Vector3(-RACK_HALF + rackOffset, 0, 0);
-        const rackTipR = new THREE.Vector3( RACK_HALF + rackOffset, 0, 0);
-        alignTieRod(tieL, rackTipL, armL);
-        alignTieRod(tieR, rackTipR, armR);
+      const baseStep = step;
+      const finalStep = (theta) => {
+        baseStep(theta);
+        mGear.rotation.z = -theta * 3.5;
 
         const assist = Math.min(1, Math.abs(theta) * 2.0);
         exMat.motor.emissiveIntensity  = 0.4 + assist * 2.0;
         exMat.torque.emissiveIntensity = 0.6 + assist * 1.2;
         exMat.wire.emissiveIntensity   = 0.35 + assist * 1.0;
-        if (ecuLed && ecuLed.material) {
-          ecuLed.material.color.setHex(assist > 0.05 ? 0x22c55e : 0x334155);
+        if (led.material) {
+          led.material.color.setHex(assist > 0.05 ? 0x22c55e : 0x334155);
         }
-      }
+      };
 
       return {
-        group: rig,
-        step,
+        group: refs.rig,
+        step: finalStep,
         title: 'Electric Power Steering (EPS)',
         kicker: 'Steering · Modern',
         badge: { text: 'Electric Assist', color: '#8b5cf6' },
         desc: `<strong>Electric power steering.</strong> A <strong>torque sensor</strong> on the
                column measures how hard the driver is twisting the wheel. An <strong>ECU</strong>
-               (electronic control unit) reads that signal along with vehicle speed and steering angle,
-               then commands an <strong>electric motor</strong> to apply assist torque to the column
-               or rack through a small gear mesh. No hydraulic pump, no fluid, no belt — the motor draws
-               current only when steering assistance is actually needed, so the system saves fuel and
-               lets the ECU tune the steering feel for different driving modes. Standard on almost all
-               new cars today.`
+               reads that signal along with vehicle speed and steering angle, then commands an
+               <strong>electric motor</strong> to apply assist torque to the column through a small
+               gear mesh. No hydraulic pump, no fluid, no belt — the motor draws current only when
+               steering assistance is actually needed. Standard on almost all new cars today.`
       };
     }
 
     return {
-      ball: createRecirculatingBall(),
+      ball:      createRecirculatingBall(),
       hydraulic: createHydraulicPower(),
-      eps: createElectricPower()
+      eps:       createElectricPower()
     };
   })();
 
@@ -1623,8 +1783,7 @@
       purpleLight.intensity = 55 + Math.sin(t * 1.4) * 10;
       cyanLight.intensity   = 42 + Math.sin(t * 1.1 + 1.5) * 8;
 
-      /* Idle pulse on the wheel markers so the scene visibly breathes even
-         before any interaction — helps confirm the render loop is alive. */
+      /* Idle pulse on the wheel markers */
       const pulse = 0.75 + 0.35 * Math.sin(t * 2.2);
       if (mat.markerViolet) mat.markerViolet.emissiveIntensity = 1.0 + pulse * 0.6;
       if (mat.markerBlue)   mat.markerBlue.emissiveIntensity   = 1.0 + pulse * 0.5;
