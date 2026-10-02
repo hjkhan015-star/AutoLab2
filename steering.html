@@ -1232,77 +1232,164 @@
       const refs = buildCommonRig();
       const step = makeRackStep(refs);
 
-      /* Rotary control valve atop the pinion */
-      const valve = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.13, 0.13, 0.11, 16), exMat.valve
-      );
-      valve.rotation.x = Math.PI / 2;
-      valve.position.set(0, PINION_Y + 0.16, 0);
-      refs.gearAssembly.add(valve);
+      /* ── REAL MECHANISM ──────────────────────────────────────────────
+         1. Rotary control valve (two concentric sleeves). Relative twist
+            between input shaft and pinion opens ports to left/right side
+            of the power cylinder.
+         2. Power cylinder fixed to the housing; piston is locked to the
+            rack so hydraulic pressure directly pushes the rack.
+         3. Belt-driven pump keeps system pressure; HP hose lights when
+            fluid is flowing to the cylinder, LP hose is the return.
+         ────────────────────────────────────────────────────────────── */
 
-      /* Power cylinder piggy-backing the rack */
-      const cyl = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.10, 0.10, 1.60, 16), exMat.ram
+      /* Rotary valve — outer sleeve fixed to pinion, inner sleeve to input */
+      const valveOuter = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.12, 0.14, 20), exMat.valve
       );
-      cyl.rotation.z = Math.PI / 2;
-      cyl.position.set(0, RACK_BASE_Y + 0.20, 0);
-      refs.rackGroup.add(cyl);
+      valveOuter.rotation.x = Math.PI / 2;
+      valveOuter.position.set(0, PINION_Y + 0.14, 0.02);
+      refs.gearAssembly.add(valveOuter);
 
-      const rod = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.045, 0.045, 2.40, 12), mat.steelBright
+      const valveInner = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.07, 0.16, 16), mat.steelBright
       );
-      rod.rotation.z = Math.PI / 2;
-      rod.position.set(0, RACK_BASE_Y + 0.20, 0);
-      refs.rackGroup.add(rod);
+      valveInner.rotation.x = Math.PI / 2;
+      valveInner.position.set(0, PINION_Y + 0.14, 0.02);
+      refs.gearAssembly.add(valveInner);
 
-      /* Belt-driven pump */
+      /* Port markers on the valve (left / right chambers) */
+      const portL = new THREE.Mesh(
+        new THREE.BoxGeometry(0.04, 0.03, 0.06), mat.markerBlue
+      );
+      portL.position.set(-0.10, PINION_Y + 0.14, 0.08);
+      refs.gearAssembly.add(portL);
+      const portR = new THREE.Mesh(
+        new THREE.BoxGeometry(0.04, 0.03, 0.06), mat.markerAmber
+      );
+      portR.position.set(0.10, PINION_Y + 0.14, 0.08);
+      refs.gearAssembly.add(portR);
+
+      /* Power cylinder housing (fixed to gear assembly, does NOT slide) */
+      const cylHousing = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.11, 0.11, 1.50, 18), exMat.ram
+      );
+      cylHousing.rotation.z = Math.PI / 2;
+      cylHousing.position.set(0, RACK_BASE_Y + 0.22, -0.02);
+      refs.gearAssembly.add(cylHousing);
+
+      /* Piston locked to the rack — this is what the fluid pushes */
+      const piston = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.095, 0.095, 0.18, 16), mat.steelBright
+      );
+      piston.rotation.z = Math.PI / 2;
+      piston.position.set(0, RACK_BASE_Y + 0.22, -0.02);
+      refs.rackGroup.add(piston);   /* moves with the rack */
+
+      /* Piston rod extensions (visual) */
+      const rodL = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.035, 0.035, 0.70, 10), mat.steel
+      );
+      rodL.rotation.z = Math.PI / 2;
+      rodL.position.set(-0.55, RACK_BASE_Y + 0.22, -0.02);
+      refs.rackGroup.add(rodL);
+      const rodR = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.035, 0.035, 0.70, 10), mat.steel
+      );
+      rodR.rotation.z = Math.PI / 2;
+      rodR.position.set(0.55, RACK_BASE_Y + 0.22, -0.02);
+      refs.rackGroup.add(rodR);
+
+      /* Belt-driven pump (engine side) */
       const pump = new THREE.Group();
-      pump.position.set(-1.35, 0.65, -0.55);
+      pump.position.set(-1.55, 0.32, -0.75);
       refs.rig.add(pump);
 
       const pumpBody = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.16, 0.16, 0.30, 16), exMat.pumpBody
+        new THREE.CylinderGeometry(0.15, 0.15, 0.28, 16), exMat.pumpBody
       );
       pumpBody.rotation.x = Math.PI / 2;
       pump.add(pumpBody);
 
       const pumpPulley = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.18, 0.18, 0.05, 20), mat.steelDark
+        new THREE.CylinderGeometry(0.17, 0.17, 0.05, 20), mat.steelDark
       );
       pumpPulley.rotation.x = Math.PI / 2;
-      pumpPulley.position.z = 0.18;
+      pumpPulley.position.z = 0.17;
       pump.add(pumpPulley);
 
-      /* Hydraulic hoses */
+      /* Reservoir on top of pump */
+      const reservoir = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.10, 0.14, 12), mat.steelBright
+      );
+      reservoir.position.set(0, 0.20, 0);
+      pump.add(reservoir);
+
+      /* HP hose (pump → valve) and LP hose (valve → reservoir) */
       const hoseHp = new THREE.Mesh(
         new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-          new THREE.Vector3(-1.35, 0.65, -0.55),
-          new THREE.Vector3(-1.05, 0.35, -0.20),
-          new THREE.Vector3(-0.55, 0.20,  0.25),
-          new THREE.Vector3(-0.20, 0.10,  0.05)
-        ]), 28, 0.022, 8, false),
+          new THREE.Vector3(-1.55, 0.32, -0.75),
+          new THREE.Vector3(-1.05, 0.28, -0.45),
+          new THREE.Vector3(-0.45, 0.20, -0.28),
+          new THREE.Vector3(-0.05, 0.16, -0.20)
+        ]), 28, 0.020, 8, false),
         exMat.hoseBlue
       );
       refs.rig.add(hoseHp);
 
       const hoseLp = new THREE.Mesh(
         new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-          new THREE.Vector3(-1.35, 0.65, -0.55),
-          new THREE.Vector3(-0.85, 0.15, -0.35),
-          new THREE.Vector3(-0.30, 0.05,  0.05),
-          new THREE.Vector3( 0.10, 0.08,  0.10)
-        ]), 28, 0.022, 8, false),
+          new THREE.Vector3(-1.55, 0.42, -0.75),
+          new THREE.Vector3(-1.00, 0.22, -0.50),
+          new THREE.Vector3(-0.40, 0.14, -0.32),
+          new THREE.Vector3( 0.05, 0.14, -0.18)
+        ]), 28, 0.018, 8, false),
         exMat.hoseRed
       );
       refs.rig.add(hoseLp);
 
+      /* Cylinder feed lines (valve → left / right chamber) */
+      const feedL = new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+          new THREE.Vector3(-0.08, 0.16, -0.18),
+          new THREE.Vector3(-0.35, 0.20, -0.12),
+          new THREE.Vector3(-0.55, 0.22, -0.04)
+        ]), 16, 0.014, 6, false),
+        exMat.hoseBlue
+      );
+      refs.rig.add(feedL);
+      const feedR = new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+          new THREE.Vector3(0.08, 0.16, -0.18),
+          new THREE.Vector3(0.35, 0.20, -0.12),
+          new THREE.Vector3(0.55, 0.22, -0.04)
+        ]), 16, 0.014, 6, false),
+        exMat.hoseRed
+      );
+      refs.rig.add(feedR);
+
       const baseStep = step;
+      let pumpSpin = 0;
       const finalStep = (theta) => {
         baseStep(theta);
-        const flow = Math.min(1, Math.abs(theta) * 2.2);
-        exMat.hoseBlue.emissiveIntensity = 0.4 + flow * 1.1;
-        exMat.hoseRed.emissiveIntensity  = 0.4 + flow * 1.1;
-        exMat.valve.emissiveIntensity    = 0.28 + flow * 0.9;
+
+        /* Relative twist at the rotary valve (input vs pinion) */
+        const twist = Math.max(-0.18, Math.min(0.18, theta * 0.35));
+        valveInner.rotation.z = -theta + twist;   /* lag = sensed torque */
+        valveOuter.rotation.z = -theta;
+
+        /* Pump spins continuously while steering effort exists */
+        const flow = Math.min(1, Math.abs(theta) * 2.5);
+        pumpSpin += 0.15 + flow * 0.55;
+        pumpPulley.rotation.z = pumpSpin;
+
+        /* Hose / port glow shows which chamber is pressurised */
+        const leftActive  = theta < -0.02;
+        const rightActive = theta >  0.02;
+        exMat.hoseBlue.emissiveIntensity = 0.35 + (leftActive  ? flow * 1.4 : flow * 0.3);
+        exMat.hoseRed.emissiveIntensity  = 0.35 + (rightActive ? flow * 1.4 : flow * 0.3);
+        exMat.valve.emissiveIntensity    = 0.25 + flow * 1.0;
+        portL.material.emissiveIntensity = leftActive  ? 1.8 : 0.3;
+        portR.material.emissiveIntensity = rightActive ? 1.8 : 0.3;
       };
 
       return {
@@ -1311,12 +1398,15 @@
         title: 'Hydraulic Power Steering (HPAS)',
         kicker: 'Steering · Assisted',
         badge: { text: 'Hydraulic Assist', color: '#2e6fbf' },
-        desc: `<strong>Hydraulic power steering.</strong> A <strong>belt-driven pump</strong> keeps
-               hydraulic fluid at pressure. A <strong>rotary control valve</strong> at the top of the
-               pinion senses the twist between the steering wheel and the pinion, and routes pressurised
-               fluid to one side or the other of a <strong>power piston</strong> piggybacking the rack.
-               The piston's thrust adds to the driver's effort — heavy steering at parking speeds feels
-               light. Fluid returns to the reservoir through a low-pressure line.`
+        desc: `<strong>Real hydraulic assist path.</strong>
+               The driver turns the wheel → a small <strong>relative twist</strong> appears
+               between the input shaft and the pinion inside the <strong>rotary control valve</strong>.
+               That twist opens ports that send high-pressure fluid from the <strong>pump</strong>
+               into one side of the <strong>power cylinder</strong>. The piston is locked to the
+               <strong>rack</strong>, so the fluid force pushes the rack (and therefore the road
+               wheels) in the same direction the driver is steering. The opposite chamber drains
+               back to the reservoir through the low-pressure line. When the wheel is centred the
+               valve closes and assist stops.`
       };
     }
 
@@ -1325,75 +1415,144 @@
       const refs = buildCommonRig();
       const step = makeRackStep(refs);
 
-      /* Torque sensor ring on column */
-      const torque = new THREE.Mesh(
-        new THREE.TorusGeometry(0.060, 0.018, 8, 24), exMat.torque
-      );
-      torque.position.set(0, PINION_Y, 0.35);
-      refs.gearAssembly.add(torque);
+      /* ── REAL MECHANISM ──────────────────────────────────────────────
+         Column-assist EPS:
+         1. Torsion bar (torque sensor) between upper & lower column.
+            Driver torque twists it a few degrees; the twist is measured.
+         2. ECU reads twist + vehicle speed → computes assist current.
+         3. Electric motor drives a worm (or spur) gear that meshes with
+            a gear on the lower column / pinion, adding torque in the
+            same direction the driver is turning.
+         4. Motor only draws current when assist is required.
+         ────────────────────────────────────────────────────────────── */
 
-      /* Electric assist motor */
+      /* Upper column (driver side of torsion bar) */
+      const upperCol = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.038, 0.038, 0.55, 14), mat.steel
+      );
+      upperCol.rotation.x = Math.PI / 2;
+      upperCol.position.set(0, PINION_Y, 0.55);
+      refs.gearAssembly.add(upperCol);
+
+      /* Torsion bar / torque sensor (thin bar that visibly twists) */
+      const torsion = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.022, 0.022, 0.20, 12), exMat.torque
+      );
+      torsion.rotation.x = Math.PI / 2;
+      torsion.position.set(0, PINION_Y, 0.28);
+      refs.gearAssembly.add(torsion);
+
+      /* Sensor housing rings */
+      const sensRing1 = new THREE.Mesh(
+        new THREE.TorusGeometry(0.055, 0.012, 8, 20), mat.steelDark
+      );
+      sensRing1.position.set(0, PINION_Y, 0.22);
+      refs.gearAssembly.add(sensRing1);
+      const sensRing2 = new THREE.Mesh(
+        new THREE.TorusGeometry(0.055, 0.012, 8, 20), mat.steelDark
+      );
+      sensRing2.position.set(0, PINION_Y, 0.34);
+      refs.gearAssembly.add(sensRing2);
+
+      /* Assist motor — worm gear meshes with column gear */
       const motor = new THREE.Group();
-      motor.position.set(0.42, PINION_Y + 0.20, 0.55);
+      motor.position.set(0.28, PINION_Y + 0.05, 0.30);
       refs.gearAssembly.add(motor);
 
       const mBody = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.15, 0.15, 0.32, 18), exMat.motor
+        new THREE.CylinderGeometry(0.13, 0.13, 0.30, 18), exMat.motor
       );
       mBody.rotation.x = Math.PI / 2;
       motor.add(mBody);
 
       const mEnd = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.13, 0.13, 0.05, 18), mat.steelDark
+        new THREE.CylinderGeometry(0.11, 0.11, 0.04, 16), mat.steelDark
       );
       mEnd.rotation.x = Math.PI / 2;
-      mEnd.position.z = -0.18;
+      mEnd.position.z = -0.17;
       motor.add(mEnd);
 
-      const mGear = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.09, 0.09, 0.05, 20), mat.steel
+      /* Worm on motor shaft */
+      const wormGear = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.055, 0.055, 0.14, 16), mat.steel
       );
-      mGear.rotation.x = Math.PI / 2;
-      mGear.position.z = 0.19;
-      motor.add(mGear);
+      wormGear.rotation.x = Math.PI / 2;
+      wormGear.position.z = 0.18;
+      motor.add(wormGear);
+      for (let i = 0; i < 6; i++) {
+        const ridge = new THREE.Mesh(
+          new THREE.TorusGeometry(0.058, 0.006, 6, 12), mat.steelBright
+        );
+        ridge.rotation.x = Math.PI / 2;
+        ridge.position.z = 0.12 + i * 0.022;
+        motor.add(ridge);
+      }
 
-      /* ECU + status LED */
-      const ecu = new THREE.Mesh(
-        new THREE.BoxGeometry(0.42, 0.28, 0.16), exMat.ecu
+      /* Column gear that the worm drives (fixed to pinion / lower column) */
+      const colGear = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.10, 0.10, 0.08, 20), mat.steelBright
       );
-      ecu.position.set(-0.95, -0.10, 0.35);
+      colGear.rotation.x = Math.PI / 2;
+      colGear.position.set(0, PINION_Y, 0.30);
+      refs.gearAssembly.add(colGear);
+
+      /* ECU on chassis */
+      const ecu = new THREE.Mesh(
+        new THREE.BoxGeometry(0.40, 0.26, 0.14), exMat.ecu
+      );
+      ecu.position.set(-1.05, -0.22, -0.12);
       refs.rig.add(ecu);
 
       const led = new THREE.Mesh(
-        new THREE.SphereGeometry(0.02, 10, 8),
+        new THREE.SphereGeometry(0.022, 10, 8),
         new THREE.MeshBasicMaterial({ color: 0x22c55e })
       );
-      led.position.set(-0.78, 0.02, 0.44);
+      led.position.set(-0.86, -0.10, -0.02);
       refs.rig.add(led);
 
-      /* Signal wires */
-      const wire = new THREE.Mesh(
+      /* Power + signal wires (ECU → motor / sensor) */
+      const wirePwr = new THREE.Mesh(
         new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-          new THREE.Vector3(-0.74, -0.02, 0.35),
-          new THREE.Vector3(-0.30,  0.15, 0.35),
-          new THREE.Vector3( 0.10,  0.35, 0.45),
-          new THREE.Vector3( 0.35,  0.55, 0.55)
+          new THREE.Vector3(-0.86, -0.10, -0.02),
+          new THREE.Vector3(-0.40,  0.00,  0.10),
+          new THREE.Vector3( 0.05,  0.06,  0.22),
+          new THREE.Vector3( 0.26,  0.10,  0.30)
         ]), 24, 0.012, 8, false),
         exMat.wire
       );
-      refs.rig.add(wire);
+      refs.rig.add(wirePwr);
+
+      const wireSig = new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+          new THREE.Vector3(-0.86, -0.12, -0.02),
+          new THREE.Vector3(-0.45, -0.02,  0.08),
+          new THREE.Vector3(-0.10,  0.04,  0.20),
+          new THREE.Vector3( 0.00,  0.08,  0.28)
+        ]), 20, 0.009, 6, false),
+        mat.markerBlue
+      );
+      refs.rig.add(wireSig);
 
       const baseStep = step;
       const finalStep = (theta) => {
         baseStep(theta);
-        mGear.rotation.z = -theta * 3.5;
 
-        const assist = Math.min(1, Math.abs(theta) * 2.0);
-        exMat.motor.emissiveIntensity  = 0.4 + assist * 2.0;
-        exMat.torque.emissiveIntensity = 0.6 + assist * 1.2;
-        exMat.wire.emissiveIntensity   = 0.35 + assist * 1.0;
+        /* Torsion bar twists relative to the lower column (sensed torque) */
+        const twist = Math.max(-0.25, Math.min(0.25, theta * 0.4));
+        torsion.rotation.z = -theta + twist;   /* lag = driver torque */
+        upperCol.rotation.z = -theta + twist;
+        colGear.rotation.z = -theta;          /* lower side follows pinion */
+
+        /* Motor worm spins faster (reduction gear) and in assist direction */
+        const assist = Math.min(1, Math.abs(theta) * 2.2);
+        wormGear.rotation.z = -theta * 4.5;   /* higher ratio = assist */
+
+        /* Visual feedback of assist current */
+        exMat.motor.emissiveIntensity  = 0.3 + assist * 2.2;
+        exMat.torque.emissiveIntensity = 0.5 + assist * 1.4;
+        exMat.wire.emissiveIntensity   = 0.3 + assist * 1.2;
         if (led.material) {
-          led.material.color.setHex(assist > 0.05 ? 0x22c55e : 0x334155);
+          led.material.color.setHex(assist > 0.04 ? 0x22c55e : 0x334155);
         }
       };
 
@@ -1403,12 +1562,13 @@
         title: 'Electric Power Steering (EPS)',
         kicker: 'Steering · Modern',
         badge: { text: 'Electric Assist', color: '#8b5cf6' },
-        desc: `<strong>Electric power steering.</strong> A <strong>torque sensor</strong> on the
-               column measures how hard the driver is twisting the wheel. An <strong>ECU</strong>
-               reads that signal along with vehicle speed and steering angle, then commands an
-               <strong>electric motor</strong> to apply assist torque to the column through a small
-               gear mesh. No hydraulic pump, no fluid, no belt — the motor draws current only when
-               steering assistance is actually needed. Standard on almost all new cars today.`
+        desc: `<strong>Real electric assist path.</strong>
+               Turning the wheel twists a thin <strong>torsion bar</strong> between the upper
+               and lower column. Sensors measure that twist (driver torque). The <strong>ECU</strong>
+               combines torque with vehicle speed and commands the <strong>electric motor</strong>.
+               The motor drives a <strong>worm gear</strong> that meshes with a gear on the lower
+               column / pinion, adding torque in the same direction the driver is steering.
+               The motor only draws current when assistance is needed — no pump, no fluid, no belt.`
       };
     }
 
