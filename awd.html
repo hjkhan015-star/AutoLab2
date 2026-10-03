@@ -5,53 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>4WD / AWD Systems — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #22c55e; }
 html.light-theme { --al-accent: color-mix(in oklch, #22c55e 68%, black); }
 
-/* ── module-local UI: extra controls + rolling graph ─────────────── */
-#awd-panel{
-  position:fixed; left:12px; top:12px; z-index:30;
-  width:268px; max-width:46vw;
-  padding:10px 12px 12px;
-  border:1px solid var(--border,#333);
-  border-radius:10px;
-  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
-  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
-  box-shadow:0 8px 28px rgba(0,0,0,.38);
-  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
-  color:var(--text-dim,#9aa4b2);
-  max-height:calc(100dvh - 24px); overflow:auto;
-}
-#awd-panel.folded .awd-body{ display:none; }
-.awd-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-.awd-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
-.awd-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
-.awd-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.awd-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
-.awd-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
-  text-transform:uppercase; color:var(--text-mute,#6b7280); }
-.awd-w b{ color:var(--text,#e5e7eb); font-weight:700; }
-#awd-panel .al-range{ height:22px; }
-#awd-panel .al-sel{ min-height:32px; font-size:11px; }
-.awd-btns{ display:flex; gap:6px; margin-bottom:8px; }
-.awd-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
-.awd-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.awd-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(34,197,94,.14); }
-#awd-cool{ color:#38bdf8; border-color:rgba(56,189,248,.4); }
-#awd-cool:hover{ border-color:#38bdf8; }
-.awd-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
-  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
-  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
-.awd-warn.show{ display:block; }
-#awd-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
-  border-radius:6px; background:rgba(0,0,0,.28); }
-.awd-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
-.awd-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
-@media (max-width:700px){ #awd-panel{ width:212px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -69,7 +28,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #22c55e 68%, black); }
 </script>
 
 <script type="module">
-import { runGuidedModule } from './components.js';
+import { runGuidedModule, controls } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
 const CFG = {
@@ -81,7 +40,17 @@ const CFG = {
   "camPos": [1.5, 8.8, 4.6],
   "target": [0, -0.4, 0],
   "floorY": -1.6,
-  "ctl": { "label": "Engine load", "val": 60, "caption": "Engine load" },
+  ctls: [   /* Phase 3: sliders live in the dock as axis controls; ctls[0] (id 'ctl') = the main 0-100 % control */
+    { id:'ctl', label:"Engine load", caption:"Engine load", preset:'percent', def:60 },
+    { id:'rpm', preset:'rpm', max:5500, def:2400, label:'Engine speed', onChange:(v)=>{ S.rpm = v; } },
+    /* Phase 5: the interim 'steer' slider (0-100 %) is a wheel dial. MAPPING (simulation unchanged): S.steering is the
+       steering MAGNITUDE 0..1 = |angle| / 180°, i.e. the old slider % / 100. The wheel turns ±180° (registry -1..1), so
+       centre = 0 %, 90° either way = 50 %, full lock either way = 100 %. The sim only ever used the magnitude (windup),
+       so left and right give the same split. No spring: like the slider it stays where it is left (windup needs a held
+       angle); Enter / Home = centre. */
+    { id:'steer', type:'dial', look:'wheel', label:'Steering', ariaLabel:'Steering wheel', range:360, def:0, step:1,
+      onChange:(v, raw, n)=>{ S.steering = Math.abs(n); } },
+  ],
   "chipLabel": "Rear torque",
   "rows": [["fslip", "Front slip"], ["rslip", "Rear slip"]],
   "ro": [
@@ -104,7 +73,7 @@ const CFG = {
     ["#ef4444", "Overheated coupling / windup"],
     ["#22c55e", "Healthy coupling"]
   ],
-  "overview": "<div class=\"al-sec\"><h4>Power to all four wheels<\/h4><p>A transfer case or centre coupling splits engine torque between the front and rear axles, improving traction on slippery surfaces. The <b>split is not fixed<\/b>: a modern AWD system continuously moves torque to whichever axle has grip.<\/p><\/div><div class=\"al-sec\"><h4>Three families<\/h4><ul><li><b>Part-time 4WD<\/b> &mdash; a locked centre sending 50:50 to both axles; great off-road, but the driveline winds up on dry tarmac because the front and rear arcs differ in a turn.<\/li><li><b>Full-time AWD with centre diff<\/b> &mdash; a differential lets the axles turn at different speeds; a lock is available for low grip.<\/li><li><b>On-demand AWD<\/b> &mdash; a multi-plate clutch (Haldex, viscous) sits between the axles and is clamped by the ECU when it detects slip.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>What drives the clutch<\/h4><p>Two inputs: <b>speed difference<\/b> across the coupling (a passive viscous coupling responds to this alone) and <b>driver demand<\/b> (a clutch-pack type is pre-emptively clamped by the ECU when the throttle is opened). Both push torque from the faster axle to the slower one.<\/p><\/div><div class=\"al-sec\"><h4>Heat, fade and windup<\/h4><p>Every newton-metre the coupling transfers while the axles are turning at different speeds becomes <b>heat inside the clutch pack<\/b>. Above about 90&nbsp;&deg;C the clutch fades and rear drive disappears. A <b>locked<\/b> centre diff has the opposite problem &mdash; it cannot slip, so any speed difference the tyres demand (a turn on dry tarmac, mismatched tyre diameters) is absorbed as torsional wind-up in the propshafts.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Leave the coupling on <b>Clutch<\/b>, set load to 80&nbsp;% and drop the surface to <b>Snow<\/b>. Watch the front axle slip, the coupling transfer torque rearward and the coupling temperature climb. Then put the surface back to <b>Dry<\/b> and switch the coupling to <b>Locked<\/b> with the steering slider near 70&nbsp;% &mdash; the driveline windup readout goes red and the car judders on tight turns.<\/p><\/div>",
+  "overview": "<div class=\"al-sec\"><h4>Power to all four wheels<\/h4><p>A transfer case or centre coupling splits engine torque between the front and rear axles, improving traction on slippery surfaces. The <b>split is not fixed<\/b>: a modern AWD system continuously moves torque to whichever axle has grip.<\/p><\/div><div class=\"al-sec\"><h4>Three families<\/h4><ul><li><b>Part-time 4WD<\/b> &mdash; a locked centre sending 50:50 to both axles; great off-road, but the driveline winds up on dry tarmac because the front and rear arcs differ in a turn.<\/li><li><b>Full-time AWD with centre diff<\/b> &mdash; a differential lets the axles turn at different speeds; a lock is available for low grip.<\/li><li><b>On-demand AWD<\/b> &mdash; a multi-plate clutch (Haldex, viscous) sits between the axles and is clamped by the ECU when it detects slip.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>What drives the clutch<\/h4><p>Two inputs: <b>speed difference<\/b> across the coupling (a passive viscous coupling responds to this alone) and <b>driver demand<\/b> (a clutch-pack type is pre-emptively clamped by the ECU when the throttle is opened). Both push torque from the faster axle to the slower one.<\/p><\/div><div class=\"al-sec\"><h4>Heat, fade and windup<\/h4><p>Every newton-metre the coupling transfers while the axles are turning at different speeds becomes <b>heat inside the clutch pack<\/b>. Above about 90&nbsp;&deg;C the clutch fades and rear drive disappears. A <b>locked<\/b> centre diff has the opposite problem &mdash; it cannot slip, so any speed difference the tyres demand (a turn on dry tarmac, mismatched tyre diameters) is absorbed as torsional wind-up in the propshafts.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Leave the coupling on <b>Clutch<\/b>, set load to 80&nbsp;% and drop the surface to <b>Snow<\/b>. Watch the front axle slip, the coupling transfer torque rearward and the coupling temperature climb. Then put the surface back to <b>Dry<\/b> and switch the coupling to <b>Locked<\/b> with the steering wheel turned about 125&deg; either way (70&nbsp;% of full lock) &mdash; the driveline windup readout goes red and the car judders on tight turns.<\/p><\/div>",
   "faults": [
     ["Worn / overheated coupling", "Rear drive disappears, the car understeers and spins its front wheels. The clutch pack is burnt or its oil has degraded, so it cannot transfer torque even when the ECU clamps it.", "Read AWD/haldex live data; check the coupling oil for a burnt smell and replace the clutch pack if the transfer rate is below spec."],
     ["Locked centre diff on dry tarmac", "Juddering, hopping and tyre scrub on tight turns - classic 'tight-corner braking'. The driveline winds up because the two axles cannot turn at different speeds.", "Never use 4H or diff-lock on dry tarmac; check tyre sizes match before re-engaging the lock."],
@@ -216,102 +185,20 @@ const S = {
   speed: 1
 };
 
-const panel = document.createElement('div');
-panel.id = 'awd-panel';
-let faultOptions = '';
-for (const id in FAULT_INFO) {
-  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
-}
-panel.innerHTML =
-  '<div class="awd-h"><span>AWD simulation</span><button type="button" id="awd-fold" aria-label="Collapse controls">&#8211;</button></div>' +
-  '<div class="awd-body">' +
-    '<div class="awd-w"><label for="awd-rpm">Engine speed <b id="awd-rpm-v">2400 rpm</b></label>' +
-      '<input id="awd-rpm" class="al-range" type="range" min="800" max="5500" step="50" value="2400" aria-label="Engine speed"></div>' +
-    '<div class="awd-w"><label for="awd-surf">Surface</label>' +
-      '<select id="awd-surf" class="al-sel" aria-label="Surface">' +
-        '<option value="dry" selected>Dry tarmac (&#181; 1.00)</option>' +
-        '<option value="wet">Wet road (&#181; 0.70)</option>' +
-        '<option value="gravel">Gravel (&#181; 0.55)</option>' +
-        '<option value="snow">Snow (&#181; 0.32)</option>' +
-        '<option value="ice">Ice (&#181; 0.14)</option>' +
-      '</select></div>' +
-    '<div class="awd-w"><label for="awd-type">Centre coupling</label>' +
-      '<select id="awd-type" class="al-sel" aria-label="Centre coupling">' +
-        '<option value="viscous">Viscous (passive)</option>' +
-        '<option value="clutch" selected>Clutch pack (ECU)</option>' +
-        '<option value="locked">Locked 50:50 (4H)</option>' +
-      '</select></div>' +
-    '<div class="awd-w"><label for="awd-str">Steering input <b id="awd-str-v">0 %</b></label>' +
-      '<input id="awd-str" class="al-range" type="range" min="0" max="100" step="1" value="0" aria-label="Steering input"></div>' +
-    '<div class="awd-w"><label for="awd-fault">Fault injection</label>' +
-      '<select id="awd-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
-    '<div class="awd-w"><label>Simulation speed</label>' +
-      '<div class="awd-btns" id="awd-speed">' +
-        '<button type="button" data-sp="1" class="on">1&times;</button>' +
-        '<button type="button" data-sp="5">5&times;</button>' +
-        '<button type="button" data-sp="20">20&times;</button>' +
-      '</div></div>' +
-    '<div class="awd-btns">' +
-      '<button type="button" id="awd-cool">Cool down</button>' +
-      '<button type="button" id="awd-reset">Reset</button>' +
-    '</div>' +
-    '<div class="awd-warn" id="awd-warn"></div>' +
-    '<canvas id="awd-graph" width="480" height="150" aria-label="Rear torque split and coupling temperature history"></canvas>' +
-    '<div class="awd-key"><span><i style="background:#22c55e"></i>Rear %</span><span><i style="background:#fb923c"></i>Coupling &deg;C</span></div>' +
-  '</div>';
-document.body.appendChild(panel);
 
-const elFold   = document.getElementById('awd-fold');
-const elRpm    = document.getElementById('awd-rpm');
-const elRpmV   = document.getElementById('awd-rpm-v');
-const elSurf   = document.getElementById('awd-surf');
-const elType   = document.getElementById('awd-type');
-const elStr    = document.getElementById('awd-str');
-const elStrV   = document.getElementById('awd-str-v');
-const elFault  = document.getElementById('awd-fault');
-const elSpeed  = document.getElementById('awd-speed');
-const elCool   = document.getElementById('awd-cool');
-const elReset  = document.getElementById('awd-reset');
-const elWarn   = document.getElementById('awd-warn');
-const gcv      = document.getElementById('awd-graph');
-const gctx     = gcv.getContext('2d');
-
-elFold.addEventListener('click', () => {
-  panel.classList.toggle('folded');
-  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
-});
-elRpm.addEventListener('input', () => {
-  S.rpm = Number(elRpm.value) || 800;
-  elRpmV.textContent = S.rpm + ' rpm';
-});
-elSurf.addEventListener('change', () => { S.surface = elSurf.value; });
-elType.addEventListener('change', () => { S.couplingType = elType.value; });
-elStr.addEventListener('input', () => {
-  S.steering = (Number(elStr.value) || 0) / 100;
-  elStrV.textContent = Math.round(S.steering * 100) + ' %';
-});
-elFault.addEventListener('change', () => { S.fault = elFault.value; });
-elSpeed.addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-sp]');
-  if (!b) return;
-  S.speed = Number(b.dataset.sp) || 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
-});
-elCool.addEventListener('click', () => {
-  sim.couplingTemp = AMBIENT;
-  sim.fluidTemp = AMBIENT;
-});
 
 /* ── simulation state (module level so Reset can reach it) ───────── */
-const GRAPH_N = 150;
+/* Phase 7a: the history lives in the Monitor (CFG.traces); the module only hands over one normalised sample
+   per ~140 ms while the sim runs (0..100 % of each old axis range) and the current warning sentence. */
+let traceSample = null, traceClear = false, warnText = '';
+const traceN = (v, lo, hi) => Math.round(clampN((v - lo) / (hi - lo), 0, 1) * 1000) / 10;
 const sim = {
   couplingTemp: AMBIENT,
   fluidTemp: AMBIENT,
   windup: 0,
   wheelSpinF: 0,
   wheelSpinR: 0,
-  lastT: -1,
-  samples: []
+  lastT: -1
 };
 
 function resetModel() {
@@ -321,61 +208,17 @@ function resetModel() {
   sim.wheelSpinF = 0;
   sim.wheelSpinR = 0;
   sim.lastT = -1;
-  sim.samples.length = 0;
+  traceClear = true;                  /* Monitor trace is cleared on the next update */
 }
 function resetAll() {
-  S.rpm = 2400;        elRpm.value = 2400;  elRpmV.textContent = '2400 rpm';
-  S.surface = 'dry';   elSurf.value = 'dry';
-  S.couplingType = 'clutch'; elType.value = 'clutch';
-  S.steering = 0;      elStr.value = 0;     elStrV.textContent = '0 %';
-  S.fault = 'none';    elFault.value = 'none';
+  S.rpm = 2400;
+  S.surface = 'dry';
+  S.couplingType = 'clutch';
+  S.steering = 0;
+  S.fault = 'none';
   S.speed = 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
   resetModel();
-  const ctlEl = document.getElementById('ctl');
-  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
-}
-elReset.addEventListener('click', resetAll);
-
-/* ── rolling graph ───────────────────────────────────────────────── */
-function drawGraph() {
-  const W = gcv.width, Hh = gcv.height;
-  gctx.clearRect(0, 0, W, Hh);
-  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
-  gctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    const y = Math.round(Hh * i / 4) + 0.5;
-    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
-  }
-  const n = sim.samples.length;
-  if (n < 2) return;
-  const xAt    = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
-  const yPct   = (v) => Hh - clampN(v, 0, 1) * (Hh - 6) - 3;
-  const yTemp  = (v) => Hh - clampN((v - 10) / 200, 0, 1) * (Hh - 6) - 3;
-
-  /* Rear torque split (filled area) */
-  gctx.beginPath();
-  gctx.moveTo(xAt(0), Hh);
-  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yPct(sim.samples[i].r));
-  gctx.lineTo(xAt(n - 1), Hh);
-  gctx.closePath();
-  gctx.fillStyle = 'rgba(34,197,94,0.20)';
-  gctx.fill();
-
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yPct(sim.samples[i].r);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#22c55e'; gctx.lineWidth = 1.8; gctx.stroke();
-
-  /* Coupling temperature */
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yTemp(sim.samples[i].T);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.6; gctx.stroke();
+  controls.resetAll();                 /* every axis back to its default (store -> onChange -> S) */
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -649,11 +492,7 @@ function build(H){
    const now = performance.now();
    if (now - lastDom > 140) {
      lastDom = now;
-     if (dt > 0) {
-       sim.samples.push({ r: rearShare, T: sim.couplingTemp });
-       if (sim.samples.length > SIM_GRAPH_CAP) sim.samples.shift();
-       drawGraph();
-     }
+     if (dt > 0) traceSample = [traceN(rearShare, 0, 1), traceN(sim.couplingTemp, 10, 210)];
 
      let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
      if (!warn) {
@@ -675,8 +514,7 @@ function build(H){
          warn = 'Rear axle slipping ' + (rSlip * 100).toFixed(0) + ' % - the coupling is transferring torque forward.';
        }
      }
-     elWarn.textContent = warn;
-     elWarn.classList.toggle('show', !!warn);
+     warnText = warn;
    }
 
    /* ── 11. derived state ───────────────────────────────────── */
@@ -711,6 +549,10 @@ function build(H){
 
    const fluidPct = (1 - clampN((sim.fluidTemp - AMBIENT) / (FLUID_CRIT - AMBIENT), 0, 1)) * 100;
 
+   let tr;
+   if (traceClear) { traceClear = false; traceSample = null; tr = { hist: null }; }
+   else if (traceSample) { tr = { hist: traceSample }; traceSample = null; }
+
    return {
      big: rearPct.toFixed(0),
      unit: ' %',
@@ -732,16 +574,36 @@ function build(H){
        mu:     [surfaceMu.toFixed(2), surfaceMu < 0.4 ? 'warn' : 'ok'],
        state:  [stateTxt, stState]
      },
-     status: [stateTxt, true],
+     status: [warnText || stateTxt, true, warnText ? 'warn' : ''],
+      traces: tr,
      ctl: (load * 100).toFixed(0) + ' %'
    };
   }
  };
 }
 
-/* SIM_GRAPH_CAP is set below (constant hoisting) */
-const SIM_GRAPH_CAP = 150;
 
+/* Phase 6: every option / action lives in the dock (controls.js), nothing interactive is left in the panel.
+   'Time scale' is the module's own physics time-compression (thermal warm-up); the menu's Sim speed is separate. */
+CFG.options = [
+  { id: "surface", type: 'choice', layout: 'select', label: "Surface", options: [{ id: "dry", label: "Dry tarmac (µ 1.00)" }, { id: "wet", label: "Wet road (µ 0.70)" }, { id: "gravel", label: "Gravel (µ 0.55)" }, { id: "snow", label: "Snow (µ 0.32)" }, { id: "ice", label: "Ice (µ 0.14)" }], def: "dry",
+    onChange: (id) => { S.surface = id; } },
+  { id: "type", type: 'choice', layout: 'select', label: "Centre coupling", options: [{ id: "viscous", label: "Viscous (passive)" }, { id: "clutch", label: "Clutch pack (ECU)" }, { id: "locked", label: "Locked 50:50 (4H)" }], def: "clutch",
+    onChange: (id) => { S.couplingType = id; } },
+  { id: "fault", type: 'choice', layout: 'select', label: "Fault injection", options: Object.keys(FAULT_INFO).map(id => ({ id, label: FAULT_INFO[id].label })), def: 'none',
+    onChange: (id) => { S.fault = id; } },
+  { id: 'timeScale', type: 'choice', layout: 'segmented', label: 'Time scale', options: [{ id: '1', label: '1×' }, { id: '5', label: '5×' }, { id: '20', label: '20×' }], def: '1',
+    onChange: (id) => { S.speed = Number(id) || 1; } },
+  { id: "cool", type: 'action', label: "Cool down",
+    onAction: () => { sim.couplingTemp = AMBIENT; sim.fluidTemp = AMBIENT; } }
+];
+CFG.onReset = resetAll;      /* the dock Reset runs the module reset (model + every control) */
+/* Phase 7a: the old history canvas is a Monitor trace. Both series are drawn as 0..100 % of their old axis ranges. */
+CFG.traces = [{ id: 'hist', label: 'Rear torque split and coupling temperature history (% of full scale)', min: 0, max: 100, length: 150,
+  series: [
+    { id: 'a', label: 'Rear %', color: 'var(--accent)' },
+    { id: 'b', label: 'Coupling \u00B0C', color: 'var(--warn)' }
+  ] }];
 runGuidedModule(CFG, build);
 </script>
 </body>

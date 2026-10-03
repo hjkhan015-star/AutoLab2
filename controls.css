@@ -1,0 +1,966 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   controls.css — design tokens for the unified control system.
+   PHASE 0: TOKENS ONLY. Not linked from any page yet; widget styles are
+   added in later phases and must use these variables (no new hex/rgba).
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  /* ── layout budget (portrait phone: header 32px, dock 24vh) ── */
+  --hdr-h: 32px;              /* header, one row                          */
+  --hdr-h-land: 28px;         /* header on landscape phone                */
+  --dock-default: 24vh;       /* control dock, default                    */
+  --dock-max: 30vh;           /* control dock, hard ceiling               */
+  --dock-kbd: 34vh;           /* approx. soft-keyboard height; dock stays below */
+  --dock-handle: 20px;        /* grab handle row                          */
+  --dock-slim: 56px;          /* slim bar (transport + one primary)       */
+  --dock-options: 44px;       /* options row                              */
+  --dock-rail-w: 140px;       /* landscape-phone side rails               */
+  --monitor-strip-h: 28px;    /* one-line monitor strip                   */
+  --monitor-max: 40vh;        /* expanded monitor card, phone             */
+
+  /* ── control sizing ── */
+  --ctl-tap: 44px;            /* minimum tap target                       */
+  --ctl-text: 11px;           /* minimum text size                        */
+  --ctl-value-text: 12px;     /* readout values                           */
+  --ctl-radius: var(--r-md, 10px);
+  --ctl-gap: 8px;
+
+  /* ── control colours: reference the theme tokens, never literals ── */
+  --ctl-track: var(--surface-3, var(--surface-2));
+  --ctl-fill: var(--al-accent, var(--accent));
+  --ctl-thumb: var(--text);
+  --ctl-focus: var(--border-focus, var(--ring, var(--al-accent, var(--accent))));
+  --ctl-border: var(--border);
+
+  /* ── layering scale (R10) ── */
+  --z-stage: 0;
+  --z-labels: 2;
+  --z-monitor: 10;
+  --z-dock: 20;
+  --z-menu: 30;
+  --z-toast: 40;
+  --z-guard: 99999;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 1 — chrome: header + ⋯ menu  (built by chrome.js)
+   Tokens only (R3): no hex / rgb() / hsl() in this file.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── header: back · title · info · ⋯  (32 px; 28 px on landscape phones) ── */
+.al-hdr {
+  --al-hdr-h: var(--hdr-h);
+  flex: 0 0 auto;
+  position: relative;
+  z-index: var(--z-dock);
+  box-sizing: content-box;
+  height: var(--al-hdr-h);
+  padding: var(--safe-t, 0px) calc(var(--safe-r, 0px) + 4px) 0 calc(var(--safe-l, 0px) + 4px);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg-elev, var(--surface));
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+@media (max-height: 540px) { .al-hdr { --al-hdr-h: var(--hdr-h-land); } }
+
+.al-hdr-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -.005em;
+  line-height: 1;
+}
+.al-hdr-dot {
+  flex: 0 0 auto;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--al-accent, var(--accent));
+}
+.al-hdr-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.al-hdr-btn {
+  position: relative;
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  width: var(--ctl-tap); height: var(--al-hdr-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ctl-radius);
+  background: transparent;
+  color: var(--text-dim, var(--text));
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.al-hdr-btn[hidden] { display: none; }
+.al-hdr-btn svg { width: 20px; height: 20px; }
+/* 44 px touch target without growing the 32 px bar */
+.al-hdr-btn::after { content: ""; position: absolute; inset: -8px 0; }
+.al-hdr-btn:hover { background: var(--surface-hover, var(--surface-2)); color: var(--text); }
+.al-hdr-btn:active { background: var(--surface-3, var(--surface-2)); }
+.al-hdr-btn[aria-expanded="true"] { color: var(--al-accent, var(--accent)); }
+.al-hdr-btn:focus-visible,
+.al-menu :focus-visible { outline: 2px solid var(--ctl-focus); outline-offset: -2px; }
+
+/* ── ⋯ menu: one node, phone = bottom sheet ≤ 50 vh, desktop = popover ── */
+.al-menu-backdrop[hidden], .al-menu[hidden] { display: none; }
+.al-menu-backdrop {
+  position: fixed; inset: 0;
+  z-index: var(--z-menu);
+  background: transparent;
+  opacity: 0;
+  transition: opacity var(--dur-base, .2s) var(--ease-out, ease-out);
+}
+.al-menu-backdrop[data-mode="sheet"] { background: color-mix(in oklch, var(--bg) 62%, transparent); }
+.al-menu-backdrop.is-open { opacity: 1; }
+
+.al-menu {
+  position: fixed;
+  z-index: calc(var(--z-menu) + 1);
+  box-sizing: border-box;
+  display: flex; flex-direction: column;
+  padding: 0 0 4px;
+  background: var(--bg-elev, var(--surface));
+  border: 1px solid var(--border-hi, var(--border));
+  color: var(--text);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-shadow: var(--shadow-lg, none);
+  transition: transform var(--dur-slow, .3s) var(--ease-in-out, ease-in-out),
+              opacity var(--dur-base, .2s) var(--ease-out, ease-out);
+}
+.al-menu[data-mode="sheet"] {
+  left: 0; right: 0; bottom: 0;
+  width: 100%; max-width: 560px; margin: 0 auto;
+  max-height: 50vh; max-height: 50dvh;              /* R2: sheet ≤ 50 vh */
+  padding-bottom: calc(var(--safe-b, 0px) + 4px);
+  border-bottom: 0;
+  border-radius: var(--r-xl, 16px) var(--r-xl, 16px) 0 0;
+  transform: translateY(100%);
+}
+.al-menu[data-mode="sheet"].is-open { transform: translateY(0); }
+.al-menu[data-mode="popover"] {
+  width: 300px;
+  border-radius: var(--r-lg, 14px);
+  opacity: 0;
+  transform: translateY(-4px);
+}
+.al-menu[data-mode="popover"].is-open { opacity: 1; transform: translateY(0); }
+
+.al-menu-grab {
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  height: 20px;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.al-menu-grab span { width: 38px; height: 4px; border-radius: 3px; background: var(--border-hi, var(--border)); }
+.al-menu[data-mode="popover"] .al-menu-grab { display: none; }
+.al-menu[data-mode="popover"] { padding-top: 6px; }
+
+.al-menu-row {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0 var(--ctl-gap);
+  width: 100%;
+  min-height: var(--ctl-tap);
+  padding: 2px 16px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.al-menu-label { flex: 1 1 auto; font-size: 14px; font-weight: 600; }
+.al-menu-value {
+  margin-left: auto;
+  font-size: var(--ctl-value-text);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-mute);
+}
+.al-menu-row > .al-menu-range { flex: 1 0 100%; width: 100%; height: var(--ctl-tap); margin: 0; accent-color: var(--al-accent, var(--accent)); cursor: pointer; }
+.al-menu-row > .al-menu-label + .al-menu-value { flex: 0 0 auto; }
+
+/* 3-state segmented control */
+.al-seg { display: inline-flex; border: 1px solid var(--ctl-border); border-radius: var(--ctl-radius); overflow: hidden; }
+.al-seg-btn {
+  min-width: 56px; min-height: var(--ctl-tap);
+  padding: 0 12px;
+  border: 0; border-left: 1px solid var(--ctl-border);
+  background: var(--ctl-track); color: var(--text-mute);
+  font: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; touch-action: manipulation;
+}
+.al-seg-btn:first-child { border-left: 0; }
+.al-seg-btn[aria-checked="true"] { background: var(--ctl-fill); color: var(--bg); }
+
+/* switch row */
+.al-switch { cursor: pointer; justify-content: space-between; flex-wrap: nowrap; touch-action: manipulation; }
+.al-switch:hover { background: var(--surface-hover, var(--surface-2)); }
+.al-switch-knob {
+  position: relative; flex: 0 0 auto;
+  width: 44px; height: 26px;
+  border-radius: var(--r-pill, 999px);
+  background: var(--ctl-track);
+  border: 1px solid var(--ctl-border);
+  transition: background var(--dur-base, .2s) var(--ease-out, ease-out);
+}
+.al-switch-knob::after {
+  content: "";
+  position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--ctl-thumb);
+  transition: transform var(--dur-base, .2s) var(--ease-spring, ease-out);
+}
+.al-switch[aria-checked="true"] .al-switch-knob { background: var(--ctl-fill); border-color: var(--ctl-fill); }
+.al-switch[aria-checked="true"] .al-switch-knob::after { transform: translateX(18px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .al-menu, .al-menu-backdrop, .al-switch-knob, .al-switch-knob::after { transition: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 2 — stage layout + dock (built by dock.js / kit.js)
+   Phone = max-width:720px OR max-height:540px (R2).
+   Tokens only (R3). z-index only from the R10 scale.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── stage insets ──────────────────────────────────────────────────────
+   --stage-top   the header lives INSIDE the module document when standalone
+                 (var(--hdr-h), var(--hdr-h-land) on landscape phones), but OUTSIDE the
+                 iframe when embedded (the shell draws it) → 0. Never reserved twice.
+   --dock-h      set in px by dock.js from the iframe's own viewport
+                 (vh here = this document's height = screen − 32 px shell header).
+                 These are only the first-paint fallbacks before dock.js runs.
+   --dock-rail   landscape phones: width of each side rail (0 elsewhere).            */
+:root {
+  --stage-top: calc(var(--hdr-h) + var(--safe-t, 0px));
+  --dock-h: var(--dock-default);
+  --dock-rail: 0px;
+}
+@media (max-height: 540px) { :root { --stage-top: calc(var(--hdr-h-land) + var(--safe-t, 0px)); } }
+@media (max-height: 540px) and (min-aspect-ratio: 1/1) { :root { --dock-h: 0px; --dock-rail: var(--dock-rail-w); } }
+@media (min-width: 721px) and (min-height: 541px) { :root { --dock-h: 72px; } }
+body.embedded { --stage-top: 0px; }
+
+#canvas-wrap { inset: var(--stage-top) var(--dock-rail) var(--dock-h) var(--dock-rail); }
+/* labels are clipped to the stage, so they can never draw over the dock or the header */
+#labels-root {
+  position: fixed;
+  inset: var(--stage-top) var(--dock-rail) var(--dock-h) var(--dock-rail);
+  overflow: hidden;
+}
+
+/* standalone header: same chrome.js header as the shell, fixed above the stage */
+body:not(.embedded) > .al-hdr {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: var(--z-dock);
+}
+
+/* ── dock: shared ── */
+.al-dock[hidden] { display: none; }
+.al-dock {
+  position: fixed;
+  z-index: var(--z-dock);
+  box-sizing: border-box;
+  color: var(--text);
+  background: var(--bg-elev, var(--surface));
+  font-family: var(--font-sans);
+}
+.al-dock-handle {
+  display: grid; place-items: center;
+  padding: 0; border: 0; background: transparent;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  cursor: grab;
+}
+.al-dock-handle span { width: 38px; height: 4px; border-radius: var(--r-pill, 999px); background: var(--border-hi, var(--border)); }
+.al-dock-handle:focus-visible { outline: 2px solid var(--ctl-focus); outline-offset: -2px; }
+.al-dock-transport { display: flex; align-items: center; gap: var(--ctl-gap); }
+.al-dock-transport .ui-tb-btn { width: var(--ctl-tap); height: var(--ctl-tap); }
+.al-dock-pages { display: flex; min-width: 0; }
+.al-dock-page { display: flex; align-items: center; gap: var(--ctl-gap); min-width: 0; }
+.al-dock-slot { min-width: 0; min-height: 0; max-height: 100%; overflow: auto; overscroll-behavior: contain; }
+.al-dock-slot[data-side="left"]   { margin-right: auto; }
+.al-dock-slot[data-side="right"]  { margin-left: auto; }
+.al-dock-slot[data-side="center"] { margin-left: auto; margin-right: auto; }
+.al-dock-dots { display: flex; justify-content: center; gap: 0; }
+.al-dock-dots[hidden] { display: none; }
+.al-dock-dot { position: relative; width: 24px; height: 14px; padding: 0; border: 0; background: transparent; }
+.al-dock-dot::before {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 8px; height: 8px; margin: -4px 0 0 -4px;
+  border-radius: 50%; background: var(--ctl-track); border: 1px solid var(--ctl-border);
+}
+.al-dock-dot::after { content: ""; position: absolute; inset: -15px -4px; }     /* >= 44 px hit area */
+.al-dock-dot[aria-selected="true"]::before { background: var(--ctl-fill); border-color: var(--ctl-fill); }
+.al-dock-options { display: flex; align-items: center; gap: var(--ctl-gap); min-width: 0; }
+.al-dock-flow { display: contents; }
+.al-dock-flow .ui-tb-check { min-height: var(--ctl-tap); padding: 0 var(--ctl-gap); }
+.al-dock-extras { display: flex; align-items: center; gap: var(--ctl-gap); }
+.al-dock-extras:empty { display: none; }
+
+/* ── dock: phone portrait = bottom sheet, 24 vh default / 30 vh max ── */
+.al-dock[data-mode="portrait"] {
+  left: 0; right: 0; bottom: 0;
+  height: var(--dock-h);
+  max-height: var(--dock-max);
+  padding: 0 calc(var(--safe-r, 0px) + var(--ctl-gap)) var(--safe-b, 0px) calc(var(--safe-l, 0px) + var(--ctl-gap));
+  border-top: 1px solid var(--border);
+  border-radius: var(--r-xl, 16px) var(--r-xl, 16px) 0 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: var(--dock-handle) minmax(0, 1fr) auto;
+  grid-template-areas: "handle handle" "transport primary" "options options";
+  column-gap: var(--ctl-gap);
+  overflow: hidden;
+  transition: height var(--dur-base, .2s) var(--ease-out, ease-out);
+}
+.al-dock[data-mode="portrait"] .al-dock-handle    { grid-area: handle; width: 100%; height: var(--dock-handle); }
+.al-dock[data-mode="portrait"] .al-dock-transport { grid-area: transport; flex-direction: column; justify-content: center; }
+.al-dock[data-mode="portrait"] .al-dock-primary   { grid-area: primary; display: flex; flex-direction: column; min-height: 0; }
+.al-dock[data-mode="portrait"] .al-dock-pages {
+  flex: 1 1 auto; min-height: 0;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; scrollbar-width: none;
+}
+.al-dock[data-mode="portrait"] .al-dock-pages::-webkit-scrollbar { display: none; }
+.al-dock[data-mode="portrait"] .al-dock-page { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+.al-dock[data-mode="portrait"] .al-dock-options {
+  grid-area: options;
+  height: var(--dock-options);
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  display: none;
+}
+.al-dock[data-mode="portrait"] .al-dock-options::-webkit-scrollbar { display: none; }
+.al-dock[data-mode="portrait"][data-state="options"] .al-dock-options { display: flex; }
+
+/* slim: transport + ONE primary control in a 56 px bar; the handle shrinks to a pill */
+.al-dock[data-mode="portrait"][data-state="slim"] {
+  grid-template-rows: 12px minmax(0, 1fr) 0;
+}
+.al-dock[data-mode="portrait"][data-state="slim"] .al-dock-handle { height: 12px; }
+.al-dock[data-mode="portrait"][data-state="slim"] .al-dock-transport { flex-direction: row; }
+.al-dock[data-mode="portrait"][data-state="slim"] .al-dock-page:not([data-page="0"]),
+.al-dock[data-mode="portrait"][data-state="slim"] .al-dock-page[data-page="0"] .al-dock-slot ~ .al-dock-slot,
+.al-dock[data-mode="portrait"][data-state="slim"] .al-dock-dots { display: none; }
+
+/* ── dock: phone landscape = two 140 px side rails ── */
+.al-dock[data-mode="landscape"] {
+  top: var(--stage-top); left: 0; right: 0; bottom: 0;
+  padding: var(--ctl-gap) calc(var(--safe-r, 0px) + var(--ctl-gap)) calc(var(--safe-b, 0px) + var(--ctl-gap)) calc(var(--safe-l, 0px) + var(--ctl-gap));
+  background: transparent;
+  display: grid;
+  grid-template-columns: calc(var(--dock-rail-w) - 2 * var(--ctl-gap)) minmax(0, 1fr) calc(var(--dock-rail-w) - 2 * var(--ctl-gap));
+  grid-auto-rows: min-content;
+  grid-auto-flow: row dense;
+  align-content: start;
+  gap: var(--ctl-gap);
+  pointer-events: none;
+}
+.al-dock[data-mode="landscape"] > *,
+.al-dock[data-mode="landscape"] .al-dock-slot { pointer-events: auto; }
+.al-dock[data-mode="landscape"] .al-dock-handle,
+.al-dock[data-mode="landscape"] .al-dock-dots { display: none; }
+.al-dock[data-mode="landscape"] .al-dock-transport { grid-column: 1; grid-row: 1; }
+.al-dock[data-mode="landscape"] .al-dock-primary,
+.al-dock[data-mode="landscape"] .al-dock-pages,
+.al-dock[data-mode="landscape"] .al-dock-page { display: contents; }
+.al-dock[data-mode="landscape"] .al-dock-slot {
+  grid-column: 1;
+  max-height: calc(100dvh - var(--stage-top) - 2 * var(--ctl-tap));
+  margin: 0;
+  background: var(--bg-elev, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--ctl-radius);
+}
+.al-dock[data-mode="landscape"] .al-dock-slot[data-side="right"] { grid-column: 3; grid-row: 2; }
+.al-dock[data-mode="landscape"] .al-dock-options {
+  grid-column: 3; grid-row: 1;
+  flex-direction: column; align-items: stretch;
+  max-height: calc(100dvh - var(--stage-top) - 2 * var(--ctl-tap));
+  overflow-y: auto;
+  background: var(--bg-elev, var(--surface));
+  border-radius: var(--ctl-radius);
+}
+.al-dock[data-mode="landscape"] .al-dock-options:not(:has(*)) { display: none; }
+.al-dock[data-mode="landscape"] .al-dock-transport,
+.al-dock[data-mode="landscape"] .al-dock-options { padding: var(--ctl-gap) 0; justify-content: center; }
+
+/* ── dock: desktop = one auto-height bar ── */
+.al-dock[data-mode="desktop"] {
+  left: 50%; bottom: calc(var(--s-3, 12px) + var(--safe-b, 0px));
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--s-3, 12px));
+  height: auto;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: var(--ctl-gap) var(--s-3, 12px);
+  padding: var(--ctl-gap) var(--s-3, 12px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl, 16px);
+  box-shadow: var(--shadow-md, none);
+}
+.al-dock[data-mode="desktop"] .al-dock-handle,
+.al-dock[data-mode="desktop"] .al-dock-dots { display: none; }
+.al-dock[data-mode="desktop"] .al-dock-primary,
+.al-dock[data-mode="desktop"] .al-dock-pages { display: contents; }
+.al-dock[data-mode="desktop"] .al-dock-page { flex: 0 0 auto; }
+
+/* ── info: header ⓘ opens a bottom sheet on phones (closed by default); desktop keeps the side panel ── */
+.al-sheet-scrim { position: fixed; inset: 0; z-index: var(--z-menu); background: color-mix(in oklch, var(--bg) 62%, transparent); display: none; }
+body.al-sheet-open .al-sheet-scrim { display: block; }
+
+@media (max-width: 720px), (max-height: 540px) {
+  /* the top stack dissolves: the panel becomes a fixed sheet, the chip a fixed one-line strip */
+  #ui-top-stack, .ui-slot-tl { position: static; display: contents; }
+  .ui-panel {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: calc(var(--z-menu) + 1);
+    width: min(100%, 560px); max-width: none;
+    margin: 0 auto;
+    max-height: 50vh; max-height: 50dvh;                 /* R2: sheet <= 50 vh */
+    border-radius: var(--r-xl, 16px) var(--r-xl, 16px) 0 0;
+    padding-bottom: var(--safe-b, 0px);
+    transform: translateY(105%);
+    visibility: hidden;
+    transition: transform var(--dur-slow, .3s) var(--ease-in-out, ease-in-out), visibility 0s linear var(--dur-slow, .3s);
+  }
+  .ui-panel.expanded { transform: translateY(0); visibility: visible; transition-delay: 0s; }
+  .ui-panel-toggle svg { transform: rotate(0deg); }
+
+  /* readout chip → one-line strip at the top of the stage (full monitor: Phase 7) */
+  .ui-slot-tr {
+    position: fixed;
+    top: calc(var(--stage-top) + var(--s-1, 4px));
+    left: calc(var(--safe-l, 0px) + var(--dock-rail) + var(--s-2, 8px));
+    right: calc(var(--safe-r, 0px) + var(--dock-rail) + var(--s-2, 8px));
+    z-index: var(--z-monitor);
+  }
+  .ui-chip {
+    display: flex; align-items: center; gap: var(--s-3, 12px);
+    width: 100%; min-width: 0;
+    height: var(--monitor-strip-h);
+    padding: 0 var(--s-3, 12px);
+    border-radius: var(--r-pill, 999px);
+    white-space: nowrap; overflow: hidden;
+  }
+  .ui-chip-label { margin: 0; flex: 0 0 auto; }
+  .ui-chip-value { font-size: 14px; flex: 0 0 auto; }
+  .ui-chip-bar { display: none; }
+  .ui-chip-row { margin: 0; gap: var(--s-1, 4px); flex: 0 0 auto; }
+  .ui-chip-status { margin: 0 0 0 auto; flex: 0 0 auto; }
+  .ui-orb-toggle, .ui-orb-icon { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .al-dock[data-mode="portrait"], .ui-panel { transition: none; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 3 — axis (look: slider)  · built by controls.js
+   One slider style for the whole project. Tokens only (R3).
+   ═══════════════════════════════════════════════════════════════════════ */
+.ctl-axis {
+  --ctl-thumb-size: 22px;
+  --ctl-track-h: 6px;
+  --p: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  width: 100%;
+  color: var(--text);
+}
+.ctl-axis .ctl-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--ctl-gap);
+  font-size: var(--ctl-text);
+  line-height: 1.2;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-mute, var(--text-dim));
+}
+.ctl-axis .ctl-value {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--ctl-value-text);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ctl-axis.is-dragging .ctl-value { visibility: hidden; }          /* the bubble shows it instead */
+
+.ctl-axis .ctl-track { position: relative; height: var(--ctl-tap); }
+.ctl-axis .ctl-range {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: var(--ctl-tap);                                         /* 44 px touch target */
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;                                             /* drag surface only (R8) */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ctl-axis .ctl-range:focus { outline: none; }
+.ctl-axis .ctl-range::-webkit-slider-runnable-track {
+  height: var(--ctl-track-h);
+  border-radius: var(--ctl-track-h);
+  background: linear-gradient(to right,
+    var(--ctl-accent) calc(var(--p) * 100%), var(--ctl-track) calc(var(--p) * 100%));
+}
+.ctl-axis .ctl-range::-moz-range-track {
+  height: var(--ctl-track-h);
+  border-radius: var(--ctl-track-h);
+  background: var(--ctl-track);
+}
+.ctl-axis .ctl-range::-moz-range-progress {
+  height: var(--ctl-track-h);
+  border-radius: var(--ctl-track-h);
+  background: var(--ctl-accent);
+}
+.ctl-axis .ctl-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--ctl-thumb-size);
+  height: var(--ctl-thumb-size);
+  margin-top: calc((var(--ctl-track-h) - var(--ctl-thumb-size)) / 2);
+  border-radius: 50%;
+  background: var(--ctl-thumb);
+  border: 2px solid var(--ctl-accent);
+  box-shadow: var(--shadow-sm);
+}
+.ctl-axis .ctl-range::-moz-range-thumb {
+  width: calc(var(--ctl-thumb-size) - 4px);
+  height: calc(var(--ctl-thumb-size) - 4px);
+  border-radius: 50%;
+  background: var(--ctl-thumb);
+  border: 2px solid var(--ctl-accent);
+}
+.ctl-axis .ctl-range:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--ctl-focus); outline-offset: 3px; }
+.ctl-axis .ctl-range:focus-visible::-moz-range-thumb { outline: 2px solid var(--ctl-focus); outline-offset: 3px; }
+
+/* value bubble above the thumb while dragging */
+.ctl-axis .ctl-bubble {
+  position: absolute;
+  bottom: calc(50% + var(--ctl-thumb-size) / 2 + 2px);
+  left: calc(var(--ctl-thumb-size) / 2 + (100% - var(--ctl-thumb-size)) * var(--p));
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: var(--ctl-radius);
+  background: var(--surface-2, var(--ctl-track));
+  border: 1px solid var(--ctl-border);
+  color: var(--text);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--ctl-value-text);
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.ctl-axis.is-dragging .ctl-bubble { opacity: 1; }
+.ctl-axis.is-disabled { opacity: .5; }
+.ctl-axis.is-disabled .ctl-range { cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  .ctl-axis .ctl-bubble { transition: none; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 4 — pedal (axis look:'pedal') and momentary · built by controls.js
+   One pedal look for braking, automatic, carburetor, turbocharger, abs-esc
+   (pedal) and clutch (momentary). Tokens only (R3): no hex/rgba, so the
+   light theme needs no per-module overrides.
+   Desktop: vertical 54 × 158.  Phone (≤ 720 px wide or ≤ 540 px high):
+   horizontal bar 52 px high, full width of its dock slot.
+   ═══════════════════════════════════════════════════════════════════════ */
+.ctl-pedal, .ctl-momentary {
+  --p: 0;
+  --ctl-pad-w: 54px;
+  --ctl-pad-h: 158px;
+  --ctl-foot: 34px;
+  --ctl-foot-w: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--text);
+}
+.ctl-pedal .ctl-label, .ctl-momentary .ctl-label {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: var(--ctl-gap);
+  font-size: var(--ctl-text);
+  line-height: 1.2;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-mute, var(--text-dim));
+}
+.ctl-pedal .ctl-value {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--ctl-value-text);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ctl-pedal-pad {
+  position: relative;
+  box-sizing: border-box;
+  width: var(--ctl-pad-w);
+  height: var(--ctl-pad-h);
+  border-radius: var(--ctl-radius);
+  background: var(--ctl-track);
+  border: 1px solid var(--ctl-border);
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: none;                                             /* drag surface only (R8) */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ctl-pedal-pad:focus { outline: none; }
+.ctl-pedal-pad:focus-visible { outline: 2px solid var(--ctl-focus); outline-offset: 2px; }
+.ctl-pedal-fill {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: calc(var(--p) * 100%);
+  background: color-mix(in srgb, var(--ctl-accent) 45%, transparent);
+  pointer-events: none;
+}
+.ctl-pedal-ticks {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; justify-content: space-evenly;
+  pointer-events: none;
+}
+.ctl-pedal-ticks i { display: block; width: 9px; height: 1px; background: var(--ctl-border); }
+.ctl-pedal-foot {
+  position: absolute;
+  left: 3px; right: 3px;
+  bottom: calc(3px + var(--p) * (100% - var(--ctl-foot) - 6px));
+  height: var(--ctl-foot);
+  pointer-events: none;
+}
+.ctl-pedal-foot svg { display: block; width: 100%; height: 100%; }
+.ctl-pedal-foot .ctl-plate { fill: var(--surface-2, var(--ctl-track)); stroke: var(--ctl-border); stroke-width: 1.4; }
+.ctl-pedal-foot .ctl-grip { fill: var(--text-mute, var(--text-dim)); }
+.ctl-pedal-pad.is-active .ctl-plate { stroke: var(--ctl-accent); }
+.ctl-momentary-pad .ctl-pedal-foot { transition: bottom .12s ease, left .12s ease; }
+.ctl-pedal.is-disabled, .ctl-momentary.is-disabled { opacity: .5; }
+.ctl-pedal.is-disabled .ctl-pedal-pad, .ctl-momentary.is-disabled .ctl-pedal-pad { cursor: not-allowed; }
+
+@media (max-width: 720px), (max-height: 540px) {
+  .ctl-pedal, .ctl-momentary { width: 100%; align-items: stretch; }
+  .ctl-pedal .ctl-label, .ctl-momentary .ctl-label { justify-content: space-between; }
+  .ctl-pedal-pad { width: 100%; height: 52px; }                   /* 48–56 px bar */
+  .ctl-pedal-fill { top: 0; bottom: 0; left: 0; right: auto; width: calc(var(--p) * 100%); height: auto; }
+  .ctl-pedal-ticks { flex-direction: row; align-items: flex-end; }
+  .ctl-pedal-ticks i { width: 1px; height: 9px; }
+  .ctl-pedal-foot {
+    top: 3px; bottom: 3px; right: auto; height: auto;
+    width: var(--ctl-foot-w);
+    left: calc(3px + var(--p) * (100% - var(--ctl-foot-w) - 6px));
+  }
+}
+/* dock slots shrink-wrap their content: give the phone bar a real width (a lone pedal gets the wider bar;
+   in landscape the slot is a 124 px rail column and the bar simply fills it) */
+.al-dock[data-mode="portrait"] .ctl-pedal, .al-dock[data-mode="portrait"] .ctl-momentary { min-width: 140px; }
+.al-dock[data-mode="portrait"] .al-dock-slot[data-side="center"] .ctl-pedal,
+.al-dock[data-mode="portrait"] .al-dock-slot[data-side="center"] .ctl-momentary { min-width: 240px; }
+@media (prefers-reduced-motion: reduce) {
+  .ctl-momentary-pad .ctl-pedal-foot { transition: none; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 5 — dial (wheel / crank / knob) · built by controls.js
+   ONE rotary look for engine (crank), steering, differential and awd (wheel).
+   Tokens only (R3): no hex/rgba, so the light theme needs no overrides.
+   Desktop 132 px · phone (≤ 720 px wide or ≤ 540 px high) 96 px · never below 44 px.
+   The angle is small text next to the name (one place, R1) — no caption.
+   ═══════════════════════════════════════════════════════════════════════ */
+.ctl-dial {
+  --ctl-dial-size: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--text);
+}
+.ctl-dial .ctl-label {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: var(--ctl-gap);
+  font-size: var(--ctl-text);
+  line-height: 1.2;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-mute, var(--text-dim));
+}
+.ctl-dial .ctl-value {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--ctl-value-text);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ctl-dial-pad {
+  box-sizing: border-box;
+  width: var(--ctl-dial-size);
+  height: var(--ctl-dial-size);
+  min-width: var(--ctl-tap);
+  min-height: var(--ctl-tap);
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: none;                                             /* drag surface only (R8) */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ctl-dial-pad > svg { display: block; width: 100%; height: 100%; }
+.ctl-dial-pad:focus { outline: none; }
+.ctl-dial-pad:focus-visible { outline: 2px solid var(--ctl-focus); outline-offset: 2px; }
+.ctl-dial-pad.is-active { cursor: grabbing; }
+.ctl-dial-bg { fill: color-mix(in oklch, var(--bg) 88%, transparent); stroke: var(--ctl-border); stroke-width: 1.5; }
+.ctl-dial-rim { fill: none; stroke: color-mix(in oklch, var(--text) 25%, transparent); stroke-width: 8; }
+.ctl-dial-rim-hi { fill: none; stroke: color-mix(in oklch, var(--text) 65%, transparent); stroke-width: 2; opacity: .45; }
+.ctl-dial-spoke { fill: color-mix(in oklch, var(--text) 30%, transparent); }
+.ctl-dial-hub { fill: color-mix(in oklch, var(--bg) 78%, transparent); stroke: color-mix(in oklch, var(--text) 65%, transparent); stroke-width: 2; }
+.ctl-dial-marker { fill: var(--ctl-accent); }
+.ctl-dial-handle { fill: color-mix(in oklch, var(--bg) 90%, transparent); stroke: color-mix(in oklch, var(--text) 45%, transparent); stroke-width: 1.6; }
+.ctl-dial-handle-end { fill: color-mix(in oklch, var(--text) 35%, transparent); stroke: color-mix(in oklch, var(--text) 55%, transparent); stroke-width: 1.4; }
+.ctl-dial-pointer { fill: var(--ctl-accent); }
+.ctl-dial-pad.is-active .ctl-dial-rim-hi { stroke: var(--ctl-accent); opacity: .9; }
+.ctl-dial.is-disabled { opacity: .5; }
+.ctl-dial.is-disabled .ctl-dial-pad { cursor: not-allowed; }
+
+@media (max-width: 720px), (max-height: 540px) {
+  .ctl-dial { --ctl-dial-size: 96px; }                            /* ≤ 96 px on phones */
+}
+/* dock slots shrink-wrap their content: keep a lone dial from collapsing next to a slider */
+.al-dock[data-mode="portrait"] .ctl-dial { min-width: 96px; }
+
+/* ═══ Phase 6 — choice · toggle · action ═════════════════════════════════
+   Tokens only. Every target ≥ var(--ctl-tap) (44 px), text ≥ var(--ctl-text) (11 px). */
+.ctl-choice, .ctl-toggle, .ctl-action { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ctl-choice .ctl-label { font-size: var(--ctl-text); }
+
+/* segmented */
+.ctl-seg { display: inline-flex; border: 1px solid var(--ctl-border); border-radius: var(--ctl-radius); overflow: hidden; max-width: 100%; }
+.ctl-seg-btn {
+  flex: 1 1 auto; min-width: 48px; min-height: var(--ctl-tap); padding: 0 var(--ctl-gap);
+  border: 0; border-left: 1px solid var(--ctl-border);
+  background: var(--ctl-track); color: var(--text-mute);
+  font: inherit; font-size: var(--ctl-text); font-weight: 700; white-space: nowrap; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.ctl-seg-btn:first-child { border-left: 0; }
+.ctl-seg-btn[aria-checked="true"] { background: var(--ctl-accent); color: var(--bg); }
+.ctl-seg-btn[aria-checked="true"][data-tone="crit"] { background: var(--crit, var(--danger, var(--ctl-accent))); }
+.ctl-seg-btn:focus-visible { outline: 2px solid var(--ctl-focus); outline-offset: -2px; }
+
+/* select */
+.ctl-sel { position: relative; min-width: 120px; }
+.ctl-select {
+  width: 100%; min-height: var(--ctl-tap); padding: 0 var(--ctl-gap);
+  border: 1px solid var(--ctl-border); border-radius: var(--ctl-radius);
+  background: var(--ctl-track); color: var(--text);
+  font: inherit; font-size: max(var(--ctl-text), 12px); font-weight: 600; cursor: pointer;
+}
+.ctl-select:focus-visible { outline: 2px solid var(--ctl-focus); outline-offset: 1px; }
+
+/* gate (H-pattern stick) */
+.ctl-gate-pad {
+  width: 150px; height: 120px; touch-action: none; cursor: pointer; border-radius: var(--ctl-radius);
+  background: var(--ctl-track); border: 1px solid var(--ctl-border);
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+}
+.ctl-gate-pad svg { display: block; width: 100%; height: 100%; }
+.ctl-gate-pad:focus { outline: none; }
+.ctl-gate-pad:focus-visible { outline: 2px solid var(--ctl-focus); outline-offset: 2px; }
+.ctl-gate-rail { fill: none; stroke: color-mix(in oklch, var(--text) 25%, transparent); stroke-width: 3; stroke-linejoin: round; }
+.ctl-gate-stop circle { fill: var(--ctl-track); stroke: color-mix(in oklch, var(--text) 40%, transparent); stroke-width: 1.5; }
+.ctl-gate-stop text { fill: var(--text-mute); font-size: 11px; font-weight: 800; pointer-events: none; }
+.ctl-gate-stop.is-on text { fill: var(--bg); }
+.ctl-gate-stop.is-on circle { fill: var(--ctl-accent); stroke: var(--ctl-accent); }
+.ctl-gate-knob { fill: none; stroke: var(--ctl-accent); stroke-width: 2; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) { .ctl-gate-knob { transition: transform .12s ease-out; } }
+
+/* toggle */
+.ctl-switch {
+  display: inline-flex; align-items: center; gap: var(--ctl-gap);
+  min-height: var(--ctl-tap); padding: 0 var(--ctl-gap);
+  border: 1px solid var(--ctl-border); border-radius: var(--ctl-radius);
+  background: var(--ctl-track); color: var(--text-mute);
+  font: inherit; font-size: var(--ctl-text); font-weight: 700; white-space: nowrap; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.ctl-switch-track { position: relative; width: 34px; height: 20px; border-radius: 10px; background: var(--surface-3, var(--ctl-track)); border: 1px solid var(--ctl-border); flex: none; }
+.ctl-switch-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--ctl-thumb); }
+.ctl-switch[aria-checked="true"] { color: var(--text); border-color: var(--ctl-accent); }
+.ctl-switch[aria-checked="true"] .ctl-switch-track { background: var(--ctl-accent); border-color: var(--ctl-accent); }
+.ctl-switch[aria-checked="true"] .ctl-switch-thumb { left: 16px; }
+.ctl-switch:focus-visible { outline: 2px solid var(--ctl-focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { .ctl-switch-thumb { transition: left .12s ease-out; } .ctl-switch-track { transition: background .12s; } }
+
+/* action */
+.ctl-action-btn {
+  min-height: var(--ctl-tap); min-width: var(--ctl-tap); padding: 0 calc(var(--ctl-gap) * 1.5);
+  border: 1px solid var(--ctl-border); border-radius: var(--ctl-radius);
+  background: var(--ctl-track); color: var(--text);
+  font: inherit; font-size: var(--ctl-text); font-weight: 700; white-space: nowrap; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.ctl-action-btn:active { background: var(--ctl-accent); color: var(--bg); }
+.ctl-action-btn[data-tone="crit"] { border-color: var(--crit, var(--danger, var(--ctl-border))); color: var(--crit, var(--danger, var(--text))); }
+.ctl-action-btn[data-tone="crit"]:active { background: var(--crit, var(--danger, var(--ctl-accent))); color: var(--bg); }
+.ctl-action-btn:focus-visible { outline: 2px solid var(--ctl-focus); outline-offset: 2px; }
+.ctl-choice.is-disabled, .ctl-toggle.is-disabled, .ctl-action.is-disabled { opacity: .5; }
+
+/* options row: ONE scrollable line of 40–44 px chips, fade edges (mask, tokens only) */
+.al-dock-options {
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, var(--text) var(--ctl-gap), var(--text) calc(100% - var(--ctl-gap) * 2), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, var(--text) var(--ctl-gap), var(--text) calc(100% - var(--ctl-gap) * 2), transparent 100%);
+}
+.al-dock-options::-webkit-scrollbar { display: none; }
+.al-dock-options > *, .al-dock-flow > * { flex: none; }
+.al-dock-options .ctl { flex-direction: row; align-items: center; gap: var(--ctl-gap); }
+.al-dock-options .ctl-choice > .ctl-label { white-space: nowrap; }
+.al-dock[data-mode="portrait"] .al-dock-options .ctl-seg-btn,
+.al-dock[data-mode="portrait"] .al-dock-options .ctl-switch,
+.al-dock[data-mode="portrait"] .al-dock-options .ctl-action-btn,
+.al-dock[data-mode="portrait"] .al-dock-options .ctl-select { min-height: 40px; }
+.al-dock[data-mode="landscape"] .al-dock-options { -webkit-mask-image: none; mask-image: none; }
+.al-dock[data-mode="landscape"] .al-dock-options .ctl { flex-direction: column; align-items: stretch; }
+
+.ctl[hidden] { display: none; }
+
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Monitor (Phase 7a) — monitor.js. Tokens only. ONE readout surface: value · rows · gauge · traces · status.
+   Desktop: a card. Phone (same breakpoint as the dock): one-line strip (--monitor-strip-h) + card that slides down
+   (max --monitor-max). The old .ui-chip rules above stay until 7b deletes the chip wrappers.
+   ═══════════════════════════════════════════════════════════════════════ */
+.ui-monitor {
+  position: relative; min-width: 176px; max-width: 280px;
+  padding: var(--s-3);
+  font-family: var(--font-mono);
+  pointer-events: auto;
+}
+.ui-monitor .mon-label {
+  margin-bottom: 3px;
+  font: 700 11px/1.2 var(--font-sans); letter-spacing: .11em; text-transform: uppercase; color: var(--text-mute);
+}
+.ui-monitor .mon-value { font-size: 22px; font-weight: 800; line-height: 1; color: var(--al-accent, var(--accent)); font-variant-numeric: tabular-nums; }
+.ui-monitor .mon-value-unit { margin-left: 3px; font-size: 11px; font-weight: 700; opacity: .65; }
+.ui-monitor .mon-value[data-tone="ok"]   { color: var(--ok); }
+.ui-monitor .mon-value[data-tone="warn"] { color: var(--warn); }
+.ui-monitor .mon-value[data-tone="crit"] { color: var(--crit); }
+.ui-monitor .mon-status {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: var(--s-2); padding: 2px 8px;
+  border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-mute);
+  font: 800 11px/1.4 var(--font-sans); letter-spacing: .07em; text-transform: uppercase;
+}
+.ui-monitor .mon-status i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.ui-monitor .mon-status.on { color: var(--ok); background: color-mix(in oklch, var(--ok) 16%, transparent); }
+.ui-monitor .mon-toggle { display: none; }
+.ui-monitor:not(.has-card) .mon-card { display: none; }
+.ui-monitor .mon-bar { height: 5px; margin-top: var(--s-2); background: var(--surface-3); border-radius: var(--r-pill); overflow: hidden; }
+.ui-monitor .mon-bar-fill { height: 100%; width: 0; background: var(--al-accent, var(--accent)); border-radius: var(--r-pill); transition: width var(--dur-fast) linear; }
+.ui-monitor .mon-rows { display: grid; gap: 5px; margin-top: var(--s-2); }
+.ui-monitor .mon-row { display: flex; justify-content: space-between; gap: var(--s-3); font-size: 11px; color: var(--text-dim); }
+.ui-monitor .mon-row-v { color: var(--text); font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
+.ui-monitor .mon-row-v[data-tone="hi"]   { color: var(--al-accent, var(--accent)); }
+.ui-monitor .mon-row-v[data-tone="ok"]   { color: var(--ok); }
+.ui-monitor .mon-row-v[data-tone="warn"] { color: var(--warn); }
+.ui-monitor .mon-row-v[data-tone="crit"] { color: var(--crit); }
+.ui-monitor .mon-gauge { margin-top: var(--s-2); text-align: center; }
+.ui-monitor .mon-gauge-svg { display: block; width: 100%; max-width: 140px; margin: 0 auto; }
+.ui-monitor .mon-gauge-track { fill: none; stroke: var(--surface-3); stroke-width: 6; stroke-linecap: round; }
+.ui-monitor .mon-gauge-needle { stroke: var(--al-accent, var(--accent)); stroke-width: 2.5; stroke-linecap: round; }
+.ui-monitor .mon-gauge-hub { fill: var(--text-dim); }
+.ui-monitor .mon-gauge-cap { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); }
+.ui-monitor .mon-gauge-v { color: var(--text); font-variant-numeric: tabular-nums; }
+.ui-monitor .mon-traces { display: grid; gap: var(--s-2); margin-top: var(--s-2); }
+.ui-monitor .mon-trace-cap { font: 700 11px/1.2 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--text-mute); margin-bottom: 2px; }
+.ui-monitor .mon-trace-cv { display: block; width: 100%; height: 56px; border: 1px solid var(--border); border-radius: var(--r-xs, 8px); }
+.ui-monitor .mon-trace-key { display: flex; flex-wrap: wrap; gap: 2px var(--s-3); margin-bottom: 3px; font-size: 11px; color: var(--text-mute); }
+.ui-monitor .mon-key-i { display: inline-flex; align-items: center; gap: 4px; }
+.ui-monitor .mon-key-i i { width: 8px; height: 8px; border-radius: 2px; }
+.ui-monitor .mon-status { max-width: 100%; white-space: normal; }
+.ui-monitor .mon-status[data-tone="warn"] { color: var(--warn); background: color-mix(in oklch, var(--warn) 16%, transparent); }
+.ui-monitor .mon-status[data-tone="crit"] { color: var(--crit); background: color-mix(in oklch, var(--crit) 16%, transparent); }
+.ui-monitor .mon-status[data-tone] { align-items: flex-start; border-radius: var(--r-sm, 12px); padding: 4px 9px; }
+.ui-monitor .mon-status[data-tone] .mon-status-text { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.ui-monitor .mon-footer { margin-top: var(--s-2); font-size: 11px; color: var(--text-mute); }
+
+@media (max-width: 720px), (max-height: 540px) {
+  .ui-monitor { width: 100%; min-width: 0; max-width: none; height: var(--monitor-strip-h); padding: 0; border-radius: var(--r-pill); overflow: visible; }
+  .ui-monitor .mon-head {
+    display: flex; align-items: center; gap: var(--s-3);
+    height: 100%; padding: 0 var(--s-3); white-space: nowrap; overflow: hidden;
+  }
+  .ui-monitor .mon-label { margin: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+  .ui-monitor .mon-value { flex: 0 0 auto; font-size: 14px; }
+  .ui-monitor .mon-status { margin: 0 0 0 auto; padding: 0; background: none; flex: 0 1 auto; min-width: 0; }
+  .ui-monitor .mon-status-text { overflow: hidden; text-overflow: ellipsis; }
+  .ui-monitor .mon-toggle { position: absolute; inset: 0; display: block; width: 100%; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+  .ui-monitor.has-card .mon-toggle::after { content: ""; position: absolute; right: var(--s-2); top: 50%; width: 6px; height: 6px; margin-top: -4px; border: solid var(--text-mute); border-width: 0 2px 2px 0; transform: rotate(45deg); transition: transform var(--dur-base) var(--ease-out); }
+  .ui-monitor[data-open="true"] .mon-toggle::after { transform: rotate(-135deg); margin-top: -1px; }
+  .ui-monitor .mon-card {
+    position: absolute; left: 0; right: 0; top: calc(100% + var(--s-1));
+    max-height: var(--monitor-max); overflow: auto; overscroll-behavior: contain;
+    padding: var(--s-3); border-radius: var(--r-md);
+    background: var(--surface); border: 1px solid var(--border); -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+    opacity: 0; visibility: hidden; transform: translateY(-8px);
+    transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), visibility 0s linear var(--dur-base);
+  }
+  .ui-monitor[data-open="true"] .mon-card { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+  .ui-monitor .mon-bar:first-child { margin-top: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-monitor .mon-card, .ui-monitor .mon-bar-fill, .ui-monitor .mon-toggle::after { transition: none; }
+}
+
+/* Phase 7a-2: a fault sentence rides in the status. Desktop: the status wraps in the card. Phone: the strip stays one line
+   (ellipsis) and the card shows the full sentence (aria-hidden copy; the strip stays the one live region). */
+.ui-monitor .mon-status-full { display: none; }
+@media (max-width: 720px), (max-height: 540px) {
+  .ui-monitor .mon-status[data-tone] { padding: 0; background: none; border-radius: 0; align-items: center; white-space: nowrap; }
+  .ui-monitor .mon-status[data-tone] .mon-status-text { font-weight: 800; }
+  .ui-monitor .mon-status-full:not(:empty) { display: block; margin-bottom: var(--s-2); font: 600 12px/1.35 var(--font-sans); color: var(--warn); }
+  .ui-monitor .mon-status-full[data-tone="crit"] { color: var(--crit); }
+}

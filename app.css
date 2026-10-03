@@ -181,7 +181,7 @@
   #labels-root {
     position: absolute; inset: 0;
     pointer-events: none;
-    z-index: 4;
+    z-index: var(--z-labels, 2);
     overflow: hidden;
   }
 
@@ -190,7 +190,7 @@
     position: absolute; inset: 0;
     width: 100%; height: 100%;
     pointer-events: none;
-    z-index: 1;
+    z-index: var(--z-stage, 0);   /* under the pills */
     overflow: visible;
   }
   .label-lead {
@@ -238,7 +238,7 @@
     -webkit-backdrop-filter: blur(6px);
     white-space: nowrap;
     opacity: 0;
-    z-index: 2;
+    z-index: var(--z-labels, 2);
     transition: opacity var(--dur-base) var(--ease-out);   /* no transform transition: it double-smoothed the JS motion and made labels wobble */
     pointer-events: none;
     will-change: transform, opacity;
@@ -297,7 +297,7 @@
   /* ---- Slots ---- */
   .ui-slot {
     position: fixed;
-    z-index: 16;
+    z-index: var(--z-monitor, 10);
     display: flex;
     flex-direction: column;
     gap: var(--s-3);
@@ -310,31 +310,16 @@
   .ui-slot > * { pointer-events: auto; }
 
   .ui-slot-tl {
-    top: calc(var(--s-3) + var(--safe-t));
+    top: calc(var(--s-3) + var(--stage-top, var(--safe-t)));
     left: calc(var(--s-4) + var(--safe-l));
     align-items: flex-start;
   }
   .ui-slot-tr {
-    top: calc(var(--s-3) + var(--safe-t));
+    top: calc(var(--s-3) + var(--stage-top, var(--safe-t)));
     right: calc(var(--s-4) + var(--safe-r));
     align-items: flex-end;
   }
-  .ui-slot-bl {
-    bottom: calc(84px + var(--safe-b));
-    left: calc(var(--s-4) + var(--safe-l));
-    align-items: flex-start;
-  }
-  .ui-slot-br {
-    bottom: calc(84px + var(--safe-b));
-    right: calc(var(--s-4) + var(--safe-r));
-    align-items: flex-end;
-  }
-  .ui-slot-bc {
-    bottom: calc(84px + var(--safe-b));
-    left: 50%;
-    transform: translateX(-50%);
-    align-items: center;
-  }
+  /* bl / br / bc are gone: widgets, toolbar and extras are mounted inside the dock (dock.js, controls.css). */
 
   /* ---- Card ---- */
   .ui-card {
@@ -484,7 +469,7 @@
     letter-spacing: .04em;
     text-align: center;
     position: relative;
-    z-index: 1;
+    z-index: var(--z-labels, 2);
     transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
   }
   .ui-panel-more:hover { background: var(--surface-3); border-color: var(--border-hi); }
@@ -657,15 +642,40 @@
     border-color: color-mix(in oklch, var(--accent) 45%, transparent);
   }
 
+  /* ---- Stage canvases (Phase 7b2): a non-time-series picture drawn over the 3D stage, bottom corner, above the dock.
+     Never in the dock or the info panel. Ignores pointer events so orbit controls keep working. ---- */
+  .ui-stage-layer {
+    position: fixed;
+    inset: var(--stage-top, 0px) var(--dock-rail, 0px) var(--dock-h, 0px) var(--dock-rail, 0px);
+    z-index: var(--z-labels, 2);
+    display: flex; align-items: flex-end; gap: var(--s-2);
+    padding: var(--s-2);
+    pointer-events: none;
+  }
+  .ui-stage-cv {
+    width: min(var(--stage-cv-w, 224px), 60vw);
+    padding: var(--s-1) var(--s-2) var(--s-2);
+    border-radius: var(--r-sm);
+    box-shadow: var(--shadow-sm);
+    opacity: .94;
+  }
+  .ui-stage-cv[data-corner="br"] { margin-left: auto; }
+  .ui-stage-cap {
+    font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--text-mute); padding-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ui-stage-cv canvas { display: block; width: 100%; height: auto; }
+
   /* ---- Top stack: merges tl (info panel) + tr (readout chip) into one
      responsive row that WRAPS instead of overlapping on narrow screens.
      No media query needed — flex-wrap does the job at any width. ---- */
   #ui-top-stack {
     position: fixed;
-    top: calc(var(--s-3) + var(--safe-t));
+    top: calc(var(--s-3) + var(--stage-top, var(--safe-t)));
     left: calc(var(--s-4) + var(--safe-l));
     right: calc(var(--s-4) + var(--safe-r));
-    z-index: 16;
+    z-index: var(--z-monitor, 10);
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
@@ -679,13 +689,10 @@
     top: auto; left: auto; right: auto; bottom: auto;
     transform: none;
   }
-  /* Embedded: sit below the shell's floating back / ⋯ buttons (42px @ top:12px) */
-  body.embedded.uses-ui-kit #ui-top-stack {
-    top: calc(var(--shell-header-h, calc(64px + var(--safe-t))) + var(--s-1));
-  }
+  /* --stage-top is 0 when embedded (the shell header sits OUTSIDE the iframe) and the header height when standalone */
   /* Info panel always wins the stacking order over the readout chip */
-  #ui-top-stack #ui-slot-tl { z-index: 2; order: 1; }
-  #ui-top-stack #ui-slot-tr { z-index: 1; order: 2; }
+  #ui-top-stack #ui-slot-tl { z-index: var(--z-labels, 2); order: 1; }
+  #ui-top-stack #ui-slot-tr { z-index: var(--z-stage, 0); order: 2; }
   /* When wrapped onto its own line, let the chip size to content, not stretch */
   #ui-top-stack #ui-slot-tr { flex: 0 0 auto; margin-left: auto; }
 
@@ -721,7 +728,7 @@
     background: var(--surface-2);
     border: 1px solid var(--border);
     pointer-events: auto;
-    z-index: 3;
+    z-index: var(--z-labels, 2);
   }
   .ui-card.is-orb .ui-orb-toggle { display: none; }
   .ui-orb-toggle svg { width: 11px; height: 11px; fill: currentColor; }
@@ -763,26 +770,6 @@
     flex: 0 0 auto;
   }
 
-  .ui-tb-speed {
-    display: flex;
-    align-items: center;
-    gap: var(--s-2);
-    font-size: 11.5px;
-    color: var(--text-dim);
-    flex: 0 1 auto;
-    min-width: 0;
-  }
-  .ui-tb-speed input[type="range"] {
-    width: clamp(62px, 22vw, 120px);
-    accent-color: var(--accent);
-    cursor: pointer;
-    height: 30px;
-    background: transparent;
-  }
-  .ui-tb-speed #rpm-label {
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
 
   .ui-tb-check {
     display: flex;
@@ -815,33 +802,24 @@
    ═══════════════════════════════════════════════════════════════════════ */
 @layer embed {
   body.embedded {
-    --shell-header-h: calc(64px + var(--safe-t));
-    --shell-pill-h:   calc(64px + var(--safe-b));
-
+    /* The shell header lives above the iframe (--stage-top is 0 here) and the control dock is
+       built by dock.js, so the module reserves nothing at the top or bottom by itself. */
     --ui-top:    calc(var(--s-3) + var(--safe-t));
     --ui-right:  calc(var(--s-3) + var(--safe-r));
-    --ui-bottom: calc(80px + var(--safe-b));
+    --ui-bottom: calc(var(--s-3) + var(--safe-b));
     --ui-left:   calc(var(--s-3) + var(--safe-l));
   }
 
   body.embedded.uses-ui-kit #ui-top-stack {
-    top: calc(var(--shell-header-h) + var(--s-1));
+    top: calc(var(--stage-top, 0px) + var(--s-1));
     left: calc(var(--s-3) + var(--safe-l));
     right: calc(var(--s-3) + var(--safe-r));
   }
-  body.embedded.uses-ui-kit .ui-slot-tl,
-  body.embedded.uses-ui-kit .ui-slot-tr {
-    top: calc(var(--shell-header-h) + var(--s-3));
-  }
   body.embedded.uses-ui-kit #ui-top-stack > .ui-slot { top: auto; }
   body.embedded.uses-ui-kit .ui-panel.expanded { max-width: min(400px, calc(100vw - 2 * var(--s-3) - var(--safe-l) - var(--safe-r))); }
-  body.embedded.uses-ui-kit .ui-card.is-orb { z-index: 5; }
-  body.embedded.uses-ui-kit .ui-slot-bl,
-  body.embedded.uses-ui-kit .ui-slot-br {
-    bottom: calc(var(--shell-pill-h) + var(--s-4));
-  }
+  body.embedded.uses-ui-kit .ui-card.is-orb { z-index: var(--z-monitor, 10); }
 
-  /* Panel: compact chip when collapsed */
+  /* Panel: compact chip when collapsed (desktop side panel; phones use the bottom sheet in controls.css) */
   body.embedded.uses-ui-kit .ui-panel {
     width: auto;
     max-width: 340px;
@@ -877,110 +855,13 @@
   body.embedded.uses-ui-kit .ui-panel.expanded .ui-panel-body {
     max-height: calc(100dvh - 20px - 130px - var(--safe-t) - var(--safe-b));
   }
-
-  /* Toolbar: hide standard controls in embed; shell provides its own */
-  body.embedded.uses-ui-kit .ui-toolbar #btn-play,
-  body.embedded.uses-ui-kit .ui-toolbar #btn-reset,
-  body.embedded.uses-ui-kit .ui-toolbar .ui-tb-speed,
-  body.embedded.uses-ui-kit .ui-toolbar .ui-tb-divider,
-  body.embedded.uses-ui-kit .ui-toolbar .ui-tb-check {
-    display: none;
-  }
-  body.embedded.uses-ui-kit .ui-toolbar:not(:has(.ui-tb-extras > *)):not(:has(.keep-in-embed)) {
-    display: none;
-  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   LEGACY — safety net for un-migrated modules.
-   Only applies when a module does NOT have body.uses-ui-kit.
-   Delete this whole block once every module is migrated.
+   UTILITIES
+   (The 90-line LEGACY !important block moved to legacy.css — loaded by sensors.html only.)
    ═══════════════════════════════════════════════════════════════════════ */
 @layer utilities {
-  body.embedded:not(.uses-ui-kit) #hint { display: none !important; }
-
-  body.embedded:not(.uses-ui-kit) #edu-panel {
-    position: fixed !important;
-    top: calc(var(--s-3) + var(--safe-t)) !important;
-    left: 58px !important;
-    right: 58px !important;
-    width: auto !important;
-    max-width: 340px !important;
-    border-radius: var(--r-md) !important;
-    z-index: 15 !important;
-    box-shadow: var(--shadow-md) !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-  }
-  body.embedded:not(.uses-ui-kit) #edu-panel.expanded {
-    max-width: min(400px, calc(100vw - 116px)) !important;
-    padding: var(--s-3) var(--s-4) !important;
-  }
-  body.embedded:not(.uses-ui-kit) #edu-panel #panel-body { display: none !important; }
-  body.embedded:not(.uses-ui-kit) #edu-panel.expanded #panel-body {
-    display: block !important;
-    max-height: calc(100dvh - 150px) !important;
-    overflow-y: auto !important;
-    overscroll-behavior: contain !important;
-  }
-  body.embedded:not(.uses-ui-kit) #edu-panel #module-kicker { display: none !important; }
-  body.embedded:not(.uses-ui-kit) #edu-panel.expanded #module-kicker {
-    display: block !important;
-    font-size: 10px !important;
-  }
-  body.embedded:not(.uses-ui-kit) #edu-panel #module-title {
-    font-size: 13px !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    max-width: 220px !important;
-  }
-  body.embedded:not(.uses-ui-kit) #edu-panel.expanded #module-title {
-    font-size: 16px !important;
-    white-space: normal !important;
-    max-width: none !important;
-  }
-  body.embedded:not(.uses-ui-kit) #edu-panel #panel-head::after { display: none !important; }
-
-  body.embedded:not(.uses-ui-kit) #module-controls #btn-play,
-  body.embedded:not(.uses-ui-kit) #module-controls #btn-reset,
-  body.embedded:not(.uses-ui-kit) #module-controls .slider-group,
-  body.embedded:not(.uses-ui-kit) #module-controls #chk-labels,
-  body.embedded:not(.uses-ui-kit) #module-controls #chk-gas {
-    display: none !important;
-  }
-  body.embedded:not(.uses-ui-kit) #module-controls {
-    position: fixed !important;
-    bottom: calc(80px + var(--safe-b)) !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: var(--s-2) var(--s-3) !important;
-    padding: var(--s-2) var(--s-3) !important;
-    border-radius: var(--r-md) !important;
-    z-index: 20 !important;
-    background: var(--surface) !important;
-    border: 1px solid var(--border) !important;
-    backdrop-filter: blur(var(--blur)) !important;
-    -webkit-backdrop-filter: blur(var(--blur)) !important;
-    box-shadow: var(--shadow-md) !important;
-  }
-  @supports selector(:has(*)) {
-    body.embedded:not(.uses-ui-kit) #module-controls:not(:has(.select-group, .toggle)) {
-      display: none !important;
-    }
-  }
-  body.embedded:not(.uses-ui-kit) #steer-overlay,
-  body.embedded:not(.uses-ui-kit) #crank-overlay,
-  body.embedded:not(.uses-ui-kit) #accel-overlay,
-  body.embedded:not(.uses-ui-kit) #clutch-overlay,
-  body.embedded:not(.uses-ui-kit) #pedal-overlay {
-    bottom: calc(80px + var(--safe-b)) !important;
-  }
-
-  /* Utility classes */
   .ui-hidden { display: none !important; }
   .ui-stack { display: flex; flex-direction: column; gap: var(--s-3); }
   .ui-row   { display: flex; align-items: center; gap: var(--s-2); }

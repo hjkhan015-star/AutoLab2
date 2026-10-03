@@ -5,53 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Catalytic Converter — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #fb923c; }
 html.light-theme { --al-accent: color-mix(in oklch, #fb923c 68%, black); }
 
-/* ── module-local UI: extra controls + rolling graph ─────────────── */
-#cat-panel{
-  position:fixed; left:12px; top:12px; z-index:30;
-  width:256px; max-width:46vw;
-  padding:10px 12px 12px;
-  border:1px solid var(--border,#333);
-  border-radius:10px;
-  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
-  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
-  box-shadow:0 8px 28px rgba(0,0,0,.38);
-  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
-  color:var(--text-dim,#9aa4b2);
-  max-height:calc(100dvh - 24px); overflow:auto;
-}
-#cat-panel.folded .cat-body{ display:none; }
-.cat-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-.cat-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
-.cat-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
-.cat-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.cat-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
-.cat-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
-  text-transform:uppercase; color:var(--text-mute,#6b7280); }
-.cat-w b{ color:var(--text,#e5e7eb); font-weight:700; }
-#cat-panel .al-range{ height:22px; }
-#cat-panel .al-sel{ min-height:32px; font-size:11px; }
-.cat-btns{ display:flex; gap:6px; margin-bottom:8px; }
-.cat-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
-.cat-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.cat-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(251,146,60,.14); }
-#cat-cold{ color:#22d3ee; border-color:rgba(34,211,238,.4); }
-#cat-cold:hover{ border-color:#22d3ee; }
-.cat-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
-  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
-  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
-.cat-warn.show{ display:block; }
-#cat-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
-  border-radius:6px; background:rgba(0,0,0,.28); }
-.cat-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
-.cat-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
-@media (max-width:700px){ #cat-panel{ width:200px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -69,7 +28,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #fb923c 68%, black); }
 </script>
 
 <script type="module">
-import { runGuidedModule } from './components.js';
+import { runGuidedModule, controls } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
 const CFG = {
@@ -81,7 +40,12 @@ const CFG = {
   "camPos": [4.8, 2.6, 6.4],
   "target": [0, 0, 0],
   "floorY": -1.6,
-  "ctl": { "label": "Engine load", "val": 30, "caption": "Engine load" },
+  ctls: [   /* Phase 3: sliders live in the dock as axis controls; ctls[0] (id 'ctl') = the main 0-100 % control */
+    { id:'ctl', label:"Engine load", caption:"Engine load", preset:'percent', def:30 },
+    { id:'rpm', preset:'rpm', def:1800, label:'Engine speed', onChange:(v)=>{ S.rpm = v; } },
+    { id:'lambda', min:0.88, max:1.12, step:0.01, def:1, decimals:2, label:'Air-fuel \u03BB', onChange:(v)=>{ S.lambda = v; } },
+    { id:'misfire', preset:'percent', def:0, label:'Misfire', onChange:(v)=>{ S.misfire = v / 100; } },
+  ],
   "chipLabel": "CO conversion",
   "rows": [["hc", "HC"], ["nox", "NOx"]],
   "ro": [
@@ -230,81 +194,13 @@ const S = {
   speed: 1
 };
 
-const panel = document.createElement('div');
-panel.id = 'cat-panel';
-let faultOptions = '';
-for (const id in FAULT_INFO) {
-  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
-}
-panel.innerHTML =
-  '<div class="cat-h"><span>Catalyst simulation</span><button type="button" id="cat-fold" aria-label="Collapse controls">&#8211;</button></div>' +
-  '<div class="cat-body">' +
-    '<div class="cat-w"><label for="cat-rpm">Engine speed <b id="cat-rpm-v">1800 rpm</b></label>' +
-      '<input id="cat-rpm" class="al-range" type="range" min="800" max="5000" step="50" value="1800" aria-label="Engine speed"></div>' +
-    '<div class="cat-w"><label for="cat-lam">Air-fuel &lambda; <b id="cat-lam-v">1.00</b></label>' +
-      '<input id="cat-lam" class="al-range" type="range" min="88" max="112" step="1" value="100" aria-label="Lambda"></div>' +
-    '<div class="cat-w"><label for="cat-mis">Misfire <b id="cat-mis-v">0 %</b></label>' +
-      '<input id="cat-mis" class="al-range" type="range" min="0" max="100" step="1" value="0" aria-label="Misfire level"></div>' +
-    '<div class="cat-w"><label for="cat-fault">Fault injection</label>' +
-      '<select id="cat-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
-    '<div class="cat-w"><label>Simulation speed</label>' +
-      '<div class="cat-btns" id="cat-speed">' +
-        '<button type="button" data-sp="1" class="on">1&times;</button>' +
-        '<button type="button" data-sp="5">5&times;</button>' +
-        '<button type="button" data-sp="20">20&times;</button>' +
-      '</div></div>' +
-    '<div class="cat-btns">' +
-      '<button type="button" id="cat-cold">Cold start</button>' +
-      '<button type="button" id="cat-reset">Reset</button>' +
-    '</div>' +
-    '<div class="cat-warn" id="cat-warn"></div>' +
-    '<canvas id="cat-graph" width="480" height="150" aria-label="Conversion and catalyst temperature history"></canvas>' +
-    '<div class="cat-key"><span><i style="background:#22d3ee"></i>CO conv. %</span><span><i style="background:#fb923c"></i>Bed &deg;C</span></div>' +
-  '</div>';
-document.body.appendChild(panel);
 
-const elFold  = document.getElementById('cat-fold');
-const elRpm   = document.getElementById('cat-rpm');
-const elRpmV  = document.getElementById('cat-rpm-v');
-const elLam   = document.getElementById('cat-lam');
-const elLamV  = document.getElementById('cat-lam-v');
-const elMis   = document.getElementById('cat-mis');
-const elMisV  = document.getElementById('cat-mis-v');
-const elFault = document.getElementById('cat-fault');
-const elSpeed = document.getElementById('cat-speed');
-const elCold  = document.getElementById('cat-cold');
-const elReset = document.getElementById('cat-reset');
-const elWarn  = document.getElementById('cat-warn');
-const gcv     = document.getElementById('cat-graph');
-const gctx    = gcv.getContext('2d');
-
-elFold.addEventListener('click', () => {
-  panel.classList.toggle('folded');
-  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
-});
-elRpm.addEventListener('input', () => {
-  S.rpm = Number(elRpm.value) || 800;
-  elRpmV.textContent = S.rpm + ' rpm';
-});
-elLam.addEventListener('input', () => {
-  S.lambda = (Number(elLam.value) || 100) / 100;
-  elLamV.textContent = S.lambda.toFixed(2);
-});
-elMis.addEventListener('input', () => {
-  S.misfire = (Number(elMis.value) || 0) / 100;
-  elMisV.textContent = Math.round(S.misfire * 100) + ' %';
-});
-elFault.addEventListener('change', () => { S.fault = elFault.value; });
-elSpeed.addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-sp]');
-  if (!b) return;
-  S.speed = Number(b.dataset.sp) || 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
-});
-elCold.addEventListener('click', () => { sim.Tbed = COLD_START_T; });
 
 /* ── simulation state (module level so Reset can reach it) ───────── */
-const GRAPH_N = 150;
+/* Phase 7a: the history lives in the Monitor (CFG.traces); the module only hands over one normalised sample
+   per ~140 ms while the sim runs (0..100 % of each old axis range) and the current warning sentence. */
+let traceSample = null, traceClear = false, warnText = '';
+const traceN = (v, lo, hi) => Math.round(clampN((v - lo) / (hi - lo), 0, 1) * 1000) / 10;
 const sim = {
   Tbed: COLD_START_T,
   poison: 0,
@@ -312,7 +208,6 @@ const sim = {
   p0420: false,
   p0420Timer: 0,
   lastT: -1,
-  samples: [],
   lastSample: 0
 };
 
@@ -323,61 +218,17 @@ function resetModel() {
   sim.p0420 = false;
   sim.p0420Timer = 0;
   sim.lastT = -1;
-  sim.samples.length = 0;
+  traceClear = true;                  /* Monitor trace is cleared on the next update */
   sim.lastSample = 0;
 }
 function resetAll() {
-  S.rpm = 1800;   elRpm.value = 1800;   elRpmV.textContent = '1800 rpm';
-  S.lambda = 1.00; elLam.value = 100;   elLamV.textContent = '1.00';
-  S.misfire = 0;  elMis.value = 0;      elMisV.textContent = '0 %';
-  S.fault = 'none'; elFault.value = 'none';
+  S.rpm = 1800;
+  S.lambda = 1.00;
+  S.misfire = 0;
+  S.fault = 'none';
   S.speed = 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
   resetModel();
-  const ctlEl = document.getElementById('ctl');
-  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
-}
-elReset.addEventListener('click', resetAll);
-
-/* ── rolling graph ───────────────────────────────────────────────── */
-function drawGraph() {
-  const W = gcv.width, Hh = gcv.height;
-  gctx.clearRect(0, 0, W, Hh);
-  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
-  gctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    const y = Math.round(Hh * i / 4) + 0.5;
-    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
-  }
-  const n = sim.samples.length;
-  if (n < 2) return;
-  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
-  const yConv = (v) => Hh - clampN(v, 0, 1) * (Hh - 6) - 3;
-  const yTemp = (v) => Hh - clampN(v / 1000, 0, 1) * (Hh - 6) - 3;
-
-  /* CO conversion filled area */
-  gctx.beginPath();
-  gctx.moveTo(xAt(0), Hh);
-  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yConv(sim.samples[i].c));
-  gctx.lineTo(xAt(n - 1), Hh);
-  gctx.closePath();
-  gctx.fillStyle = 'rgba(34,211,238,0.16)';
-  gctx.fill();
-
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yConv(sim.samples[i].c);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#22d3ee'; gctx.lineWidth = 1.6; gctx.stroke();
-
-  /* catalyst bed temperature */
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yTemp(sim.samples[i].T);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.6; gctx.stroke();
+  controls.resetAll();                 /* every axis back to its default (store -> onChange -> S) */
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -574,11 +425,7 @@ function build(H){
    const now = performance.now();
    if (now - lastDom > 140) {
      lastDom = now;
-     if (dt > 0) {
-       sim.samples.push({ c: co, T: sim.Tbed });
-       if (sim.samples.length > GRAPH_N) sim.samples.shift();
-       drawGraph();
-     }
+     if (dt > 0) traceSample = [traceN(co, 0, 1), traceN(sim.Tbed, 0, 1000)];
      let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
      if (!warn) {
        if (sim.p0420) {
@@ -593,8 +440,7 @@ function build(H){
          warn = 'Catalyst contamination ' + (sim.poison * 100).toFixed(0) + ' % - the precious-metal sites are being blocked.';
        }
      }
-     elWarn.textContent = warn;
-     elWarn.classList.toggle('show', !!warn);
+     warnText = warn;
    }
 
    /* ── 11. readouts ──────────────────────────────────────────── */
@@ -606,6 +452,10 @@ function build(H){
    const o2State  = fault === 'sensor' ? 'crit' : (sensorOk ? 'ok' : 'warn');
    const stState  = (sim.Tbed > MELT_TEMP || sim.p0420) ? 'crit'
                   : (sim.Tbed < 320 || sim.Tbed > 850) ? 'warn' : 'ok';
+
+   let tr;
+   if (traceClear) { traceClear = false; traceSample = null; tr = { hist: null }; }
+   else if (traceSample) { tr = { hist: traceSample }; traceSample = null; }
 
    return {
      big: (co * 100).toFixed(0),
@@ -626,13 +476,31 @@ function build(H){
        o2:    [o2v.toFixed(2) + ' V',  o2State],
        state: [stateTxt, stState]
      },
-     status: [stateTxt, true],
+     status: [warnText || stateTxt, true, warnText ? 'warn' : ''],
+      traces: tr,
      ctl: (L * 100).toFixed(0) + ' %'
    };
   }
  };
 }
 
+/* Phase 6: every option / action lives in the dock (controls.js), nothing interactive is left in the panel.
+   'Time scale' is the module's own physics time-compression (thermal warm-up); the menu's Sim speed is separate. */
+CFG.options = [
+  { id: "fault", type: 'choice', layout: 'select', label: "Fault injection", options: Object.keys(FAULT_INFO).map(id => ({ id, label: FAULT_INFO[id].label })), def: 'none',
+    onChange: (id) => { S.fault = id; } },
+  { id: 'timeScale', type: 'choice', layout: 'segmented', label: 'Time scale', options: [{ id: '1', label: '1×' }, { id: '5', label: '5×' }, { id: '20', label: '20×' }], def: '1',
+    onChange: (id) => { S.speed = Number(id) || 1; } },
+  { id: "cold", type: 'action', label: "Cold start",
+    onAction: () => { sim.Tbed = COLD_START_T; } }
+];
+CFG.onReset = resetAll;      /* the dock Reset runs the module reset (model + every control) */
+/* Phase 7a: the old history canvas is a Monitor trace. Both series are drawn as 0..100 % of their old axis ranges. */
+CFG.traces = [{ id: 'hist', label: 'Conversion and catalyst temperature history (% of full scale)', min: 0, max: 100, length: 150,
+  series: [
+    { id: 'a', label: 'CO conv. %', color: 'var(--accent)' },
+    { id: 'b', label: 'Bed \u00B0C', color: 'var(--warn)' }
+  ] }];
 runGuidedModule(CFG, build);
 </script>
 </body>
