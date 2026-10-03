@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0a0d13">
 <title>4-Stroke Engine — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <style>
   /* ═══════════════════════════════════════════════════════════════════
      Engine module — instrument panel + crank widget interiors.
@@ -24,58 +25,9 @@
   .mechanism-readout b { color: var(--text); font-weight: 800; }
   #cam-deg { color: var(--warn) !important; }
 
-  /* ── Panel badge: crank-degree chip appended after badge text ── */
-  .engine-crank-deg {
-    font-family: var(--font-mono);
-    font-size: 11px; font-weight: 700;
-    letter-spacing: .02em; margin-left: 8px;
-    opacity: .78;
-    transition: color var(--dur-fast) var(--ease-out);
-  }
-
   /* ── Simplified / Advanced toggle ── */
-  .view-mode { display: flex; gap: 6px; margin-top: 12px; }
-  .vm-btn {
-    flex: 1; padding: 8px;
-    border-radius: 9px;
-    border: 1px solid var(--border);
-    background: var(--surface-2);
-    color: var(--text-dim);
-    font-size: 11px; font-weight: 700;
-    letter-spacing: .03em;
-    cursor: pointer; font-family: inherit;
-    transition: background var(--dur-fast) var(--ease-out),
-                color var(--dur-fast) var(--ease-out),
-                border-color var(--dur-fast) var(--ease-out),
-                box-shadow var(--dur-fast) var(--ease-out);
-  }
-  .vm-btn:hover { background: var(--surface-3); }
-  .vm-btn.active {
-    background: var(--accent); color: #0b0e14;
-    border-color: var(--accent);
-    box-shadow: 0 0 12px color-mix(in oklch, var(--accent) 40%, transparent);
-  }
 
   /* ── Timeline (4 stroke buttons) ── */
-  .timeline {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 5px; margin: 12px 0;
-  }
-  .tl-btn {
-    border: 1px solid var(--border);
-    background: var(--surface-2);
-    color: var(--text-dim);
-    border-radius: 10px;
-    padding: 7px 3px;
-    font-size: 10.5px; font-weight: 600;
-    cursor: pointer;
-    transition: all var(--dur-fast) var(--ease-out);
-    text-align: center; line-height: 1.25;
-    font-family: inherit;
-  }
-  .tl-btn:hover { border-color: var(--border-hi); color: var(--text); }
-  .tl-btn.active { color: #0b0e14; border-color: transparent; }
-  .tl-btn .num { display: block; font-size: 14px; font-weight: 800; margin-bottom: 1px; }
 
   /* ── Cycle bar + scale ── */
   .cycle-bar {
@@ -105,97 +57,17 @@
     margin-top: 5px; text-transform: uppercase;
   }
 
-  /* ── Crank widget (bottom-right slot) ── */
-  #crank-wheel {
-    width: clamp(118px, 26vw, 174px);
-    height: clamp(118px, 26vw, 174px);
-    pointer-events: auto;
-    cursor: grab;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-    filter: drop-shadow(0 10px 20px oklch(0 0 0 / .65));
-  }
-  #crank-wheel svg { display: block; width: 100%; height: 100%; }
-  #crank-wheel.grabbing { cursor: grabbing; }
-  #crank-wheel.grabbing #crank-rotor {
-    filter: drop-shadow(0 0 16px color-mix(in oklch, var(--accent) 55%, transparent))
-            drop-shadow(0 10px 18px oklch(0 0 0 / .7));
-  }
-  #crank-rotor {
-    transform-origin: 50% 50%;
-    transition: transform .035s linear;
-    will-change: transform;
-  }
-  .crank-bg {
-    fill: color-mix(in oklch, var(--bg) 88%, transparent);
-    stroke: var(--border);
-    stroke-width: 1.5;
-  }
-  .crank-ring { fill: none; stroke: color-mix(in oklch, var(--text) 25%, transparent); stroke-width: 8; }
-  .crank-ring-hi { fill: none; stroke: color-mix(in oklch, var(--text) 65%, transparent); stroke-width: 2; opacity: .45; }
-  .crank-spoke { fill: color-mix(in oklch, var(--text) 30%, transparent); }
-  .crank-hub {
-    fill: color-mix(in oklch, var(--bg) 78%, transparent);
-    stroke: color-mix(in oklch, var(--text) 65%, transparent);
-    stroke-width: 2;
-  }
-  .crank-marker {
-    fill: var(--accent);
-    filter: drop-shadow(0 0 5px color-mix(in oklch, var(--accent) 75%, transparent));
-  }
-  .crank-handle {
-    fill: color-mix(in oklch, var(--bg) 90%, transparent);
-    stroke: color-mix(in oklch, var(--text) 45%, transparent);
-    stroke-width: 1.6;
-  }
-  .crank-handle-end {
-    fill: color-mix(in oklch, var(--text) 35%, transparent);
-    stroke: color-mix(in oklch, var(--text) 55%, transparent);
-    stroke-width: 1.4;
-  }
-
   /* ── Slow-mo toggle (override accent to warn colour) ── */
-  #btn-slowmo.active {
-    background: color-mix(in oklch, var(--warn) 22%, transparent);
-    border-color: color-mix(in oklch, var(--warn) 48%, transparent);
-    color: var(--warn);
-  }
   #rpm-label.slow { color: var(--warn) !important; font-weight: 800; }
 
   /* ── Engine-config switcher (lives inside toolbar extras) ── */
-  .cfg-group {
-    display: flex; align-items: center; gap: 4px;
-    padding-left: 8px; margin-left: 4px;
-    border-left: 1px solid var(--border);
-  }
-  .cfg-arrow {
-    width: 22px; height: 22px; border-radius: 50%;
-    border: none; background: var(--surface-3);
-    color: var(--text); font-size: 14px; line-height: 1;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-family: inherit; padding: 0;
-    transition: background var(--dur-fast) var(--ease-out),
-                color var(--dur-fast) var(--ease-out);
-  }
-  .cfg-arrow:hover, .cfg-arrow:active { background: var(--accent); color: #0b0e14; }
-  #cfg-label {
-    min-width: 78px; text-align: center; white-space: nowrap;
-    font-size: 10.5px; font-weight: 700; letter-spacing: .02em;
-    color: var(--text); font-family: var(--font-mono);
-  }
 
   /* ── Chip: the stroke name is text, so reduce the big-value font ── */
-  #ui-chip #chip-value {
+  #ui-monitor .mon-value {
     font-size: 15px; letter-spacing: -.01em; font-weight: 800;
     line-height: 1.15;
   }
 
-  @media (max-width: 600px) {
-    .cfg-arrow { width: 19px; height: 19px; font-size: 12px; }
-    #cfg-label { min-width: 62px; font-size: 10px; }
-    #crank-wheel { width: 100px; height: 100px; }
-  }
 </style>
 </head>
 <body>
@@ -1185,6 +1057,11 @@ function createRadial5() {
   state.showMech = true;
 
   let theta = 0, flashT = 0, lastStrokeIdx = -1;
+  let resumeAfterGrab = false;
+  function crankGrab(on) {                              /* dial onGrab: pause the sim while the crank is held */
+    if (on) { if (state.playing) { resumeAfterGrab = true; state.playing = false; } }
+    else if (resumeAfterGrab) { resumeAfterGrab = false; state.playing = true; }
+  }
   let prevDeg = -1;
   let mechLabelsDirty = false;
 
@@ -1203,20 +1080,7 @@ function createRadial5() {
       badge:  { text: strokes[0].name, color: strokes[0].color },
       readout: `
         <div class="mechanism-readout">
-          <span>Crank <b id="mech-crank-deg">0°</b></span>
           <span id="cam-readout">Cam <b id="cam-deg">0°</b></span>
-        </div>
-
-        <div class="view-mode">
-          <button id="btn-simple"   class="vm-btn" type="button">Simplified</button>
-          <button id="btn-advanced" class="vm-btn active" type="button">Advanced</button>
-        </div>
-
-        <div class="timeline">
-          <button class="tl-btn" data-stroke="0"><span class="num">1</span>Intake</button>
-          <button class="tl-btn" data-stroke="1"><span class="num">2</span>Compression</button>
-          <button class="tl-btn" data-stroke="2"><span class="num">3</span>Power</button>
-          <button class="tl-btn" data-stroke="3"><span class="num">4</span>Exhaust</button>
         </div>
 
         <div class="cycle-bar" id="cycle-bar" title="Click to jump to a crank angle">
@@ -1232,102 +1096,54 @@ function createRadial5() {
       desc: strokes[0].desc
     },
 
-    chip: {
-      label: 'Live cycle',
-      value: strokes[0].name,
-      rows: [
-        { id: 'crank', label: 'Crank', value: '0°' },
-        { id: 'cam',   label: 'Cam',   value: '0°' }
-      ]
+    monitor: {
+      config: { label: 'Live cycle', value: { label: 'Live cycle', unit: '', max: 100, bar: false }, rows: [['cam', 'Cam']], status: null },
+      initial: { value: { text: String(strokes[0].name), unit: '' }, rows: { cam: '0°' } }
     },
 
     toolbar: {
       play: true, reset: true,
       speed: { label: 'Speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
       labels: true, gas: true,
-      extras: [
-        { id: 'btn-slowmo', title: 'Super slow motion · study each stroke',
-          icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 2h12v6l-4 4 4 4v6H6v-6l4-4-4-4V2zm10 12.5V20H8v-5.5l4-4 4 4zM8 4v3.5l4 4 4-4V4H8z"/></svg>' }
-      ]
+      extras: []
     },
 
-    widgets: {
-      br: {
-        caption: 'Drag crank · <span data-crank-deg>0°</span>',
-        html: `
-          <div id="crank-wheel" role="slider" tabindex="0"
-               aria-label="Manual crank control"
-               aria-valuemin="0" aria-valuemax="720" aria-valuenow="0">
-            <div id="crank-rotor">
-              <svg viewBox="-70 -70 140 140" aria-hidden="true">
-                <circle class="crank-bg" cx="0" cy="0" r="64"/>
-                <circle class="crank-ring" cx="0" cy="0" r="49"/>
-                <circle class="crank-ring-hi" cx="0" cy="0" r="49"/>
-                <rect class="crank-spoke" x="-5" y="-42" width="10" height="34" rx="5"/>
-                <rect class="crank-spoke" x="-5" y="8"   width="10" height="34" rx="5"/>
-                <rect class="crank-spoke" x="8"  y="-5"  width="34" height="10" rx="5"/>
-                <rect class="crank-spoke" x="-42" y="-5" width="34" height="10" rx="5"/>
-                <circle class="crank-hub" cx="0" cy="0" r="14"/>
-                <rect class="crank-handle" x="-4" y="-66" width="8" height="18" rx="4"/>
-                <circle class="crank-handle-end" cx="0" cy="-66" r="6"/>
-                <circle class="crank-marker" cx="0" cy="-51" r="4"/>
-              </svg>
-            </div>
-          </div>
-        `,
-        onMount: (el) => wireCrankWidget(el)
-      }
-    }
+    /* Phase 5: the crank is a controls.js dial (id 'crank', 0–720°, wraps). It shows the angle ONCE, as small text;
+       the badge, the panel row and the chip no longer repeat it. The simulation keeps its own `theta` (it advances
+       every frame) and mirrors it into the dial; user input comes back through ui.controls.on('crank'). */
+    axes: [
+      { id: 'crank', type: 'dial', look: 'crank', label: 'Crank', ariaLabel: 'Manual crank control',
+        range: 720, wrap: true, def: 0, step: 1, side: 'right',
+        onGrab: (on) => crankGrab(on) }
+    ]
   });
 
-  /* ── Add the crank-degree chip to the panel badge ── */
-  const engineCrankDegEl = document.createElement('span');
-  engineCrankDegEl.id = 'crank-deg';
-  engineCrankDegEl.className = 'engine-crank-deg';
-  engineCrankDegEl.textContent = '0°';
-  document.getElementById('stroke-badge').appendChild(engineCrankDegEl);
-
-  /* ── Insert the engine-config switcher into the toolbar extras ── */
-  (function buildConfigSwitcher() {
-    const extras = document.getElementById('toolbar-extras');
-    if (!extras) return;
-    const cfgGroup = document.createElement('div');
-    cfgGroup.className = 'cfg-group';
-    cfgGroup.setAttribute('role', 'group');
-    cfgGroup.setAttribute('aria-label', 'Engine configuration');
-    cfgGroup.innerHTML = `
-      <button class="cfg-arrow" id="cfg-prev" type="button" aria-label="Previous engine configuration">‹</button>
-      <span id="cfg-label">Inline‑1</span>
-      <button class="cfg-arrow" id="cfg-next" type="button" aria-label="Next engine configuration">›</button>
-    `;
-    extras.appendChild(cfgGroup);
-  })();
-
-  /* ── Move slow-mo button next to play for a familiar layout ── */
-  (function reorderToolbar() {
-    const toolbarRoot = ui.toolbar.root;
-    if (!toolbarRoot) return;
-    const playBtn   = toolbarRoot.querySelector('#btn-play');
-    const slowmoBtn = toolbarRoot.querySelector('#btn-slowmo');
-    if (playBtn && slowmoBtn) playBtn.insertAdjacentElement('afterend', slowmoBtn);
-  })();
+  /* Phase 6: engine configuration, view mode, stroke jump and slow-mo are dock controls (no panel / toolbar buttons) */
+  const ENGINE_CONFIGS = [
+    { id: 'inline1', label: 'Inline\u20111' }, { id: 'inline4', label: 'Inline\u20114' }, { id: 'vtwin', label: 'V\u2011Twin 45\u00b0' },
+    { id: 'v8', label: 'V8 Cross\u2011plane' }, { id: 'radial5', label: 'Radial\u20115' }
+  ];
+  ui.addOptions([
+    { id: 'config', type: 'choice', layout: 'select', label: 'Engine', ariaLabel: 'Engine configuration', options: ENGINE_CONFIGS },
+    { id: 'view', type: 'choice', layout: 'segmented', label: 'View', options: [{ id: 'simple', label: 'Simplified' }, { id: 'advanced', label: 'Advanced' }], def: 'advanced' },
+    { id: 'stroke', type: 'choice', layout: 'segmented', label: 'Stroke', ariaLabel: 'Jump to stroke',
+      options: [{ id: 'intake', label: '1 Intake' }, { id: 'compression', label: '2 Compression' }, { id: 'power', label: '3 Power' }, { id: 'exhaust', label: '4 Exhaust' }] },
+    { id: 'slowmo', type: 'toggle', label: 'Slow-mo', ariaLabel: 'Super slow motion, study each stroke' }
+  ]);
 
   /* ═══════════════════════════════════════════════════════════════════
      PANEL BODY UI — view-mode toggle, timeline, cycle-bar
      ═══════════════════════════════════════════════════════════════════ */
   const panelBody = ui.panel.body;
-  const tlBtns      = panelBody.querySelectorAll('.tl-btn');
-  const btnSimple   = panelBody.querySelector('#btn-simple');
-  const btnAdvanced = panelBody.querySelector('#btn-advanced');
   const cycleBarEl  = panelBody.querySelector('#cycle-bar');
   const cycleFillEl = panelBody.querySelector('#cycle-fill');
-  const mechCrankDegEl = panelBody.querySelector('#mech-crank-deg');
   const camDegEl       = panelBody.querySelector('#cam-deg');
   const camReadoutEl   = panelBody.querySelector('#cam-readout');
   const strokeDescEl   = document.getElementById('stroke-desc');
   const badgeEl        = document.getElementById('stroke-badge');
   const badgeTextEl    = document.getElementById('badge-text');
 
+  let syncingStroke = false;
   function setStrokeUI(idx) {
     if (idx === lastStrokeIdx) return;
     lastStrokeIdx = idx;
@@ -1339,21 +1155,17 @@ function createRadial5() {
 
     strokeDescEl.innerHTML = s.desc;
 
-    ui.chip.setBig(s.name, '');
-    ui.chip.setColor(s.color);
-    ui.chip.root.querySelector('.ui-chip-value').style.color = s.color;
+    ui.monitor.update({ value: { text: s.name, unit: '', color: s.color } });
+    ui.monitor.flush();                                   /* the stroke name changes on a click: show it now, not on the next 9 Hz tick */
 
-    tlBtns.forEach((b, i) => {
-      if (i === idx) { b.classList.add('active'); b.style.background = s.color; b.style.color = '#0b0e14'; }
-      else { b.classList.remove('active'); b.style.background = ''; b.style.color = ''; }
-    });
+    syncingStroke = true; ui.controls.set('stroke', idx); syncingStroke = false;      /* the dock choice follows the simulation */
+    const strokeCtl = ui.axis('stroke'); if (strokeCtl) strokeCtl.el.style.setProperty('--ctl-accent', s.color);
   }
 
   function applyMechView() {
     const v = !!state.showMech;
     mechParts.forEach(m => { m.visible = v; });
-    if (btnSimple)   btnSimple.classList.toggle('active', !v);
-    if (btnAdvanced) btnAdvanced.classList.toggle('active', v);
+    ui.controls.set('view', v ? 1 : 0);
     if (camReadoutEl) camReadoutEl.style.display = v ? '' : 'none';
   }
   function setMechView(v) {
@@ -1361,15 +1173,15 @@ function createRadial5() {
     mechLabelsDirty = true;
     applyMechView();
   }
-  if (btnSimple)   btnSimple.addEventListener('click', () => setMechView(false));
-  if (btnAdvanced) btnAdvanced.addEventListener('click', () => setMechView(true));
+  ui.controls.on('view', (i) => { if ((i === 1) !== !!state.showMech) setMechView(i === 1); });
   applyMechView();
 
-  /* Timeline buttons — jump to a stroke */
-  tlBtns.forEach(btn => btn.addEventListener('click', () => {
-    theta = parseInt(btn.dataset.stroke, 10) * Math.PI + 5 * DEG;
+  /* Stroke choice: a user pick jumps to that stroke (the sim's own updates are ignored via syncingStroke) */
+  ui.controls.on('stroke', (i) => {
+    if (syncingStroke) return;
+    theta = i * Math.PI + 5 * DEG;
     flashT = 0;
-  }));
+  });
 
   /* Cycle bar — scrub to a crank angle */
   if (cycleBarEl) cycleBarEl.addEventListener('click', (e) => {
@@ -1389,26 +1201,17 @@ function createRadial5() {
   };
   let activeConfig = 'inline1';
 
-  const cfgLabelEl = document.getElementById('cfg-label');
-  const cfgPrevEl  = document.getElementById('cfg-prev');
-  const cfgNextEl  = document.getElementById('cfg-next');
-
   function applyEngineConfig(id) {
     activeConfig = id;
     engine.visible = (id === 'inline1');
     Object.keys(extraEngines).forEach(key => {
       extraEngines[key].group.visible = (key === id);
     });
-    if (cfgLabelEl) cfgLabelEl.textContent = CONFIG_LABELS[id];
+    ui.controls.set('config', CONFIG_ORDER.indexOf(id));          /* keep the dock choice in step */
     theta = 0; flashT = 0;
     mechLabelsDirty = true;
   }
-  function stepEngineConfig(dir) {
-    const i = CONFIG_ORDER.indexOf(activeConfig);
-    applyEngineConfig(CONFIG_ORDER[(i + dir + CONFIG_ORDER.length) % CONFIG_ORDER.length]);
-  }
-  if (cfgPrevEl) cfgPrevEl.addEventListener('click', () => stepEngineConfig(-1));
-  if (cfgNextEl) cfgNextEl.addEventListener('click', () => stepEngineConfig(1));
+  ui.controls.on('config', (i) => { const id = CONFIG_ORDER[i]; if (id !== activeConfig) applyEngineConfig(id); });
   applyEngineConfig('inline1');
 
   /* ═══════════════════════════════════════════════════════════════════
@@ -1429,103 +1232,19 @@ function createRadial5() {
   }
   updateRpmLabel();
 
-  const btnSlow = document.getElementById('btn-slowmo');
-  if (btnSlow) btnSlow.addEventListener('click', () => {
-    slowMo = !slowMo;
-    btnSlow.classList.toggle('active', slowMo);
-    updateRpmLabel();
-  });
+  ui.controls.on('slowmo', (v) => { slowMo = v === 1; updateRpmLabel(); });
 
   /* ═══════════════════════════════════════════════════════════════════
-     MANUAL CRANK WIDGET
+     MANUAL CRANK — controls.js dial 'crank' (0–720°, wraps)
+     `theta` stays the simulation's own angle (it advances each frame). The dial mirrors it; a user turn
+     (drag, ←/→ ±10°, Home / Enter = 0°) comes back through ui.controls.on('crank'). The sim pauses while the
+     dial is held and resumes afterwards (only if it was playing).
      ═══════════════════════════════════════════════════════════════════ */
-  function wireCrankWidget(root) {
-    const crankWheelEl = root.querySelector('#crank-wheel');
-    const crankRotorEl = root.querySelector('#crank-rotor');
-    const captionEl    = document.getElementById('ui-widget-br-cap');
-
-    let dragging = false;
-    let pointerId = null;
-    let lastPointerAngle = 0;
-    let resumeAfterDrag = false;
-    let resumeAfterKeys = false;
-
-    function setPlaying(p) { state.playing = p; }
-
-    function crankPointerAngle(e) {
-      const r = crankWheelEl.getBoundingClientRect();
-      return Math.atan2(
-        e.clientY - (r.top + r.height / 2),
-        e.clientX - (r.left + r.width / 2)
-      );
-    }
-    function normalize(a) {
-      a %= TAU2;
-      if (a < 0) a += TAU2;
-      return a;
-    }
-    function updateCaption() {
-      const deg = normalize(theta) / DEG;
-      if (crankRotorEl) {
-        crankRotorEl.style.transform = 'rotate(' + (theta / DEG).toFixed(2) + 'deg)';
-      }
-      if (crankWheelEl) crankWheelEl.setAttribute('aria-valuenow', String(Math.round(deg)));
-      if (captionEl) {
-        const span = captionEl.querySelector('[data-crank-deg]');
-        if (span) span.textContent = Math.round(deg) + '°';
-      }
-    }
-
-    crankWheelEl.addEventListener('pointerdown', e => {
-      e.preventDefault();
-      dragging = true; pointerId = e.pointerId;
-      lastPointerAngle = crankPointerAngle(e);
-      try { crankWheelEl.setPointerCapture(e.pointerId); } catch (_) {}
-      crankWheelEl.classList.add('grabbing');
-      if (captionEl) captionEl.classList.add('active');
-      if (state.playing) { resumeAfterDrag = true; setPlaying(false); }
-    });
-    crankWheelEl.addEventListener('pointermove', e => {
-      if (!dragging || e.pointerId !== pointerId) return;
-      e.preventDefault();
-      const a = crankPointerAngle(e);
-      let d = a - lastPointerAngle;
-      if (d >  Math.PI) d -= TAU;
-      if (d < -Math.PI) d += TAU;
-      lastPointerAngle = a;
-      theta = normalize(theta + d);
-      updateCaption();
-    });
-    function endDrag() {
-      if (!dragging) return;
-      dragging = false; pointerId = null;
-      crankWheelEl.classList.remove('grabbing');
-      if (captionEl) captionEl.classList.remove('active');
-      if (resumeAfterDrag) { resumeAfterDrag = false; setPlaying(true); }
-    }
-    crankWheelEl.addEventListener('pointerup', endDrag);
-    crankWheelEl.addEventListener('pointercancel', endDrag);
-    crankWheelEl.addEventListener('lostpointercapture', endDrag);
-
-    crankWheelEl.addEventListener('keydown', e => {
-      if (e.key === 'ArrowRight') { e.preventDefault(); if (state.playing) resumeAfterKeys = true; setPlaying(false); theta = normalize(theta + 10 * DEG); updateCaption(); }
-      if (e.key === 'ArrowLeft')  { e.preventDefault(); if (state.playing) resumeAfterKeys = true; setPlaying(false); theta = normalize(theta - 10 * DEG); updateCaption(); }
-      if (e.key === 'Home')       { e.preventDefault(); if (state.playing) resumeAfterKeys = true; setPlaying(false); theta = 0; updateCaption(); }
-    });
-    crankWheelEl.addEventListener('keyup', e => {
-      if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Home') && resumeAfterKeys) {
-        resumeAfterKeys = false;
-        setPlaying(true);
-      }
-    });
-    crankWheelEl.addEventListener('blur', () => {
-      if (resumeAfterKeys) { resumeAfterKeys = false; setPlaying(true); }
-    });
-
-    updateCaption();
-    root.__updateCrank = updateCaption;
-    root.__setPlaying = setPlaying;
-  }
+  const crankDial = ui.axis('crank');
+  ui.controls.on('crank', (n) => {
+    const th = n * TAU2;
+    if (Math.abs(th - theta) > 1e-6) theta = th;      /* ignore the echo of our own per-frame mirror */
+  });
 
   /* ═══════════════════════════════════════════════════════════════════
      KINEMATICS
@@ -1653,10 +1372,10 @@ function createRadial5() {
      RESET + BRIDGE
      ═══════════════════════════════════════════════════════════════════ */
   function resetSim() {
+    ui.controls.resetAll();                             /* crank dial back to 0° */
     theta = 0;
     flashT = 0;
-    slowMo = false;
-    if (btnSlow) btnSlow.classList.remove('active');
+    slowMo = false;                                    /* the toggle itself is reset by controls.resetAll() above */
     updateRpmLabel();
   }
 
@@ -1698,7 +1417,7 @@ function createRadial5() {
       if (theta >= TAU2) theta -= TAU2;
     }
 
-    let crankDegText = '', camDegText = '';
+    let camDegText = '';
 
     if (activeConfig === 'inline1') {
       const { strokeIdx, deg } = updateMechanism(theta);
@@ -1709,7 +1428,6 @@ function createRadial5() {
       setStrokeUI(strokeIdx);
 
       const camDeg = ((((theta * 0.5) % TAU) + TAU) % TAU) / DEG;
-      crankDegText = Math.round(deg) + '°';
       camDegText   = Math.round(camDeg) + '°';
 
       if (cycleFillEl) {
@@ -1739,24 +1457,18 @@ function createRadial5() {
       eng.crankGroup.rotation.z = -theta;
       eng.step(theta);
 
-      const crankDeg = (((theta % TAU) + TAU) % TAU) / DEG;
-      crankDegText = Math.round(crankDeg) + '°';
       camDegText = '—';
       labels.hideAll();
     }
 
-    /* Update the crank widget caption + rotation */
-    const brWidget = document.getElementById('ui-widget-br');
-    if (brWidget && brWidget.__updateCrank) brWidget.__updateCrank();
+    /* Mirror the simulation angle into the dial (the ONE place the crank angle is shown) */
+    if (crankDial) crankDial.set(theta / TAU2);
 
-    if (mechCrankDegEl) mechCrankDegEl.textContent = crankDegText;
     if (camDegEl)       camDegEl.textContent       = camDegText;
-    if (engineCrankDegEl) engineCrankDegEl.textContent = crankDegText;
 
     /* Update the chip rows */
     if (frame % 4 === 0) {
-      ui.chip.set('crank', crankDegText);
-      ui.chip.set('cam',   camDegText);
+      ui.monitor.update({ rows: { cam: camDegText } });
     }
 
     if (state.speedMul !== lastSpeedMul) {

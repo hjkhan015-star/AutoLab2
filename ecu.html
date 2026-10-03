@@ -5,24 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ECU · Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #a855f7; }
 html.light-theme { --al-accent: #7c3aed; }
-.al-w { display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
 .ui-tb-btn.active { outline: 2px solid var(--al-accent); color: var(--al-accent); }
 
-.al-fault-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-.al-fault-btn {
-  cursor: pointer; border: 1px solid rgba(148,163,184,.32);
-  background: rgba(15,23,42,.72); color: #cbd5e1;
-  border-radius: 999px; padding: 4px 9px;
-  font: 600 11px/1.2 ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: .04em; transition: background .15s, border-color .15s, color .15s;
-}
-.al-fault-btn:hover { background: rgba(148,163,184,.18); color: #e2e8f0; }
-.al-fault-btn.on { background: var(--al-accent); color: #fff; border-color: transparent; }
-.al-fault-btn.crit.on { background: #ef4444; }
 </style>
 </head>
 <body>
@@ -54,7 +43,6 @@ const CFG = {
 };
 
 const state = Base.createUIState();
-state.load    = 35;              // % engine load
 state.fault   = 'none';          // none | o2 | maf | ckp | knock
 state.ignKey  = true;            // key on
 state.cranking= false;
@@ -87,7 +75,7 @@ const mat = (color, metal = .3, rough = .6, extra = {}) =>
 const MAT = {
   caseMat:  M.matMetalDark || mat(0x1f242e, .65, .42),
   pcb:      mat(0x135c35, .06, .82),
-  chip:     mat(0x11151a, .35, .52),
+  pcbChip:  mat(0x11151a, .35, .52),
   chipTop:  mat(0x0a0d12, .55, .40),
   pin:      mat(0xc8b270, .85, .30),
   cap:      mat(0x2a2f38, .30, .55),
@@ -174,7 +162,7 @@ pcbEdge.position.y = ECU_Y + 0.36;
 root.add(pcbEdge);
 
 /* ── Large ICs (the main processor & co-processor) ── */
-const mainChip = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.12, 0.52), MAT.chip);
+const mainChip = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.12, 0.52), MAT.pcbChip);
 mainChip.position.set(-0.72, ECU_Y + 0.48, 0);
 mainChip.castShadow = true;
 root.add(mainChip);
@@ -199,14 +187,14 @@ for (let i = 0; i < 10; i++) {
 }
 
 /* Co-processor */
-const copro = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.10, 0.36), MAT.chip);
+const copro = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.10, 0.36), MAT.pcbChip);
 copro.position.set(0.35, ECU_Y + 0.47, -0.42);
 copro.castShadow = true;
 root.add(copro);
 
 /* Two small memory chips */
 [[0.35, 0.42], [-0.15, 0.42]].forEach(([x, z]) => {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.09, 0.24), MAT.chip);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.09, 0.24), MAT.pcbChip);
   m.position.set(x, ECU_Y + 0.465, z);
   m.castShadow = true;
   root.add(m);
@@ -577,58 +565,26 @@ const ui = Base.UI.create({
     badge: { text: 'Closed loop', color: CFG.accent },
     readout: readoutHTML()
   },
-  chip: {
-    label: 'Engine',
-    value: '—',
-    unit: ' rpm',
-    bar: true,
-    rows: [
-      { id: 'load', label: 'Load',    value: '—' },
-      { id: 'adv',  label: 'Advance', value: '—' }
-    ],
-    status: { text: 'Running' }
+  monitor: {
+    config: { label: 'Engine', value: { label: 'Engine', unit: ' rpm', max: 100, bar: true }, rows: [['load', 'Load'], ['adv', 'Advance']], status: { text: 'Running' } },
+    initial: { value: { text: '—', unit: ' rpm' }, rows: { load: '—', adv: '—' }, status: ['Running', false] }
   },
   toolbar: {
     play: true,
     reset: true,
     speed: { label: 'Sim speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
-    labels: true,
-    extras: [
-      { id: 'btn-fault', label: 'O₂ FAULT', title: 'Toggle upstream oxygen sensor fault', onClick: () => setFault(state.fault === 'o2' ? 'none' : 'o2') }
-    ]
+    labels: true
   },
-  widgets: {
-    bl: {
-      html: `<div class="al-w">
-        <label for="load-range">Engine load <b id="load-out">35%</b></label>
-        <input id="load-range" class="al-range" type="range" min="0" max="100" step="1"
-               value="35" aria-label="Engine load percentage">
-      </div>`,
-      caption: 'Operating point',
-      onMount: mountLoadWidget
-    }
-  }
+  axes: [{ id: 'load', preset: 'load', def: 35, label: 'Engine load', side: 'left', onChange: () => updateReadouts() }],
+
+  /* Phase 6: the injected fault is a controls.js choice in the dock options row (replaces the panel buttons + toolbar extra) */
+  options: [
+    { id: 'fault', type: 'choice', layout: 'select', label: 'Injected fault', ariaLabel: 'Injected fault',
+      options: [{ id: 'none', label: 'None' }, { id: 'o2', label: 'O\u2082 open' }, { id: 'maf', label: 'MAF open' },
+                { id: 'ckp', label: 'Crank no-signal', tone: 'crit' }, { id: 'knock', label: 'Knock event', tone: 'crit' }],
+      onChange: (id) => { if (id !== state.fault) setFault(id); } }
+  ]
 });
-
-/* ── fault widget ─────────────────────────────────────────────────── */
-(function addFaultWidget() {
-  const host = document.createElement('div');
-  host.className = 'al-w';
-  host.innerHTML = `
-    <label style="font:600 11px/1.3 ui-sans-serif,system-ui;color:#94a3b8;letter-spacing:.05em;text-transform:uppercase">Injected fault</label>
-    <div class="al-fault-row" id="fault-row">
-      <button class="al-fault-btn on" data-f="none">None</button>
-      <button class="al-fault-btn" data-f="o2">O₂ open</button>
-      <button class="al-fault-btn" data-f="maf">MAF open</button>
-      <button class="al-fault-btn crit" data-f="ckp">Crank no-signal</button>
-      <button class="al-fault-btn crit" data-f="knock">Knock event</button>
-    </div>`;
-  ui.panel.body.appendChild(host);
-
-  host.querySelectorAll('.al-fault-btn').forEach(b => {
-    b.addEventListener('click', () => setFault(b.dataset.f));
-  });
-})();
 
 /* ── tab host ─────────────────────────────────────────────────────── */
 const tabHost = document.createElement('div');
@@ -644,27 +600,10 @@ function renderTab(id) {
 }
 renderTab('overview');
 
-function mountLoadWidget(el) {
-  const inp = el.querySelector('#load-range');
-  const out = el.querySelector('#load-out');
-  if (!inp || !out) return;
-  inp.value = state.load;
-  out.textContent = state.load + '%';
-  inp.addEventListener('input', () => {
-    state.load = Number(inp.value);
-    out.textContent = state.load + '%';
-    updateReadouts();
-  });
-}
-
 /* ── fault switching ──────────────────────────────────────────────── */
 function setFault(f) {
   state.fault = f;
-  document.querySelectorAll('.al-fault-btn').forEach(b => {
-    b.classList.toggle('on', b.dataset.f === f);
-  });
-  const tb = document.getElementById('btn-fault');
-  if (tb) tb.classList.toggle('active', f === 'o2');
+  ui.controls.setValue('fault', f);                       /* keep the dock choice in step (no-op when it already matches) */
   applyFaultVisuals();
   updateReadouts();
 }
@@ -764,7 +703,7 @@ const ro = {
 let ltft = 0;   // long-term trim accumulated over time
 
 function updateReadouts() {
-  const load = state.load / 100;
+  const load = ui.controls.value('load') / 100;
   const f = state.fault;
   const dead = f === 'o2' || f === 'maf';
   const noStart = f === 'ckp';
@@ -804,7 +743,7 @@ function updateReadouts() {
   }
 
   if (ro.rpm)  ro.rpm.textContent  = noStart ? '— rpm' : rpm + ' rpm';
-  if (ro.load) ro.load.textContent = state.load + ' %';
+  if (ro.load) ro.load.textContent = ui.controls.value('load') + ' %';
   if (ro.pw)   ro.pw.textContent   = noStart ? '—' : pw.toFixed(2) + ' ms';
   if (ro.adv)  ro.adv.textContent  = noStart ? '—' : adv.toFixed(1) + '° BTDC';
   if (ro.kr) {
@@ -832,18 +771,15 @@ function updateReadouts() {
     ro.mil.className = 'v ' + (f === 'none' ? '' : 'warn');
   }
 
-  ui.chip.setBig(noStart ? '—' : rpm, ' rpm');
-  ui.chip.set('load', state.load + ' %');
-  ui.chip.set('adv', noStart ? '—' : adv.toFixed(1) + '°');
-  ui.chip.setBar(state.load, (dead || noStart) ? 'var(--crit)' : 'var(--al-accent)');
-  ui.chip.setStatus(
-    noStart ? 'No start' :
+  ui.monitor.update({
+    value: { text: String(noStart ? '—' : rpm), unit: ' rpm', bar: ui.controls.value('load'), barColor: (dead || noStart) ? 'var(--crit)' : 'var(--al-accent)' },
+    rows: { load: ui.controls.value('load') + ' %', adv: noStart ? '—' : adv.toFixed(1) + '°' },
+    status: [noStart ? 'No start' :
     f === 'o2' ? 'Limp home' :
     f === 'maf' ? 'Fallback' :
     f === 'knock' ? 'Knock' :
-    'Running',
-    !(dead || noStart)
-  );
+    'Running', !(dead || noStart)]
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -854,13 +790,9 @@ const bridge = ui.wireBridge({
   state,
   onCommand: (d) => {
     if (d.action === 'reset') {
-      state.load = 35;
+      ui.controls.resetAll();
       state.fault = 'none';
       ltft = 0;
-      const inp = document.getElementById('load-range');
-      const out = document.getElementById('load-out');
-      if (inp) inp.value = 35;
-      if (out) out.textContent = '35%';
       setFault('none');
     }
   }
@@ -896,7 +828,7 @@ function frame(now) {
   t += dt * sp;
 
   /* ── ECU chip activity glow ── */
-  const activity = 0.35 + 0.55 * Math.abs(Math.sin(t * 6.5)) * (0.5 + state.load / 200);
+  const activity = 0.35 + 0.55 * Math.abs(Math.sin(t * 6.5)) * (0.5 + ui.controls.value('load') / 200);
   chipTop.material.emissiveIntensity = activity * (state.fault === 'none' ? 1.0 : 0.35);
 
   /* ── PCB LEDs ── */
@@ -922,7 +854,7 @@ function frame(now) {
   });
 
   /* ── flowing signal particles ── */
-  const baseHz = CFG.flowHz * (0.6 + state.load / 90);
+  const baseHz = CFG.flowHz * (0.6 + ui.controls.value('load') / 90);
   for (const L of lines) {
     const n = L.parts.length;
     for (let i = 0; i < n; i++) {

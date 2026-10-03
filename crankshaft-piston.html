@@ -5,17 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Crankshaft & Pistons · Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #ca8a04; }
 html.light-theme { --al-accent: #a16207; }
-.al-w{display:flex;flex-direction:column;gap:6px;min-width:160px;}
 .ui-tb-btn.active{outline:2px solid var(--al-accent);color:var(--al-accent);}
-.cp-seg{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0 8px;}
-.cp-seg button{font:600 11px/1 system-ui,sans-serif;padding:6px 9px;border-radius:6px;border:1px solid var(--border-hi);background:var(--surface-2);color:var(--text-dim);cursor:pointer;}
-.cp-seg button.on{color:var(--al-accent);border-color:var(--al-accent);}
-.cp-seg button:focus-visible{outline:2px solid var(--al-accent);outline-offset:2px;}
-#cp-graph{width:100%;height:auto;display:block;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);}
 .cp-note{margin:8px 0 0;font-size:11px;line-height:1.45;color:var(--text-mute);}
 
 </style>
@@ -24,6 +19,7 @@ html.light-theme { --al-accent: #a16207; }
 <div id="canvas-wrap"></div>
 <div id="labels-root"></div>
 
+<script src="guard.js"></script>
 <script type="importmap">
 {
   "imports": {
@@ -92,7 +88,6 @@ const STAGES = [
 ];
 
 const state = Base.createUIState();
-state.rodRatio = CFG.ratioDefault;
 
 /* ═══════════════════════════════════════════════════════════════════════
    PHYSICS  (pure functions — used by the readouts AND the graph)
@@ -448,7 +443,8 @@ CYLINDERS.forEach(c => {
    GEOMETRY THAT DEPENDS ON ROD LENGTH
    ═══════════════════════════════════════════════════════════════════════ */
 let crankY = 0;
-const rodLen = () => state.rodRatio * 2 * CFG.r;
+const rodRatio = () => (Base.controls.has('rodRatio') ? Base.controls.value('rodRatio') : CFG.ratioDefault);  /* applyGeometry() runs once before the UI exists */
+const rodLen = () => rodRatio() * 2 * CFG.r;
 function applyGeometry() {
   const l = rodLen();
   crankY = CFG.pinTDC - l - CFG.r;               // longer rod → crank sits lower, block stays put
@@ -516,14 +512,10 @@ const TABS = {
     </div>`,
   motion: () => `
     <div class="al-sec">
-      <h4>Live curves · Cyl ${CYLINDERS[focus].id}</h4>
-      <div class="cp-seg" id="cp-seg">
-        ${[['pos','Position'],['vel','Speed'],['acc','Accel'],['press','Pressure'],['torque','Torque']]
-          .map(m => `<button data-m="${m[0]}"${graphMode === m[0] ? ' class="on"' : ''}>${m[1]}</button>`).join('')}
-      </div>
-      <canvas id="cp-graph" width="320" height="200" aria-label="Piston motion graph"></canvas>
-      <p class="cp-note">X axis is the 720° engine cycle (Cyl 1 fires at 0°). The coloured bands are the
-      strokes of the selected cylinder; the line marks where the engine is now. Press <b>CYL</b> to change cylinder.</p>
+      <h4>Live curves</h4>
+      <p class="cp-note">The graph on the stage plots the 720° engine cycle (Cyl 1 fires at 0°). The coloured bands are the
+      strokes of the selected cylinder; the line marks where the engine is now. Use the <b>Cylinder</b> control to change cylinder
+      and the <b>Graph</b> control to change the quantity.</p>
     </div>
     <div class="al-sec">
       <h4>What to look for</h4>
@@ -636,38 +628,33 @@ const ui = Base.UI.create({
     badge: { text: 'Inline-4 · 1-3-4-2', color: CFG.accent },
     readout: readoutHTML()
   },
-  chip: {
-    label: 'Engine',
-    value: '—',
-    unit: ' rpm',
-    bar: true,
-    rows: [
-      { id: 'rpm',  label: 'Speed',  value: '—' },
-      { id: 'fire', label: 'Firing', value: '—' }
-    ],
-    status: { text: 'Running' }
+  monitor: {
+    config: { label: 'Engine', value: { label: 'Engine', unit: ' rpm', max: 100, bar: true }, rows: [['rpm', 'Speed'], ['fire', 'Firing']], status: { text: 'Running' } },
+    initial: { value: { text: '—', unit: ' rpm' }, rows: { rpm: '—', fire: '—' }, status: ['Running', false] }
   },
   toolbar: {
     play: true,
     reset: true,
     speed: { label: 'Sim speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
-    labels: true,
-    extras: [
-      { id: 'btn-cyl', label: 'CYL 1', title: 'Cycle the cylinder shown in the readouts and graph', onClick: cycleFocus },
-      { id: 'btn-blk', label: 'BLK',   title: 'Show / hide the transparent block', onClick: toggleBlock },
-      { id: 'btn-gas', label: 'GAS',   title: 'Show / hide the gas colour', onClick: toggleGas }
-    ]
+    labels: true
   },
+  axes: [{ id: 'rodRatio', min: CFG.ratioMin, max: CFG.ratioMax, step: 0.05, def: CFG.ratioDefault, decimals: 2,
+           label: 'Rod ratio', side: 'left', onChange: () => { applyGeometry(); updateReadouts(); } }],
+
+  /* Phase 6: the cylinder, block, gas colour and graph quantity are controls.js controls in the dock options row */
+  options: [
+    { id: 'cyl', type: 'choice', layout: 'segmented', label: 'Cylinder', ariaLabel: 'Cylinder shown in the readouts and graph',
+      options: CYLINDERS.map(c => ({ id: String(c.id), label: 'Cyl ' + c.id })),
+      onChange: (id, i) => { if (i !== focus) { focus = i; setFocusButton(); updateReadouts(); } } },
+    { id: 'block', type: 'toggle', label: 'Block', ariaLabel: 'Show the transparent block', def: true,
+      onChange: (on) => { blockShell.visible = on; } },
+    { id: 'gas', type: 'toggle', label: 'Gas', ariaLabel: 'Show the gas colour', def: true,
+      onChange: (on) => { state.showGas = on; } },
+    { id: 'graph', type: 'choice', layout: 'select', label: 'Graph', ariaLabel: 'Quantity plotted in the motion graph',
+      options: [{ id: 'pos', label: 'Position' }, { id: 'vel', label: 'Speed' }, { id: 'acc', label: 'Accel' }, { id: 'press', label: 'Pressure' }, { id: 'torque', label: 'Torque' }], def: 'press',
+      onChange: (id) => { graphMode = id; drawGraph(); } }
+  ],
   widgets: {
-    bl: {
-      html: `<div class="al-w">
-        <label for="rr-range">Rod ratio <b id="rr-out">${CFG.ratioDefault.toFixed(2)}</b></label>
-        <input id="rr-range" class="al-range" type="range" min="${CFG.ratioMin}" max="${CFG.ratioMax}" step="0.05"
-               value="${CFG.ratioDefault}" aria-label="Rod ratio (rod length divided by stroke)">
-      </div>`,
-      caption: 'Rod length ÷ stroke',
-      onMount: mountRodWidget
-    },
     br: {
       html: `<div class="al-legend">
         <span><i style="background:#38bdf8"></i>Intake</span>
@@ -682,58 +669,26 @@ const ui = Base.UI.create({
   }
 });
 
+/* 7b2: the motion graph (a curve over the 720° cycle with stroke bands and a now-marker) is a picture, not a time series → a stage canvas */
+const cpGraph = ui.stage.canvas({ id: 'motion', label: 'Piston motion', width: 260, height: 170, corner: 'bl', size: 260 });
+ui.panel.remeasure();                       /* the Motion tab lost its canvas */
+
 const tabHost = document.createElement('div');
 tabHost.id = 'al-tabs';
 tabHost.className = 'al-tabs';
 ui.panel.body.appendChild(tabHost);
 
-['btn-blk', 'btn-gas'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.add('active'); });
-
 Widgets.wireQuiz(tabHost);
-tabHost.addEventListener('click', (e) => {
-  const b = e.target.closest('.cp-seg button');
-  if (!b) return;
-  graphMode = b.dataset.m;
-  tabHost.querySelectorAll('.cp-seg button').forEach(x => x.classList.toggle('on', x === b));
-  drawGraph();
-});
-
 function renderTab(id) {
   currentTab = TABS[id] ? id : 'overview';
   tabHost.innerHTML = TABS[currentTab]();
-  if (currentTab === 'motion') drawGraph();
 }
 renderTab('overview');
 
-function mountRodWidget(el) {
-  const inp = el.querySelector('#rr-range');
-  const out = el.querySelector('#rr-out');
-  if (!inp || !out) return;
-  inp.value = state.rodRatio;
-  out.textContent = state.rodRatio.toFixed(2);
-  inp.addEventListener('input', () => {
-    state.rodRatio = Number(inp.value);
-    out.textContent = state.rodRatio.toFixed(2);
-    applyGeometry();
-    updateReadouts();
-  });
-}
-
 function setFocusButton() {
-  const b = document.getElementById('btn-cyl');
-  if (b) b.textContent = 'CYL ' + CYLINDERS[focus].id;
+  ui.controls.set('cyl', focus);                           /* keep the dock choice in step */
   const l = document.getElementById('ro-lbl');
   if (l) l.textContent = 'Cyl ' + CYLINDERS[focus].id + ' piston';
-  if (currentTab === 'motion') renderTab('motion');
-}
-function cycleFocus() { focus = (focus + 1) % CYLINDERS.length; setFocusButton(); updateReadouts(); }
-function toggleBlock() {
-  blockShell.visible = !blockShell.visible;
-  const b = document.getElementById('btn-blk'); if (b) b.classList.toggle('active', blockShell.visible);
-}
-function toggleGas() {
-  state.showGas = !state.showGas;
-  const b = document.getElementById('btn-gas'); if (b) b.classList.toggle('active', state.showGas);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -747,8 +702,8 @@ const GRAPH = {
   torque: { unit: 'N·m',         f: (e) => e.T }
 };
 function drawGraph() {
-  const cv = document.getElementById('cp-graph');
-  if (!cv || cv.isConnected === false) return;
+  const cv = cpGraph;
+  if (!cv) return;
   const g = cv.getContext('2d'); if (!g) return;
   const W = cv.width, Hh = cv.height;
   const light = document.documentElement.classList.contains('light-theme');
@@ -757,7 +712,7 @@ function drawGraph() {
   const grid = light ? 'rgba(15,23,42,.10)' : 'rgba(255,255,255,.10)';
   const padL = 40, padR = 8, padT = 24, padB = 20;
   const pw = W - padL - padR, ph = Hh - padT - padB;
-  const rpm = engineRpm(), ratio = state.rodRatio, fc = CYLINDERS[focus];
+  const rpm = engineRpm(), ratio = rodRatio(), fc = CYLINDERS[focus];
   const def = GRAPH[graphMode];
 
   const N = 180, main = [], second = [];
@@ -794,6 +749,7 @@ function drawGraph() {
   g.fillText(hi.toFixed(Math.abs(hi) < 10 ? 1 : 0), padL - 4, padT + 8);
   g.fillText(lo.toFixed(Math.abs(lo) < 10 ? 1 : 0), padL - 4, padT + ph);
   g.textAlign = 'left'; g.fillStyle = ink; g.fillText(def.unit, 4, 12);
+  g.textAlign = 'right'; g.fillText('Cyl ' + fc.id, W - padR, 12);
 
   const line = (arr, color, w, alpha) => {
     g.strokeStyle = color; g.lineWidth = w; g.globalAlpha = alpha; g.beginPath();
@@ -824,7 +780,7 @@ const cycleDeg = () => mod(thetaTotal / DEG, 720);
 const stageOf = phi => Math.floor(phi / 180);
 
 function updateReadouts() {
-  const rpm = engineRpm(), ratio = state.rodRatio;
+  const rpm = engineRpm(), ratio = rodRatio();
   const cyc = cycleDeg();
   const fc = CYLINDERS[focus];
   const e = evalCyl(mod(cyc - fc.fire, 720), rpm, ratio);
@@ -856,13 +812,13 @@ function updateReadouts() {
     return phi < 180 && (best === null || phi < best.phi) ? { id: c.id, phi } : best;
   }, null);
   const fid = firing ? firing.id : '—';
-  ui.chip.setBig(rpm, ' rpm');
-  ui.chip.set('rpm', (rpm / 1000).toFixed(1) + ' k');
-  ui.chip.set('fire', 'Cyl ' + fid);
-  ui.chip.setBar(cyc / 720 * 100, 'var(--al-accent)');
-  ui.chip.setStatus('Power stroke: cylinder ' + fid, true);
+  ui.monitor.update({
+    value: { text: String(rpm), unit: ' rpm', bar: cyc / 720 * 100, barColor: 'var(--al-accent)' },
+    rows: { rpm: (rpm / 1000).toFixed(1) + ' k', fire: 'Cyl ' + fid },
+    status: ['Power stroke: cylinder ' + fid, true]
+  });
 
-  if (currentTab === 'motion') drawGraph();
+  drawGraph();
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -873,12 +829,9 @@ const bridge = ui.wireBridge({
   state,
   onCommand: (d) => {
     if (d.action === 'reset') {
-      state.rodRatio = CFG.ratioDefault;
+      ui.controls.resetAll();
       thetaTotal = 0;
       focus = 0;
-      const inp = $('rr-range'), out = $('rr-out');
-      if (inp) inp.value = CFG.ratioDefault;
-      if (out) out.textContent = CFG.ratioDefault.toFixed(2);
       applyGeometry();
       setFocusButton();
       updateReadouts();

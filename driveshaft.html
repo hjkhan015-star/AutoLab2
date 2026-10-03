@@ -5,53 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Driveshafts &amp; U-Joints — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #38bdf8; }
 html.light-theme { --al-accent: color-mix(in oklch, #38bdf8 68%, black); }
 
-/* ── module-local UI: extra controls + rolling graph ─────────────── */
-#ds-panel{
-  position:fixed; left:12px; top:12px; z-index:30;
-  width:268px; max-width:46vw;
-  padding:10px 12px 12px;
-  border:1px solid var(--border,#333);
-  border-radius:10px;
-  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
-  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
-  box-shadow:0 8px 28px rgba(0,0,0,.38);
-  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
-  color:var(--text-dim,#9aa4b2);
-  max-height:calc(100dvh - 24px); overflow:auto;
-}
-#ds-panel.folded .ds-body{ display:none; }
-.ds-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-.ds-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
-.ds-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
-.ds-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.ds-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
-.ds-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
-  text-transform:uppercase; color:var(--text-mute,#6b7280); }
-.ds-w b{ color:var(--text,#e5e7eb); font-weight:700; }
-#ds-panel .al-range{ height:22px; }
-#ds-panel .al-sel{ min-height:32px; font-size:11px; }
-.ds-btns{ display:flex; gap:6px; margin-bottom:8px; }
-.ds-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
-.ds-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.ds-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(56,189,248,.14); }
-#ds-zero{ color:#22d3ee; border-color:rgba(34,211,238,.4); }
-#ds-zero:hover{ border-color:#22d3ee; }
-.ds-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
-  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
-  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
-.ds-warn.show{ display:block; }
-#ds-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
-  border-radius:6px; background:rgba(0,0,0,.28); }
-.ds-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
-.ds-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
-@media (max-width:700px){ #ds-panel{ width:212px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -69,7 +28,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #38bdf8 68%, black); }
 </script>
 
 <script type="module">
-import { runGuidedModule } from './components.js';
+import { runGuidedModule, controls } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
 const CFG = {
@@ -81,7 +40,12 @@ const CFG = {
   "camPos": [4.2, 2.8, 5.6],
   "target": [0, 0, 0],
   "floorY": -1.7,
-  "ctl": { "label": "Joint angle", "val": 45, "caption": "Working angle" },
+  ctls: [   /* Phase 3: sliders live in the dock as axis controls; ctls[0] (id 'ctl') = the main 0-100 % control */
+    { id:'ctl', label:"Joint angle", caption:"Working angle", preset:'percent', def:45 },
+    { id:'rpm', preset:'rpm', max:6000, def:2400, label:'Input speed', onChange:(v)=>{ S.rpm = v; } },
+    { id:'length', min:0.8, max:2.5, step:0.05, def:1.5, decimals:2, unit:'m', label:'Shaft length', onChange:(v)=>{ S.length = v; } },
+    { id:'phase', min:0, max:90, step:5, def:0, unit:'\u00B0', label:'Yoke phase error', onChange:(v)=>{ S.phase = v; } },
+  ],
   "chipLabel": "Speed swing",
   "rows": [["ratio", "Instant ratio"], ["rpm", "Input rpm"]],
   "ro": [
@@ -216,164 +180,35 @@ const S = {
   speed: 1
 };
 
-const panel = document.createElement('div');
-panel.id = 'ds-panel';
-let faultOptions = '';
-for (const id in FAULT_INFO) {
-  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
-}
-panel.innerHTML =
-  '<div class="ds-h"><span>Driveshaft simulation</span><button type="button" id="ds-fold" aria-label="Collapse controls">&#8211;</button></div>' +
-  '<div class="ds-body">' +
-    '<div class="ds-w"><label for="ds-rpm">Input speed <b id="ds-rpm-v">2400 rpm</b></label>' +
-      '<input id="ds-rpm" class="al-range" type="range" min="800" max="6000" step="50" value="2400" aria-label="Input speed"></div>' +
-    '<div class="ds-w"><label for="ds-len">Shaft length <b id="ds-len-v">1.50 m</b></label>' +
-      '<input id="ds-len" class="al-range" type="range" min="80" max="250" step="5" value="150" aria-label="Shaft length"></div>' +
-    '<div class="ds-w"><label for="ds-ph">Yoke phase error <b id="ds-ph-v">0 &deg;</b></label>' +
-      '<input id="ds-ph" class="al-range" type="range" min="0" max="90" step="5" value="0" aria-label="Yoke phase error"></div>' +
-    '<div class="ds-w"><label for="ds-type">Joint type</label>' +
-      '<select id="ds-type" class="al-sel" aria-label="Joint type">' +
-        '<option value="ujoint" selected>Cardan (U-joint)</option>' +
-        '<option value="cv">Constant velocity (CV)</option>' +
-      '</select></div>' +
-    '<div class="ds-w"><label for="ds-fault">Fault injection</label>' +
-      '<select id="ds-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
-    '<div class="ds-w"><label>Simulation speed</label>' +
-      '<div class="ds-btns" id="ds-speed">' +
-        '<button type="button" data-sp="1" class="on">1&times;</button>' +
-        '<button type="button" data-sp="5">5&times;</button>' +
-        '<button type="button" data-sp="20">20&times;</button>' +
-      '</div></div>' +
-    '<div class="ds-btns">' +
-      '<button type="button" id="ds-zero">Zero angle</button>' +
-      '<button type="button" id="ds-reset">Reset</button>' +
-    '</div>' +
-    '<div class="ds-warn" id="ds-warn"></div>' +
-    '<canvas id="ds-graph" width="480" height="150" aria-label="Speed swing and vibration history"></canvas>' +
-    '<div class="ds-key"><span><i style="background:#38bdf8"></i>Swing %</span><span><i style="background:#fb923c"></i>Vib mm/s</span></div>' +
-  '</div>';
-document.body.appendChild(panel);
 
-const elFold  = document.getElementById('ds-fold');
-const elRpm   = document.getElementById('ds-rpm');
-const elRpmV  = document.getElementById('ds-rpm-v');
-const elLen   = document.getElementById('ds-len');
-const elLenV  = document.getElementById('ds-len-v');
-const elPh    = document.getElementById('ds-ph');
-const elPhV   = document.getElementById('ds-ph-v');
-const elType  = document.getElementById('ds-type');
-const elFault = document.getElementById('ds-fault');
-const elSpeed = document.getElementById('ds-speed');
-const elZero  = document.getElementById('ds-zero');
-const elReset = document.getElementById('ds-reset');
-const elWarn  = document.getElementById('ds-warn');
-const gcv     = document.getElementById('ds-graph');
-const gctx    = gcv.getContext('2d');
-
-elFold.addEventListener('click', () => {
-  panel.classList.toggle('folded');
-  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
-});
-elRpm.addEventListener('input', () => {
-  S.rpm = Number(elRpm.value) || 800;
-  elRpmV.textContent = S.rpm + ' rpm';
-});
-elLen.addEventListener('input', () => {
-  S.length = (Number(elLen.value) || 150) / 100;
-  elLenV.textContent = S.length.toFixed(2) + ' m';
-});
-elPh.addEventListener('input', () => {
-  S.phase = Number(elPh.value) || 0;
-  elPhV.textContent = S.phase + ' \u00B0';
-});
-elType.addEventListener('change', () => {
-  S.jointType = elType.value;
-  /* grey out the phase slider when a CV joint is selected */
-  const dim = (S.jointType === 'cv');
-  elPh.disabled = dim;
-  elPh.style.opacity = dim ? 0.45 : 1;
-});
-elFault.addEventListener('change', () => { S.fault = elFault.value; });
-elSpeed.addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-sp]');
-  if (!b) return;
-  S.speed = Number(b.dataset.sp) || 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
-});
-elZero.addEventListener('click', () => {
-  const ctlEl = document.getElementById('ctl');
-  if (ctlEl) { ctlEl.value = '0'; ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
-});
 
 /* ── simulation state (module level so Reset can reach it) ───────── */
-const GRAPH_N = 150;
+/* Phase 7a: the history lives in the Monitor (CFG.traces); the module only hands over one normalised sample
+   per ~140 ms while the sim runs (0..100 % of each old axis range) and the current warning sentence. */
+let traceSample = null, traceClear = false, warnText = '';
+const traceN = (v, lo, hi) => Math.round(clampN((v - lo) / (hi - lo), 0, 1) * 1000) / 10;
 const sim = {
   thetaIn: 0,
   vibRms: 0,
-  lastT: -1,
-  samples: []
+  lastT: -1
 };
 
 function resetModel() {
   sim.thetaIn = 0;
   sim.vibRms = 0;
   sim.lastT = -1;
-  sim.samples.length = 0;
+  traceClear = true;                  /* Monitor trace is cleared on the next update */
 }
 function resetAll() {
-  S.rpm = 2400;       elRpm.value = 2400;   elRpmV.textContent = '2400 rpm';
-  S.length = 1.5;     elLen.value = 150;    elLenV.textContent = '1.50 m';
-  S.phase = 0;        elPh.value = 0;       elPhV.textContent = '0 \u00B0';
-  elPh.disabled = false; elPh.style.opacity = 1;
-  S.jointType = 'ujoint'; elType.value = 'ujoint';
-  S.fault = 'none';   elFault.value = 'none';
+  S.rpm = 2400;
+  S.length = 1.5;
+  S.phase = 0;
+  controls.setDisabled('phase', false);
+  S.jointType = 'ujoint';
+  S.fault = 'none';
   S.speed = 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
   resetModel();
-  const ctlEl = document.getElementById('ctl');
-  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
-}
-elReset.addEventListener('click', resetAll);
-
-/* ── rolling graph ───────────────────────────────────────────────── */
-function drawGraph() {
-  const W = gcv.width, Hh = gcv.height;
-  gctx.clearRect(0, 0, W, Hh);
-  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
-  gctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    const y = Math.round(Hh * i / 4) + 0.5;
-    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
-  }
-  const n = sim.samples.length;
-  if (n < 2) return;
-  const xAt   = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
-  const ySw   = (v) => Hh - clampN(v / 60, 0, 1) * (Hh - 6) - 3;
-  const yVib  = (v) => Hh - clampN(v / 100, 0, 1) * (Hh - 6) - 3;
-
-  /* speed swing filled area */
-  gctx.beginPath();
-  gctx.moveTo(xAt(0), Hh);
-  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), ySw(sim.samples[i].s));
-  gctx.lineTo(xAt(n - 1), Hh);
-  gctx.closePath();
-  gctx.fillStyle = 'rgba(56,189,248,0.20)';
-  gctx.fill();
-
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = ySw(sim.samples[i].s);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#38bdf8'; gctx.lineWidth = 1.6; gctx.stroke();
-
-  /* vibration line */
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yVib(sim.samples[i].v);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.6; gctx.stroke();
+  controls.resetAll();                 /* every axis back to its default (store -> onChange -> S) */
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -602,11 +437,7 @@ function build(H){
    const now = performance.now();
    if (now - lastDom > 140) {
      lastDom = now;
-     if (dt > 0) {
-       sim.samples.push({ s: swingPct, v: sim.vibRms });
-       if (sim.samples.length > GRAPH_N) sim.samples.shift();
-       drawGraph();
-     }
+     if (dt > 0) traceSample = [traceN(swingPct, 0, 60), traceN(sim.vibRms, 0, 100)];
      let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
      if (!warn) {
        if (Math.abs(rpm - critRpm) < 0.10 * critRpm) {
@@ -623,8 +454,7 @@ function build(H){
          warn = 'Yoke phase error ' + phaseErr.toFixed(0) + ' \u00B0 - the two joints are not cancelling. Re-index the yoke one spline so the ears lie in the same plane.';
        }
      }
-     elWarn.textContent = warn;
-     elWarn.classList.toggle('show', !!warn);
+     warnText = warn;
    }
 
    /* ── 8. derived state ─────────────────────────────────────── */
@@ -657,6 +487,10 @@ function build(H){
    const rangeTxt = rpmLo.toFixed(0) + ' - ' + rpmHi.toFixed(0) + ' rpm';
    const typeTxt  = (jointType === 'cv') ? 'CV (constant velocity)' : 'Cardan (U-joint)';
 
+   let tr;
+   if (traceClear) { traceClear = false; traceSample = null; tr = { hist: null }; }
+   else if (traceSample) { tr = { hist: traceSample }; traceSample = null; }
+
    return {
      big: swingPct.toFixed(1),
      unit: ' %',
@@ -678,13 +512,35 @@ function build(H){
        type:   [typeTxt, ''],
        state:  [stateTxt, stState]
      },
-     status: [stateTxt, true],
+     status: [warnText || stateTxt, true, warnText ? 'warn' : ''],
+      traces: tr,
      ctl: angleDeg.toFixed(1) + ' \u00B0'
    };
   }
  };
 }
 
+/* Phase 6: every option / action lives in the dock (controls.js), nothing interactive is left in the panel.
+   'Time scale' is the module's own physics time-compression (thermal warm-up); the menu's Sim speed is separate. */
+CFG.options = [
+  { id: "type", type: 'choice', layout: 'select', label: "Joint type", options: [{ id: "ujoint", label: "Cardan (U-joint)" }, { id: "cv", label: "Constant velocity (CV)" }], def: "ujoint",
+    onChange: (id) => { S.jointType = id; /* grey out the phase slider when a CV joint is selected */
+  const dim = (S.jointType === 'cv');
+  controls.setDisabled('phase', dim); } },
+  { id: "fault", type: 'choice', layout: 'select', label: "Fault injection", options: Object.keys(FAULT_INFO).map(id => ({ id, label: FAULT_INFO[id].label })), def: 'none',
+    onChange: (id) => { S.fault = id; } },
+  { id: 'timeScale', type: 'choice', layout: 'segmented', label: 'Time scale', options: [{ id: '1', label: '1×' }, { id: '5', label: '5×' }, { id: '20', label: '20×' }], def: '1',
+    onChange: (id) => { S.speed = Number(id) || 1; } },
+  { id: "zero", type: 'action', label: "Zero angle",
+    onAction: () => { controls.set('ctl', 0); } }
+];
+CFG.onReset = resetAll;      /* the dock Reset runs the module reset (model + every control) */
+/* Phase 7a: the old history canvas is a Monitor trace. Both series are drawn as 0..100 % of their old axis ranges. */
+CFG.traces = [{ id: 'hist', label: 'Speed swing and vibration history (% of full scale)', min: 0, max: 100, length: 150,
+  series: [
+    { id: 'a', label: 'Swing %', color: 'var(--accent)' },
+    { id: 'b', label: 'Vib mm/s', color: 'var(--warn)' }
+  ] }];
 runGuidedModule(CFG, build);
 </script>
 </body>
