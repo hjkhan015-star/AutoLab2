@@ -175,6 +175,7 @@ scene.add(root);
 const ptex = Base.createParticleTexture();
 const H = createGeoKit({ root, lowEnd, ptex });
 const { V3 } = H;
+H.camera = camera; H.orbit = controls;      /* optional: modules may re-aim the camera */
 
 const CTLS = guidedCtls(CFG);
 const mod = build(H);
@@ -274,7 +275,7 @@ function frame(now) {
   pushTraces(o);
   if (roClock > 0.12) { roClock = 0; apply(o); }
   labels.hideAll();
-  if (state.showLabels) lpos.forEach((p, i) => labels.project('l' + i, p, camera, wrap));
+  if (state.showLabels) lpos.forEach((p, i) => { if (!mod.showLabel || mod.showLabel(i)) labels.project('l' + i, p, camera, wrap); });
   controls.update();
   renderer.render(scene, camera);
 }
@@ -286,4 +287,5 @@ document.addEventListener('visibilitychange', () => {
   else if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); }
 });
 refresh(0);
-}
+                                                                                                      }
+      
