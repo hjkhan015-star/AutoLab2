@@ -169,6 +169,13 @@
   }
 
   
+  .callout { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border-color: color-mix(in oklch, var(--c, currentColor) 42%, var(--border)); }
+  .callout::before { content:''; display:inline-block; width:6px; height:6px; border-radius:50%;
+    background: var(--c, currentColor); box-shadow: 0 0 6px var(--c, currentColor); margin-right:6px; vertical-align:1px; }
+  #legend { min-width: 172px; }
+  .legend-grad { height:5px; border-radius:3px; margin-top:3px; background: linear-gradient(90deg,#3aa8f0,#ffc24d,#ff3f1c); }
+  .legend-ends { display:flex; justify-content:space-between; font-size:9.5px; opacity:.8; }
     @keyframes finWarn {
     50% { box-shadow: 0 0 16px color-mix(in oklch, var(--crit) 45%, transparent); }
   }
@@ -182,11 +189,7 @@
 <div id="overheat-overlay"></div>
 <div id="alert-chip">⚠ OVERHEATING — REFIT THE FINS</div>
 
-<div id="legend">
-  <div class="legend-row"><span class="sw" style="background:#ff5a32"></span> Hot coolant / hot metal</div>
-  <div class="legend-row"><span class="sw" style="background:#36aef0"></span> Cooled coolant / ram air</div>
-  <div class="legend-row"><span class="sw" style="background:#fb923c"></span> Air carrying heat away</div>
-</div>
+<div id="legend"></div>
 
 <script src="guard.js"></script>
   <script type="importmap">
@@ -674,10 +677,16 @@ const shroudRim = new THREE.Mesh(
 shroudRim.position.set(0, 0, -0.41);
 radiator.add(shroudRim);
 
+const heatGradTex = (() => {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 64;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,.08)');
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 64); return new THREE.CanvasTexture(c);
+})();
 const heatOverlay = new THREE.Mesh(
   new THREE.PlaneGeometry(2.0, CORE_H),
   new THREE.MeshBasicMaterial({
-    color: 0xff7138, transparent: true, opacity: 0.0,
+    map: heatGradTex, color: 0xff7138, transparent: true, opacity: 0.0,
     blending: THREE.AdditiveBlending, depthWrite: false
   })
 );
@@ -751,8 +760,15 @@ function heatColor(h, out) {
   return out;
 }
 
-function makeHoseStream(curve, h0, h1) {
-  const geo = new THREE.TubeGeometry(curve, 180, 0.074, 8, false);
+const flowTex = (() => {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 8;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 128, 0);
+  gr.addColorStop(0, 'rgba(255,255,255,.38)'); gr.addColorStop(.5, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,.38)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 8);
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.repeat.set(12, 1); return t;
+})();
+function makeHoseStream(curve, h0, h1, r = 0.074, seg = 180) {
+  const geo = new THREE.TubeGeometry(curve, seg, r, 8, false);
   const uv = geo.attributes.uv;
   const count = geo.attributes.position.count;
   const colors = new Float32Array(count * 3);
@@ -764,7 +780,7 @@ function makeHoseStream(curve, h0, h1) {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   const mat = new THREE.MeshBasicMaterial({
-    vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false
+    vertexColors: true, map: flowTex, transparent: true, opacity: 0.8, depthWrite: false
   });
   const m = new THREE.Mesh(geo, mat);
   m.renderOrder = 2;
@@ -772,6 +788,7 @@ function makeHoseStream(curve, h0, h1) {
 }
 radSys.add(makeHoseStream(upperCurve, 0.86, 1.0));
 radSys.add(makeHoseStream(lowerCurve, 0.00, 0.10));
+radSys.add(makeHoseStream(serpCurve, 1.0, 0.0, 0.040, isLowEnd ? 200 : 420));
 
 /* ═══════════════════════════════════════════════════════════════════════
    COOLANT PATH
@@ -945,6 +962,93 @@ for (let i = 0; i < 14; i++) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   VISUAL UPGRADES: thermostat ring, combustion glow, reservoir, fan motor + blur, ground shadow
+   ═══════════════════════════════════════════════════════════════════════ */
+const C_JKT_COOL = new THREE.Color(0x2b93bf), C_JKT_HOT = new THREE.Color(0xe8672b);
+const C_TH_CLOSED = new THREE.Color(0x3aa8f0), C_TH_OPEN = new THREE.Color(0x34d399);
+const C_RES_COOL = new THREE.Color(0x2f9fd8), C_RES_HOT = new THREE.Color(0xf0a63a);
+const clamp01 = (v) => THREE.MathUtils.clamp(v, 0, 1);
+
+const thermoRing = new THREE.Mesh(new THREE.TorusGeometry(0.205, 0.02, 10, 32),
+  new THREE.MeshStandardMaterial({ color: C_TH_CLOSED.clone(), emissive: C_TH_CLOSED.clone(), emissiveIntensity: 0.6, roughness: .3, metalness: .4 }));
+thermoRing.rotation.y = Math.PI / 2; thermoRing.position.set(-1.40, 1.62, 0.42);
+radSys.add(thermoRing);
+
+const flashes = linerXs.map((x) => {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: particleTex, color: 0xffa24a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  sp.position.set(x, 0.86, 0); sp.scale.set(0.8, 0.8, 1); multiEngine.add(sp); return sp;
+});
+
+const RES = { x: 1.62, y: 1.50, z: RAD_CZ - 0.9, h: 0.64 };
+const resTank = roundedBox(0.34, RES.h, 0.30, 0.05, new THREE.MeshPhysicalMaterial({ color: 0xbcd0dc, transparent: true, opacity: .28, roughness: .15, depthWrite: false }), radSys);
+resTank.position.set(RES.x, RES.y, RES.z); resTank.castShadow = false;
+const resLiquid = new THREE.Mesh(new THREE.BoxGeometry(0.29, 1, 0.25),
+  new THREE.MeshStandardMaterial({ color: C_RES_COOL.clone(), roughness: .2, metalness: .1, transparent: true, opacity: .85 }));
+resLiquid.position.x = RES.x; resLiquid.position.z = RES.z; radSys.add(resLiquid);
+cyl(0.12, 0.07, black, RES.x, RES.y + RES.h / 2 + 0.04, RES.z, 18, radSys);
+for (const dy of [0.2, -0.2]) box(0.2, 0.012, 0.012, white, RES.x, RES.y + dy, RES.z + 0.155, radSys);
+box(0.07, 0.05, 0.9, radiatorFrameMat, RES.x, RES.y - RES.h / 2 - 0.03, RES.z + 0.45, radSys);
+radSys.add(new THREE.Mesh(new THREE.TubeGeometry(makeFormedCurve(
+  [[0.14, 2.08, RAD_CZ], [RES.x, 2.08, RAD_CZ], [RES.x, 2.08, RES.z], [RES.x, RES.y + RES.h / 2 + 0.03, RES.z]], 0.10), 60, 0.032, 8, false), black));
+
+const motorCan = cyl(0.2, 0.2, darkMetal, 0, 0, -0.80, 24, radiator); motorCan.rotation.x = Math.PI / 2;
+for (const a of [Math.PI / 4, -Math.PI / 4]) box(2.06, 0.05, 0.04, radiatorFrameMat, 0, 0, -0.81, radiator).rotation.z = a;
+const fanBlur = new THREE.Mesh(new THREE.CircleGeometry(0.98, 48),
+  new THREE.MeshBasicMaterial({ map: particleTex, color: 0xcfe6f6, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+fanBlur.position.z = 0.1; radFan.group.add(fanBlur);
+
+const groundShadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
+  map: (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(0,0,0,.65)'); gr.addColorStop(.6, 'rgba(0,0,0,.28)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })(),
+  transparent: true, depthWrite: false }));
+groundShadow.rotation.x = -Math.PI / 2; groundShadow.position.y = -2.33; scene.add(groundShadow);
+function setGround() {
+  const air = state.mode === 'air';
+  groundShadow.position.z = air ? 0 : 1.7;
+  groundShadow.scale.set(air ? 7 : 9.5, air ? 5 : 6.5, 1);
+}
+
+const LEG = {
+  air: [['#ff5a32', 'Hot cylinder & fins'], ['#7dd3fc', 'Cool ram air'], ['#fb923c', 'Heated air rising']],
+  radiator: [['#ff5a32', 'Hot coolant from engine'], ['#3aa8f0', 'Cooled coolant returning'],
+             ['linear-gradient(90deg,#3aa8f0,#34d399)', 'Thermostat ring: closed → open'], ['#cfe6f6', 'Air pulled through core']]
+};
+function renderLegend() {
+  document.getElementById('legend').innerHTML = LEG[state.mode].map(([c, t]) =>
+    `<div class="legend-row"><span class="sw" style="background:${c}"></span>${t}</div>`).join('') +
+    '<div class="legend-grad"></div><div class="legend-ends"><span>Cool</span><span>Hot</span></div>';
+}
+
+let _thSt = '';
+function updateExtras(s) {
+  const se = Math.max(0, s);
+  fanBlur.material.opacity = clamp01((2.5 + 14 * se) / 16.5) * 0.2;
+  if (state.mode !== 'radiator') return;
+  const jk = clamp01((state.temp - 62) / 32);
+  jacketMat.color.lerpColors(C_JKT_COOL, C_JKT_HOT, jk);
+  jacketMat.opacity = 0.11 + 0.08 * jk;
+
+  const open = clamp01((state.temp - 80) / 9);
+  thermoRing.material.color.lerpColors(C_TH_CLOSED, C_TH_OPEN, open);
+  thermoRing.material.emissive.copy(thermoRing.material.color);
+  const st = open < 0.05 ? 'Closed' : open < 0.95 ? 'Opening' : 'Open';
+  if (st !== _thSt) { _thSt = st; ui.monitor.update({ rows: { surface: [st, open < 0.05 ? 'warn' : 'ok'] } }); }
+
+  for (let i = 0; i < flashes.length; i++) {
+    const f = Math.pow(Math.max(0, Math.sin(state.time * 3 + i * Math.PI / 2)), 14);
+    flashes[i].material.opacity = f * 0.9 * (0.4 + 0.6 * Math.min(1, se));
+  }
+
+  const frac = 0.35 + 0.25 * clamp01((state.temp - 60) / 35);
+  const lh = (RES.h - 0.1) * frac;
+  resLiquid.scale.y = lh;
+  resLiquid.position.y = RES.y - RES.h / 2 + 0.04 + lh / 2;
+  resLiquid.material.color.lerpColors(C_RES_COOL, C_RES_HOT, clamp01((state.temp - 70) / 25));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    CALLOUTS
    ═══════════════════════════════════════════════════════════════════════ */
 const callouts = [];
@@ -952,7 +1056,7 @@ function addCallout(text, anchor, offset, color, modes) {
   const label = document.createElement('div');
   label.className = 'callout';
   label.textContent = text;
-  label.style.color = color;
+  label.style.setProperty('--c', color);
   document.body.appendChild(label);
 
   const dot = document.createElement('div');
@@ -986,6 +1090,7 @@ addCallout('Hot coolant in',   [-1.22,  2.44, 2.40],                   [ -40, -8
 addCallout('Cooled coolant out',[-0.10, -2.05, 1.80],                  [  10,  88], '#45b9ef', ['radiator']);
 addCallout('Water pump',       [-1.85, -0.72, 0.86],                   [ -80,  66], '#7dd3fc', ['radiator']);
 addCallout('Thermostat',       [-1.50,  1.90, 0.50],                   [ -95, -34], '#fcd34d', ['radiator']);
+addCallout('Coolant reservoir', [RES.x, RES.y + 0.26, RES.z], [120, -62], '#7dd3fc', ['radiator']);
 addCallout('Water jacket',     [ 1.34,  0.62, 0.62],                   [ 118, -46], '#7dd3fc', ['radiator']);
 addCallout('4-cylinder engine',[-1.95,  0.20, 0.72],                   [-140,  34], '#dbe5ec', ['radiator']);
 
@@ -1007,7 +1112,7 @@ const modeInfo = {
   },
   radiator: {
     name: 'Radiator (Liquid) Cooling',
-    desc: 'A multi-cylinder engine has a <strong>water jacket</strong> surrounding every cylinder. Coolant is pushed through it by the <strong>water pump</strong>. Hot coolant leaves through the <strong>thermostat</strong>, crosses the top hose, enters the radiator\'s <strong>upper tank</strong> — mounted in front of the engine, just like a real vehicle — then snakes down the <strong>serpentine core tube</strong>, giving up heat to air pulled through by the <strong>fan</strong>.',
+    desc: 'A multi-cylinder engine has a <strong>water jacket</strong> surrounding every cylinder. Coolant is pushed through it by the <strong>water pump</strong>. Hot coolant leaves through the <strong>thermostat</strong>, crosses the top hose, enters the radiator\'s <strong>upper tank</strong> — mounted in front of the engine, just like a real vehicle — then snakes down the <strong>serpentine core tube</strong>, giving up heat to air pulled through by the <strong>fan</strong>. Watch the thermostat ring turn blue → green as it opens, and the reservoir level rise as coolant expands.',
     flow: ['Water jacket', 'Thermostat', 'Serpentine core', 'Cooled coolant returns']
   }
 };
@@ -1124,12 +1229,14 @@ function rebuildMode() {
   if (!air) {
     finsNote.className = '';
     finsNote.style.display = 'none';
-    ui.monitor.update({ rowLabels: { surface: 'Thermostat status' }, rows: { surface: 'Regulating' } });
+    ui.monitor.update({ rowLabels: { surface: 'Thermostat status' }, rows: { surface: '—' } });
+    _thSt = '';
   } else {
     finsNote.style.display = '';
     updateFinsUI();
   }
 
+  renderLegend(); setGround();
   camGoal = CAM[state.mode];
   updateSim(0);
 }
@@ -1149,6 +1256,7 @@ const _col = new THREE.Color();
 
 function updateRadiatorCoolant(dt) {
   const pump = 0.45 + 0.85 * engLevel();
+  flowTex.offset.x -= dt * 0.9 * pump;
   const posAttr = coolantGeo.attributes.position;
   const colAttr = coolantGeo.attributes.color;
 
@@ -1202,8 +1310,8 @@ function updateRadiatorAir(dt) {
 }
 
 function updateRadiatorHeat() {
-  const heat = THREE.MathUtils.clamp((state.temp - 85) / 35, 0, 1);
-  heatOverlay.material.opacity = 0.02 + heat * 0.07;
+  const h = THREE.MathUtils.clamp((state.temp - 65) / 30, 0, 1);
+  heatOverlay.material.opacity = 0.04 + h * 0.26;
 }
 
 function updateSim(dt) {
@@ -1233,6 +1341,7 @@ function updateSim(dt) {
   }
 
   radFan.spinner.rotation.z -= dt * (2.5 + 14 * s);
+  updateExtras(s);
 
   if (state.mode === 'air') {
     const airStrength = Math.min(1, 0.15 + 0.85 * s);
