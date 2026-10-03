@@ -5,52 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Fuel Pump &amp; Tank — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #10b981; }
 html.light-theme { --al-accent: color-mix(in oklch, #10b981 68%, black); }
 
-#fp-panel{
-  position:fixed; left:12px; top:12px; z-index:30;
-  width:264px; max-width:46vw;
-  padding:10px 12px 12px;
-  border:1px solid var(--border,#333);
-  border-radius:10px;
-  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
-  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
-  box-shadow:0 8px 28px rgba(0,0,0,.38);
-  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
-  color:var(--text-dim,#9aa4b2);
-  max-height:calc(100dvh - 24px); overflow:auto;
-}
-#fp-panel.folded .fp-body{ display:none; }
-.fp-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-.fp-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
-.fp-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
-.fp-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.fp-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
-.fp-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
-  text-transform:uppercase; color:var(--text-mute,#6b7280); }
-.fp-w b{ color:var(--text,#e5e7eb); font-weight:700; }
-#fp-panel .al-range{ height:22px; }
-#fp-panel .al-sel{ min-height:32px; font-size:11px; }
-.fp-btns{ display:flex; gap:6px; margin-bottom:8px; }
-.fp-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
-.fp-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.fp-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(16,185,129,.14); }
-#fp-refuel{ color:#38bdf8; border-color:rgba(56,189,248,.4); }
-#fp-refuel:hover{ border-color:#38bdf8; }
-.fp-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
-  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
-  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
-.fp-warn.show{ display:block; }
-#fp-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
-  border-radius:6px; background:rgba(0,0,0,.28); }
-.fp-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
-.fp-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
-@media (max-width:700px){ #fp-panel{ width:208px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -68,7 +28,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #10b981 68%, black); }
 </script>
 
 <script type="module">
-import { runGuidedModule } from './components.js';
+import { runGuidedModule, controls } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
 const CFG = {
@@ -80,7 +40,11 @@ const CFG = {
   "camPos": [5.6, 3.4, 7.2],
   "target": [1.2, 0, 0],
   "floorY": -1.6,
-  "ctl": { "label": "Engine demand", "val": 40, "caption": "Load" },
+  ctls: [   /* Phase 3: sliders live in the dock as axis controls; ctls[0] (id 'ctl') = the main 0-100 % control */
+    { id:'ctl', label:"Engine demand", caption:"Load", preset:'percent', def:40 },
+    { id:'volts', preset:'voltage', label:'Battery voltage', onChange:(v)=>{ S.volts = v; } },
+    { id:'ambient', min:-10, max:50, step:1, def:25, unit:'\u00B0C', label:'Under-bonnet temp', onChange:(v)=>{ S.ambient = v; } },
+  ],
   "chipLabel": "Rail pressure",
   "rows": [["supply", "Supply"], ["cur", "Pump current"]],
   "ro": [
@@ -222,139 +186,32 @@ const S = {
   speed: 1
 };
 
-const panel = document.createElement('div');
-panel.id = 'fp-panel';
-let faultOptions = '';
-for (const id in FAULT_INFO) {
-  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
-}
-panel.innerHTML =
-  '<div class="fp-h"><span>Fuel pump simulation</span><button type="button" id="fp-fold" aria-label="Collapse controls">&#8211;</button></div>' +
-  '<div class="fp-body">' +
-    '<div class="fp-w"><label for="fp-volts">Battery voltage <b id="fp-volts-v">13.5 V</b></label>' +
-      '<input id="fp-volts" class="al-range" type="range" min="800" max="1500" step="10" value="1350" aria-label="Battery voltage">' +
-    '</div>' +
-    '<div class="fp-w"><label for="fp-amb">Under-bonnet temp <b id="fp-amb-v">25 &deg;C</b></label>' +
-      '<input id="fp-amb" class="al-range" type="range" min="-10" max="50" step="1" value="25" aria-label="Under-bonnet temperature"></div>' +
-    '<div class="fp-w"><label for="fp-fault">Fault injection</label>' +
-      '<select id="fp-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
-    '<div class="fp-w"><label>Simulation speed</label>' +
-      '<div class="fp-btns" id="fp-speed">' +
-        '<button type="button" data-sp="1" class="on">1&times;</button>' +
-        '<button type="button" data-sp="5">5&times;</button>' +
-        '<button type="button" data-sp="20">20&times;</button>' +
-      '</div></div>' +
-    '<div class="fp-btns">' +
-      '<button type="button" id="fp-refuel">Refuel</button>' +
-      '<button type="button" id="fp-reset">Reset</button>' +
-    '</div>' +
-    '<div class="fp-warn" id="fp-warn"></div>' +
-    '<canvas id="fp-graph" width="480" height="150" aria-label="Rail pressure and fuel temperature history"></canvas>' +
-    '<div class="fp-key"><span><i style="background:#10b981"></i>Rail bar</span><span><i style="background:#fb923c"></i>Fuel &deg;C</span></div>' +
-  '</div>';
-document.body.appendChild(panel);
 
-const elFold   = document.getElementById('fp-fold');
-const elVolts  = document.getElementById('fp-volts');
-const elVoltsV = document.getElementById('fp-volts-v');
-const elAmb    = document.getElementById('fp-amb');
-const elAmbV   = document.getElementById('fp-amb-v');
-const elFault  = document.getElementById('fp-fault');
-const elSpeed  = document.getElementById('fp-speed');
-const elRefuel = document.getElementById('fp-refuel');
-const elReset  = document.getElementById('fp-reset');
-const elWarn   = document.getElementById('fp-warn');
-const gcv      = document.getElementById('fp-graph');
-const gctx     = gcv.getContext('2d');
-
-function voltsText() { return (S.volts).toFixed(1) + ' V'; }
-function ambText()   { return Math.round(S.ambient) + ' \u00B0C'; }
-
-elFold.addEventListener('click', () => {
-  panel.classList.toggle('folded');
-  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
-});
-elVolts.addEventListener('input', () => {
-  S.volts = (Number(elVolts.value) || 1350) / 100;
-  elVoltsV.textContent = voltsText();
-});
-elAmb.addEventListener('input', () => {
-  S.ambient = Number(elAmb.value) || 0;
-  elAmbV.textContent = ambText();
-});
-elFault.addEventListener('change', () => { S.fault = elFault.value; });
-elSpeed.addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-sp]');
-  if (!b) return;
-  S.speed = Number(b.dataset.sp) || 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
-});
-elRefuel.addEventListener('click', () => { sim.level = 1.0; });
 
 /* ── simulation state (module level so Reset can reach it) ───────── */
-const GRAPH_N = 150;
+/* Phase 7a: the history lives in the Monitor (CFG.traces); the module only hands over one normalised sample
+   per ~140 ms while the sim runs (0..100 % of each old axis range) and the current warning sentence. */
+let traceSample = null, traceClear = false, warnText = '';
+const traceN = (v, lo, hi) => Math.round(clampN((v - lo) / (hi - lo), 0, 1) * 1000) / 10;
 const sim = {
   level: 0.85,
   Tfuel: 30,
-  lastT: -1,
-  samples: []
+  lastT: -1
 };
 
 function resetModel() {
   sim.level = 0.85;
   sim.Tfuel = 30;
   sim.lastT = -1;
-  sim.samples.length = 0;
+  traceClear = true;                  /* Monitor trace is cleared on the next update */
 }
 function resetAll() {
-  S.volts = 13.5; elVolts.value = 1350; elVoltsV.textContent = voltsText();
-  S.ambient = 25; elAmb.value = 25;     elAmbV.textContent = ambText();
-  S.fault = 'none'; elFault.value = 'none';
+  S.volts = 13.5;
+  S.ambient = 25;
+  S.fault = 'none';
   S.speed = 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
   resetModel();
-  const ctlEl = document.getElementById('ctl');
-  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
-}
-elReset.addEventListener('click', resetAll);
-
-/* ── rolling graph ───────────────────────────────────────────────── */
-function drawGraph() {
-  const W = gcv.width, Hh = gcv.height;
-  gctx.clearRect(0, 0, W, Hh);
-  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
-  gctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    const y = Math.round(Hh * i / 4) + 0.5;
-    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
-  }
-  const n = sim.samples.length;
-  if (n < 2) return;
-  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
-  const yP  = (v) => Hh - clampN(v / 6, 0, 1) * (Hh - 6) - 3;
-  const yT  = (v) => Hh - clampN(v / 110, 0, 1) * (Hh - 6) - 3;
-
-  gctx.beginPath();
-  gctx.moveTo(xAt(0), Hh);
-  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yP(sim.samples[i].P));
-  gctx.lineTo(xAt(n - 1), Hh);
-  gctx.closePath();
-  gctx.fillStyle = 'rgba(16,185,129,0.16)';
-  gctx.fill();
-
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yP(sim.samples[i].P);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#10b981'; gctx.lineWidth = 1.6; gctx.stroke();
-
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yT(sim.samples[i].T);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.4; gctx.stroke();
+  controls.resetAll();                 /* every axis back to its default (store -> onChange -> S) */
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -533,11 +390,7 @@ function build(H){
    const now = performance.now();
    if (now - domLast > 140) {
      domLast = now;
-     if (dt > 0) {
-       sim.samples.push({ P: press, T: sim.Tfuel });
-       if (sim.samples.length > GRAPH_N) sim.samples.shift();
-       drawGraph();
-     }
+     if (dt > 0) traceSample = [traceN(press, 0, 6), traceN(sim.Tfuel, 0, 110)];
      let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
      if (!warn) {
        if (supply < 0.5) {
@@ -552,8 +405,7 @@ function build(H){
          warn = 'Tank level at ' + (sim.level * 100).toFixed(0) + ' % - the pump relies on fuel for cooling. Refuel before it runs dry.';
        }
      }
-     elWarn.textContent = warn;
-     elWarn.classList.toggle('show', !!warn);
+     warnText = warn;
    }
 
    /* ── 9. readouts ──────────────────────────────────────────── */
@@ -566,6 +418,10 @@ function build(H){
    const stState  = (press < 1.8 || supply < 0.5) ? 'crit'
                   : (press > 4.6 || vapouring || sim.level < 0.15) ? 'warn'
                   : 'ok';
+
+   let tr;
+   if (traceClear) { traceClear = false; traceSample = null; tr = { hist: null }; }
+   else if (traceSample) { tr = { hist: traceSample }; traceSample = null; }
 
    return {
      big: press.toFixed(2),
@@ -585,13 +441,31 @@ function build(H){
        filt:   ['-' + (filt * 100).toFixed(0) + ' % flow', fState],
        state:  [stateTxt, stState]
      },
-     status: [stateTxt, true],
+     status: [warnText || stateTxt, true, warnText ? 'warn' : ''],
+      traces: tr,
      ctl: Math.round(k * 100) + ' % load'
    };
   }
  };
 }
 
+/* Phase 6: every option / action lives in the dock (controls.js), nothing interactive is left in the panel.
+   'Time scale' is the module's own physics time-compression (thermal warm-up); the menu's Sim speed is separate. */
+CFG.options = [
+  { id: "fault", type: 'choice', layout: 'select', label: "Fault injection", options: Object.keys(FAULT_INFO).map(id => ({ id, label: FAULT_INFO[id].label })), def: 'none',
+    onChange: (id) => { S.fault = id; } },
+  { id: 'timeScale', type: 'choice', layout: 'segmented', label: 'Time scale', options: [{ id: '1', label: '1×' }, { id: '5', label: '5×' }, { id: '20', label: '20×' }], def: '1',
+    onChange: (id) => { S.speed = Number(id) || 1; } },
+  { id: "refuel", type: 'action', label: "Refuel",
+    onAction: () => { sim.level = 1.0; } }
+];
+CFG.onReset = resetAll;      /* the dock Reset runs the module reset (model + every control) */
+/* Phase 7a: the old history canvas is a Monitor trace. Both series are drawn as 0..100 % of their old axis ranges. */
+CFG.traces = [{ id: 'hist', label: 'Rail pressure and fuel temperature history (% of full scale)', min: 0, max: 100, length: 150,
+  series: [
+    { id: 'a', label: 'Rail bar', color: 'var(--accent)' },
+    { id: 'b', label: 'Fuel \u00B0C', color: 'var(--warn)' }
+  ] }];
 runGuidedModule(CFG, build);
 </script>
 </body>

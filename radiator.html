@@ -5,53 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Radiator — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #06b6d4; }
 html.light-theme { --al-accent: color-mix(in oklch, #06b6d4 68%, black); }
 
-/* ── module-local UI: extra controls + rolling graph ─────────────── */
-#rad-panel{
-  position:fixed; left:12px; top:12px; z-index:30;
-  width:264px; max-width:46vw;
-  padding:10px 12px 12px;
-  border:1px solid var(--border,#333);
-  border-radius:10px;
-  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
-  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
-  box-shadow:0 8px 28px rgba(0,0,0,.38);
-  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
-  color:var(--text-dim,#9aa4b2);
-  max-height:calc(100dvh - 24px); overflow:auto;
-}
-#rad-panel.folded .rad-body{ display:none; }
-.rad-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-.rad-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
-.rad-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
-.rad-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.rad-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
-.rad-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
-  text-transform:uppercase; color:var(--text-mute,#6b7280); }
-.rad-w b{ color:var(--text,#e5e7eb); font-weight:700; }
-#rad-panel .al-range{ height:22px; }
-#rad-panel .al-sel{ min-height:32px; font-size:11px; }
-.rad-btns{ display:flex; gap:6px; margin-bottom:8px; }
-.rad-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
-.rad-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.rad-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(6,182,212,.14); }
-#rad-cold{ color:#38bdf8; border-color:rgba(56,189,248,.4); }
-#rad-cold:hover{ border-color:#38bdf8; }
-.rad-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
-  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
-  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
-.rad-warn.show{ display:block; }
-#rad-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
-  border-radius:6px; background:rgba(0,0,0,.28); }
-.rad-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
-.rad-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
-@media (max-width:700px){ #rad-panel{ width:208px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -69,7 +28,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #06b6d4 68%, black); }
 </script>
 
 <script type="module">
-import { runGuidedModule } from './components.js';
+import { runGuidedModule, controls } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
 const CFG = {
@@ -81,7 +40,12 @@ const CFG = {
   "camPos": [4.8, 2.6, 7.2],
   "target": [0, 0, 0],
   "floorY": -1.9,
-  "ctl": { "label": "Engine load", "val": 40, "caption": "Engine load" },
+  ctls: [   /* Phase 3: sliders live in the dock as axis controls; ctls[0] (id 'ctl') = the main 0-100 % control */
+    { id:'ctl', label:"Engine load", caption:"Engine load", preset:'percent', def:40 },
+    { id:'rpm', preset:'rpm', def:800, label:'Engine speed', onChange:(v)=>{ S.rpm = v; } },
+    { id:'kph', preset:'vehicle-speed', label:'Vehicle speed', onChange:(v)=>{ S.speedKmh = v; } },
+    { id:'ambient', preset:'ambient', def:25, label:'Ambient', onChange:(v)=>{ S.ambient = v; } },
+  ],
   "chipLabel": "Heat rejected",
   "rows": [["tin", "Coolant in"], ["tout", "Coolant out"]],
   "ro": [
@@ -222,158 +186,34 @@ const S = {
   speed: 1
 };
 
-const panel = document.createElement('div');
-panel.id = 'rad-panel';
-let faultOptions = '';
-for (const id in FAULT_INFO) {
-  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
-}
-panel.innerHTML =
-  '<div class="rad-h"><span>Radiator simulation</span><button type="button" id="rad-fold" aria-label="Collapse controls">&#8211;</button></div>' +
-  '<div class="rad-body">' +
-    '<div class="rad-w"><label for="rad-rpm">Engine speed <b id="rad-rpm-v">800 rpm</b></label>' +
-      '<input id="rad-rpm" class="al-range" type="range" min="800" max="5000" step="50" value="800" aria-label="Engine speed"></div>' +
-    '<div class="rad-w"><label for="rad-kph">Vehicle speed <b id="rad-kph-v">0 km/h</b></label>' +
-      '<input id="rad-kph" class="al-range" type="range" min="0" max="160" step="1" value="0" aria-label="Vehicle speed"></div>' +
-    '<div class="rad-w"><label for="rad-amb">Ambient air <b id="rad-amb-v">25 &deg;C</b></label>' +
-      '<input id="rad-amb" class="al-range" type="range" min="-10" max="45" step="1" value="25" aria-label="Ambient air temperature"></div>' +
-    '<div class="rad-w"><label for="rad-fan">Cooling fan</label>' +
-      '<select id="rad-fan" class="al-sel" aria-label="Cooling fan mode">' +
-        '<option value="auto" selected>Auto (ECU)</option>' +
-        '<option value="on">Forced on</option>' +
-        '<option value="off">Forced off</option>' +
-      '</select></div>' +
-    '<div class="rad-w"><label for="rad-fault">Fault injection</label>' +
-      '<select id="rad-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
-    '<div class="rad-w"><label>Simulation speed</label>' +
-      '<div class="rad-btns" id="rad-speed">' +
-        '<button type="button" data-sp="1" class="on">1&times;</button>' +
-        '<button type="button" data-sp="5">5&times;</button>' +
-        '<button type="button" data-sp="20">20&times;</button>' +
-      '</div></div>' +
-    '<div class="rad-btns">' +
-      '<button type="button" id="rad-cold">Cold start</button>' +
-      '<button type="button" id="rad-reset">Reset</button>' +
-    '</div>' +
-    '<div class="rad-warn" id="rad-warn"></div>' +
-    '<canvas id="rad-graph" width="480" height="150" aria-label="Coolant temperature and heat rejected history"></canvas>' +
-    '<div class="rad-key"><span><i style="background:#06b6d4"></i>Coolant &deg;C</span><span><i style="background:#fb923c"></i>Heat kW</span></div>' +
-  '</div>';
-document.body.appendChild(panel);
 
-const elFold  = document.getElementById('rad-fold');
-const elRpm   = document.getElementById('rad-rpm');
-const elRpmV  = document.getElementById('rad-rpm-v');
-const elKph   = document.getElementById('rad-kph');
-const elKphV  = document.getElementById('rad-kph-v');
-const elAmb   = document.getElementById('rad-amb');
-const elAmbV  = document.getElementById('rad-amb-v');
-const elFan   = document.getElementById('rad-fan');
-const elFault = document.getElementById('rad-fault');
-const elSpeed = document.getElementById('rad-speed');
-const elCold  = document.getElementById('rad-cold');
-const elReset = document.getElementById('rad-reset');
-const elWarn  = document.getElementById('rad-warn');
-const gcv     = document.getElementById('rad-graph');
-const gctx    = gcv.getContext('2d');
-
-elFold.addEventListener('click', () => {
-  panel.classList.toggle('folded');
-  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
-});
-elRpm.addEventListener('input', () => {
-  S.rpm = Number(elRpm.value) || 800;
-  elRpmV.textContent = S.rpm + ' rpm';
-});
-elKph.addEventListener('input', () => {
-  S.speedKmh = Number(elKph.value) || 0;
-  elKphV.textContent = S.speedKmh + ' km/h';
-});
-elAmb.addEventListener('input', () => {
-  S.ambient = Number(elAmb.value) || 0;
-  elAmbV.textContent = S.ambient + ' \u00B0C';
-});
-elFan.addEventListener('change', () => { S.fanMode = elFan.value; });
-elFault.addEventListener('change', () => { S.fault = elFault.value; });
-elSpeed.addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-sp]');
-  if (!b) return;
-  S.speed = Number(b.dataset.sp) || 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
-});
-elCold.addEventListener('click', () => {
-  sim.Tcool = COLD_START_T;
-  sim.coolantLevel = 1.0;
-});
 
 /* ── simulation state (module level so Reset can reach it) ───────── */
-const GRAPH_N = 150;
+/* Phase 7a: the history lives in the Monitor (CFG.traces); the module only hands over one normalised sample
+   per ~140 ms while the sim runs (0..100 % of each old axis range) and the current warning sentence. */
+let traceSample = null, traceClear = false, warnText = '';
+const traceN = (v, lo, hi) => Math.round(clampN((v - lo) / (hi - lo), 0, 1) * 1000) / 10;
 const sim = {
   Tcool: COLD_START_T,
   coolantLevel: 1.0,
-  lastT: -1,
-  samples: []
+  lastT: -1
 };
 
 function resetModel() {
   sim.Tcool = COLD_START_T;
   sim.coolantLevel = 1.0;
   sim.lastT = -1;
-  sim.samples.length = 0;
+  traceClear = true;                  /* Monitor trace is cleared on the next update */
 }
 function resetAll() {
-  S.rpm = 800;      elRpm.value = 800;   elRpmV.textContent = '800 rpm';
-  S.speedKmh = 0;   elKph.value = 0;     elKphV.textContent = '0 km/h';
-  S.ambient = 25;   elAmb.value = 25;    elAmbV.textContent = '25 \u00B0C';
-  S.fanMode = 'auto'; elFan.value = 'auto';
-  S.fault = 'none'; elFault.value = 'none';
+  S.rpm = 800;
+  S.speedKmh = 0;
+  S.ambient = 25;
+  S.fanMode = 'auto';
+  S.fault = 'none';
   S.speed = 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
   resetModel();
-  const ctlEl = document.getElementById('ctl');
-  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
-}
-elReset.addEventListener('click', resetAll);
-
-/* ── rolling graph ───────────────────────────────────────────────── */
-function drawGraph() {
-  const W = gcv.width, Hh = gcv.height;
-  gctx.clearRect(0, 0, W, Hh);
-  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
-  gctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    const y = Math.round(Hh * i / 4) + 0.5;
-    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
-  }
-  const n = sim.samples.length;
-  if (n < 2) return;
-  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
-  const yT  = (v) => Hh - clampN((v - 20) / 110, 0, 1) * (Hh - 6) - 3;
-  const yQ  = (v) => Hh - clampN(v / 70, 0, 1) * (Hh - 6) - 3;
-
-  /* coolant temperature filled area */
-  gctx.beginPath();
-  gctx.moveTo(xAt(0), Hh);
-  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yT(sim.samples[i].T));
-  gctx.lineTo(xAt(n - 1), Hh);
-  gctx.closePath();
-  gctx.fillStyle = 'rgba(6,182,212,0.18)';
-  gctx.fill();
-
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yT(sim.samples[i].T);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#06b6d4'; gctx.lineWidth = 1.6; gctx.stroke();
-
-  /* heat rejected line */
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yQ(sim.samples[i].Q);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.6; gctx.stroke();
+  controls.resetAll();                 /* every axis back to its default (store -> onChange -> S) */
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -589,11 +429,7 @@ function build(H){
    const now = performance.now();
    if (now - lastDom > 140) {
      lastDom = now;
-     if (dt > 0) {
-       sim.samples.push({ T: sim.Tcool, Q: Q_out });
-       if (sim.samples.length > GRAPH_N) sim.samples.shift();
-       drawGraph();
-     }
+     if (dt > 0) traceSample = [traceN(sim.Tcool, 20, 130), traceN(Q_out, 0, 70)];
      let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
      if (!warn) {
        if (boiling) {
@@ -606,8 +442,7 @@ function build(H){
          warn = 'Coolant temperature is high (' + sim.Tcool.toFixed(0) + ' \u00B0C). Watch the gauge in traffic.';
        }
      }
-     elWarn.textContent = warn;
-     elWarn.classList.toggle('show', !!warn);
+     warnText = warn;
    }
 
    /* ── 11. readouts ─────────────────────────────────────────── */
@@ -621,6 +456,10 @@ function build(H){
    const stState   = (boiling || sim.Tcool > 108) ? 'crit'
                    : (sim.Tcool > 98 || sim.coolantLevel < 0.7) ? 'warn'
                    : 'ok';
+
+   let tr;
+   if (traceClear) { traceClear = false; traceSample = null; tr = { hist: null }; }
+   else if (traceSample) { tr = { hist: traceSample }; traceSample = null; }
 
    return {
      big: Q_out.toFixed(0),
@@ -643,13 +482,33 @@ function build(H){
        lvl:   [(sim.coolantLevel * 100).toFixed(0) + ' %', lvlState],
        state: [stateTxt, stState]
      },
-     status: [stateTxt, true],
+     status: [warnText || stateTxt, true, warnText ? 'warn' : ''],
+      traces: tr,
      ctl: (L * 100).toFixed(0) + ' %'
    };
   }
  };
 }
 
+/* Phase 6: every option / action lives in the dock (controls.js), nothing interactive is left in the panel.
+   'Time scale' is the module's own physics time-compression (thermal warm-up); the menu's Sim speed is separate. */
+CFG.options = [
+  { id: "fan", type: 'choice', layout: 'select', label: "Cooling fan", options: [{ id: "auto", label: "Auto (ECU)" }, { id: "on", label: "Forced on" }, { id: "off", label: "Forced off" }], def: "auto",
+    onChange: (id) => { S.fanMode = id; } },
+  { id: "fault", type: 'choice', layout: 'select', label: "Fault injection", options: Object.keys(FAULT_INFO).map(id => ({ id, label: FAULT_INFO[id].label })), def: 'none',
+    onChange: (id) => { S.fault = id; } },
+  { id: 'timeScale', type: 'choice', layout: 'segmented', label: 'Time scale', options: [{ id: '1', label: '1×' }, { id: '5', label: '5×' }, { id: '20', label: '20×' }], def: '1',
+    onChange: (id) => { S.speed = Number(id) || 1; } },
+  { id: "cold", type: 'action', label: "Cold start",
+    onAction: () => { sim.Tcool = COLD_START_T; sim.coolantLevel = 1.0; } }
+];
+CFG.onReset = resetAll;      /* the dock Reset runs the module reset (model + every control) */
+/* Phase 7a: the old history canvas is a Monitor trace. Both series are drawn as 0..100 % of their old axis ranges. */
+CFG.traces = [{ id: 'hist', label: 'Coolant temperature and heat rejected history (% of full scale)', min: 0, max: 100, length: 150,
+  series: [
+    { id: 'a', label: 'Coolant \u00B0C', color: 'var(--accent)' },
+    { id: 'b', label: 'Heat kW', color: 'var(--warn)' }
+  ] }];
 runGuidedModule(CFG, build);
 </script>
 </body>

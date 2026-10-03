@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Thermostat — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #f59e0b; }
@@ -81,7 +82,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #f59e0b 68%, black); }
 }
 
 #th-ui-toggle {
-  position: fixed; right: 14px; bottom: 84px; z-index: 10000;
+  position: fixed; right: 14px; bottom: calc(var(--dock-h, 24vh) + var(--s-3, 12px)); z-index: var(--z-monitor);
   width: 42px; height: 42px; border-radius: 50%;
   background: rgba(8,11,18,.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(148,163,184,.3);

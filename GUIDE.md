@@ -31,6 +31,47 @@ per-file edits**:
 - **`valvetrain.html`** — given an actual simulation upgrade (see below)
   as a worked example of how to do the same to another module.
 
+## Who owns which control (Phase 1 of the control-system refactor)
+
+Every control exists once. The **shell** (`index.html`) draws the 32 px header — back, module title,
+info ⓘ, and a single ⋯ — through `chrome.js`. The ⋯ menu (bottom sheet on phones, popover on desktop)
+holds exactly: **sim speed, label density (All / Key / None), theme, wireframe, x-ray**. Nothing else.
+The old floating pill and the old settings sheet are gone. Title and accent colour come from `modules.js`.
+
+- **Sim speed only ever means sim speed** (shown as `0.85×`). A module quantity such as engine rpm or
+  load is the module's own control — never read it from `state.speedMul`. (`ignition`, `mpfi`, `abs-esc`, `cooling` all do this now.)
+- **Embedded modules build less, they don't hide.** When the kit detects it is inside the shell it does not
+  create play / reset / sim-speed / Flow / label-density nodes. Standalone pages still build them until Phase 2.
+- **One keymap** in `keys.js`: Space play/pause · R reset · D label density · L theme · W wireframe ·
+  X x-ray · Esc close menu / back. Shell owns L/W/X/Esc, the module owns Space/R/D; each side forwards the
+  keys it doesn't own (`postMessage` `type:'key'`). Pedals no longer use Space.
+- **Protocol additions** — shell→module commands `setLabelDensity` (0|1|2), `toggleInfo`, `key`;
+  module→shell `{type:'key', action}` and `{type:'state', playing | density}`. `setLabels` is kept for compatibility.
+- **Theme has one path:** the shell sends `setTheme`; it no longer writes `light-theme` into the iframe.
+
+## The dock and the standalone header (Phase 2)
+- **Dock** (`dock.js`, styles in `controls.css`): every module document has one. Bottom sheet on phones (24 vh, max 30 vh), two 140 px rails on landscape phones, one bar on desktop. Phone = `max-width:720px` or `max-height:540px`.
+- **Put controls in it through `UI.create`**: `toolbar` (play/reset/Flow/`extras`), `widgets.bl` (primary-left), `widgets.br` (primary-right). Do not add `position:fixed` elements at the bottom of a module.
+- **Height inside the shell:** `vh` in an iframe is the iframe height (screen minus the 32 px shell header), so the dock is a few px shorter than 24 % of the screen when embedded.
+- **Standalone header:** opened directly, a module draws the same `chrome.js` header (back, title, i, ...) and menu as the shell; title and colour come from `modules.js`. Embedded, the shell draws it and the module reserves no top space (`--stage-top: 0`).
+- **Info:** header i opens the info sheet (phones, closed by default) or the side panel (desktop).
+
+## Sliders (Phase 3)
+Every slider is an `axis` (`controls.js`): 44 px target, value bubble while dragging, `aria-valuetext` with unit, ↑/↓ keys, focus ring. Values live in one store; modules read `ui.controls.get/value/raw(id)`. Guided modules list them in `CFG.ctls[]`, other modules pass `axes:[…]` to `UI.create`. Engine rpm / load / vehicle speed are their own axes in `ignition`, `mpfi`, `cooling`, `abs-esc` — the ⋯ menu's Sim speed can no longer change them. See COMPONENTS.md for specs and presets.
+
+## Pedals (Phase 4)
+Brake, accelerator and clutch are `controls.js` primitives: an `axis` with `look:'pedal'` (spring-back, ↑/↓, Shift-hold) and a `momentary` (clutch). Phones get a 52 px horizontal bar; desktop a vertical 54×158 pedal. Read them with `ui.controls.get('throttle' | 'brake' | 'clutch')`; Space is only play/pause. Modules must not keep their own pedal variable or key handlers. See COMPONENTS.md.
+
+## Dials (Phase 5)
+The steering wheel and the engine crank are `controls.js` primitives: `type:'dial'` with `look:'wheel' | 'crank' | 'knob'`. Drag anywhere on it, ←/→ turn 10° (→ = clockwise = right in every module), Enter / Home = default; it is 96 px on phones and shows its angle once, as small text. Read it with `ui.controls.get('wheel')` (−1..1, clockwise +) or `ui.controls.value('wheel')` (degrees). `steering`, `differential` and `awd` use a `wheel`; `engine` uses a wrapping 0–720° `crank`. See COMPONENTS.md.
+
+## Options: choice / toggle / action (Phase 6)
+A module never authors a `<button>`, `<select>` or `<input>`. Declare `options: [spec]` in `UI.create` (or `CFG.options` for `runGuidedModule`; `ui.addOptions([...])` if the list is built later):
+- `{ id, type:'choice', layout:'segmented'|'select'|'gate', label, options:['A','B'] | [{id,label,tone:'crit'}], def, onChange(id, index) }` — 2–4 short options = segmented, longer lists = select, a gearbox stick = gate.
+- `{ id, type:'toggle', label, def:false, onChange(bool) }`
+- `{ id, type:'action', label, tone, onAction() }` (no state; a reset is an action only for module-specific extras — the dock Reset already exists).
+Read with `ui.controls.value(id)` (option id / boolean), follow the simulation with `ui.controls.set(id, indexOrBool)`, hide mode-dependent ones with `ui.controls.setHidden(id, true)`. Use `primary:true` only for something the user holds or flicks mid-run (a gear selector). Put module-specific resets in `CFG.onReset` (guided) or the bridge's `onCommand` — the dock Reset also calls `controls.resetAll()`. Control ids must be unique per page.
+
 ## What's NOT done yet: simulation depth for the other 43 modules
 
 The valvetrain module previously had a cam-advance slider that only

@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0a0d13">
 <title>Starting System — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <style>
   /* ═══════ PANEL READOUT INTERIOR ═══════ */
   #ss-readout {
@@ -95,94 +96,13 @@
   #key-blade.turn-2 { transform: rotate(45deg); }
   #key-blade.turn-3 { transform: rotate(135deg); }
 
-  #key-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; }
-  .key-btn {
-    padding: 8px 2px; border-radius: 8px;
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    background: rgba(255,255,255,.04); color: var(--text-dim, #94a3b8);
-    font-size: 10px; font-weight: 800; letter-spacing: .05em;
-    text-transform: uppercase; cursor: pointer;
-    transition: all .18s; font-family: inherit; line-height: 1;
-  }
-  .key-btn:hover { color: var(--text, #e5e7eb); border-color: rgba(255,255,255,.25); }
-  .key-btn.active[data-key="0"]{ background:#475569; color:#fff; border-color:transparent; }
-  .key-btn.active[data-key="1"]{ background:#f59e0b; color:#0a0d13; border-color:transparent; box-shadow:0 3px 12px rgba(245,158,11,.35); }
-  .key-btn.active[data-key="2"]{ background:#22c55e; color:#0a1a0e; border-color:transparent; box-shadow:0 3px 12px rgba(34,197,94,.35); }
-  .key-btn.active[data-key="3"]{
-    background: linear-gradient(135deg,#ef4444,#f87171);
-    color: #fff; border-color: transparent;
-    box-shadow: 0 0 16px rgba(239,68,68,.7);
-    animation: crank-pulse .5s ease-in-out infinite alternate;
-  }
-  @keyframes crank-pulse {
-    from { box-shadow: 0 0 12px rgba(239,68,68,.55); }
-    to   { box-shadow: 0 0 22px rgba(239,68,68,.9); }
-  }
-  html.light-theme .key-btn { background: rgba(15,23,42,.05); border-color: rgba(15,23,42,.12); color: #475569; }
-
-  #key-meters { display: flex; gap: 6px; }
-  #key-meters .meter {
-    flex: 1; display: flex; flex-direction: column; gap: 3px;
-    padding: 6px 8px; background: rgba(255,255,255,.03);
-    border: 1px solid rgba(255,255,255,.06); border-radius: 7px;
-  }
-  html.light-theme #key-meters .meter { background: rgba(15,23,42,.04); border-color: rgba(15,23,42,.08); }
-  #key-meters .meter .lbl {
-    font-size: 10px; font-weight: 800; letter-spacing: .08em;
-    text-transform: uppercase; color: #64748b;
-  }
-  #key-meters .meter .val {
-    font-size: 14px; font-weight: 800;
-    font-variant-numeric: tabular-nums; line-height: 1;
-  }
-  #key-meters .meter .val span {
-    font-size: 10px; font-weight: 700; opacity: .65; margin-left: 2px;
-  }
-  #rpm-strip {
-    width: 100%; height: 52px; border-radius: 6px;
-    background: rgba(0,0,0,.35); display: block;
-  }
-  html.light-theme #rpm-strip { background: rgba(15,23,42,.06); }
-  #strip-label {
-    display: flex; justify-content: space-between;
-    font-size: 10px; letter-spacing: .08em; color: #64748b;
-    text-transform: uppercase; font-weight: 800; margin-bottom: 1px;
-  }
 
   /* ═══════ Toolbar extras config switcher ═══════ */
-  .cfg-group {
-    display: flex; align-items: center; gap: 4px;
-    padding-left: 8px; margin-left: 4px;
-    border-left: 1px solid var(--border, rgba(255,255,255,.10));
-  }
-  .cfg-arrow {
-    width: 22px; height: 22px; border-radius: 50%;
-    border: none; background: rgba(255,255,255,.08);
-    color: var(--text, #e5e7eb); font-size: 14px; line-height: 1;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-family: inherit; padding: 0;
-    transition: background .15s, color .15s;
-  }
-  .cfg-arrow:hover, .cfg-arrow:active {
-    background: var(--accent, #38bdf8); color: #0b0e14;
-  }
-  #cfg-label {
-    min-width: 80px; text-align: center; white-space: nowrap;
-    font-size: 10.5px; font-weight: 700; letter-spacing: .02em;
-    color: var(--text, #e5e7eb);
-    font-family: var(--font-mono);
-  }
-  html.light-theme .cfg-arrow { background: rgba(15,23,42,.08); color: #0a0d13; }
-  html.light-theme #cfg-label { color: #0a0d13; }
-  @media (max-width: 640px) {
+  html.light-theme  html.light-theme  @media (max-width: 640px) {
     #key-panel { min-width: 200px; padding: 8px 10px; gap: 6px; }
     #key-panel #key-visual { height: 52px; }
     #key-blade { width: 32px; height: 32px; }
     #key-blade::after { height: 13px; transform: translateY(-7px); }
-    #key-meters .meter .val { font-size: 12px; }
-    #rpm-strip { height: 40px; }
-    .cfg-arrow { width: 19px; height: 19px; font-size: 12px; }
-    #cfg-label { min-width: 66px; font-size: 10px; }
   }
 </style>
 </head>
@@ -203,6 +123,7 @@
   import * as Base from './kit.js';
 import { Parts } from './components.js';
   import { UI } from './kit.js';
+  import { controls as ctl } from './controls.js';        /* the shared control registry (usable before `ui` is assigned) */
 
   const TAU = Base.TAU;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -993,14 +914,7 @@ import { Parts } from './components.js';
      (which runs synchronously) can safely assign them.
      ═══════════════════════════════════════════════════════════ */
   let keyBladeUI = null, kpLedEl = null;
-  let keyButtons = [], dialDots = [];
-  let mVoltsEl = null, mAmpsEl = null;
-  let rpmStripEl = null, rpmStripCtx = null, stripNoteEl = null;
-
-  /* Strip-chart state — must live above UI.create: onMount calls sizeStrip() synchronously */
-  const HISTORY_LEN = 240;
-  const history = new Array(HISTORY_LEN).fill(null).map(() => ({ e: 0, s: 0 }));
-  let histWrite = 0, stripW = 0, stripH = 0;
+  let dialDots = [];
 
   /* ═══════════════════════════════════════════════════════════
      UI — kit chrome + key widget
@@ -1024,16 +938,12 @@ import { Parts } from './components.js';
              <strong>OFF → ACC</strong> wakes up the accessories. <strong>ACC → ON</strong> charges the ignition coils and injectors. <strong>ON → START</strong> closes the solenoid — the plunger shoves the pinion into the flywheel's ring gear <em>and</em> closes the motor contactor in one motion.`
     },
 
-    chip: {
-      label: 'Engine speed',
-      value: 0,
-      unit:  'rpm',
-      bar:   true,
-      rows: [
-        { id: 'key', label: 'Key',      value: 'OFF' },
-        { id: 'bat', label: 'Battery',  value: '12.6 V' }
-      ],
-      status: { text: 'Off', on: false }
+    monitor: {
+      config: { label: 'Engine speed', value: { label: 'Engine speed', unit: 'rpm', max: 100, bar: true }, rows: [['key', 'Key'], ['bat', 'Battery'], ['amps', 'Starter current'], ['rpm', 'Engine speed']],
+        traces: [{ id: 'speed', label: 'Speed trace (rpm)', min: 0, max: TUNING.redlineRpm, length: 240,
+                   series: [{ id: 'eng', label: 'Engine', color: 'var(--accent)' }, { id: 'starter', label: 'Starter ÷ 12', color: 'var(--crit)' }] }],
+        status: { text: 'Off' } },
+      initial: { value: { text: '0', unit: 'rpm' }, rows: { key: 'OFF', bat: '12.6 V', amps: '0 A', rpm: '—' }, status: ['Off', false] }
     },
 
     toolbar: {
@@ -1060,31 +970,20 @@ import { Parts } from './components.js';
               </div>
               <div id="key-blade" class="turn-0"></div>
             </div>
-            <div id="key-buttons" role="radiogroup" aria-label="Ignition switch">
-              <button class="key-btn active" data-key="0" aria-pressed="true">Off</button>
-              <button class="key-btn" data-key="1" aria-pressed="false">Acc</button>
-              <button class="key-btn" data-key="2" aria-pressed="false">On</button>
-              <button class="key-btn" data-key="3" aria-pressed="false">Start</button>
-            </div>
-            <div id="key-meters">
-              <div class="meter">
-                <span class="lbl">Battery</span>
-                <span class="val" id="m-volts">12.6<span>V</span></span>
-              </div>
-              <div class="meter">
-                <span class="lbl">Current</span>
-                <span class="val" id="m-amps">0<span>A</span></span>
-              </div>
-            </div>
-            <div>
-              <div id="strip-label"><span>Speed trace</span><span id="strip-note">—</span></div>
-              <canvas id="rpm-strip" aria-label="Engine and starter RPM trace"></canvas>
-            </div>
           </div>
         `,
         onMount: (el) => wireKeyWidget(el)
       }
-    }
+    },
+
+    /* Phase 6: the ignition switch and the view are controls.js choices in the dock options row */
+    options: [
+      { id: 'key', type: 'choice', layout: 'segmented', label: 'Ignition', ariaLabel: 'Ignition switch',
+        options: [{ id: 'off', label: 'Off' }, { id: 'acc', label: 'Acc' }, { id: 'on', label: 'On' }, { id: 'start', label: 'Start', tone: 'crit' }],
+        onChange: (id, i) => { setKey(i); try { ensureAudio(); } catch (_) {} } },
+      { id: 'config', type: 'choice', layout: 'select', label: 'View', ariaLabel: 'Starting system view',
+        options: [{ id: 'circuit', label: 'Circuit' }, { id: 'starter', label: 'Starter' }, { id: 'mesh', label: 'Mesh' }, { id: 'crank', label: 'Crank' }] }
+    ]
   });
 
   /* Panel readout refs */
@@ -1105,47 +1004,9 @@ import { Parts } from './components.js';
   function wireKeyWidget(root) {
     keyBladeUI = root.querySelector('#key-blade');
     kpLedEl    = root.querySelector('#kp-led');
-    keyButtons = Array.from(root.querySelectorAll('.key-btn'));
     dialDots   = Array.from(root.querySelectorAll('.dial-dot'));
-    mVoltsEl   = root.querySelector('#m-volts');
-    mAmpsEl    = root.querySelector('#m-amps');
-    rpmStripEl = root.querySelector('#rpm-strip');
-    stripNoteEl= root.querySelector('#strip-note');
-    rpmStripCtx = rpmStripEl ? rpmStripEl.getContext('2d') : null;
-
-    keyButtons.forEach(b => {
-      b.addEventListener('click', () => {
-        setKey(+b.dataset.key);
-        try { ensureAudio(); } catch(_) {}
-      });
-    });
-
-    if (rpmStripEl && window.ResizeObserver) new ResizeObserver(sizeStrip).observe(rpmStripEl);
-    sizeStrip();
     updateKeyUI();
   }
-
-  /* ═══════════════════════════════════════════════════════════
-     Config switcher — toolbar extras
-     ═══════════════════════════════════════════════════════════ */
-  (function buildConfigSwitcher() {
-    const extras = document.getElementById('toolbar-extras');
-    if (!extras) return;
-    const cfgGroup = document.createElement('div');
-    cfgGroup.className = 'cfg-group';
-    cfgGroup.setAttribute('role', 'group');
-    cfgGroup.setAttribute('aria-label', 'Starting system view');
-    cfgGroup.innerHTML = `
-      <button class="cfg-arrow" id="cfg-prev" type="button" aria-label="Previous view">‹</button>
-      <span id="cfg-label">Circuit</span>
-      <button class="cfg-arrow" id="cfg-next" type="button" aria-label="Next view">›</button>
-    `;
-    extras.appendChild(cfgGroup);
-  })();
-
-  const cfgLabelEl = document.getElementById('cfg-label');
-  const cfgPrevEl  = document.getElementById('cfg-prev');
-  const cfgNextEl  = document.getElementById('cfg-next');
 
   const CONFIG_ORDER = ['circuit', 'starter', 'mesh', 'crank'];
   const CONFIG_LABELS = {
@@ -1210,7 +1071,7 @@ import { Parts } from './components.js';
     meshView.visible    = (m === 'mesh');
     crankView.visible   = (m === 'crank');
 
-    if (cfgLabelEl) cfgLabelEl.textContent = CONFIG_LABELS[m];
+    ui.controls.set('config', CONFIG_ORDER.indexOf(m));          /* keep the dock choice in step */
 
     const info = MODE_INFO[m];
     if (badgeTextEl) badgeTextEl.textContent = info.badge;
@@ -1233,22 +1094,13 @@ import { Parts } from './components.js';
     else                      animateCamera([4.5, 2.5, 6.5], [0.2, 0.3, 0]);
   }
 
-  function stepConfig(dir) {
-    const i = CONFIG_ORDER.indexOf(mode);
-    applyMode(CONFIG_ORDER[(i + dir + CONFIG_ORDER.length) % CONFIG_ORDER.length]);
-  }
-  if (cfgPrevEl) cfgPrevEl.addEventListener('click', () => stepConfig(-1));
-  if (cfgNextEl) cfgNextEl.addEventListener('click', () => stepConfig(1));
+  ui.controls.on('config', (i) => { const m = CONFIG_ORDER[i]; if (m !== mode) applyMode(m); });
 
   /* ═══════════════════════════════════════════════════════════
      KEY UI
      ═══════════════════════════════════════════════════════════ */
   function updateKeyUI() {
-    keyButtons.forEach(b => {
-      const active = +b.dataset.key === sys.key;
-      b.classList.toggle('active', active);
-      b.setAttribute('aria-pressed', active ? 'true' : 'false');
-    });
+    ctl.set('key', sys.key);                           /* the dock choice follows the simulation (auto-return Start -> On) */
     dialDots.forEach(d => d.classList.toggle('active', +d.dataset.i === sys.key));
     if (keyBladeUI) {
       keyBladeUI.classList.remove('turn-0','turn-1','turn-2','turn-3');
@@ -1497,73 +1349,14 @@ import { Parts } from './components.js';
      RPM STRIP
      ═══════════════════════════════════════════════════════════ */
 
-  function sizeStrip() {
-    if (!rpmStripEl) return;
-    const r = rpmStripEl.getBoundingClientRect();
-    if (r.width < 4 || r.height < 4) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    rpmStripEl.width  = Math.round(r.width * dpr);
-    rpmStripEl.height = Math.round(r.height * dpr);
-    rpmStripCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    stripW = r.width; stripH = r.height;
-  }
-
+  /* 7b2: the strip chart is the Monitor trace 'speed' (fixed 0–redline range, same 33 Hz sample spacing as the old history).
+     The sample computation is unchanged: engine rpm and starter rpm ÷ 12, each clamped to 0..redline. */
   let histAccum = 0;
   function pushHistory(dt) {
     histAccum += dt;
     if (histAccum < 0.03) return;
     histAccum = 0;
-    history[histWrite].e = sys.engineRpm;
-    history[histWrite].s = sys.starterRpm / 12;
-    histWrite = (histWrite + 1) % HISTORY_LEN;
-  }
-
-  function drawStrip() {
-    if (!rpmStripCtx) return;
-    if (!stripW || !stripH) sizeStrip();
-    if (!stripW || !stripH) return;
-    const ctx = rpmStripCtx;
-    ctx.clearRect(0, 0, stripW, stripH);
-
-    ctx.strokeStyle = 'rgba(148,163,184,.10)';
-    ctx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-      const y = (stripH / 4) * i;
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(stripW, y); ctx.stroke();
-    }
-    const maxRpm = TUNING.redlineRpm;
-    const stepX = stripW / (HISTORY_LEN - 1);
-
-    ctx.beginPath();
-    for (let i = 0; i < HISTORY_LEN; i++) {
-      const idx = (histWrite + i) % HISTORY_LEN;
-      const v = clamp(history[idx].e / maxRpm, 0, 1);
-      const x = i * stepX;
-      const y = stripH - v * (stripH - 4) - 2;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = 'rgba(56,189,248,0.95)';
-    ctx.lineWidth = 1.6; ctx.stroke();
-
-    ctx.beginPath();
-    for (let i = 0; i < HISTORY_LEN; i++) {
-      const idx = (histWrite + i) % HISTORY_LEN;
-      const v = clamp(history[idx].s / maxRpm, 0, 1);
-      const x = i * stepX;
-      const y = stripH - v * (stripH - 4) - 2;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = 'rgba(239,68,68,0.70)';
-    ctx.lineWidth = 1.2;
-    ctx.setLineDash([3, 3]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    if (stripNoteEl) {
-      stripNoteEl.textContent = sys.engineRunning ? 'idle'
-        : (sys.key === 3 ? 'cranking'
-        : (sys.key === 2 ? 'armed' : 'off'));
-    }
+    ui.monitor.update({ traces: { speed: [clamp(sys.engineRpm, 0, TUNING.redlineRpm), clamp(sys.starterRpm / 12, 0, TUNING.redlineRpm)] } });
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -1573,8 +1366,7 @@ import { Parts } from './components.js';
 
   function updateLivePanel() {
     const rpm = Math.round(sys.engineRpm);
-    ui.toolbar.setRpmLabel(`~${Math.round(sys.engineRpm / 50) * 50} rpm`);
-
+    ui.monitor.update({ rows: { rpm: `~${Math.round(sys.engineRpm / 50) * 50} rpm` } });
     if (mode === 'circuit') {
       if (ssR1l) ssR1l.textContent = 'Key';
       if (ssR2l) ssR2l.textContent = 'Battery';
@@ -1582,12 +1374,11 @@ import { Parts } from './components.js';
       if (ssR1)  ssR1.textContent = KEY_NAMES[sys.key];
       if (ssR2)  ssR2.textContent = sys.batteryVolts.toFixed(1) + ' V';
       if (ssR3)  ssR3.textContent = Math.round(sys.starterRpm) + ' rpm';
-      ui.chip.setBig(Math.round(sys.currentDraw), 'A');
-      ui.chip.setColor('#ef4444');
-      ui.chip.setBar(Math.min(100, (sys.currentDraw / 300) * 100), '#ef4444');
-      ui.chip.set('key', KEY_NAMES[sys.key]);
-      ui.chip.set('bat', sys.batteryVolts.toFixed(1) + ' V');
-      ui.chip.setStatus(KEY_NAMES[sys.key], sys.key >= 2);
+      ui.monitor.update({
+        value: { text: String(Math.round(sys.currentDraw)), unit: 'A', color: '#ef4444', bar: Math.min(100, (sys.currentDraw / 300) * 100), barColor: '#ef4444' },
+        rows: { key: KEY_NAMES[sys.key], bat: sys.batteryVolts.toFixed(1) + ' V' },
+        status: [KEY_NAMES[sys.key], sys.key >= 2]
+      });
     } else if (mode === 'starter') {
       if (ssR1l) ssR1l.textContent = 'Key';
       if (ssR2l) ssR2l.textContent = 'Solenoid';
@@ -1595,12 +1386,11 @@ import { Parts } from './components.js';
       if (ssR1)  ssR1.textContent = KEY_NAMES[sys.key];
       if (ssR2)  ssR2.textContent = (sys.pinionExtend * 100).toFixed(0) + ' %';
       if (ssR3)  ssR3.textContent = sys.pinionExtend > 0.85 ? 'MESHED' : 'RETRACTED';
-      ui.chip.setBig(Math.round(sys.starterRpm), 'rpm');
-      ui.chip.setColor('#22c55e');
-      ui.chip.setBar(Math.min(100, (sys.starterRpm / TUNING.starterFreeRpm) * 100), '#22c55e');
-      ui.chip.set('key', KEY_NAMES[sys.key]);
-      ui.chip.set('bat', sys.batteryVolts.toFixed(1) + ' V');
-      ui.chip.setStatus(sys.pinionExtend > 0.85 ? 'Meshed' : 'Clear', sys.pinionExtend > 0.85);
+      ui.monitor.update({
+        value: { text: String(Math.round(sys.starterRpm)), unit: 'rpm', color: '#22c55e', bar: Math.min(100, (sys.starterRpm / TUNING.starterFreeRpm) * 100), barColor: '#22c55e' },
+        rows: { key: KEY_NAMES[sys.key], bat: sys.batteryVolts.toFixed(1) + ' V' },
+        status: [sys.pinionExtend > 0.85 ? 'Meshed' : 'Clear', sys.pinionExtend > 0.85]
+      });
     } else if (mode === 'mesh') {
       const ringRpm = sys.starterRpm / TUNING.gearRatio;
       if (ssR1l) ssR1l.textContent = 'Ratio';
@@ -1609,12 +1399,11 @@ import { Parts } from './components.js';
       if (ssR1)  ssR1.textContent = `${TUNING.ringTeeth}:${TUNING.pinionTeeth} → 12:1`;
       if (ssR2)  ssR2.textContent = Math.round(sys.starterRpm) + ' rpm';
       if (ssR3)  ssR3.textContent = sys.pinionExtend > 0.85 ? 'ENGAGED' : 'CLEAR';
-      ui.chip.setBig(Math.round(ringRpm), 'rpm');
-      ui.chip.setColor('#f59e0b');
-      ui.chip.setBar(Math.min(100, (ringRpm / 500) * 100), '#f59e0b');
-      ui.chip.set('key', KEY_NAMES[sys.key]);
-      ui.chip.set('bat', sys.batteryVolts.toFixed(1) + ' V');
-      ui.chip.setStatus(sys.pinionExtend > 0.85 ? 'Engaged' : 'Clear', sys.pinionExtend > 0.85);
+      ui.monitor.update({
+        value: { text: String(Math.round(ringRpm)), unit: 'rpm', color: '#f59e0b', bar: Math.min(100, (ringRpm / 500) * 100), barColor: '#f59e0b' },
+        rows: { key: KEY_NAMES[sys.key], bat: sys.batteryVolts.toFixed(1) + ' V' },
+        status: [sys.pinionExtend > 0.85 ? 'Engaged' : 'Clear', sys.pinionExtend > 0.85]
+      });
     } else {
       if (ssR1l) ssR1l.textContent = 'State';
       if (ssR2l) ssR2l.textContent = 'Combustion';
@@ -1622,16 +1411,14 @@ import { Parts } from './components.js';
       if (ssR1)  ssR1.textContent = sys.engineRunning ? 'RUNNING' : (sys.key === 3 ? 'CRANKING' : 'STOPPED');
       if (ssR2)  ssR2.textContent = Math.round(sys.combustion * 100) + ' %';
       if (ssR3)  ssR3.textContent = Math.round(sys.coolantTemp) + ' °C';
-      ui.chip.setBig(rpm, 'rpm');
-      ui.chip.setColor(sys.engineRunning ? '#22c55e' : '#38bdf8');
-      ui.chip.setBar(Math.min(100, (rpm / TUNING.redlineRpm) * 100), sys.engineRunning ? '#22c55e' : '#38bdf8');
-      ui.chip.set('key', KEY_NAMES[sys.key]);
-      ui.chip.set('bat', sys.batteryVolts.toFixed(1) + ' V');
-      ui.chip.setStatus(sys.engineRunning ? 'Running' : (sys.key === 3 ? 'Cranking' : 'Stopped'), sys.engineRunning);
+      ui.monitor.update({
+        value: { text: String(rpm), unit: 'rpm', color: (sys.engineRunning ? '#22c55e' : '#38bdf8') || '', bar: Math.min(100, (rpm / TUNING.redlineRpm) * 100), barColor: sys.engineRunning ? '#22c55e' : '#38bdf8' },
+        rows: { key: KEY_NAMES[sys.key], bat: sys.batteryVolts.toFixed(1) + ' V' },
+        status: [sys.engineRunning ? 'Running' : (sys.key === 3 ? 'Cranking' : 'Stopped'), !!(sys.engineRunning)]
+      });
     }
 
-    if (mVoltsEl) mVoltsEl.innerHTML = sys.batteryVolts.toFixed(1) + '<span>V</span>';
-    if (mAmpsEl)  mAmpsEl.innerHTML  = Math.round(sys.currentDraw) + '<span>A</span>';
+    ui.monitor.update({ rows: { amps: Math.round(sys.currentDraw) + ' A' } });
     if (kpLedEl)  kpLedEl.classList.toggle('on', sys.key >= 2 || sys.engineRunning);
   }
 
@@ -1657,8 +1444,8 @@ import { Parts } from './components.js';
     keyBladeGroup.rotation.z = KEY_ANGLE_PER_STATE[0];
     catchFlash.visible = false;
     catchFlash.material.opacity = 0;
-    for (let i = 0; i < HISTORY_LEN; i++) { history[i].e = 0; history[i].s = 0; }
-    histWrite = 0;
+    histAccum = 0;
+    ui.monitor.update({ traces: { speed: null } });
     updateKeyUI();
     applyMode(mode, true);
   }
@@ -1691,7 +1478,7 @@ import { Parts } from './components.js';
      MAIN LOOP
      ═══════════════════════════════════════════════════════════ */
   const clock = new THREE.Clock();
-  let liveT = 0, stripT = 0;
+  let liveT = 0;
   let _frameErrorLogged = false;
 
   function animate() {
@@ -1750,9 +1537,6 @@ import { Parts } from './components.js';
 
       liveT += dt;
       if (liveT > 0.12) { liveT = 0; updateLivePanel(); updateAudio(); }
-
-      stripT += dt;
-      if (stripT > 0.05) { stripT = 0; drawStrip(); }
 
       renderer.render(scene, camera);
     } catch (err) {

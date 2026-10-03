@@ -5,53 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Oil Pump Types — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #84cc16; }
 html.light-theme { --al-accent: color-mix(in oklch, #84cc16 68%, black); }
 
-/* ── module-local UI: extra controls + rolling graph ─────────────── */
-#oilp-panel{
-  position:fixed; left:12px; top:12px; z-index:30;
-  width:264px; max-width:46vw;
-  padding:10px 12px 12px;
-  border:1px solid var(--border,#333);
-  border-radius:10px;
-  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
-  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
-  box-shadow:0 8px 28px rgba(0,0,0,.38);
-  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
-  color:var(--text-dim,#9aa4b2);
-  max-height:calc(100dvh - 24px); overflow:auto;
-}
-#oilp-panel.folded .oilp-body{ display:none; }
-.oilp-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-.oilp-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
-.oilp-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
-.oilp-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.oilp-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
-.oilp-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
-  text-transform:uppercase; color:var(--text-mute,#6b7280); }
-.oilp-w b{ color:var(--text,#e5e7eb); font-weight:700; }
-#oilp-panel .al-range{ height:22px; }
-#oilp-panel .al-sel{ min-height:32px; font-size:11px; }
-.oilp-btns{ display:flex; gap:6px; margin-bottom:8px; }
-.oilp-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
-.oilp-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.oilp-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(132,204,22,.14); }
-#oilp-cold{ color:#38bdf8; border-color:rgba(56,189,248,.4); }
-#oilp-cold:hover{ border-color:#38bdf8; }
-.oilp-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
-  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
-  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
-.oilp-warn.show{ display:block; }
-#oilp-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
-  border-radius:6px; background:rgba(0,0,0,.28); }
-.oilp-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
-.oilp-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
-@media (max-width:700px){ #oilp-panel{ width:208px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -69,7 +28,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #84cc16 68%, black); }
 </script>
 
 <script type="module">
-import { runGuidedModule } from './components.js';
+import { runGuidedModule, controls } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
 const CFG = {
@@ -81,7 +40,11 @@ const CFG = {
   "camPos": [4.6, 2.4, 6.8],
   "target": [0.6, 0, 0],
   "floorY": -3.1,
-  "ctl": { "label": "Engine speed", "val": 35, "caption": "Crank rpm" },
+  ctls: [   /* Phase 3: sliders live in the dock as axis controls; ctls[0] (id 'ctl') = the main 0-100 % control */
+    { id:'ctl', label:"Engine speed", caption:"Crank rpm", preset:'percent', def:35 },
+    { id:'load', preset:'load', def:30, label:'Engine load', onChange:(v)=>{ S.load = v / 100; } },
+    { id:'wear', preset:'percent', def:0, label:'Bearing wear', onChange:(v)=>{ S.wear = v / 100; } },
+  ],
   "chipLabel": "Oil pressure",
   "rows": [["flow", "Pump flow"], ["relief", "Relief valve"]],
   "ro": [
@@ -223,142 +186,31 @@ const S = {
   speed: 1
 };
 
-const panel = document.createElement('div');
-panel.id = 'oilp-panel';
-let faultOptions = '';
-for (const id in FAULT_INFO) {
-  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
-}
-panel.innerHTML =
-  '<div class="oilp-h"><span>Oil pump simulation</span><button type="button" id="oilp-fold" aria-label="Collapse controls">&#8211;</button></div>' +
-  '<div class="oilp-body">' +
-    '<div class="oilp-w"><label for="oilp-type">Pump type</label>' +
-      '<select id="oilp-type" class="al-sel" aria-label="Pump type">' +
-        '<option value="gear" selected>External gear</option>' +
-        '<option value="gerotor">Gerotor</option>' +
-        '<option value="vane">Vane</option>' +
-      '</select></div>' +
-    '<div class="oilp-w"><label for="oilp-load">Engine load <b id="oilp-load-v">30 %</b></label>' +
-      '<input id="oilp-load" class="al-range" type="range" min="0" max="100" step="1" value="30" aria-label="Engine load"></div>' +
-    '<div class="oilp-w"><label for="oilp-wear">Bearing wear <b id="oilp-wear-v">0 %</b></label>' +
-      '<input id="oilp-wear" class="al-range" type="range" min="0" max="100" step="1" value="0" aria-label="Bearing wear"></div>' +
-    '<div class="oilp-w"><label for="oilp-fault">Fault injection</label>' +
-      '<select id="oilp-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
-    '<div class="oilp-w"><label>Simulation speed</label>' +
-      '<div class="oilp-btns" id="oilp-speed">' +
-        '<button type="button" data-sp="1" class="on">1&times;</button>' +
-        '<button type="button" data-sp="5">5&times;</button>' +
-        '<button type="button" data-sp="20">20&times;</button>' +
-      '</div></div>' +
-    '<div class="oilp-btns">' +
-      '<button type="button" id="oilp-cold">Cold start</button>' +
-      '<button type="button" id="oilp-reset">Reset</button>' +
-    '</div>' +
-    '<div class="oilp-warn" id="oilp-warn"></div>' +
-    '<canvas id="oilp-graph" width="480" height="150" aria-label="Oil pressure and temperature history"></canvas>' +
-    '<div class="oilp-key"><span><i style="background:#84cc16"></i>Pressure bar</span><span><i style="background:#fb923c"></i>Oil &deg;C</span></div>' +
-  '</div>';
-document.body.appendChild(panel);
 
-const elFold  = document.getElementById('oilp-fold');
-const elType  = document.getElementById('oilp-type');
-const elLoad  = document.getElementById('oilp-load');
-const elLoadV = document.getElementById('oilp-load-v');
-const elWear  = document.getElementById('oilp-wear');
-const elWearV = document.getElementById('oilp-wear-v');
-const elFault = document.getElementById('oilp-fault');
-const elSpeed = document.getElementById('oilp-speed');
-const elCold  = document.getElementById('oilp-cold');
-const elReset = document.getElementById('oilp-reset');
-const elWarn  = document.getElementById('oilp-warn');
-const gcv     = document.getElementById('oilp-graph');
-const gctx    = gcv.getContext('2d');
-
-elFold.addEventListener('click', () => {
-  panel.classList.toggle('folded');
-  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
-});
-elType.addEventListener('change', () => { S.type = elType.value; });
-elLoad.addEventListener('input', () => {
-  S.load = (Number(elLoad.value) || 0) / 100;
-  elLoadV.textContent = Math.round(S.load * 100) + ' %';
-});
-elWear.addEventListener('input', () => {
-  S.wear = (Number(elWear.value) || 0) / 100;
-  elWearV.textContent = Math.round(S.wear * 100) + ' %';
-});
-elFault.addEventListener('change', () => { S.fault = elFault.value; });
-elSpeed.addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-sp]');
-  if (!b) return;
-  S.speed = Number(b.dataset.sp) || 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
-});
-elCold.addEventListener('click', () => { sim.Toil = OIL_COLD; });
 
 /* ── simulation state (module level so Reset can reach it) ───────── */
-const GRAPH_N = 150;
+/* Phase 7a: the history lives in the Monitor (CFG.traces); the module only hands over one normalised sample
+   per ~140 ms while the sim runs (0..100 % of each old axis range) and the current warning sentence. */
+let traceSample = null, traceClear = false, warnText = '';
+const traceN = (v, lo, hi) => Math.round(clampN((v - lo) / (hi - lo), 0, 1) * 1000) / 10;
 const sim = {
   Toil: 92,
-  lastT: -1,
-  samples: []
+  lastT: -1
 };
 
 function resetModel() {
   sim.Toil = 92;
   sim.lastT = -1;
-  sim.samples.length = 0;
+  traceClear = true;                  /* Monitor trace is cleared on the next update */
 }
 function resetAll() {
-  S.load = 0.30; elLoad.value = 30; elLoadV.textContent = '30 %';
-  S.wear = 0.00; elWear.value = 0;  elWearV.textContent = '0 %';
-  S.type = 'gear'; elType.value = 'gear';
-  S.fault = 'none'; elFault.value = 'none';
+  S.load = 0.30;
+  S.wear = 0.00;
+  S.type = 'gear';
+  S.fault = 'none';
   S.speed = 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
   resetModel();
-  const ctlEl = document.getElementById('ctl');
-  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
-}
-elReset.addEventListener('click', resetAll);
-
-/* ── rolling graph ───────────────────────────────────────────────── */
-function drawGraph() {
-  const W = gcv.width, Hh = gcv.height;
-  gctx.clearRect(0, 0, W, Hh);
-  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
-  gctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    const y = Math.round(Hh * i / 4) + 0.5;
-    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
-  }
-  const n = sim.samples.length;
-  if (n < 2) return;
-  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
-  const yP  = (v) => Hh - clampN(v / 6, 0, 1) * (Hh - 6) - 3;
-  const yT  = (v) => Hh - clampN((v - 0) / 140, 0, 1) * (Hh - 6) - 3;
-
-  gctx.beginPath();
-  gctx.moveTo(xAt(0), Hh);
-  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yP(sim.samples[i].P));
-  gctx.lineTo(xAt(n - 1), Hh);
-  gctx.closePath();
-  gctx.fillStyle = 'rgba(132,204,22,0.16)';
-  gctx.fill();
-
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yP(sim.samples[i].P);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#84cc16'; gctx.lineWidth = 1.6; gctx.stroke();
-
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yT(sim.samples[i].T);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#fb923c'; gctx.lineWidth = 1.4; gctx.stroke();
+  controls.resetAll();                 /* every axis back to its default (store -> onChange -> S) */
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -562,11 +414,7 @@ function build(H){
    const now = performance.now();
    if (now - lastDom > 140) {
      lastDom = now;
-     if (dt > 0) {
-       sim.samples.push({ P: p, T: sim.Toil });
-       if (sim.samples.length > GRAPH_N) sim.samples.shift();
-       drawGraph();
-     }
+     if (dt > 0) traceSample = [traceN(p, 0, 6), traceN(sim.Toil, 0, 140)];
      let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
      if (!warn) {
        if (aer > 0.35) {
@@ -579,8 +427,7 @@ function build(H){
          warn = 'Oil temperature ' + sim.Toil.toFixed(0) + ' \u00B0C - the oil is thinning fast. Reduce load and let it cool.';
        }
      }
-     elWarn.textContent = warn;
-     elWarn.classList.toggle('show', !!warn);
+     warnText = warn;
    }
 
    /* ── 10. readouts ─────────────────────────────────────────── */
@@ -592,6 +439,10 @@ function build(H){
    const aState    = aer > 0.40 ? 'crit' : (aer > 0.15 ? 'warn' : 'ok');
    const cState    = clr > 0.085 ? 'warn' : 'ok';
    const sState    = (aer > 0.40 || p < 1.0) ? 'crit' : ((p < 2.0 || pres.open) ? 'warn' : 'ok');
+
+   let tr;
+   if (traceClear) { traceClear = false; traceSample = null; tr = { hist: null }; }
+   else if (traceSample) { tr = { hist: traceSample }; traceSample = null; }
 
    return {
      big: p.toFixed(2),
@@ -612,13 +463,33 @@ function build(H){
        type:   [TYPE_NAME[type], ''],
        state:  [stateTxt, sState]
      },
-     status: [stateTxt, true],
+     status: [warnText || stateTxt, true, warnText ? 'warn' : ''],
+      traces: tr,
      ctl: rpm.toFixed(0) + ' rpm'
    };
   }
  };
 }
 
+/* Phase 6: every option / action lives in the dock (controls.js), nothing interactive is left in the panel.
+   'Time scale' is the module's own physics time-compression (thermal warm-up); the menu's Sim speed is separate. */
+CFG.options = [
+  { id: "type", type: 'choice', layout: 'select', label: "Pump type", options: [{ id: "gear", label: "External gear" }, { id: "gerotor", label: "Gerotor" }, { id: "vane", label: "Vane" }], def: "gear",
+    onChange: (id) => { S.type = id; } },
+  { id: "fault", type: 'choice', layout: 'select', label: "Fault injection", options: Object.keys(FAULT_INFO).map(id => ({ id, label: FAULT_INFO[id].label })), def: 'none',
+    onChange: (id) => { S.fault = id; } },
+  { id: 'timeScale', type: 'choice', layout: 'segmented', label: 'Time scale', options: [{ id: '1', label: '1×' }, { id: '5', label: '5×' }, { id: '20', label: '20×' }], def: '1',
+    onChange: (id) => { S.speed = Number(id) || 1; } },
+  { id: "cold", type: 'action', label: "Cold start",
+    onAction: () => { sim.Toil = OIL_COLD; } }
+];
+CFG.onReset = resetAll;      /* the dock Reset runs the module reset (model + every control) */
+/* Phase 7a: the old history canvas is a Monitor trace. Both series are drawn as 0..100 % of their old axis ranges. */
+CFG.traces = [{ id: 'hist', label: 'Oil pressure and temperature history (% of full scale)', min: 0, max: 100, length: 150,
+  series: [
+    { id: 'a', label: 'Pressure bar', color: 'var(--accent)' },
+    { id: 'b', label: 'Oil \u00B0C', color: 'var(--warn)' }
+  ] }];
 runGuidedModule(CFG, build);
 </script>
 </body>

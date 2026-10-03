@@ -139,7 +139,9 @@ export function createLabelSystem(options = {}) {
 
   const L = new Map();          // id → label record
   let order = 0;
-  let density = [0, 1, 2].includes(options.density) ? options.density : DENSITY.ALL;
+  /* a level already chosen before the label system existed (kit.js: Key on phones) is kept */
+  let density = [0, 1, 2].includes(options.density) ? options.density
+              : [0, 1, 2].includes(window.__autolabDensity) ? window.__autolabDensity : DENSITY.ALL;
   let dirtyRank = true;
   let raf = 0, lastNow = 0;
   let lastSig = '', lastSolve = -Infinity;
@@ -213,10 +215,12 @@ export function createLabelSystem(options = {}) {
     if (t - bandAt < 250 && bandH === H) return bandCache;
     bandAt = t; bandH = H;
     let top = 8, bottom = H - 8;
+    /* #labels-root is clipped to the stage (below the header, above the dock), so measure in ITS coordinates */
+    const oy = root.getBoundingClientRect().top || 0;
     const bumpTop = id => { const el = document.getElementById(id); if (!el) return;
-      const r = el.getBoundingClientRect(); if (r.height > 4) top = Math.max(top, r.bottom + 10); };
+      const r = el.getBoundingClientRect(); if (r.height > 4) top = Math.max(top, r.bottom - oy + 10); };
     const bumpBot = id => { const el = document.getElementById(id); if (!el) return;
-      const r = el.getBoundingClientRect(); if (r.height > 4) bottom = Math.min(bottom, r.top - 10); };
+      const r = el.getBoundingClientRect(); if (r.height > 4) bottom = Math.min(bottom, r.top - oy - 10); };
     if (Array.isArray(options.band)) { top = options.band[0]; bottom = options.band[1]; }
     else {
       bumpTop('ui-top-stack'); bumpTop('ui-slot-tl'); bumpTop('ui-slot-tr');

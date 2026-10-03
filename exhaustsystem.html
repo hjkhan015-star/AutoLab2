@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0a0d13">
 <title>Exhaust System — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <style>
   /* ═══════ PANEL READOUT INTERIOR — live rows ═══════ */
   #ex-readout {
@@ -39,22 +40,6 @@
     margin: 12px 0 5px;
   }
   #cat-chem .cc-title:first-child { margin-top: 0; }
-  #cat-chem .cc-seg { display: flex; gap: 4px; }
-  #cat-chem .lam-btn {
-    flex: 1; padding: 6px 2px; border-radius: 8px;
-    background: var(--surface-2, rgba(255,255,255,.06));
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    color: var(--text, #e5e7eb);
-    font-size: 11px; font-weight: 800; line-height: 1.25;
-    display: flex; flex-direction: column; align-items: center;
-  }
-  #cat-chem .lam-btn small {
-    font-size: 10px; font-weight: 600; opacity: .7;
-    font-family: var(--font-mono);
-  }
-  #cat-chem .lam-btn.active { color: #0b0e14; border-color: transparent; background: #22c55e; }
-  #cat-chem .lam-btn[data-lam="rich"].active { background: #ef4444; }
-  #cat-chem .lam-btn[data-lam="lean"].active { background: #3b82f6; }
   #cat-chem .cc-note { margin-top: 7px; line-height: 1.5; }
   #cat-chem .cc-eff {
     display: grid; grid-template-columns: 50px 1fr 104px;
@@ -100,98 +85,8 @@
     background: currentColor;
   }
 
-  /* ═══════ WIDGET — sound panel (bottom-left) ═══════ */
-  #sound-panel {
-    display: flex; flex-direction: column; gap: 8px;
-    background: rgba(10,14,20,.88);
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    border-radius: 14px; padding: 10px 12px;
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 10px 28px rgba(0,0,0,.5);
-    min-width: 210px; color: var(--text, #e5e7eb);
-  }
-  html.light-theme #sound-panel {
-    background: rgba(255,255,255,.95);
-    border-color: rgba(15,23,42,.14); color: #0a0d13;
-  }
-  #sound-toggle {
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-    padding: 9px 12px; border-radius: 10px;
-    background: rgba(239,68,68,.14);
-    border: 1px solid rgba(239,68,68,.4);
-    color: #fca5a5;
-    font-size: 11px; font-weight: 800; letter-spacing: .08em;
-    text-transform: uppercase; cursor: pointer;
-    transition: all .2s; font-family: inherit;
-  }
-  #sound-toggle svg { width: 15px; height: 15px; }
-  #sound-toggle:hover { background: rgba(239,68,68,.22); }
-  #sound-toggle.on {
-    background: linear-gradient(135deg,#22c55e,#4ade80);
-    color: #0a1a0e; border-color: transparent;
-    box-shadow: 0 0 14px rgba(34,197,94,.5);
-  }
-  #muffler-types { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-  .muf-btn {
-    padding: 7px 4px; border-radius: 8px;
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    background: rgba(255,255,255,.04); color: var(--text-dim, #94a3b8);
-    font-size: 10px; font-weight: 800; letter-spacing: .03em;
-    text-transform: uppercase; cursor: pointer;
-    transition: all .18s; font-family: inherit; line-height: 1.15;
-  }
-  .muf-btn:hover { color: var(--text, #e5e7eb); border-color: rgba(255,255,255,.25); }
-  .muf-btn.active {
-    background: linear-gradient(135deg,#f59e0b,#fbbf24);
-    color: #0a0d13; border-color: transparent;
-    box-shadow: 0 3px 12px rgba(245,158,11,.35);
-  }
-  html.light-theme .muf-btn {
-    background: rgba(15,23,42,.05);
-    border-color: rgba(15,23,42,.12); color: #475569;
-  }
-  #spectrum-strip {
-    width: 100%; height: 46px; border-radius: 6px;
-    background: rgba(0,0,0,.35); display: block;
-  }
-  html.light-theme #spectrum-strip { background: rgba(15,23,42,.06); }
-  #spectrum-label {
-    display: flex; justify-content: space-between;
-    font-size: 10px; letter-spacing: .08em; color: #64748b;
-    text-transform: uppercase; font-weight: 800;
-  }
-
   /* ═══════ Toolbar extras config switcher ═══════ */
-  .cfg-group {
-    display: flex; align-items: center; gap: 4px;
-    padding-left: 8px; margin-left: 4px;
-    border-left: 1px solid var(--border, rgba(255,255,255,.10));
-  }
-  .cfg-arrow {
-    width: 22px; height: 22px; border-radius: 50%;
-    border: none; background: rgba(255,255,255,.08);
-    color: var(--text, #e5e7eb); font-size: 14px; line-height: 1;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-family: inherit; padding: 0;
-    transition: background .15s, color .15s;
-  }
-  .cfg-arrow:hover, .cfg-arrow:active {
-    background: var(--accent, #38bdf8); color: #0b0e14;
-  }
-  #cfg-label {
-    min-width: 96px; text-align: center; white-space: nowrap;
-    font-size: 10.5px; font-weight: 700; letter-spacing: .02em;
-    color: var(--text, #e5e7eb);
-    font-family: var(--font-mono);
-  }
-  html.light-theme .cfg-arrow { background: rgba(15,23,42,.08); color: #0a0d13; }
-  html.light-theme #cfg-label { color: #0a0d13; }
-  @media (max-width: 600px) {
-    .cfg-arrow { width: 19px; height: 19px; font-size: 12px; }
-    #cfg-label { min-width: 76px; font-size: 10px; }
-    #sound-panel { min-width: 180px; padding: 8px 10px; gap: 6px; }
-    .muf-btn { font-size: 10px; padding: 6px 3px; }
-    #spectrum-strip { height: 38px; }
+  html.light-theme  html.light-theme  @media (max-width: 600px) {
   }
 </style>
 </head>
@@ -212,6 +107,7 @@
   import * as Base from './kit.js';
 import { Parts } from './components.js';
   import { UI } from './kit.js';
+  import { controls as ctl } from './controls.js';        /* shared control registry */
 
   const TAU = Base.TAU;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -921,9 +817,8 @@ import { Parts } from './components.js';
   const backpressure = () => sndMode === 'silencer' ? 95 : 18;
   const bpLossFactor = () => sndMode === 'silencer' ? 0.035 : 0.0;
 
-  /* Sound widget refs */
+  /* Spectrum (7b2): a frequency picture, not a time series → a stage canvas */
   let specCanvas = null, specCtx = null, specW = 0, specH = 0;
-  let soundToggleEl = null, soundLabelEl = null, specNoteEl = null;
 
   const ui = UI.create({
     moduleId: 'exhaustsystem',
@@ -942,16 +837,9 @@ import { Parts } from './components.js';
       desc: MODE_INFO.principle.desc
     },
 
-    chip: {
-      label: 'Noise reduction',
-      value: 0,
-      unit:  '% cut',
-      bar:   true,
-      rows: [
-        { id: 'eng',  label: 'Engine',  value: '— rpm' },
-        { id: 'bp',   label: 'Back',    value: '— mbar' }
-      ],
-      status: { text: 'Silenced', on: true }
+    monitor: {
+      config: { label: 'Noise reduction', value: { label: 'Noise reduction', unit: '% cut', max: 100, bar: true }, rows: [['eng', 'Engine'], ['bp', 'Back']], status: { text: 'Silenced' } },
+      initial: { value: { text: '0', unit: '% cut' }, rows: { eng: '— rpm', bp: '— mbar' }, status: ['Silenced', true] }
     },
 
     toolbar: {
@@ -960,32 +848,30 @@ import { Parts } from './components.js';
       labels: true, gas: true
     },
 
-    widgets: {
-      bl: {
-        caption: 'Acoustic',
-        html: `
-          <div id="sound-panel">
-            <button id="sound-toggle" aria-pressed="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 5L6 9H2v6h4l5 4V5z"/>
-                <path d="M15.5 9a4.5 4.5 0 0 1 0 6"/>
-                <path d="M18 6.5a8 8 0 0 1 0 11"/>
-              </svg>
-              <span id="sound-label">Enable Sound</span>
-            </button>
-            <div id="muffler-types">
-              <button class="muf-btn active" data-type="silencer">With Silencer</button>
-              <button class="muf-btn" data-type="straight">Straight Pipe</button>
-            </div>
-            <div>
-              <div id="spectrum-label"><span>Acoustic spectrum</span><span id="spec-note">Silencer</span></div>
-              <canvas id="spectrum-strip" aria-label="Live acoustic spectrum"></canvas>
-            </div>
-          </div>
-        `,
-        onMount: (el) => wireSoundWidget(el)
-      }
-    }
+    /* Phase 6: sound, muffler, mixture and view are controls.js controls in the dock options row */
+    options: [
+      { id: 'sound', type: 'toggle', label: 'Sound', ariaLabel: 'Enable engine sound',
+        onChange: (on) => {
+          if (on && !SND.ready) initAudio();
+          if (on && !SND.ready) { ctl.set('sound', false); return; }          /* audio unavailable: stay off */
+          if (!SND.ready) return;
+          SND.on = on;
+          if (on) { SND.ctx.resume(); }
+          else {
+            SND.master.gain.setTargetAtTime(0, SND.ctx.currentTime, 0.05);
+            setTimeout(() => { if (!SND.on && SND.ctx) SND.ctx.suspend(); }, 120);
+          }
+          updateAudio();
+        } },
+      { id: 'muffler', type: 'choice', layout: 'segmented', label: 'Muffler', ariaLabel: 'Muffler type',
+        options: [{ id: 'silencer', label: 'Silencer' }, { id: 'straight', label: 'Straight pipe' }],
+        onChange: (id) => setSndMode(id) },
+      { id: 'lambda', type: 'choice', layout: 'segmented', label: 'Mixture', ariaLabel: 'Air-fuel mixture lambda',
+        options: [{ id: 'rich', label: 'Rich 0.97' }, { id: 'stoich', label: 'Stoich 1.00' }, { id: 'lean', label: 'Lean 1.03' }], def: 'stoich',
+        onChange: (id) => setCatLam(id) },
+      { id: 'config', type: 'choice', layout: 'select', label: 'View', ariaLabel: 'Exhaust view',
+        options: [{ id: 'principle', label: 'Principle' }, { id: 'compare', label: 'Compare' }, { id: 'catalyst', label: 'Catalyst' }, { id: 'full', label: 'Full System' }] }
+    ]
   });
 
   /* Panel readout refs */
@@ -1053,12 +939,6 @@ import { Parts } from './components.js';
     return { text: 'In the λ window', on: true };
   }
 
-  function setChipLabel(text) {
-    const root = ui.chip && ui.chip.root;
-    const el = root && root.querySelector('.ui-chip-label');
-    if (el && el.textContent !== text) el.textContent = text;
-  }
-
   const lightOf = catLight;
   const CAT_GROUPS = [
     { name: 'Oxidation · Pt / Pd', color: '#ef4444', rows: [
@@ -1097,12 +977,6 @@ import { Parts } from './components.js';
     });
   });
   catChemEl.innerHTML = `
-    <div class="cc-title">Air–fuel mixture (λ)</div>
-    <div class="cc-seg">
-      <button class="lam-btn" data-lam="rich">Rich<small>λ 0.97</small></button>
-      <button class="lam-btn active" data-lam="stoich">Stoich<small>λ 1.00</small></button>
-      <button class="lam-btn" data-lam="lean">Lean<small>λ 1.03</small></button>
-    </div>
     <div class="cc-note" id="cc-note">${CAT_NOTES.stoich}</div>
     <div class="cc-title">Conversion · tailpipe</div>
     <div class="cc-eff"><span>CO</span><div class="cc-bar" style="color:#ef4444"><i data-eff="co"></i></div><b data-val="co"></b></div>
@@ -1116,10 +990,9 @@ import { Parts } from './components.js';
   const ccNote = catChemEl.querySelector('#cc-note');
   function setCatLam(key) {
     catLam = key;
-    catChemEl.querySelectorAll('.lam-btn').forEach(b => b.classList.toggle('active', b.dataset.lam === key));
+    if (ctl.get('lambda') !== ['rich', 'stoich', 'lean'].indexOf(key)) ctl.set('lambda', ['rich', 'stoich', 'lean'].indexOf(key));
     if (ccNote) ccNote.textContent = CAT_NOTES[key];
   }
-  catChemEl.querySelectorAll('.lam-btn').forEach(b => b.addEventListener('click', () => setCatLam(b.dataset.lam)));
 
   function updateCatChemUI() {
     const q = (sel) => catChemEl.querySelector(sel);
@@ -1138,60 +1011,14 @@ import { Parts } from './components.js';
   }
 
 
-  function wireSoundWidget(root) {
-    soundToggleEl = root.querySelector('#sound-toggle');
-    soundLabelEl  = root.querySelector('#sound-label');
-    specNoteEl    = root.querySelector('#spec-note');
-    specCanvas    = root.querySelector('#spectrum-strip');
-    specCtx       = specCanvas ? specCanvas.getContext('2d') : null;
-
-    soundToggleEl.addEventListener('click', () => {
-      if (!SND.ready) initAudio();
-      if (!SND.ready) return;
-      SND.on = !SND.on;
-      soundToggleEl.setAttribute('aria-pressed', SND.on ? 'true' : 'false');
-      if (SND.on) {
-        SND.ctx.resume();
-        soundToggleEl.classList.add('on');
-        soundLabelEl.textContent = 'Mute Sound';
-      } else {
-        soundToggleEl.classList.remove('on');
-        soundLabelEl.textContent = 'Enable Sound';
-        SND.master.gain.setTargetAtTime(0, SND.ctx.currentTime, 0.05);
-        setTimeout(() => { if (!SND.on && SND.ctx) SND.ctx.suspend(); }, 120);
-      }
-      updateAudio();
-    });
-
-    root.querySelectorAll('.muf-btn').forEach(btn => {
-      btn.addEventListener('click', () => setSndMode(btn.dataset.type));
-    });
+  function wireSoundWidget() {
+    specCanvas = ui.stage.canvas({ id: 'spectrum', label: 'Acoustic spectrum · Silencer', width: 440, height: 92, corner: 'bl' });
+    specCtx    = specCanvas ? specCanvas.getContext('2d') : null;
 
     if (window.ResizeObserver) new ResizeObserver(sizeSpectrum).observe(specCanvas);
     sizeSpectrum();
   }
-
-  /* ═══════════════════════════════════════════════════════════
-     Config switcher — toolbar extras
-     ═══════════════════════════════════════════════════════════ */
-  (function buildConfigSwitcher() {
-    const extras = document.getElementById('toolbar-extras');
-    if (!extras) return;
-    const cfgGroup = document.createElement('div');
-    cfgGroup.className = 'cfg-group';
-    cfgGroup.setAttribute('role', 'group');
-    cfgGroup.setAttribute('aria-label', 'Exhaust view');
-    cfgGroup.innerHTML = `
-      <button class="cfg-arrow" id="cfg-prev" type="button" aria-label="Previous view">‹</button>
-      <span id="cfg-label">Principle</span>
-      <button class="cfg-arrow" id="cfg-next" type="button" aria-label="Next view">›</button>
-    `;
-    extras.appendChild(cfgGroup);
-  })();
-
-  const cfgLabelEl = document.getElementById('cfg-label');
-  const cfgPrevEl  = document.getElementById('cfg-prev');
-  const cfgNextEl  = document.getElementById('cfg-next');
+  wireSoundWidget();
 
   const CONFIG_ORDER = ['principle', 'compare', 'catalyst', 'full'];
   const CONFIG_LABELS = {
@@ -1219,7 +1046,7 @@ import { Parts } from './components.js';
     catalystView.visible  = (m === 'catalyst');
     fullView.visible      = (m === 'full');
 
-    if (cfgLabelEl) cfgLabelEl.textContent = CONFIG_LABELS[m];
+    ctl.set('config', CONFIG_ORDER.indexOf(m));          /* keep the dock choice in step */
 
     const info = MODE_INFO[m];
     if (badgeTextEl) badgeTextEl.textContent = info.badge;
@@ -1243,21 +1070,13 @@ import { Parts } from './components.js';
     else                       animateCamera([4.0, 2.6, 7.6],  [0.10, 0.05, 0]);
   }
 
-  function stepConfig(dir) {
-    const i = CONFIG_ORDER.indexOf(mode);
-    applyMode(CONFIG_ORDER[(i + dir + CONFIG_ORDER.length) % CONFIG_ORDER.length]);
-  }
-  if (cfgPrevEl) cfgPrevEl.addEventListener('click', () => stepConfig(-1));
-  if (cfgNextEl) cfgNextEl.addEventListener('click', () => stepConfig(1));
+  ctl.on('config', (i) => { const m = CONFIG_ORDER[i]; if (m !== mode) applyMode(m); });
 
   function setSndMode(m) {
     sndMode = m;
     SND.mode = m;
-    if (panelBody) {
-      panelBody.querySelectorAll('.muf-btn').forEach(b =>
-        b.classList.toggle('active', b.dataset.type === m));
-    }
-    if (specNoteEl) specNoteEl.textContent = SND_MODES[m].name;
+    ctl.set('muffler', m === 'straight' ? 1 : 0);        /* keep the dock choice in step (bridge setMuffler) */
+    ui.stage.caption('spectrum', 'Acoustic spectrum · ' + SND_MODES[m].name);
     principleTube.group.traverse(o => {
       if (o === principleTube.group) return;
       if (o.material === M.packing) o.visible = (m === 'silencer');
@@ -1641,10 +1460,7 @@ import { Parts } from './components.js';
     const sm = SND_MODES[sndMode];
     const noise = Math.round(sm.dB + 10 * Math.log2(Math.max(0.3, rpm / 2880)) + (isCold() ? 3 : 0));
     const rpmTxt = Math.round(rpm / 50) * 50;
-    ui.toolbar.setRpmLabel(`~${rpmTxt} rpm`);
-
-    ui.chip.set('eng', rpmTxt + ' rpm');
-    ui.chip.set('bp', Math.round(backpressure()) + ' mbar');
+    ui.monitor.update({ rows: { eng: rpmTxt + ' rpm', bp: Math.round(backpressure()) + ' mbar' } });
 
     if (mode === 'principle') {
       const aIn  = clamp(principleTube.bars[0].fill.scale.y - 0.08, 0, 1);
@@ -1657,11 +1473,11 @@ import { Parts } from './components.js';
       if (exR1)  exR1.textContent = Math.round(aIn * 100) + ' %';
       if (exR2)  exR2.textContent = Math.round(aMid * 100) + ' %';
       if (exR3)  exR3.textContent = `${Math.round(aOut * 100)} % · ${noise} dB`;
-      ui.chip.setBig(cut, '% cut');
-      ui.chip.setColor('#0ea5e9');
-      ui.chip.setBar(cut, '#0ea5e9');
-      setChipLabel('Noise reduction');
-      ui.chip.setStatus('Silenced', true);
+      ui.monitor.update({
+        label: 'Noise reduction',
+        value: { text: String(cut), unit: '% cut', color: '#0ea5e9', bar: cut, barColor: '#0ea5e9' },
+        status: ['Silenced', true]
+      });
     } else if (mode === 'compare') {
       const aTop = clamp(compareTopTube.bars[2].fill.scale.y - 0.08, 0, 1);
       const aBot = clamp(compareBotTube.bars[2].fill.scale.y - 0.08, 0, 1);
@@ -1672,14 +1488,13 @@ import { Parts } from './components.js';
       if (exR1)  exR1.textContent = Math.round(aTop * 100) + ' %';
       if (exR2)  exR2.textContent = Math.round(aBot * 100) + ' %';
       if (exR3)  exR3.textContent = `~${SND_MODES.straight.dB - SND_MODES.silencer.dB} dB`;
-      ui.chip.setBig(delta, 'pts');
-      ui.chip.setColor('#f59e0b');
-      ui.chip.setBar(Math.min(100, Math.max(0, delta)), '#f59e0b');
-      setChipLabel('Silencer advantage');
-      ui.chip.setStatus('Compare', true);
+      ui.monitor.update({
+        label: 'Silencer advantage',
+        value: { text: String(delta), unit: 'pts', color: '#f59e0b', bar: Math.min(100, Math.max(0, delta)), barColor: '#f59e0b' },
+        status: ['Compare', true]
+      });
     } else if (mode === 'catalyst') {
       const conv = Math.round((catEff.co + catEff.hc + catEff.nox) / 3 * 100);
-      setChipLabel('Pollutant conversion');
       updateCatChemUI();
       if (exR1l) exR1l.textContent = 'Engine RPM';
       if (exR2l) exR2l.textContent = 'Substrate temp';
@@ -1687,10 +1502,12 @@ import { Parts } from './components.js';
       if (exR1)  exR1.textContent = rpmTxt + ' rpm';
       if (exR2)  exR2.textContent = Math.round(catT) + ' °C';
       if (exR3)  exR3.textContent = 'λ ' + catLambdaNow().toFixed(3);
-      ui.chip.setBig(conv, '%');
-      ui.chip.setColor('#22c55e');
-      ui.chip.setBar(conv, '#22c55e');
-      { const st = catStatus(); ui.chip.setStatus(st.text, st.on); }
+      const st = catStatus();
+      ui.monitor.update({
+        label: 'Pollutant conversion',
+        value: { text: String(conv), unit: '%', color: '#22c55e', bar: conv, barColor: '#22c55e' },
+        status: [st.text, !!st.on]
+      });
     } else {
       if (exR1l) exR1l.textContent = 'Engine RPM';
       if (exR2l) exR2l.textContent = 'Gas temp';
@@ -1698,11 +1515,11 @@ import { Parts } from './components.js';
       if (exR1)  exR1.textContent = rpmTxt + ' rpm';
       if (exR2)  exR2.textContent = Math.round(90 + 630 * rf) + ' °C';
       if (exR3)  exR3.textContent = `~${backpressure()} mbar`;
-      ui.chip.setBig(noise, 'dB');
-      ui.chip.setColor('#38bdf8');
-      ui.chip.setBar(clamp((noise - 60) / 45, 0, 1) * 100, '#38bdf8');
-      setChipLabel('Tailpipe noise');
-      ui.chip.setStatus('Full system', true);
+      ui.monitor.update({
+        label: 'Tailpipe noise',
+        value: { text: String(noise), unit: 'dB', color: '#38bdf8', bar: clamp((noise - 60) / 45, 0, 1) * 100, barColor: '#38bdf8' },
+        status: ['Full system', true]
+      });
     }
   }
 
