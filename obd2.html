@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>OBD-II · Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #22d3ee; }
@@ -12,7 +13,6 @@ html.light-theme { --al-accent: #0891b2; }
 .al-pins{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font:500 11px/1.5 var(--font-mono);}
 .al-pins .p{color:var(--al-accent);font-weight:700;}
 .al-pins .d{color:var(--text-dim);}
-.al-w{display:flex;flex-direction:column;gap:6px;min-width:160px;}
 .ui-tb-btn.active{outline:2px solid var(--al-accent);color:var(--al-accent);}
 </style>
 </head>
@@ -387,37 +387,17 @@ const ui = Base.UI.create({
     badge: { text: 'No codes', color: CFG.accent },
     readout: readoutHTML()
   },
-  chip: {
-    label: 'Bus',
-    value: '—',
-    unit: ' kbit/s',
-    bar: true,
-    rows: [
-      { id: 'dtc',  label: 'DTCs',    value: '—' },
-      { id: 'mil',  label: 'MIL',     value: '—' }
-    ],
-    status: { text: 'Connected' }
+  monitor: {
+    config: { label: 'Bus', value: { label: 'Bus', unit: ' kbit/s', max: 100, bar: true }, rows: [['dtc', 'DTCs'], ['mil', 'MIL']], status: { text: 'Connected' } },
+    initial: { value: { text: '—', unit: ' kbit/s' }, rows: { dtc: '—', mil: '—' }, status: ['Connected', false] }
   },
   toolbar: {
     play: true,
     reset: true,
     speed: { label: 'Bus rate', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
-    labels: true,
-    extras: [
-      { id: 'btn-clear', label: 'CLEAR', title: 'Clear stored codes', onClick: clearCodes }
-    ]
+    labels: true
   },
   widgets: {
-    bl: {
-      html: `<div class="al-w">
-        <label for="dtc-sel">Stored code</label>
-        <select id="dtc-sel" class="al-sel" aria-label="Select a stored fault code">
-          ${DTCS.map((d, i) => `<option value="${i}">${d.code} · ${d.name}</option>`).join('')}
-        </select>
-      </div>`,
-      caption: 'Fault simulation',
-      onMount: mountDtcWidget
-    },
     br: {
       html: `<div class="al-legend">
         <span><i style="background:#38bdf8"></i>Request frame</span>
@@ -427,7 +407,20 @@ const ui = Base.UI.create({
       </div>`,
       caption: 'Legend'
     }
-  }
+  },
+
+  /* Phase 6: the stored code is a controls.js choice and Clear codes an action, both in the dock options row */
+  options: [
+    { id: 'dtc', type: 'choice', layout: 'select', label: 'Stored code', ariaLabel: 'Select a stored fault code',
+      options: DTCS.map((d, i) => ({ id: String(i), label: d.code + ' \u2014 ' + d.name })), def: String(state.dtcIndex),
+      onChange: (id) => {
+        const i = Number(id);
+        if (i === state.dtcIndex) return;
+        state.dtcIndex = i;
+        drawScreen(); applyCodeVisuals(); updateReadouts();
+      } },
+    { id: 'clear', type: 'action', label: 'Clear codes', tone: 'crit', onAction: () => clearCodes() }
+  ]
 });
 
 const tabHost = document.createElement('div');
@@ -442,22 +435,9 @@ function renderTab(id) {
 }
 renderTab('overview');
 
-function mountDtcWidget(el) {
-  const sel = el.querySelector('#dtc-sel');
-  if (!sel) return;
-  sel.value = String(state.dtcIndex);
-  sel.addEventListener('change', () => {
-    state.dtcIndex = Number(sel.value);
-    drawScreen();
-    applyCodeVisuals();
-    updateReadouts();
-  });
-}
-
 function clearCodes() {
   state.dtcIndex = DTCS.length - 1;
-  const sel = document.getElementById('dtc-sel');
-  if (sel) sel.value = String(state.dtcIndex);
+  ui.controls.set('dtc', state.dtcIndex);                  /* keep the dock choice in step (silent when unchanged) */
   drawScreen();
   applyCodeVisuals();
   updateReadouts();
@@ -516,11 +496,11 @@ function updateReadouts() {
     ro.mil.className = 'v ' + (dtc.mil ? 'warn' : 'ok');
   }
 
-  ui.chip.setBig(kbit, ' kbit/s');
-  ui.chip.set('dtc', dtc.mil ? '1' : '0');
-  ui.chip.set('mil', dtc.mil ? 'ON' : 'OFF');
-  ui.chip.setBar((state.speedMul / 2.5) * 100, dtc.mil ? 'var(--warn)' : 'var(--al-accent)');
-  ui.chip.setStatus(dtc.mil ? 'Fault stored' : 'All clear', !dtc.mil);
+  ui.monitor.update({
+    value: { text: String(kbit), unit: ' kbit/s', bar: (state.speedMul / 2.5) * 100, barColor: dtc.mil ? 'var(--warn)' : 'var(--al-accent)' },
+    rows: { dtc: dtc.mil ? '1' : '0', mil: dtc.mil ? 'ON' : 'OFF' },
+    status: [dtc.mil ? 'Fault stored' : 'All clear', !dtc.mil]
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

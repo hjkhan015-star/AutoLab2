@@ -1,0 +1,98 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   legacy.css — LEGACY safety net for un-migrated pages. Loaded ONLY by sensors.html.
+
+   This is the former 90-line `!important` block of app.css, moved here verbatim in
+   Phase 2. It targets `body.embedded:not(.uses-ui-kit)`: an embedded page that never
+   called UI.create()/wireBridge(). Phase 2 audit: sensors.html is the only such page
+   (every other module page reaches wireBridge through kit.js or components.js), and
+   sensors.html contains none of these ids today, so the block is effectively inert.
+   It stays, unchanged, so that page behaves exactly as before.
+
+   DELETE THIS FILE in Phase 8, when sensors.html is migrated.
+   NOTE: the 80px bottoms and the raw z-index numbers below are intentionally left alone —
+   there is no dock on the pages that load this file.
+   ═══════════════════════════════════════════════════════════════════════ */
+@layer utilities {
+  body.embedded:not(.uses-ui-kit) #hint { display: none !important; }
+
+  body.embedded:not(.uses-ui-kit) #edu-panel {
+    position: fixed !important;
+    top: calc(var(--s-3) + var(--safe-t)) !important;
+    left: 58px !important;
+    right: 58px !important;
+    width: auto !important;
+    max-width: 340px !important;
+    border-radius: var(--r-md) !important;
+    z-index: 15 !important;
+    box-shadow: var(--shadow-md) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+  body.embedded:not(.uses-ui-kit) #edu-panel.expanded {
+    max-width: min(400px, calc(100vw - 116px)) !important;
+    padding: var(--s-3) var(--s-4) !important;
+  }
+  body.embedded:not(.uses-ui-kit) #edu-panel #panel-body { display: none !important; }
+  body.embedded:not(.uses-ui-kit) #edu-panel.expanded #panel-body {
+    display: block !important;
+    max-height: calc(100dvh - 150px) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+  body.embedded:not(.uses-ui-kit) #edu-panel #module-kicker { display: none !important; }
+  body.embedded:not(.uses-ui-kit) #edu-panel.expanded #module-kicker {
+    display: block !important;
+    font-size: 10px !important;
+  }
+  body.embedded:not(.uses-ui-kit) #edu-panel #module-title {
+    font-size: 13px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 220px !important;
+  }
+  body.embedded:not(.uses-ui-kit) #edu-panel.expanded #module-title {
+    font-size: 16px !important;
+    white-space: normal !important;
+    max-width: none !important;
+  }
+  body.embedded:not(.uses-ui-kit) #edu-panel #panel-head::after { display: none !important; }
+
+  body.embedded:not(.uses-ui-kit) #module-controls #btn-play,
+  body.embedded:not(.uses-ui-kit) #module-controls #btn-reset,
+  body.embedded:not(.uses-ui-kit) #module-controls .slider-group,
+  body.embedded:not(.uses-ui-kit) #module-controls #chk-labels,
+  body.embedded:not(.uses-ui-kit) #module-controls #chk-gas {
+    display: none !important;
+  }
+  body.embedded:not(.uses-ui-kit) #module-controls {
+    position: fixed !important;
+    bottom: calc(80px + var(--safe-b)) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: var(--s-2) var(--s-3) !important;
+    padding: var(--s-2) var(--s-3) !important;
+    border-radius: var(--r-md) !important;
+    z-index: 20 !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    backdrop-filter: blur(var(--blur)) !important;
+    -webkit-backdrop-filter: blur(var(--blur)) !important;
+    box-shadow: var(--shadow-md) !important;
+  }
+  @supports selector(:has(*)) {
+    body.embedded:not(.uses-ui-kit) #module-controls:not(:has(.select-group, .toggle)) {
+      display: none !important;
+    }
+  }
+  body.embedded:not(.uses-ui-kit) #steer-overlay,
+  body.embedded:not(.uses-ui-kit) #crank-overlay {
+    bottom: calc(80px + var(--safe-b)) !important;
+  }
+
+}
+
+

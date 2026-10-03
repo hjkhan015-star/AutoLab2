@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Wiring Harness — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #f43f5e; }
@@ -101,7 +102,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
 #wh-ui .wh-warn.show { display: block; }
 
 #wh-ui-toggle {
-  position: fixed; right: 14px; bottom: 84px; z-index: 10000;
+  position: fixed; right: 14px; bottom: calc(var(--dock-h, 24vh) + var(--s-3, 12px)); z-index: var(--z-monitor);
   width: 42px; height: 42px; border-radius: 50%;
   background: rgba(8,11,18,.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(148,163,184,.3);
@@ -131,7 +132,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
 
 #fb-modal {
   max-width: 960px; width: 100%;
-  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   background: #0d1017;
   border: 1px solid rgba(148,163,184,.22);
   border-radius: 16px;
@@ -353,7 +354,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
 .fb-back:hover { background: rgba(148,163,184,.12); color: #f8fafc; }
 
 #fb-inspect-btn {
-  position: fixed; left: 14px; bottom: 84px;
+  position: fixed; left: 14px; bottom: calc(var(--dock-h, 24vh) + var(--s-3, 12px));
   z-index: 9998;
   padding: 9px 14px; border-radius: 999px;
   border: 1px solid rgba(244,63,94,.5);

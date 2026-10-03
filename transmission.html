@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0a0d13">
 <title>Transmission System — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <style>
   /* ═══════════════════════════════════════════════════════════
      PANEL READOUT INTERIOR — configuration toggle (2W / 4W)
@@ -20,30 +21,7 @@
     color: var(--text-dim, #8b96a5);
     margin-bottom: 2px;
   }
-  .drive-toggle {
-    display: flex; gap: 4px;
-    background: rgba(255,255,255,.04);
-    padding: 4px; border-radius: 10px;
-    border: 1px solid var(--border, rgba(255,255,255,.08));
-  }
-  html.light-theme .drive-toggle {
-    background: rgba(15,23,42,.05);
-    border-color: rgba(15,23,42,.10);
-  }
-  .drive-btn {
-    flex: 1; border: none; background: transparent;
-    color: var(--text-dim, #8b96a5);
-    font-size: 11.5px; font-weight: 700;
-    padding: 8px 10px; border-radius: 7px; cursor: pointer;
-    font-family: inherit; transition: all .2s;
-  }
-  .drive-btn:hover { color: var(--text, #e5e7eb); }
-  .drive-btn.active {
-    background: var(--accent, #3b82f6); color: #0b0e14;
-    box-shadow: 0 2px 8px rgba(59,130,246,.3);
-  }
-  html.light-theme .drive-btn.active { color: #fff; }
-
+  html.light-theme
   #trans-desc-title {
     display: block;
     color: var(--text, #e5e7eb);
@@ -774,11 +752,6 @@
       badge:  { text: 'Power Flow', color: '#3b82f6' },
       readout: `
         <div id="trans-readout">
-          <div class="extra-label">Configuration</div>
-          <div class="drive-toggle">
-            <button class="drive-btn active" data-mode="4W">4-Wheeler</button>
-            <button class="drive-btn" data-mode="2W">2-Wheeler</button>
-          </div>
         </div>
       `,
       desc: `<strong id="trans-desc-title">4-Wheeler Drive (Propeller Shaft)</strong>
@@ -789,23 +762,23 @@
              </div>`
     },
 
-    chip: {
-      label: 'Live transmission',
-      value: '4W',
-      unit:  '',
-      bar:   true,
-      rows: [
-        { id: 'path', label: 'Path', value: 'Prop shaft' },
-        { id: 'rpm',  label: 'RPM',  value: '900' }
-      ],
-      status: { text: '4-Wheeler' }
+    monitor: {
+      config: { label: 'Live transmission', value: { label: 'Live transmission', unit: '', max: 100, bar: true }, rows: [['path', 'Path'], ['rpm', 'RPM']], status: { text: '4-Wheeler' } },
+      initial: { value: { text: '4W', unit: '' }, rows: { path: 'Prop shaft', rpm: '900' }, status: ['4-Wheeler', false] }
     },
 
     toolbar: {
       play: true, reset: true,
       speed: { label: 'Speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
       labels: true, gas: true
-    }
+    },
+
+    /* Phase 6: the drivetrain configuration is a controls.js choice in the dock options row */
+    options: [
+      { id: 'drive', type: 'choice', layout: 'segmented', label: 'Drivetrain', ariaLabel: 'Drivetrain configuration',
+        options: [{ id: '4W', label: '4-Wheeler' }, { id: '2W', label: '2-Wheeler' }],
+        onChange: (id) => { if (id !== state.mode) setMode(id); } }
+    ]
   });
 
   /* Panel body readout refs */
@@ -837,38 +810,28 @@
     group4W.visible = (mode === '4W');
     group2W.visible = (mode === '2W');
 
-    const btns = panelBody ? panelBody.querySelectorAll('.drive-btn') : [];
-    btns.forEach(b => {
-      b.classList.toggle('active', b.dataset.mode === mode);
-    });
+    ui.controls.set('drive', mode === '2W' ? 1 : 0);          /* keep the dock choice in step (reset, bridge) */
 
     if (mode === '4W') {
       if (descTitleEl) descTitleEl.textContent = '4-Wheeler Drive (Propeller Shaft)';
       if (descBodyEl) descBodyEl.innerHTML = 'Engine power flows from the <strong>flywheel</strong> into the <strong>gearbox</strong>. A <strong>universal joint</strong> transfers torque through the <strong>propeller shaft</strong> to the <strong>differential</strong>. The differential turns the power 90° and splits it to the <strong>rear axles</strong>, driving the rear wheels.';
-      ui.chip.setBig('4W', '');
-      ui.chip.setColor('#3b82f6');
-      ui.chip.setBar(100, '#3b82f6');
-      ui.chip.set('path', 'Prop shaft');
-      ui.chip.setStatus('4-Wheeler Drive', true);
+      ui.monitor.update({
+        value: { text: '4W', unit: '', color: '#3b82f6', bar: 100, barColor: '#3b82f6' },
+        rows: { path: 'Prop shaft' },
+        status: ['4-Wheeler Drive', true]
+      });
       if (bridge) bridge.setStatus('4-Wheeler Drive', '#3b82f6');
     } else {
       if (descTitleEl) descTitleEl.textContent = '2-Wheeler Drive (Chain Drive)';
       if (descBodyEl) descBodyEl.innerHTML = 'Engine power flows into the <strong>gearbox</strong>, which turns the <strong>front sprocket</strong>. A <strong>chain</strong> transfers this power to the larger <strong>rear sprocket</strong>, providing gear reduction and driving the <strong>rear wheel</strong>.';
-      ui.chip.setBig('2W', '');
-      ui.chip.setColor('#a855f7');
-      ui.chip.setBar(50, '#a855f7');
-      ui.chip.set('path', 'Chain');
-      ui.chip.setStatus('2-Wheeler Drive', true);
+      ui.monitor.update({
+        value: { text: '2W', unit: '', color: '#a855f7', bar: 50, barColor: '#a855f7' },
+        rows: { path: 'Chain' },
+        status: ['2-Wheeler Drive', true]
+      });
       if (bridge) bridge.setStatus('2-Wheeler Drive', '#a855f7');
     }
     camGoal = CAM_PRESETS[mode];
-  }
-
-  /* Wire the toggle buttons now that the kit has rendered the panel body */
-  if (panelBody) {
-    panelBody.querySelectorAll('.drive-btn').forEach(btn => {
-      btn.addEventListener('click', () => setMode(btn.dataset.mode));
-    });
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -1002,7 +965,7 @@
     }
 
     if (frame % 15 === 0) {
-      ui.chip.set('rpm', Math.round(400 + state.speedMul * 900));
+      ui.monitor.update({ rows: { rpm: Math.round(400 + state.speedMul * 900) } });
     }
 
     controls.update();
@@ -1016,7 +979,7 @@
   camera.position.copy(CAM_PRESETS['4W'].pos);
   controls.target.copy(CAM_PRESETS['4W'].target);
   camGoal = null;
-  ui.chip.set('rpm', Math.round(400 + state.speedMul * 900));
+  ui.monitor.update({ rows: { rpm: Math.round(400 + state.speedMul * 900) } });
   animate();
   bridge.setStatus('4-Wheeler Drive', '#3b82f6');
   </script>

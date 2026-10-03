@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0a0d13">
 <title>Suspension System — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <style>
   /* ═══════ PANEL READOUT INTERIOR — shock bars + danger meter ═══════ */
   #susp-readout { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
@@ -59,7 +60,7 @@
   /* ═══════ Road status bar (overlay) ═══════ */
   #road-info {
     position: fixed;
-    bottom: calc(84px + var(--safe-b, 0px));
+    bottom: calc(var(--dock-h, 24vh) + var(--s-3, 12px));   /* Phase 2: clear the control dock */
     left: 50%; transform: translateX(-50%);
     display: flex; gap: 8px; padding: 5px 10px;
     background: rgba(11,14,20,.72); border: 1px solid rgba(255,255,255,.08);
@@ -106,44 +107,11 @@
   #impact-warning.on { opacity: 1; }
 
   /* ═══════ Toolbar extra — SUSP toggle ═══════ */
-  #btn-susp-toggle {
-    padding: 7px 13px !important;
-    font-size: 11px !important;
-    font-weight: 800 !important;
-    letter-spacing: .05em !important;
-    text-transform: uppercase !important;
-    border-radius: 9px !important;
-    white-space: nowrap;
-    transition: all .2s !important;
-    font-family: inherit !important;
-    cursor: pointer;
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    background: rgba(255,255,255,.05);
-    color: var(--text, #e5e7eb);
-  }
-  #btn-susp-toggle.suspended {
-    background: rgba(56,189,248,.20) !important;
-    color: #38bdf8 !important;
-    border-color: rgba(56,189,248,.45) !important;
-    box-shadow: 0 0 10px rgba(56,189,248,.35) !important;
-  }
-  #btn-susp-toggle.rigid {
-    background: rgba(239,68,68,.22) !important;
-    color: #f87171 !important;
-    border-color: rgba(239,68,68,.55) !important;
-    box-shadow: 0 0 12px rgba(239,68,68,.45) !important;
-    animation: suspRigidPulse .8s ease-in-out infinite alternate;
-  }
   @keyframes suspRigidPulse {
     from { box-shadow: 0 0 8px rgba(239,68,68,.35); }
     to   { box-shadow: 0 0 18px rgba(239,68,68,.7); }
   }
 
-  #btn-slowmo-susp.active {
-    background: #f97316 !important;
-    color: #0b0e14 !important;
-    box-shadow: 0 0 14px rgba(249,115,22,.45) !important;
-  }
 </style>
 </head>
 <body>
@@ -864,27 +832,25 @@ import { Parts } from './components.js';
       desc: `<strong>With suspension.</strong> Coil springs, leaf springs and dampers absorb every bump. The chassis stays nearly level — passengers feel only a gentle float. Watch the leaf spring flatten through potholes and the shackle swing as it stretches.`
     },
 
-    chip: {
-      label: 'Mode',
-      value: 'With',
-      unit:  ' susp',
-      bar:   true,
-      rows: [
-        { id: 'speed', label: 'Speed', value: '~38 km/h' },
-        { id: 'road',  label: 'Road',  value: 'Flat' }
-      ],
-      status: { text: 'Suspended', on: true }
+    monitor: {
+      config: { label: 'Mode', value: { label: 'Mode', unit: ' susp', max: 100, bar: true }, rows: [['speed', 'Speed'], ['road', 'Road']], status: { text: 'Suspended' } },
+      initial: { value: { text: 'With', unit: ' susp' }, rows: { speed: '~38 km/h', road: 'Flat' }, status: ['Suspended', true] }
     },
 
     toolbar: {
       play: true, reset: true,
       speed: { label: 'Speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
-      labels: true,
-      extras: [
-        { id: 'btn-slowmo-susp', title: 'Super slow motion',
-          icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 2h12v6l-4 4 4 4v6H6v-6l4-4-4-4V2zm10 12.5V20H8v-5.5l4-4 4 4zM8 4v3.5l4 4 4-4V4H8z"/></svg>' }
-      ]
-    }
+      labels: true
+    },
+
+    /* Phase 6: suspension on / off and slow motion are controls.js controls in the dock options row */
+    options: [
+      { id: 'susp', type: 'choice', layout: 'segmented', label: 'Link', ariaLabel: 'Suspension or rigid axle',
+        options: [{ id: 'susp', label: 'Susp' }, { id: 'rigid', label: 'Rigid', tone: 'crit' }],
+        onChange: (id) => { const w = id === 'susp'; if (w !== withSusp) { withSusp = w; applyMode(); } } },
+      { id: 'slowmo', type: 'toggle', label: 'Slow-mo', ariaLabel: 'Super slow motion',
+        onChange: (on) => { slowMo = on; updateSpeedLabel(); } }
+    ]
   });
 
   const panelBody = ui.panel.body;
@@ -905,24 +871,6 @@ import { Parts } from './components.js';
   const impactWarnEl  = document.getElementById('impact-warning');
   const roadValEl     = document.getElementById('road-val');
   const roadNextLabelEl = document.getElementById('road-next-label');
-
-  /* ═══════════════════════════════════════════════════════════
-     Mode toggle injected into toolbar extras
-     ═══════════════════════════════════════════════════════════ */
-  (function buildSuspToggle() {
-    const extras = document.getElementById('toolbar-extras');
-    if (!extras) return;
-    const btn = document.createElement('button');
-    btn.id = 'btn-susp-toggle';
-    btn.type = 'button';
-    btn.className = 'suspended';
-    btn.textContent = 'SUSP';
-    btn.setAttribute('aria-label', 'Toggle suspension');
-    extras.insertBefore(btn, extras.firstChild);
-  })();
-
-  const btnSuspToggle = document.getElementById('btn-susp-toggle');
-  const btnSlow       = document.getElementById('btn-slowmo-susp');
 
   /* ═══════════════════════════════════════════════════════════
      STATE
@@ -1003,16 +951,12 @@ import { Parts } from './components.js';
     if (strokeDescEl) strokeDescEl.innerHTML = withSusp ? DESC_WITH : DESC_WITHOUT;
     labelsDirty = true;
 
-    if (btnSuspToggle) {
-      btnSuspToggle.classList.toggle('suspended', withSusp);
-      btnSuspToggle.classList.toggle('rigid', !withSusp);
-      btnSuspToggle.textContent = withSusp ? 'SUSP' : 'RIGID';
-    }
+    ui.controls.set('susp', withSusp ? 0 : 1);              /* keep the dock choice in step (bridge setSuspension) */
 
-    ui.chip.setBig(withSusp ? 'With' : 'Rigid', withSusp ? ' susp' : ' link');
-    ui.chip.setColor(withSusp ? '#38bdf8' : '#ef4444');
-    ui.chip.setBar(withSusp ? 100 : 15, withSusp ? '#38bdf8' : '#ef4444');
-    ui.chip.setStatus(withSusp ? 'Suspended' : 'Rigid', withSusp);
+    ui.monitor.update({
+      value: { text: String(withSusp ? 'With' : 'Rigid'), unit: (withSusp ? ' susp' : ' link') ?? '', color: (withSusp ? '#38bdf8' : '#ef4444') || '', bar: withSusp ? 100 : 15, barColor: withSusp ? '#38bdf8' : '#ef4444' },
+      status: [withSusp ? 'Suspended' : 'Rigid', !!(withSusp)]
+    });
 
     if (bridge) bridge.setStatus(withSusp ? 'With Suspension' : 'Without Suspension',
                                  withSusp ? '#38bdf8' : '#ef4444');
@@ -1020,12 +964,10 @@ import { Parts } from './components.js';
 
   function updateSpeedLabel() {
     if (slowMo) {
-      ui.toolbar.setRpmLabel('SLO-MO');
     } else {
       const kmh = Math.round(2.4 * state.speedMul * 16);
-      ui.toolbar.setRpmLabel(`~${kmh} km/h`);
     }
-    ui.chip.set('speed', slowMo ? 'SLO-MO' : `~${Math.round(2.4 * state.speedMul * 16)} km/h`);
+    ui.monitor.update({ rows: { speed: slowMo ? 'SLO-MO' : `~${Math.round(2.4 * state.speedMul * 16)} km/h` } });
   }
 
   function resetSim() {
@@ -1045,20 +987,6 @@ import { Parts } from './components.js';
     leafSprings.forEach(la => { la.prevSy = 1; });
     dustData.forEach(p => { p.life = 0; });
     sparkData.forEach(s => { s.life = 0; });
-  }
-
-  if (btnSuspToggle) {
-    btnSuspToggle.addEventListener('click', () => {
-      withSusp = !withSusp;
-      applyMode();
-    });
-  }
-  if (btnSlow) {
-    btnSlow.addEventListener('click', () => {
-      slowMo = !slowMo;
-      btnSlow.classList.toggle('active', slowMo);
-      updateSpeedLabel();
-    });
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -1347,14 +1275,14 @@ import { Parts } from './components.js';
     if (!f) {
       roadValEl.textContent = 'Flat';
       roadValEl.className = 'val';
-      ui.chip.set('road', 'Flat');
+      ui.monitor.update({ rows: { road: 'Flat' } });
     } else {
       const lateral = f.mode === 'left' ? 'L wheel' : f.mode === 'right' ? 'R wheel' : 'Both';
       const type = f.type === 'bump' ? 'Bump' : f.type === 'pot' ? 'Pothole'
                  : f.type === 'ripple' ? 'Washboard' : 'Wave';
       roadValEl.textContent = type + ' · ' + lateral;
       roadValEl.className = 'val ' + (f.type === 'pot' ? 'pot' : 'bump');
-      ui.chip.set('road', type);
+      ui.monitor.update({ rows: { road: type } });
     }
 
     const nx = nextRoadFeatureAt(xNow + 2);
@@ -1381,9 +1309,7 @@ import { Parts } from './components.js';
         case 'reset': resetSim(); break;
         case 'setSuspension': withSusp = !!d.value; applyMode(); break;
         case 'setSlowMo':
-          slowMo = !!d.value;
-          if (btnSlow) btnSlow.classList.toggle('active', slowMo);
-          updateSpeedLabel();
+          ui.controls.set('slowmo', !!d.value);              /* onChange sets slowMo + the label */
           break;
       }
     }

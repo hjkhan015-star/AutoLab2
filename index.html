@@ -28,10 +28,11 @@
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml" sizes="any">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 
 <style>
 /* ═══════════════════════════════════════════════════════════════════════
-   Shell-only styles — home screen, module frame, pill, sheet.
+   Shell-only styles — home screen, module frame. (Header + ⋯ menu live in chrome.js / controls.css.)
    ═══════════════════════════════════════════════════════════════════════ */
 @layer shell {
   /* ── v6: progress, update toast, smoothness ── */
@@ -45,7 +46,7 @@
   .module-card.done { position: relative; }
   .module-card.done::after { content: "\2713"; position: absolute; top: 8px; right: 10px; width: 20px; height: 20px; display: grid; place-items: center;
     border-radius: 50%; font-size: 12px; font-weight: 700; background: var(--c, var(--accent)); color: #0a0d13; }
-  .update-toast { position: fixed; left: 50%; bottom: calc(var(--safe-b, 0px) + 84px); transform: translateX(-50%); z-index: 9999;
+  .update-toast { position: fixed; left: 50%; bottom: calc(var(--safe-b, 0px) + 84px); transform: translateX(-50%); z-index: var(--z-toast);
     display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-radius: 99px; font-size: 14px;
     background: var(--bg-elev, var(--surface, #151a24)); color: var(--text, #e6edf6); border: 1px solid color-mix(in oklch, var(--accent) 40%, transparent);
     box-shadow: 0 12px 32px -8px rgba(0,0,0,.5); animation: toastin .35s var(--ease-in-out) both; }
@@ -65,7 +66,7 @@
     position: fixed; inset: 0;
     display: flex; flex-direction: column;
     background: var(--bg);
-    z-index: 1;
+    z-index: var(--z-stage);
     overflow: hidden;
     transition: transform var(--dur-slow) var(--ease-in-out),
                 opacity var(--dur-slow) var(--ease-in-out),
@@ -87,7 +88,7 @@
       color-mix(in oklch, var(--bg) 100%, transparent) 0%,
       color-mix(in oklch, var(--bg) 82%, transparent) 78%,
       transparent 100%);
-    z-index: 5;
+    z-index: var(--z-monitor);
   }
   @media (min-width: 768px) {
     .home-header { max-width: 1100px; margin: 0 auto; width: 100%; }
@@ -309,7 +310,7 @@
     width: 38px; height: 38px;
     color: var(--c, var(--accent));
     filter: drop-shadow(0 4px 14px color-mix(in oklch, var(--c, var(--accent)) 55%, transparent));
-    z-index: 1;
+    z-index: var(--z-labels);
   }
   .module-card .card-icon svg { width: 100%; height: 100%; display: block; }
   .module-card .card-label {
@@ -318,7 +319,7 @@
     text-align: center;
     line-height: 1.2;
     letter-spacing: -.01em;
-    z-index: 1;
+    z-index: var(--z-labels);
     text-wrap: balance;
   }
   .module-card .card-sub {
@@ -328,7 +329,7 @@
     text-align: center;
     line-height: 1.25;
     margin-top: -2px;
-    z-index: 1;
+    z-index: var(--z-labels);
   }
 
   /* ── Recent list ── */
@@ -468,9 +469,9 @@
     color: #0a0d13;
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
     box-shadow: 0 10px 28px -8px color-mix(in oklch, var(--accent) 65%, transparent);
-    z-index: 1;
+    z-index: var(--z-labels);
   }
-  .maker-copy { position: relative; flex: 1; min-width: 0; z-index: 1; }
+  .maker-copy { position: relative; flex: 1; min-width: 0; z-index: var(--z-labels); }
   .maker-role {
     font-size: 10.5px; font-weight: 800;
     letter-spacing: .15em; text-transform: uppercase;
@@ -506,7 +507,7 @@
     backdrop-filter: blur(var(--blur-lg)) saturate(180%);
     -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(180%);
     border-top: 1px solid var(--border);
-    z-index: 50;
+    z-index: var(--z-dock);
   }
   @media (min-width: 768px) {
     #bottom-nav {
@@ -543,37 +544,14 @@
     transform: translateX(100%);
     transition: transform var(--dur-slow) var(--ease-in-out);
     background: var(--bg);
-    z-index: 100;
+    z-index: var(--z-menu);
     overflow: hidden;
     will-change: transform;
   }
   #module-screen.active { transform: translateX(0); }
 
-  .floating-btn {
-    position: absolute;
-    top: calc(var(--s-3) + var(--safe-t));
-    width: 42px; height: 42px;
-    flex: 0 0 auto;
-    display: grid; place-items: center;
-    border-radius: var(--r-md);
-    background: color-mix(in oklch, var(--bg-elev) 90%, transparent);
-    border: 1px solid var(--border-hi);
-    backdrop-filter: blur(var(--blur-lg)) saturate(180%);
-    -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(180%);
-    box-shadow: var(--shadow-sm);
-    color: var(--text);
-    z-index: 22;
-    transition: background var(--dur-fast) var(--ease-out),
-                transform var(--dur-fast) var(--ease-spring);
-    touch-action: manipulation;
-  }
-  .floating-btn:hover { background: var(--bg-elev); }
-  .floating-btn:active { transform: scale(.92); }
-  .floating-btn svg { width: 20px; height: 20px; }
-  #btn-back { left: calc(var(--s-3) + var(--safe-l)); }
-  #btn-more { right: calc(var(--s-3) + var(--safe-r)); }
-
-  #module-frame-host { position: absolute; inset: 0; background: var(--bg); }
+  /* header (chrome.js) is the first child of #module-screen; the frame host fills the rest */
+  #module-frame-host { position: relative; flex: 1 1 auto; min-height: 0; background: var(--bg); }
   #module-frame-host iframe {
     position: absolute; inset: 0;
     width: 100%; height: 100%;
@@ -583,258 +561,12 @@
   }
   #module-frame-host iframe.active { display: block; }
 
-  /* ── Floating pill ── */
-  #module-pill {
-    position: absolute;
-    left: 50%;
-    bottom: calc(var(--s-4) + var(--safe-b));
-    transform: translateX(-50%);
-    display: flex; align-items: center;
-    gap: 3px;
-    padding: 5px;
-    background: color-mix(in oklch, var(--bg-elev) 90%, transparent);
-    border: 1px solid var(--border-hi);
-    border-radius: var(--r-lg);
-    backdrop-filter: blur(var(--blur-lg)) saturate(180%);
-    -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(180%);
-    box-shadow: var(--shadow-lg);
-    z-index: 25;
-    max-width: calc(100% - var(--s-5));
-    overflow-x: auto;
-    scrollbar-width: none;
-    transition: transform var(--dur-slow) var(--ease-in-out),
-                opacity var(--dur-base) var(--ease-out);
-  }
-  #module-pill::-webkit-scrollbar { display: none; }
-  #module-pill.hidden {
-    transform: translateX(-50%) translateY(120%);
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .pill-btn {
-    width: 38px; height: 38px;
-    flex: 0 0 auto;
-    border-radius: var(--r-sm);
-    display: grid; place-items: center;
-    color: var(--text);
-    background: transparent;
-    transition: background var(--dur-fast) var(--ease-out),
-                transform var(--dur-fast) var(--ease-spring),
-                color var(--dur-fast) var(--ease-out);
-    touch-action: manipulation;
-  }
-  .pill-btn:hover { background: var(--surface-hover); }
-  .pill-btn:active { transform: scale(.90); }
-  .pill-btn svg { width: 18px; height: 18px; }
-  .pill-btn.active {
-    background: color-mix(in oklch, var(--accent) 22%, transparent);
-    color: var(--accent);
-  }
-
-  .pill-divider {
-    width: 1px; height: 20px;
-    background: var(--border-hi);
-    margin: 0 3px;
-    flex: 0 0 auto;
-  }
-
-  .pill-speed {
-    display: flex; align-items: center;
-    padding: 0 6px 0 3px;
-    gap: 5px;
-  }
-  .pill-speed svg { width: 14px; height: 14px; color: var(--text-mute); }
-  .pill-speed input[type="range"] {
-    width: clamp(56px, 16vw, 110px);
-    accent-color: var(--accent);
-    height: 26px;
-    cursor: pointer;
-  }
-  @media (max-width: 640px) {
-    #pill-wire, #pill-xray { display: none; }
-    #module-pill { gap: 2px; }
-    .pill-divider { margin: 0 2px; }
-    .pill-speed input[type="range"] { width: 64px; }
-  }
-
-  /* ── Bottom sheet ── */
-  #sheet-backdrop {
-    position: absolute; inset: 0;
-    background: oklch(0 0 0 / .55);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--dur-base) var(--ease-out);
-    z-index: 200;
-  }
-  #sheet-backdrop.open { opacity: 1; pointer-events: auto; }
-
-  #bottom-sheet {
-    position: absolute;
-    left: 0; right: 0; bottom: 0;
-    max-width: 560px; margin: 0 auto;
-    padding: var(--s-2) var(--s-5) calc(var(--s-6) + var(--safe-b));
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-bottom: 0;
-    border-radius: var(--r-xl) var(--r-xl) 0 0;
-    transform: translateY(100%);
-    transition: transform var(--dur-slow) var(--ease-in-out);
-    z-index: 201;
-    max-height: 82dvh;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    box-shadow: 0 -24px 60px oklch(0 0 0 / .55);
-  }
-  #bottom-sheet.open { transform: translateY(0); }
-
-  .sheet-grabber {
-    width: 42px; height: 4px;
-    background: var(--border-hi);
-    border-radius: 3px;
-    margin: var(--s-1) auto var(--s-4);
-  }
-  .sheet-title { font-size: 18px; font-weight: 800; letter-spacing: -.015em; margin-bottom: 4px; }
-  .sheet-sub { font-size: 12.5px; color: var(--text-mute); margin-bottom: var(--s-6); }
-  .sheet-section { margin-bottom: var(--s-6); }
-  .sheet-label {
-    font-size: 11px; font-weight: 700;
-    letter-spacing: .07em; text-transform: uppercase;
-    color: var(--text-mute);
-    margin-bottom: var(--s-3);
-  }
-  .speed-row {
-    display: flex; align-items: center;
-    gap: var(--s-4);
-    padding: var(--s-4);
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-  }
-  .speed-row .sp-icon {
-    width: 34px; height: 34px;
-    flex: 0 0 auto;
-    display: grid; place-items: center;
-    border-radius: var(--r-sm);
-    background: color-mix(in oklch, var(--accent) 16%, transparent);
-    color: var(--accent);
-  }
-  .speed-row .sp-icon svg { width: 18px; height: 18px; }
-  .speed-row .sp-copy { flex: 0 0 auto; min-width: 60px; }
-  .speed-row .sp-name { font-size: 13px; font-weight: 700; }
-  .speed-row .sp-val {
-    font-size: 11.5px; color: var(--text-mute);
-    font-variant-numeric: tabular-nums;
-    margin-top: 1px;
-  }
-  .speed-row input[type="range"] {
-    flex: 1;
-    accent-color: var(--accent);
-    height: 28px;
-    cursor: pointer;
-  }
-  .toggle-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: var(--s-4);
-    margin-bottom: var(--s-2);
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-    cursor: pointer;
-    transition: background var(--dur-fast) var(--ease-out);
-    touch-action: manipulation;
-  }
-  .toggle-row:active { background: var(--surface-3); }
-  .toggle-row .tg-copy { flex: 1; min-width: 0; padding-right: var(--s-3); }
-  .toggle-row .tg-name { font-size: 14px; font-weight: 600; }
-  .toggle-row .tg-desc { font-size: 11.5px; color: var(--text-mute); margin-top: 2px; }
-  .switch {
-    width: 46px; height: 28px;
-    flex: 0 0 auto;
-    border-radius: var(--r-pill);
-    background: color-mix(in oklch, var(--text) 14%, transparent);
-    position: relative;
-    transition: background var(--dur-base) var(--ease-out);
-  }
-  .switch::after {
-    content: "";
-    position: absolute;
-    top: 3px; left: 3px;
-    width: 22px; height: 22px;
-    background: white;
-    border-radius: 50%;
-    transition: transform var(--dur-base) var(--ease-spring);
-    box-shadow: 0 2px 6px oklch(0 0 0 / .35);
-  }
-  .toggle-row.on .switch { background: var(--accent); }
-  .toggle-row.on .switch::after { transform: translateX(18px); }
-
-  .extras-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-    gap: var(--s-2);
-  }
-  .extra-btn {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 5px;
-    min-height: 64px;
-    padding: var(--s-3) var(--s-2);
-    border-radius: var(--r-md);
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    font-size: 11.5px; font-weight: 700;
-    transition: background var(--dur-fast) var(--ease-out),
-                border-color var(--dur-fast) var(--ease-out),
-                color var(--dur-fast) var(--ease-out),
-                transform var(--dur-fast) var(--ease-spring);
-    touch-action: manipulation;
-  }
-  .extra-btn:active { transform: scale(.95); }
-  .extra-btn.active {
-    background: color-mix(in oklch, var(--c, var(--accent)) 20%, transparent);
-    border-color: color-mix(in oklch, var(--c, var(--accent)) 45%, transparent);
-    color: var(--text);
-  }
-  .extra-btn .eb-num {
-    display: inline-grid; place-items: center;
-    width: 22px; height: 22px;
-    border-radius: var(--r-xs);
-    background: color-mix(in oklch, var(--text) 10%, transparent);
-    font-size: 11px; font-weight: 800;
-    color: var(--text-dim);
-  }
-  .extra-btn.active .eb-num {
-    background: var(--c, var(--accent));
-    color: var(--bg);
-  }
-  .sheet-reset {
-    width: 100%;
-    padding: var(--s-4);
-    border-radius: var(--r-md);
-    background: color-mix(in oklch, var(--crit) 12%, transparent);
-    border: 1px solid color-mix(in oklch, var(--crit) 32%, transparent);
-    color: color-mix(in oklch, var(--crit) 85%, var(--text));
-    font-size: 14px; font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-    gap: var(--s-3);
-    transition: background var(--dur-fast) var(--ease-out),
-                transform var(--dur-fast) var(--ease-spring);
-    touch-action: manipulation;
-  }
-  .sheet-reset:active { transform: scale(.98); background: color-mix(in oklch, var(--crit) 20%, transparent); }
-  .sheet-reset svg { width: 17px; height: 17px; }
-
   /* ── Boot loader ── */
   #boot-loader {
     position: fixed; inset: 0;
     display: grid; place-items: center;
     background: var(--bg);
-    z-index: 9999;
+    z-index: var(--z-toast);
     transition: opacity var(--dur-slow) var(--ease-out);
     pointer-events: none;
   }
@@ -1034,7 +766,7 @@
     border: 1px solid var(--border);
     letter-spacing: .04em;
     box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    z-index: 2;
+    z-index: var(--z-monitor);   /* badge above the card content */
   }
 
   /* Coming soon tile */
@@ -1180,35 +912,6 @@
 
 <div id="module-screen" aria-hidden="true">
   <div id="module-frame-host"></div>
-  <button class="floating-btn" id="btn-back" aria-label="Back"><svg><use href="#i-back"/></svg></button>
-  <button class="floating-btn" id="btn-more" aria-label="More options"><svg><use href="#i-more"/></svg></button>
-  <div id="module-pill" role="toolbar" aria-label="Playback controls">
-    <button class="pill-btn" id="pill-play" aria-label="Pause">
-      <svg id="pill-icon-play" style="display:none"><use href="#i-play"/></svg>
-      <svg id="pill-icon-pause"><use href="#i-pause"/></svg>
-    </button>
-    <button class="pill-btn" id="pill-reset" aria-label="Reset"><svg><use href="#i-reset"/></svg></button>
-    <div class="pill-divider"></div>
-    <div class="pill-speed">
-      <svg><use href="#i-gauge"/></svg>
-      <input type="range" id="pill-speed" min="0.15" max="2.5" step="0.05" value="0.85" aria-label="Speed">
-    </div>
-    <div class="pill-divider"></div>
-    <button class="pill-btn" id="pill-theme" aria-label="Toggle light theme" title="Dark / Light">
-      <svg id="pill-icon-moon"><use href="#i-moon"/></svg>
-      <svg id="pill-icon-sun" style="display:none"><use href="#i-sun"/></svg>
-    </button>
-    <button class="pill-btn" id="pill-wire" aria-label="Toggle wireframe" title="Wireframe"><svg><use href="#i-wire"/></svg></button>
-    <button class="pill-btn" id="pill-xray" aria-label="Toggle x-ray" title="X-Ray"><svg><use href="#i-xray"/></svg></button>
-    <div class="pill-divider"></div>
-    <button class="pill-btn" id="pill-more" aria-label="Open settings"><svg><use href="#i-more"/></svg></button>
-  </div>
-</div>
-
-<div id="sheet-backdrop"></div>
-<div id="bottom-sheet" role="dialog" aria-modal="true" aria-label="Module settings">
-  <div class="sheet-grabber"></div>
-  <div id="sheet-content"></div>
 </div>
 
 <script src="modules.js"></script>
@@ -1334,9 +1037,11 @@
 })();
 </script>
 
-<script>
+<script type="module">
+import { createHeader, createMenu, SPEED, clampSpeed, isPhone } from './chrome.js';
+import { createKeyRouter, installKeys } from './keys.js';
 /* ═══════════════════════════════════════════════════════════════════════
-   Shell — home screen, module frame control, settings sheet.
+   Shell — home screen, module frame control, header + ⋯ menu.
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -1350,22 +1055,6 @@
   var moduleCountEl = document.getElementById('module-count');
   var moduleScreen  = document.getElementById('module-screen');
   var frameHost     = document.getElementById('module-frame-host');
-  var btnBack       = document.getElementById('btn-back');
-  var btnMore       = document.getElementById('btn-more');
-  var pillPlay      = document.getElementById('pill-play');
-  var pillReset     = document.getElementById('pill-reset');
-  var pillMore      = document.getElementById('pill-more');
-  var pillSpeed     = document.getElementById('pill-speed');
-  var pillIconPlay  = document.getElementById('pill-icon-play');
-  var pillIconPause = document.getElementById('pill-icon-pause');
-  var pillTheme     = document.getElementById('pill-theme');
-  var pillIconMoon  = document.getElementById('pill-icon-moon');
-  var pillIconSun   = document.getElementById('pill-icon-sun');
-  var pillWire      = document.getElementById('pill-wire');
-  var pillXRay      = document.getElementById('pill-xray');
-  var sheetBackdrop = document.getElementById('sheet-backdrop');
-  var bottomSheet   = document.getElementById('bottom-sheet');
-  var sheetContent  = document.getElementById('sheet-content');
   var bootLoader    = document.getElementById('boot-loader');
   var viewToggleEl  = document.querySelector('.view-toggle');
 
@@ -1388,9 +1077,9 @@
     view: savedPrefs.view === 'roadmap' ? 'roadmap' : 'modules',
     active: null,
     playing: true,
-    speed: parseFloat(pillSpeed.value),
-    labels: true,
-    gas: true,
+    speed: SPEED.def,
+    density: isPhone(window.innerWidth, window.innerHeight) ? 1 : 2,   /* label density: 2 all · 1 key · 0 none (labels.js); Key on phones */
+    gas: true,           /* no UI since Phase 1; still sent so modules keep their default */
     theme: savedPrefs.theme || detectSystemTheme(),
     wireframe: !!savedPrefs.wireframe,
     xray: !!savedPrefs.xray,
@@ -1441,10 +1130,7 @@
       var doc = fr.contentDocument;
       if (!doc || !doc.body) return;
       doc.body.classList.add('embedded');
-      try {
-        doc.documentElement.classList.toggle('light-theme', state.theme === 'light');
-        doc.body.classList.toggle('light-theme', state.theme === 'light');
-      } catch (_) {}
+      /* Theme is NOT written here any more: the shell sends `setTheme` (one path). */
       if (doc.body.classList.contains('uses-ui-kit')) return;
     } catch (_) {}
   }
@@ -1509,7 +1195,7 @@
     if (!ready) { fr.addEventListener('load', function () { sendAllCommands(id); }, { once: true }); return; }
     postTo(id, { type: 'command', action: 'setPlaying',   value: state.playing });
     if (speedTouched) postTo(id, { type: 'command', action: 'setSpeed', value: state.speed });
-    postTo(id, { type: 'command', action: 'setLabels',    value: state.labels });
+    postTo(id, { type: 'command', action: 'setLabelDensity', value: state.density });
     postTo(id, { type: 'command', action: 'setGas',       value: state.gas });
     postTo(id, { type: 'command', action: 'setTheme',     value: state.theme });
     postTo(id, { type: 'command', action: 'setWireframe', value: state.wireframe });
@@ -1976,9 +1662,7 @@
     document.documentElement.classList.toggle('light-theme', isLight);
     document.body.classList.toggle('light-theme', isLight);
     try { document.querySelector('meta[name="theme-color"]').setAttribute('content', isLight ? '#e8ecf3' : '#0a0d13'); } catch (_) {}
-    if (pillIconMoon) pillIconMoon.style.display = isLight ? 'none' : 'block';
-    if (pillIconSun)  pillIconSun.style.display  = isLight ? 'block' : 'none';
-    pillTheme.classList.toggle('active', isLight);
+    if (menu) menu.update({ theme: state.theme });
   }
   function setTheme(t) {
     state.theme = (t === 'light') ? 'light' : 'dark';
@@ -1992,8 +1676,7 @@
     state.wireframe = v;
     if (v) state.xray = false;
     savePrefs();
-    pillWire.classList.toggle('active', state.wireframe);
-    pillXRay.classList.toggle('active', state.xray);
+    menu.update({ wireframe: state.wireframe, xray: state.xray });
     if (state.active) {
       postTo(state.active, { type: 'command', action: 'setWireframe', value: state.wireframe });
       postTo(state.active, { type: 'command', action: 'setXRay',      value: state.xray });
@@ -2005,8 +1688,7 @@
     state.xray = v;
     if (v) state.wireframe = false;
     savePrefs();
-    pillWire.classList.toggle('active', state.wireframe);
-    pillXRay.classList.toggle('active', state.xray);
+    menu.update({ wireframe: state.wireframe, xray: state.xray });
     if (state.active) {
       postTo(state.active, { type: 'command', action: 'setWireframe', value: state.wireframe });
       postTo(state.active, { type: 'command', action: 'setXRay',      value: state.xray });
@@ -2030,6 +1712,8 @@
     moduleScreen.classList.add('active');
     moduleScreen.setAttribute('aria-hidden', 'false');
     homeScreen.classList.add('behind');
+    header.setTitle(mod.title); header.setColor(mod.color);
+    moduleScreen.style.setProperty('--al-accent', mod.color || 'var(--accent)');   /* header + ⋯ menu share the module accent */
     document.title = mod.title + ' — Auto Lab';
     try { if (location.hash.slice(1) !== id) history.pushState({ mod: id }, '', '#' + id); } catch (_) {}
     if (wasLive) {
@@ -2037,9 +1721,8 @@
       postTo(id, { type: 'command', action: 'setTheme',     value: state.theme });
       postTo(id, { type: 'command', action: 'setWireframe', value: state.wireframe });
       postTo(id, { type: 'command', action: 'setXRay',      value: state.xray });
-      if (modSpeed[id] != null) { state.speed = modSpeed[id]; pillSpeed.value = state.speed; }
+      if (modSpeed[id] != null) { state.speed = modSpeed[id]; menu.update({ speed: state.speed }); }
     }
-    updatePlayIcon();
     var fr = iframes[id];
     if (fr && fr.contentWindow) {
       setTimeout(function () {
@@ -2047,7 +1730,7 @@
         try { if (fr.contentWindow.document) fr.contentWindow.document.dispatchEvent(new Event('resize')); } catch (_) {}
       }, 60);
     }
-    closeSheet();
+    menu.close(false);
   }
 
   function closeModule() {
@@ -2062,13 +1745,12 @@
     if (state.tab === 'home' && state.view === 'modules' && typeof renderHome === 'function') { try { renderHome('home'); } catch (_) {} }
     document.title = 'Auto Lab';
     try { if (location.hash) history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
-    closeSheet();
+    menu.close(false);
   }
   function requestClose() {
     if (history.state && history.state.mod) history.back(); else closeModule();
   }
 
-  btnBack.addEventListener('click', function () { requestClose(); });
   window.addEventListener('popstate', function () {
     var id = location.hash.slice(1);
     if (id && modules.some(function (m) { return m.id === id; })) {
@@ -2076,216 +1758,31 @@
     } else closeModule();
   });
 
-  /* ─── Pill ─── */
-  function updatePlayIcon() {
-    pillIconPlay.style.display  = state.playing ? 'none' : 'block';
-    pillIconPause.style.display = state.playing ? 'block' : 'none';
-    pillPlay.setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
-  }
-  function setPlaying(v) {
-    state.playing = v;
-    updatePlayIcon();
-    if (state.active) postTo(state.active, { type: 'command', action: 'setPlaying', value: v });
-  }
-  pillPlay.addEventListener('click', function () { setPlaying(!state.playing); });
-  pillReset.addEventListener('click', function () {
-    if (state.active) postTo(state.active, { type: 'command', action: 'reset' });
+  /* ─── Header + ⋯ menu (chrome.js) — the only global controls the shell owns ─── */
+  var header = createHeader({
+    onBack: function () { requestClose(); },
+    onInfo: function () { if (state.active) postTo(state.active, { type: 'command', action: 'toggleInfo' }); },
+    onMenu: function (anchor) { menu.toggle(anchor); }
   });
-  pillSpeed.addEventListener('input', function () {
-    state.speed = parseFloat(pillSpeed.value); speedTouched = true;
-    if (state.active) modSpeed[state.active] = state.speed;
-    if (state.active) postTo(state.active, { type: 'command', action: 'setSpeed', value: state.speed });
-    var el = document.getElementById('sheet-speed-val');
-    if (el) el.textContent = formatSpeed(state.speed);
-  });
-  function formatSpeed(v) { return Math.round(400 + v * 900) + ' rpm'; }
-  pillTheme.addEventListener('click', function () { setTheme(state.theme === 'light' ? 'dark' : 'light'); });
-  pillWire.addEventListener('click', function () { setWireframe(!state.wireframe); });
-  pillXRay.addEventListener('click', function () { setXRay(!state.xray); });
+  moduleScreen.insertBefore(header.root, frameHost);
 
-  /* ─── Sheet ─── */
-  function openSheet() { buildSheet(); bottomSheet.classList.add('open'); sheetBackdrop.classList.add('open'); }
-  function closeSheet() { bottomSheet.classList.remove('open'); sheetBackdrop.classList.remove('open'); }
-  pillMore.addEventListener('click', openSheet);
-  btnMore.addEventListener('click', openSheet);
-  sheetBackdrop.addEventListener('click', closeSheet);
-
-  (function () {
-    var startY = 0, curY = 0, dragging = false;
-    bottomSheet.addEventListener('touchstart', function (e) {
-      if (bottomSheet.scrollTop > 0) return;
-      startY = e.touches[0].clientY;
-      dragging = true;
-      bottomSheet.style.transition = 'none';
-    }, { passive: true });
-    bottomSheet.addEventListener('touchmove', function (e) {
-      if (!dragging) return;
-      curY = e.touches[0].clientY;
-      var dy = Math.max(0, curY - startY);
-      bottomSheet.style.transform = 'translateY(' + dy + 'px)';
-    }, { passive: true });
-    bottomSheet.addEventListener('touchend', function () {
-      if (!dragging) return;
-      dragging = false;
-      bottomSheet.style.transition = '';
-      bottomSheet.style.transform = '';
-      if (curY - startY > 100) closeSheet();
-      startY = curY = 0;
-    });
-  })();
-
-  function buildSheet() {
-    var mod = modules.find(function (m) { return m.id === state.active; });
-    if (!mod) return;
-    var c = mod.color || 'var(--accent)';
-    sheetContent.innerHTML = [
-      '<div class="sheet-title">' + mod.title + '</div>',
-      '<div class="sheet-sub">' + (mod.subtitle || '') + '</div>',
-      '<div class="sheet-section">',
-      '  <div class="sheet-label">Speed</div>',
-      '  <div class="speed-row">',
-      '    <div class="sp-icon" style="background:color-mix(in oklch, ' + c + ' 18%, transparent);color:' + c + '"><svg><use href="#i-gauge"/></svg></div>',
-      '    <div class="sp-copy">',
-      '      <div class="sp-name">Animation</div>',
-      '      <div class="sp-val" id="sheet-speed-val">' + formatSpeed(state.speed) + '</div>',
-      '    </div>',
-      '    <input type="range" id="sheet-speed" min="0.15" max="2.5" step="0.05" value="' + state.speed + '" aria-label="Speed">',
-      '  </div>',
-      '</div>',
-      '<div class="sheet-section">',
-      '  <div class="sheet-label">Display</div>',
-      '  <div class="toggle-row ' + (state.labels ? 'on' : '') + '" id="toggle-labels"><div class="tg-copy"><div class="tg-name">Labels</div><div class="tg-desc">Show 3D part labels</div></div><div class="switch"></div></div>',
-      '  <div class="toggle-row ' + (state.gas ? 'on' : '') + '" id="toggle-gas"><div class="tg-copy"><div class="tg-name">Flow</div><div class="tg-desc">Show particle animations</div></div><div class="switch"></div></div>',
-      '</div>',
-      '<div class="sheet-section">',
-      '  <div class="sheet-label">View</div>',
-      '  <div class="toggle-row ' + (state.theme === 'light' ? 'on' : '') + '" id="toggle-theme"><div class="tg-copy"><div class="tg-name">Light theme</div><div class="tg-desc">Bright background, easier in daylight</div></div><div class="switch"></div></div>',
-      '  <div class="toggle-row ' + (state.wireframe ? 'on' : '') + '" id="toggle-wire"><div class="tg-copy"><div class="tg-name">Wireframe</div><div class="tg-desc">Color-coded edges</div></div><div class="switch"></div></div>',
-      '  <div class="toggle-row ' + (state.xray ? 'on' : '') + '" id="toggle-xray"><div class="tg-copy"><div class="tg-name">X-Ray</div><div class="tg-desc">Semi-transparent view</div></div><div class="switch"></div></div>',
-      '</div>',
-      '<div class="sheet-section" id="extras-section" style="display:none">',
-      '  <div class="sheet-label">Options</div>',
-      '  <div class="extras-grid" id="extras-grid"></div>',
-      '</div>',
-      '<button class="sheet-reset" id="sheet-reset"><svg><use href="#i-reset"/></svg>Reset module</button>'
-    ].join('');
-
-    var speedEl = sheetContent.querySelector('#sheet-speed');
-    speedEl.addEventListener('input', function () {
-      state.speed = parseFloat(speedEl.value); speedTouched = true;
-      if (state.active) modSpeed[state.active] = state.speed;
-      pillSpeed.value = state.speed;
-      if (state.active) postTo(state.active, { type: 'command', action: 'setSpeed', value: state.speed });
-      document.getElementById('sheet-speed-val').textContent = formatSpeed(state.speed);
-    });
-    sheetContent.querySelector('#toggle-labels').addEventListener('click', function (e) {
-      state.labels = !state.labels;
-      e.currentTarget.classList.toggle('on', state.labels);
-      if (state.active) postTo(state.active, { type: 'command', action: 'setLabels', value: state.labels });
-    });
-    sheetContent.querySelector('#toggle-gas').addEventListener('click', function (e) {
-      state.gas = !state.gas;
-      e.currentTarget.classList.toggle('on', state.gas);
-      if (state.active) postTo(state.active, { type: 'command', action: 'setGas', value: state.gas });
-    });
-    sheetContent.querySelector('#toggle-theme').addEventListener('click', function (e) {
-      var next = state.theme === 'light' ? 'dark' : 'light';
-      setTheme(next);
-      e.currentTarget.classList.toggle('on', next === 'light');
-    });
-    sheetContent.querySelector('#toggle-wire').addEventListener('click', function (e) {
-      setWireframe(!state.wireframe);
-      e.currentTarget.classList.toggle('on', state.wireframe);
-      sheetContent.querySelector('#toggle-xray').classList.toggle('on', state.xray);
-    });
-    sheetContent.querySelector('#toggle-xray').addEventListener('click', function (e) {
-      setXRay(!state.xray);
-      e.currentTarget.classList.toggle('on', state.xray);
-      sheetContent.querySelector('#toggle-wire').classList.toggle('on', state.wireframe);
-    });
-    sheetContent.querySelector('#sheet-reset').addEventListener('click', function () {
-      if (state.active) postTo(state.active, { type: 'command', action: 'reset' });
-      closeSheet();
-    });
-    buildSheetExtras(mod);
-  }
-
-  function buildSheetExtras(mod) {
-    var section = document.getElementById('extras-section');
-    var grid = document.getElementById('extras-grid');
-    if (!section || !grid) return;
-    var id = mod.id;
-    var hasExtras = false;
-
-    if (id === 'engine') {
-      hasExtras = true;
-      [
-        { label: 'Intake',      v: 0, c: '#38bdf8' },
-        { label: 'Compression', v: 1, c: '#818cf8' },
-        { label: 'Power',       v: 2, c: '#f97316' },
-        { label: 'Exhaust',     v: 3, c: '#94a3b8' }
-      ].forEach(function (s) {
-        var b = document.createElement('button');
-        b.className = 'extra-btn';
-        b.style.setProperty('--c', s.c);
-        b.innerHTML = '<span class="eb-num">' + (s.v + 1) + '</span>' + s.label;
-        b.addEventListener('click', function () {
-          grid.querySelectorAll('.extra-btn').forEach(function (x) { x.classList.remove('active'); });
-          b.classList.add('active');
-          postTo('engine', { type: 'command', action: 'setStroke', value: s.v });
-          closeSheet();
-        });
-        grid.appendChild(b);
-      });
-    } else if (id === 'gearbox') {
-      hasExtras = true;
-      [
-        { label: 'Neutral', v: 0, c: '#94a3b8' },
-        { label: '1st',     v: 1, c: '#22c55e' },
-        { label: '2nd',     v: 2, c: '#22c55e' },
-        { label: '3rd',     v: 3, c: '#22c55e' },
-        { label: '4th',     v: 4, c: '#22c55e' },
-        { label: 'Reverse', v: 5, c: '#ef4444' }
-      ].forEach(function (g) {
-        var b = document.createElement('button');
-        b.className = 'extra-btn' + (g.v === 0 ? ' active' : '');
-        b.style.setProperty('--c', g.c);
-        var numLabel = g.label === 'Neutral' ? 'N' : g.label === 'Reverse' ? 'R' : g.v;
-        b.innerHTML = '<span class="eb-num">' + numLabel + '</span>' + g.label;
-        b.addEventListener('click', function () {
-          grid.querySelectorAll('.extra-btn').forEach(function (x) { x.classList.remove('active'); });
-          b.classList.add('active');
-          postTo('gearbox', { type: 'command', action: 'setGear', value: g.v });
-          closeSheet();
-        });
-        grid.appendChild(b);
-      });
-    } else if (id === 'clutch') {
-      hasExtras = true;
-      var b = document.createElement('button');
-      b.className = 'extra-btn';
-      b.style.setProperty('--c', '#ef4444');
-      b.innerHTML = '<span class="eb-num">⇩</span>Hold pedal';
-      var down = function (e) {
-        e.preventDefault();
-        b.classList.add('active');
-        if (b.setPointerCapture && e.pointerId != null) {
-          try { b.setPointerCapture(e.pointerId); } catch (_) {}
-        }
-        postTo('clutch', { type: 'command', action: 'setPedal', value: 1 });
-      };
-      var up = function () {
-        b.classList.remove('active');
-        postTo('clutch', { type: 'command', action: 'setPedal', value: 0 });
-      };
-      b.addEventListener('pointerdown', down);
-      b.addEventListener('pointerup', up);
-      b.addEventListener('pointercancel', up);
-      b.addEventListener('lostpointercapture', up);
-      grid.appendChild(b);
+  var menu = createMenu({
+    host: moduleScreen,
+    state: { speed: state.speed, density: state.density, theme: state.theme, wireframe: state.wireframe, xray: state.xray },
+    onToggle: function (open) { header.setMenuExpanded(open); },
+    onChange: function (key, value) {
+      if (key === 'speed') {
+        state.speed = clampSpeed(value); speedTouched = true;
+        if (state.active) { modSpeed[state.active] = state.speed; postTo(state.active, { type: 'command', action: 'setSpeed', value: state.speed }); }
+      } else if (key === 'density') {
+        state.density = value;
+        if (state.active) postTo(state.active, { type: 'command', action: 'setLabelDensity', value: state.density });
+      } else if (key === 'theme') setTheme(value);
+      else if (key === 'wireframe') setWireframe(value);
+      else if (key === 'xray') setXRay(value);
     }
-    section.style.display = hasExtras ? '' : 'none';
-  }
+  });
+  menu.update({ theme: state.theme, wireframe: state.wireframe, xray: state.xray });
 
   window.addEventListener('message', function (e) {
     var d = e.data;
@@ -2294,27 +1791,36 @@
       var fr = iframes[d.moduleId];
       if (fr) injectEmbedFix(fr);
       sendAllCommands(d.moduleId);
+    } else if (d.type === 'key') {
+      /* a shell-owned key pressed while focus is inside the module iframe */
+      if (d.moduleId === state.active) keyRouter.incoming(d.action);
+    } else if (d.type === 'state') {
+      /* the module owns play/pause and label density (keys); mirror them here */
+      if (d.moduleId !== state.active) return;
+      if (typeof d.playing === 'boolean') state.playing = d.playing;
+      if (d.density != null) { state.density = d.density; menu.update({ density: d.density }); }
     }
   });
 
-  window.addEventListener('keydown', function (e) {
-    var ae = document.activeElement;
-    var inShell = !ae || ae === document.body || ae.tagName === 'BODY';
-    if (!inShell) return;
-    if (e.key === 'Escape') {
-      if (bottomSheet.classList.contains('open')) { closeSheet(); return; }
-      if (state.active) requestClose();
-      return;
+  /* ─── Keys: one keymap (keys.js). Shell owns L/W/X/Esc; Space/R/D belong to the module
+         and are forwarded to it when focus is in the shell. ─── */
+  var keyRouter = createKeyRouter({
+    owns: function (a) { return a === 'theme' || a === 'wireframe' || a === 'xray' || a === 'close'; },
+    handle: function (a) {
+      if (a === 'close') {
+        if (menu.isOpen) menu.close(); else if (state.active) requestClose();
+        return;
+      }
+      if (!state.active) return;
+      if (a === 'theme') setTheme(state.theme === 'light' ? 'dark' : 'light');
+      else if (a === 'wireframe') setWireframe(!state.wireframe);
+      else if (a === 'xray') setXRay(!state.xray);
+    },
+    forward: function (a) {
+      if (state.active) postTo(state.active, { type: 'command', action: 'key', value: a });
     }
-    if (!state.active) return;
-    if (e.key === ' ' || e.code === 'Space') {
-      if (ae && ae.tagName === 'BUTTON') return;
-      e.preventDefault(); setPlaying(!state.playing);
-    } else if (e.key === 'r' || e.key === 'R') { postTo(state.active, { type: 'command', action: 'reset' }); }
-    else if (e.key === 'l' || e.key === 'L') { setTheme(state.theme === 'light' ? 'dark' : 'light'); }
-    else if (e.key === 'w' || e.key === 'W') { setWireframe(!state.wireframe); }
-    else if (e.key === 'x' || e.key === 'X') { setXRay(!state.xray); }
   });
+  installKeys(window, keyRouter);
 
   /* ─── PWA ─── */
   var deferredPrompt = null;
@@ -2367,9 +1873,6 @@
   moduleCountEl.textContent = modules.length + ' interactive modules';
   applyShellTheme();
   applyViewToggleUI();
-  pillWire.classList.toggle('active', state.wireframe);
-  pillXRay.classList.toggle('active', state.xray);
-  updatePlayIcon();
   renderHome('home');
 
   requestAnimationFrame(function () {

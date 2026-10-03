@@ -6,80 +6,8 @@
 <meta name="theme-color" content="#0a0d13">
 <title>Turbocharger — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <style>
-  /* ═══════════════════════════════════════════════════════════
-     WIDGET INTERIOR — Accelerator pedal (bottom-right)
-     ═══════════════════════════════════════════════════════════ */
-  #accel-overlay {
-    display: flex; flex-direction: column; align-items: center;
-    pointer-events: none;
-  }
-  #accel-readout {
-    margin-bottom: 8px;
-    font-family: var(--font-mono);
-    font-size: 12px; font-weight: 800;
-    color: var(--text, #e5e7eb);
-    background: rgba(10,14,20,.76);
-    padding: 3px 11px; border-radius: 20px;
-    border: 1px solid var(--border, rgba(255,255,255,.08));
-    backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
-  }
-  #accel-track {
-    position: relative; width: 54px; height: 158px;
-    pointer-events: auto; cursor: pointer;
-    touch-action: none; user-select: none; -webkit-user-select: none;
-  }
-  #accel-fill-mask {
-    position: absolute; inset: 0; border-radius: 16px; overflow: hidden;
-    background: rgba(10,14,20,.65);
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), 0 10px 24px rgba(0,0,0,.55);
-    transition: border-color .2s;
-  }
-  html.light-theme #accel-fill-mask {
-    background: rgba(255,255,255,.88);
-    border-color: rgba(15,23,42,.14);
-  }
-  #accel-track.active #accel-fill-mask { border-color: rgba(56,189,248,.5); }
-  #accel-fill {
-    position: absolute; left: 0; right: 0; bottom: 0; height: 0%;
-    background: linear-gradient(180deg, #f59e0b, #fbbf24);
-    transition: height .05s linear;
-  }
-  #accel-pedal {
-    position: absolute; left: -4px; right: -4px; bottom: 0%;
-    height: 34px; transform: translateY(50%);
-    filter: drop-shadow(0 6px 10px rgba(0,0,0,.6));
-    transition: bottom .05s linear;
-  }
-  #accel-pedal svg { width: 100%; height: 100%; display: block; }
-  .pedal-plate { fill: #242b35; stroke: #a9b4c3; stroke-width: 1.4; }
-  .pedal-grip  { fill: #5e6b7d; }
-  html.light-theme .pedal-plate { fill: #e2e8f0; stroke: #334155; }
-  html.light-theme .pedal-grip  { fill: #cbd5e1; }
-  #accel-track.active .pedal-plate { stroke: #f59e0b; }
-  #accel-control-label {
-    margin-top: 7px;
-    color: var(--text-dim, #aab4c3);
-    font-size: 10.5px; font-weight: 700;
-    letter-spacing: .55px; text-transform: uppercase;
-    background: rgba(10,14,20,.76);
-    padding: 5px 11px; border-radius: 20px;
-    border: 1px solid var(--border, rgba(255,255,255,.08));
-    backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
-    pointer-events: none;
-  }
-  html.light-theme #accel-control-label {
-    background: rgba(255,255,255,.94);
-    color: #475569;
-    border-color: rgba(15,23,42,.14);
-  }
-  #accel-control-pct { color: var(--text, #e5e7eb); font-family: var(--font-mono); }
-  @media (max-width: 600px) {
-    #accel-track { width: 44px; height: 128px; }
-    #accel-control-label { font-size: 10px; padding: 4px 8px; }
-  }
-
   /* ═══════════════════════════════════════════════════════════
      PANEL READOUT — live rows + flow legend
      ═══════════════════════════════════════════════════════════ */
@@ -114,33 +42,7 @@
      TOOLBAR EXTRAS — forced-induction config switcher
      Same pattern as engine.html's engine-config switcher.
      ═══════════════════════════════════════════════════════════ */
-  .cfg-group {
-    display: flex; align-items: center; gap: 4px;
-    padding-left: 8px; margin-left: 4px;
-    border-left: 1px solid var(--border, rgba(255,255,255,.10));
-  }
-  .cfg-arrow {
-    width: 22px; height: 22px; border-radius: 50%;
-    border: none; background: rgba(255,255,255,.08);
-    color: var(--text, #e5e7eb); font-size: 14px; line-height: 1;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-family: inherit; padding: 0;
-    transition: background var(--dur-fast, .15s) var(--ease-out, ease),
-                color var(--dur-fast, .15s) var(--ease-out, ease);
-  }
-  .cfg-arrow:hover, .cfg-arrow:active { background: var(--accent, #38bdf8); color: #0b0e14; }
-  #cfg-label {
-    min-width: 96px; text-align: center; white-space: nowrap;
-    font-size: 10.5px; font-weight: 700; letter-spacing: .02em;
-    color: var(--text, #e5e7eb);
-    font-family: var(--font-mono);
-  }
-  html.light-theme .cfg-arrow { background: rgba(15,23,42,.08); color: #0a0d13; }
-  html.light-theme .cfg-arrow:hover { background: var(--accent, #38bdf8); color: #fff; }
-  html.light-theme #cfg-label { color: #0a0d13; }
-  @media (max-width: 600px) {
-    .cfg-arrow { width: 19px; height: 19px; font-size: 12px; }
-    #cfg-label { min-width: 76px; font-size: 10px; }
+  html.light-theme  html.light-theme  html.light-theme  @media (max-width: 600px) {
   }
 </style>
 </head>
@@ -1256,9 +1158,8 @@ import { Parts } from './components.js';
   }
 
   /* ═══════════════════════════════════════════════════════════
-     STATE — declared BEFORE UI.create so widget onMount is safe
+     STATE
      ═══════════════════════════════════════════════════════════ */
-  let throttle      = 0;
   let turbineRpm    = 0;
   let scRpm         = 0;
   let boost         = 0;
@@ -1287,44 +1188,8 @@ import { Parts } from './components.js';
   const SC_RATIO  = 1.8;
   const SC_MAX_RPM = 18000;
 
-  /* Pedal widget refs + functions (declared before UI.create) */
-  let accelTrackEl   = null;
-  let accelFillEl    = null;
-  let accelPedalEl   = null;
-  let accelPctEl     = null;
-  let accelCtrlPctEl = null;
-  let accelDragging  = false;
-  let accelPointerId = null;
-  let accelReturnRAF = null;
-
-  function accelPercentFromEvent(e) {
-    const r = accelTrackEl.getBoundingClientRect();
-    return Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height));
-  }
-  function setThrottle(v) {
-    throttle = Math.max(0, Math.min(1, v));
-    const pct = Math.round(throttle * 100);
-    if (accelFillEl)    accelFillEl.style.height = pct + '%';
-    if (accelPedalEl)   accelPedalEl.style.bottom = pct + '%';
-    if (accelPctEl)     accelPctEl.textContent = pct + '%';
-    if (accelCtrlPctEl) accelCtrlPctEl.textContent = pct + '%';
-    if (accelTrackEl)   accelTrackEl.setAttribute('aria-valuenow', String(pct));
-  }
-  function cancelAccelReturn() {
-    if (accelReturnRAF) { cancelAnimationFrame(accelReturnRAF); accelReturnRAF = null; }
-  }
-  function springReleaseAccel() {
-    cancelAccelReturn();
-    const step = () => {
-      const next = throttle * 0.88;
-      setThrottle(next < 0.005 ? 0 : next);
-      accelReturnRAF = throttle > 0 ? requestAnimationFrame(step) : null;
-    };
-    accelReturnRAF = requestAnimationFrame(step);
-  }
-
   /* ═══════════════════════════════════════════════════════════
-     UI — kit chrome + pedal widget (no tabs — switcher lives in toolbar extras)
+     UI — kit chrome + pedal axis (no tabs — switcher lives in toolbar extras)
      ═══════════════════════════════════════════════════════════ */
   const ui = UI.create({
     moduleId: 'turbo',
@@ -1353,101 +1218,22 @@ import { Parts } from './components.js';
              <strong>blow-off valve</strong> vents the charge pipe when you lift off.`
     },
 
-    chip: {
-      label: 'Boost pressure',
-      value: 0,
-      unit:  'bar',
-      bar:   true,
-      rows: [
-        { id: 'drive', label: 'Speed', value: '0 rpm' },
-        { id: 'egt',   label: 'EGT',   value: '20 °C' }
-      ],
-      status: { text: 'Idle' }
+    monitor: {
+      config: { label: 'Boost pressure', value: { label: 'Boost pressure', unit: 'bar', max: 100, bar: true }, rows: [['drive', 'Speed'], ['egt', 'EGT'], ['rpm', 'Engine speed']], status: { text: 'Idle' } },
+      initial: { value: { text: '0', unit: 'bar' }, rows: { drive: '0 rpm', egt: '20 °C', rpm: '—' }, status: ['Idle', false] }
     },
 
     toolbar: {
       play: true, reset: true,
       speed: { label: 'Engine load', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
       labels: true, gas: true,
-      extras: [
-        { id: 'btn-rotorslow', title: 'Rotor slow motion',
-          icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 2h12v6l-4 4 4 4v6H6v-6l4-4-4-4V2zm10 12.5V20H8v-5.5l4-4 4 4zM8 4v3.5l4 4 4-4V4H8z"/></svg>' }
-      ]
+      extras: []
     },
 
-    widgets: {
-      br: {
-        caption: 'Hold to build boost',
-        html: `
-          <div id="accel-overlay">
-            <div id="accel-readout"><span id="accel-pct">0%</span></div>
-            <div id="accel-track" role="slider" tabindex="0"
-                 aria-label="Accelerator — hold to build boost"
-                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-              <div id="accel-fill-mask"><div id="accel-fill"></div></div>
-              <div id="accel-pedal">
-                <svg viewBox="0 0 60 34" aria-hidden="true">
-                  <rect class="pedal-plate" x="4" y="4" width="52" height="26" rx="8"/>
-                  <rect class="pedal-grip" x="10" y="9" width="40" height="4" rx="2"/>
-                  <rect class="pedal-grip" x="10" y="16" width="40" height="4" rx="2"/>
-                  <rect class="pedal-grip" x="10" y="23" width="40" height="4" rx="2"/>
-                </svg>
-              </div>
-            </div>
-            <div id="accel-control-label">Hold · <span id="accel-control-pct">0%</span></div>
-          </div>
-        `,
-        onMount: (el) => {
-          accelTrackEl   = el.querySelector('#accel-track');
-          accelFillEl    = el.querySelector('#accel-fill');
-          accelPedalEl   = el.querySelector('#accel-pedal');
-          accelPctEl     = el.querySelector('#accel-pct');
-          accelCtrlPctEl = el.querySelector('#accel-control-pct');
-          if (!accelTrackEl) return;
-
-          accelTrackEl.addEventListener('pointerdown', e => {
-            e.preventDefault(); cancelAccelReturn();
-            accelDragging = true; accelPointerId = e.pointerId;
-            try { accelTrackEl.setPointerCapture(e.pointerId); } catch (_) {}
-            accelTrackEl.classList.add('active');
-            setThrottle(accelPercentFromEvent(e));
-          });
-          accelTrackEl.addEventListener('pointermove', e => {
-            if (!accelDragging || e.pointerId !== accelPointerId) return;
-            e.preventDefault();
-            setThrottle(accelPercentFromEvent(e));
-          });
-          const endAccelDrag = () => {
-            if (!accelDragging) return;
-            accelDragging = false; accelPointerId = null;
-            accelTrackEl.classList.remove('active');
-            springReleaseAccel();
-          };
-          accelTrackEl.addEventListener('pointerup', endAccelDrag);
-          accelTrackEl.addEventListener('pointercancel', endAccelDrag);
-          accelTrackEl.addEventListener('lostpointercapture', endAccelDrag);
-          accelTrackEl.addEventListener('keydown', e => {
-            if (e.key === 'ArrowUp')   { e.preventDefault(); cancelAccelReturn(); setThrottle(throttle + 0.08); }
-            if (e.key === 'ArrowDown') { e.preventDefault(); cancelAccelReturn(); setThrottle(throttle - 0.08); }
-          });
-        }
-      }
-    }
-  });
-
-  /* Spacebar as accelerator — consistent UX */
-  window.addEventListener('keydown', e => {
-    if (e.code === 'Space' && !e.repeat && !e.target.closest('button, input, select, textarea')) {
-      e.preventDefault();
-      cancelAccelReturn();
-      if (accelTrackEl) accelTrackEl.classList.add('active');
-    }
-  });
-  window.addEventListener('keyup', e => {
-    if (e.code === 'Space' && accelTrackEl && !accelDragging) {
-      accelTrackEl.classList.remove('active');
-      springReleaseAccel();
-    }
+    /* Phase 4: the accelerator is a controls.js pedal (id 'throttle'). k = -ln(0.88)·60. */
+    axes: [
+      { id: 'throttle', look: 'pedal', label: 'Throttle', preset: 'percent', spring: 'return', k: 7.67, keys: 'arrows', side: 'right' }
+    ]
   });
 
   /* ═══════════════════════════════════════════════════════════
@@ -1464,43 +1250,16 @@ import { Parts } from './components.js';
   const moduleTitleEl  = document.getElementById('module-title');
   const moduleKickerEl = document.getElementById('module-kicker');
 
-  /* Rotor-slow button (from toolbar extras) */
-  const btnRotor = document.getElementById('btn-rotorslow');
-  if (btnRotor) {
-    btnRotor.addEventListener('click', () => {
-      rotorSlow = !rotorSlow;
-      btnRotor.classList.toggle('active', rotorSlow);
-    });
-  }
-
-  /* ═══════════════════════════════════════════════════════════
-     CONFIG SWITCHER — injected into #toolbar-extras
-     (same pattern as engine.html's engine-config switcher)
-     ═══════════════════════════════════════════════════════════ */
-  (function buildConfigSwitcher() {
-    const extras = document.getElementById('toolbar-extras');
-    if (!extras) return;
-    const cfgGroup = document.createElement('div');
-    cfgGroup.className = 'cfg-group';
-    cfgGroup.setAttribute('role', 'group');
-    cfgGroup.setAttribute('aria-label', 'Forced induction type');
-    cfgGroup.innerHTML = `
-      <button class="cfg-arrow" id="cfg-prev" type="button" aria-label="Previous induction type">‹</button>
-      <span id="cfg-label">Turbocharger</span>
-      <button class="cfg-arrow" id="cfg-next" type="button" aria-label="Next induction type">›</button>
-    `;
-    extras.appendChild(cfgGroup);
-  })();
-
-  const cfgLabelEl = document.getElementById('cfg-label');
-  const cfgPrevEl  = document.getElementById('cfg-prev');
-  const cfgNextEl  = document.getElementById('cfg-next');
-
+  /* Phase 6: rotor slow-motion is a dock toggle, the induction type a dock choice (replace the toolbar button + ‹ › arrows) */
   const CONFIG_ORDER  = ['turbo', 'supercharger'];
   const CONFIG_LABELS = {
     turbo:        'Turbocharger',
     supercharger: 'Supercharger'
   };
+  ui.addOptions([
+    { id: 'config', type: 'choice', layout: 'segmented', label: 'Induction', options: CONFIG_ORDER.map(id => ({ id, label: CONFIG_LABELS[id] })) },
+    { id: 'rotorslow', type: 'toggle', label: 'Slow rotor', ariaLabel: 'Rotor slow motion', onChange: (on) => { rotorSlow = on; } }
+  ]);
 
   const TURBO_INFO = {
     title:  'Turbocharger · Working Principle',
@@ -1533,7 +1292,7 @@ import { Parts } from './components.js';
     scGroup.visible    = (id === 'supercharger');
 
     /* Update the toolbar switcher label */
-    if (cfgLabelEl) cfgLabelEl.textContent = CONFIG_LABELS[id];
+    ui.controls.set('config', CONFIG_ORDER.indexOf(id));          /* keep the dock choice in step */
 
     /* Update panel chrome */
     const info = (id === 'turbo') ? TURBO_INFO : SC_INFO;
@@ -1568,14 +1327,7 @@ import { Parts } from './components.js';
     if (bridge) bridge.setStatus((id === 'turbo') ? 'Turbocharger' : 'Supercharger', info.badge.color);
   }
 
-  function stepConfig(dir) {
-    const i = CONFIG_ORDER.indexOf(currentMode);
-    const next = CONFIG_ORDER[(i + dir + CONFIG_ORDER.length) % CONFIG_ORDER.length];
-    applyConfig(next);
-  }
-
-  if (cfgPrevEl) cfgPrevEl.addEventListener('click', () => stepConfig(-1));
-  if (cfgNextEl) cfgNextEl.addEventListener('click', () => stepConfig(1));
+  ui.controls.on('config', (i) => { const id = CONFIG_ORDER[i]; if (id !== currentMode) applyConfig(id); });
 
   /* ═══════════════════════════════════════════════════════════
      BRIDGE
@@ -1587,8 +1339,7 @@ import { Parts } from './components.js';
       switch (d.action) {
         case 'reset': resetSim(); break;
         case 'setRotorSlow':
-          rotorSlow = !!d.value;
-          if (btnRotor) btnRotor.classList.toggle('active', rotorSlow);
+          ui.controls.set('rotorslow', !!d.value);        /* onChange sets rotorSlow */
           break;
         case 'setConfig':
           if (CONFIG_ORDER.indexOf(d.value) >= 0) applyConfig(d.value);
@@ -1605,6 +1356,7 @@ import { Parts } from './components.js';
      PHYSICS
      ═══════════════════════════════════════════════════════════ */
   function stepPhysics(dt) {
+    const throttle = ui.controls.get('throttle');
     const engineRpm = 350 + state.speedMul * 850;
     const load = Math.min(1, engineRpm / 1800);
     const exhaustEnergy = throttle * load;
@@ -1674,6 +1426,7 @@ import { Parts } from './components.js';
   }
 
   function updateEngineKinematics(dt) {
+    const throttle = ui.controls.get('throttle');
     const th = crankAngle * DEG;
     const py = CRANK_R * Math.cos(th) +
                Math.sqrt(Math.max(0.0001, ROD_LEN * ROD_LEN - (CRANK_R * Math.sin(th)) ** 2));
@@ -1884,7 +1637,7 @@ import { Parts } from './components.js';
      RESET
      ═══════════════════════════════════════════════════════════ */
   function resetSim() {
-    setThrottle(0);
+    ui.controls.resetAll();                       /* releases the throttle pedal */
     turbineRpm = 0; scRpm = 0; boost = 0; egt = 20; iatPostIc = 20;
     wastegateOpen = 0; bovOpen = 0; bypassOpen = 0; prevThrottle = 0;
     rotorPhase = 0; scRotorPhaseL = 0; scRotorPhaseR = 0;
@@ -1903,10 +1656,10 @@ import { Parts } from './components.js';
   function updateReadouts() {
     if (currentMode === 'turbo') {
       if (elRpm) elRpm.textContent = Math.round(turbineRpm / 1000).toLocaleString() + ',000 rpm';
-      ui.chip.set('drive', Math.round(turbineRpm / 1000).toLocaleString() + 'k rpm');
+      ui.monitor.update({ rows: { drive: Math.round(turbineRpm / 1000).toLocaleString() + 'k rpm' } });
     } else {
       if (elRpm) elRpm.textContent = Math.round(scRpm).toLocaleString() + ' rpm';
-      ui.chip.set('drive', Math.round(scRpm / 100) / 10 + 'k rpm');
+      ui.monitor.update({ rows: { drive: Math.round(scRpm / 100) / 10 + 'k rpm' } });
     }
     if (elEgt) elEgt.textContent = Math.round(egt) + ' °C';
     if (elIat) elIat.textContent = Math.round(iatPostIc) + ' °C';
@@ -1917,10 +1670,10 @@ import { Parts } from './components.js';
     else if (boost < 1.1)  col = '#22c55e';
     else                   col = '#f59e0b';
 
-    ui.chip.setBig(boost.toFixed(2), 'bar');
-    ui.chip.setColor(col);
-    ui.chip.setBar((boost / 1.5) * 100, col);
-    ui.chip.set('egt', Math.round(egt) + ' °C');
+    ui.monitor.update({
+      value: { text: String(boost.toFixed(2)), unit: 'bar', color: col || '', bar: (boost / 1.5) * 100, barColor: col },
+      rows: { egt: Math.round(egt) + ' °C' }
+    });
 
     let statusTxt, ok;
     if (currentMode === 'turbo') {
@@ -1933,9 +1686,7 @@ import { Parts } from './components.js';
       else if (boost > 0.1)  { statusTxt = 'On boost';   ok = true; }
       else                   { statusTxt = 'Idle';       ok = false; }
     }
-    ui.chip.setStatus(statusTxt, ok);
-
-    ui.toolbar.setRpmLabel('~' + Math.round(350 + state.speedMul * 850) + ' rpm');
+    ui.monitor.update({ rows: { rpm: '~' + Math.round(350 + state.speedMul * 850) + ' rpm' }, status: [statusTxt, !!(ok)] });
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -2036,7 +1787,6 @@ import { Parts } from './components.js';
   /* ═══════════════════════════════════════════════════════════
      INIT
      ═══════════════════════════════════════════════════════════ */
-  setThrottle(0);
   updateReadouts();
   animate();
   </script>

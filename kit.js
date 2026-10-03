@@ -13,6 +13,22 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createLabelSystem as _createLabelSystem, KINDS as LABEL_KINDS, DENSITY_INFO } from './labels.js';
+import { createKeyRouter, installKeys } from './keys.js';
+import { nextDensity, isPhone, createHeader, createMenu, clampSpeed } from './chrome.js';
+import { createDock, modelShiftPx } from './dock.js';
+import { controls, createAxis, createMomentary, createDial, createChoice, createToggle, createAction } from './controls.js';
+import { createMonitor } from './monitor.js';
+export { controls };
+
+/* controls.css holds the header, ⋯ menu, dock and phone-sheet styles. Module pages link it; this is the
+   safety net (resolved next to kit.js) so a page that forgot the <link> still gets a styled dock. */
+function ensureControlsCss() {
+  if (document.querySelector('link[href*="controls.css"]')) return;
+  const l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = new URL('./controls.css', import.meta.url).href;
+  document.head.appendChild(l);
+}
 
 export { THREE, OrbitControls, LABEL_KINDS, DENSITY_INFO };
 export const DEG = Math.PI / 180;
@@ -397,6 +413,9 @@ export function attachResize(camera, renderer, wrap, baseFov = 42) {
     camera.fov = camera.aspect < 1
       ? Math.min(72, baseFov / Math.max(0.58, camera.aspect))
       : baseFov;
+    /* Phones (portrait): nudge the model into the upper/mid area of the stage (Phase 2). */
+    const dy = modelShiftPx(w, h, window.innerWidth, window.innerHeight);
+    if (dy) camera.setViewOffset(w, h, 0, dy, w, h); else camera.clearViewOffset();
     camera.updateProjectionMatrix();
     renderer.setSize(w, h, false);
   }
@@ -407,6 +426,9 @@ export function attachResize(camera, renderer, wrap, baseFov = 42) {
   };
   window.addEventListener('resize', schedule);
   window.addEventListener('orientationchange', () => setTimeout(schedule, 220));
+  /* The stage changes size when the dock changes height (swipe, keyboard) and on rotation,
+     none of which fire a window resize. */
+  if (typeof ResizeObserver === 'function') new ResizeObserver(schedule).observe(wrap);
   resize();
   return resize;
 }
@@ -551,24 +573,32 @@ export const UI = {
   create(cfg) { return new UIKit(cfg); }
 };
 
+const HOME_URL = 'index.html';
+
 class UIKit {
   constructor(cfg) {
     this.cfg = cfg || {};
     this.moduleId = cfg.moduleId || 'module';
     this._slots = {};
-    this._chipEls = {};
-    this._chipRows = {};
+    this._monitor = null;
+    this._axes = {};
     this._panelEls = {};
+    this._embedded = !!(window.parent && window.parent !== window);
+    if (this._embedded) document.body.classList.add('embedded', 'uses-ui-kit');   /* early: --stage-top is 0 when embedded */
+    ensureControlsCss();
 
+    /* Only the top slots remain (info panel + readout). Everything at the bottom lives in the dock. */
     this._ensureSlot('tl');
     this._ensureSlot('tr');
-    this._ensureSlot('bl');
-    this._ensureSlot('br');
-    this._ensureSlot('bc');
+
+    this._dock = createDock({ moduleId: this.moduleId });
+    if (!this._embedded) this._buildStandaloneHeader();
 
     if (cfg.panel)   this._buildPanel(cfg.panel);
-    if (cfg.chip)    this._buildChip(cfg.chip);
+    if (cfg.monitor) this._buildMonitor(cfg.monitor);              /* Phase 7a/7b1: the Monitor is the one readout surface */
     if (cfg.toolbar) this._buildToolbar(cfg.toolbar);
+    if (cfg.axes)    this._buildAxes(cfg.axes);      /* Phase 3: axis controls first, so legend widgets come last */
+    if (cfg.options) this._buildOptions(cfg.options);   /* Phase 6: choice / toggle / action (options row, or primary when primary:true) */
     if (cfg.widgets) this._buildWidgets(cfg.widgets);
 
     this._wirePanelToggle();
@@ -582,21 +612,48 @@ class UIKit {
       el.id = 'ui-slot-' + name;
       el.className = 'ui-slot ui-slot-' + name;
       /* tl (info panel) + tr (readout chip) share one responsive row that
-         wraps instead of overlapping — see #ui-top-stack in app.css. */
-      if (name === 'tl' || name === 'tr') {
-        let stack = document.getElementById('ui-top-stack');
-        if (!stack) {
-          stack = document.createElement('div');
-          stack.id = 'ui-top-stack';
-          document.body.appendChild(stack);
-        }
-        stack.appendChild(el);
-      } else {
-        document.body.appendChild(el);
+         wraps instead of overlapping — see #ui-top-stack in app.css.
+         (On phones the stack dissolves: the panel is a bottom sheet, the chip a top strip.) */
+      let stack = document.getElementById('ui-top-stack');
+      if (!stack) {
+        stack = document.createElement('div');
+        stack.id = 'ui-top-stack';
+        document.body.appendChild(stack);
       }
+      stack.appendChild(el);
     }
     this._slots[name] = el;
     return el;
+  }
+
+  /* ── Standalone: the same chrome.js header the shell draws (back · title · ⓘ · ⋯) ── */
+  _buildStandaloneHeader() {
+    const fallbackTitle = (document.title || 'Auto Lab').replace(/\s*—\s*Auto Lab$/, '');
+    const cssAccent = getComputedStyle(document.documentElement).getPropertyValue('--al-accent').trim();
+    this._header = createHeader({
+      doc: document,
+      title: fallbackTitle,
+      color: cssAccent || undefined,
+      onBack: () => { location.href = HOME_URL; },
+      onInfo: () => this.panel.toggle(),
+      onMenu: (btn) => { if (this._menu) this._menu.toggle(btn); }
+    });
+    this._header.setInfoVisible(!!this.cfg.panel);
+    document.body.insertBefore(this._header.root, document.body.firstChild);
+    /* Title + colour come from modules.js (the registry), like the shell. */
+    const apply = () => {
+      const list = window.AUTO_MODULES || [];
+      const file = location.pathname.split('/').pop();
+      const m = list.find((x) => x.id === this.moduleId) || list.find((x) => x.file === file);
+      if (m) { this._header.setTitle(m.title || m.label); this._header.setColor(m.color); }
+    };
+    if (window.AUTO_MODULES) apply();
+    else {
+      const sc = document.createElement('script');
+      sc.src = new URL('./modules.js', import.meta.url).href;
+      sc.onload = apply;
+      document.head.appendChild(sc);
+    }
   }
 
   /* Adds a small round toggle to `card` that shrinks it to a 44px orb
@@ -696,15 +753,14 @@ class UIKit {
   }
 
   /* ═════════════════════════════════════════════════════════════════════
-     AUTO-COLLAPSE — every module's panel body is capped to a short,
+     AUTO-COLLAPSE (Phase 7a: measures on tab switch / ResizeObserver only) — every module's panel body is capped to a short,
      scrollable height by default (~a few lines past the badge/readout),
      with a "Show more / Show less" toggle appended automatically. This
      replaces long, uncappped tab content (Overview/Faults/Self-check —
      often 300px+ of text) with a compact "basic info" view; tapping the
      toggle reveals the full "advanced" content, still inside the panel's
-     own scroll area. No per-module changes needed — it watches the body
-     for content the module adds later (tabs render after UI.create()
-     returns) and re-measures automatically.
+     own scroll area. No per-module changes needed — it re-measures on tab switch,
+     on a ResizeObserver, and on panel.remeasure() (modules that add panel content after UI.create() call it).
      ═════════════════════════════════════════════════════════════════════ */
   _wireAutoCollapse(body) {
     const CAP = 220; // px of content visible before "Show more" appears
@@ -750,10 +806,14 @@ class UIKit {
       }
     };
 
-    const mo = new MutationObserver(() => requestAnimationFrame(measure));
-    mo.observe(body, { childList: true, subtree: true, characterData: true });
-    window.addEventListener('resize', () => requestAnimationFrame(measure));
-    requestAnimationFrame(measure);
+    /* Phase 7a: no DOM-mutation watching and no measuring on text writes (readouts live in the Monitor now).
+       Measure only on: tab switch (_selectTab), a ResizeObserver on the body, window resize, panel.remeasure(). */
+    let queued = 0;
+    const later = () => { if (queued) return; queued = requestAnimationFrame(() => { queued = 0; measure(); }); };
+    this._measurePanel = later;
+    if (typeof ResizeObserver === 'function') new ResizeObserver(later).observe(body);
+    window.addEventListener('resize', later);
+    later();
   }
 
   _selectTab(id) {
@@ -767,121 +827,157 @@ class UIKit {
       btn.style.background = on ? (c || '') : '';
     });
     if (this._onTab) this._onTab(id);
+    if (this._measurePanel) this._measurePanel();          /* tab content changed → re-measure once */
   }
 
-  _buildChip(c) {
-    const slot = this._slots.tr;
-    const el = document.createElement('div');
-    el.className = 'ui-chip ui-card';
-    el.id = 'ui-chip';
-
-    let html = `<div class="ui-chip-label">${c.label || ''}</div>`;
-    if (c.value !== undefined) {
-      html += `<div class="ui-chip-value" id="chip-value">${c.value}<span>${c.unit || ''}</span></div>`;
-    }
-    if (c.bar) html += `<div class="ui-chip-bar"><div class="ui-chip-fill" id="chip-fill"></div></div>`;
-    if (c.rows) c.rows.forEach(r => {
-      html += `<div class="ui-chip-row"><span>${r.label}</span><b id="chip-row-${r.id}">${r.value ?? ''}</b></div>`;
-    });
-    if (c.status) {
-      html += `<div class="ui-chip-status" id="chip-status"><i></i><span id="chip-status-text" role="status" aria-live="polite">${c.status.text || ''}</span></div>`;
-    }
-    el.innerHTML = html;
-    slot.appendChild(el);
-    this._makeCollapsible(el, '<svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3zm4 0h2v-2H7zm4 0h2v-2h-2zm4 0h2v-2h-2zm4 0h2v-2h-2z"/></svg>');
-
-    this._chipEls = {
-      root: el,
-      value: el.querySelector('#chip-value'),
-      fill: el.querySelector('#chip-fill'),
-      status: el.querySelector('#chip-status'),
-      statusText: el.querySelector('#chip-status-text'),
-    };
-    if (c.rows) c.rows.forEach(r => {
-      this._chipRows[r.id] = el.querySelector('#chip-row-' + r.id);
-    });
-    return el;
+  /* Phase 7a — the Monitor (monitor.js). `monitor` = { config, initial } | a plain config. Phones: one-line strip + card;
+     desktop: card with the collapse orb. */
+  _buildMonitor(m) {
+    const config = m && m.config ? m.config : m, initial = (m && m.initial) || null;
+    this._monitor = createMonitor({ mount: this._slots.tr, doc: document, moduleId: this.moduleId });
+    this._monitor.set(config);
+    if (initial) { this._monitor.update(initial); this._monitor.flush(); }
+    /* Phones show the readout as a strip (the card slides down on tap); the orb is a desktop nicety. */
+    if (!isPhone(window.innerWidth, window.innerHeight))
+      this._makeCollapsible(this._monitor.root, '<svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3zm4 0h2v-2H7zm4 0h2v-2h-2zm4 0h2v-2h-2zm4 0h2v-2h-2z"/></svg>');
+    return this._monitor.root;
   }
 
+  /* ── Toolbar → dock. play / reset go to the transport zone (built ONCE, embedded and standalone,
+        R1/R6); module quantities are `axes` (see _buildAxes);
+        Flow and `extras` go to the options row. Sim speed / label density / Back are NOT built here:
+        the ⋯ menu (shell, or standalone chrome.js) owns them. ── */
   _buildToolbar(t) {
-    const slot = this._slots.bc;
-    const el = document.createElement('div');
-    el.id = 'module-controls';
-    el.className = 'ui-toolbar ui-card';
-
+    const dock = this._dock;
     const iconPlay  = `<svg id="icon-play" viewBox="0 0 24 24" style="display:none"><path d="M8 5v14l11-7z"/></svg>`;
     const iconPause = `<svg id="icon-pause" viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>`;
     const iconReset = `<svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>`;
+    const make = (html) => { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstElementChild; };
 
-    let html = '';
-    /* Standalone (not in the shell): Back button so every module can return to the hub */
-    if (!(window.parent && window.parent !== window))
-      html += `<a class="ui-tb-btn" id="btn-home" href="index.html" aria-label="Back to Auto Lab" title="Back (Esc)"><svg viewBox="0 0 24 24"><path d="M15.4 6 14 4.6 6.6 12 14 19.4 15.4 18 9.4 12z"/></svg></a>`;
-    if (t.play !== false)  html += `<button class="ui-tb-btn" id="btn-play" aria-label="Pause">${iconPause}${iconPlay}</button>`;
-    if (t.reset !== false) html += `<button class="ui-tb-btn" id="btn-reset" aria-label="Reset">${iconReset}</button>`;
-    if (t.speed) {
-      html += `<div class="ui-tb-divider"></div>
-        <div class="ui-tb-speed">
-          <span>${t.speed.label || 'Speed'}</span>
-          <input type="range" id="speed"
-            min="${t.speed.min ?? 0.15}" max="${t.speed.max ?? 2.5}"
-            step="${t.speed.step ?? 0.05}" value="${t.speed.value ?? 0.85}"
-            aria-label="${t.speed.label || 'Speed'}">
-          <span id="rpm-label"></span>
-        </div>`;
+    const refs = { root: dock.root };
+    if (t.play !== false) {
+      refs.play = make(`<button type="button" class="ui-tb-btn" id="btn-play" aria-label="Pause">${iconPause}${iconPlay}</button>`);
+      dock.addTransport(refs.play);
     }
-    if (t.labels) html += `<button class="ui-tb-btn active keep-in-embed" id="btn-density" aria-label="Label density: all" title="Labels: All">
-      <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
-    </button>`;
-    if (t.gas)    html += `<label class="ui-tb-check"><input type="checkbox" id="chk-gas" checked> Flow</label>`;
-    html += `<div class="ui-tb-extras" id="toolbar-extras"></div>`;
-
-    el.innerHTML = html;
-    slot.appendChild(el);
-
-    const extras = el.querySelector('#toolbar-extras');
+    if (t.reset !== false) {
+      refs.reset = make(`<button type="button" class="ui-tb-btn" id="btn-reset" aria-label="Reset">${iconReset}</button>`);
+      dock.addTransport(refs.reset);
+    }
+    if (t.gas) {
+      /* Decision 2: the Flow toggle lives in the dock options row (it is not one of the five ⋯ items). */
+      const flow = make(`<label class="ui-tb-check"><input type="checkbox" id="chk-gas" checked> Flow</label>`);
+      dock.addOption(flow);
+      refs.gas = flow;
+    }
     (t.extras || []).forEach(x => {
       const btn = document.createElement('button');
       btn.className = 'ui-tb-btn keep-in-embed';
       if (x.id) btn.id = x.id;
-      btn.innerHTML = x.icon || (x.label ? `<span style="font-size:10px;font-weight:800">${x.label}</span>` : '');
+      btn.innerHTML = x.icon || (x.label ? `<span style="font-size:11px;font-weight:800">${x.label}</span>` : '');
       if (x.title) btn.title = x.title;
       if (x.onClick) btn.addEventListener('click', x.onClick);
-      extras.appendChild(btn);
+      dock.extras.appendChild(btn);
     });
-
-    this._toolbar = { root: el, rpmLabel: el.querySelector('#rpm-label') };
-    return el;
+    dock.refresh();
+    this._toolbar = refs;
+    return dock.root;
   }
 
+  /* Phase 3 — `axes: [spec]`: one `axis` (slider look, controls.js) per module quantity, hosted in the dock's
+     primary zone. spec = controls.js axis spec + optional { side:'left'|'right', onChange(real, raw, norm) }.
+     Values live in the shared store: read them with ui.controls.get / .value / .raw (R4), never from the DOM. */
+  _buildAxes(list) {
+    list.forEach((spec, i) => {
+      const ax = spec.type === 'momentary' ? createMomentary(spec)       /* Phase 4: momentary = hold button (clutch) */
+        : spec.type === 'dial' ? createDial(spec)                     /* Phase 5: dial = wheel / crank / knob */
+        : createAxis(spec);
+      this._axes[spec.id] = ax;
+      if (typeof spec.onChange === 'function') {
+        ax.on((n) => spec.onChange(ax.value(), ax.raw(), n));
+      }
+      const wrap = document.createElement('div');
+      wrap.className = 'ui-widget ui-widget-axis';
+      wrap.id = 'ui-widget-ax-' + spec.id;
+      const frame = document.createElement('div');
+      frame.className = 'ui-widget-frame';
+      frame.appendChild(ax.el);
+      wrap.appendChild(frame);
+      this._dock.addPrimary({ id: 'ax-' + spec.id, side: spec.side || (i % 2 ? 'right' : 'left'), node: wrap });
+    });
+  }
+  /* Phase 6 — `options: [spec]`: choice / toggle / action. They go to the dock options row; `primary:true`
+     puts one in the primary zone instead. spec = controls.js spec + { primary, side }. Read them with
+     ui.controls.get / .value (option id | boolean) / .on. */
+  _buildOptions(list) {
+    list.forEach((spec, i) => {
+      const make = spec.type === 'toggle' ? createToggle : spec.type === 'action' ? createAction : createChoice;
+      const c = make(spec);
+      this._axes[spec.id] = c;
+      if (spec.primary) {
+        const wrap = document.createElement('div');
+        wrap.className = 'ui-widget ui-widget-axis';
+        wrap.id = 'ui-widget-ax-' + spec.id;
+        const frame = document.createElement('div');
+        frame.className = 'ui-widget-frame';
+        frame.appendChild(c.el);
+        wrap.appendChild(frame);
+        this._dock.addPrimary({ id: 'ax-' + spec.id, side: spec.side || (i % 2 ? 'right' : 'left'), node: wrap });
+      } else {
+        this._dock.addOption(c.el);
+      }
+    });
+  }
+  /* options whose definitions only exist after UI.create (a config list built later): same specs as `options` */
+  addOptions(list) { this._buildOptions(list); return this; }
+  get controls() { return controls; }
+  axis(id) { return this._axes[id] || null; }
+
+  /* bl → primary-left · br → primary-right (compat: UI.create keeps accepting widgets:{bl,br}) */
   _buildWidgets(w) {
-    ['bl', 'br'].forEach(slotName => {
+    [['bl', 'left'], ['br', 'right']].forEach(([slotName, side]) => {
       const spec = w[slotName];
       if (!spec) return;
-      const slot = this._slots[slotName];
       const el = document.createElement('div');
       el.className = 'ui-widget';
       el.id = 'ui-widget-' + slotName;
       el.innerHTML = `
         <div class="ui-widget-frame">${spec.html || ''}</div>
         ${spec.caption ? `<div class="ui-widget-caption" id="ui-widget-${slotName}-cap">${spec.caption}</div>` : ''}`;
-      slot.appendChild(el);
+      this._dock.addPrimary({ id: slotName, side, node: el });
       if (typeof spec.onMount === 'function') spec.onMount(el, this);
     });
   }
 
+  /* Info panel: bottom sheet on phones (closed by default, opened only by the header ⓘ),
+     side panel on desktop. One code path for the ⓘ button, the panel's own toggle and toggleInfo. */
+  _setPanelExpanded(on) {
+    const { root, toggle } = this._panelEls;
+    if (!root) return;
+    on = !!on;
+    root.classList.toggle('expanded', on);
+    if (toggle) toggle.setAttribute('aria-expanded', String(on));
+    this._syncSheetScrim();
+  }
+  _syncSheetScrim() {
+    const root = this._panelEls.root;
+    const open = !!root && root.classList.contains('expanded') && isPhone(window.innerWidth, window.innerHeight);
+    document.body.classList.toggle('al-sheet-open', open);
+    if (this._header) this._header.info.setAttribute('aria-pressed', String(!!root && root.classList.contains('expanded')));
+  }
   _wirePanelToggle() {
     const { root, head, toggle } = this._panelEls;
     if (!root || !toggle) return;
-    const flip = () => {
-      const expanded = root.classList.toggle('expanded');
-      toggle.setAttribute('aria-expanded', String(expanded));
-    };
-    toggle.addEventListener('click', e => { e.stopPropagation(); flip(); });
+    const scrim = document.createElement('div');
+    scrim.className = 'al-sheet-scrim';
+    scrim.addEventListener('click', () => this._setPanelExpanded(false));
+    document.body.appendChild(scrim);
+    window.addEventListener('resize', () => this._syncSheetScrim());
+    toggle.addEventListener('click', e => { e.stopPropagation(); this._setPanelExpanded(!root.classList.contains('expanded')); });
     head.addEventListener('click', e => {
       if (e.target.closest('#panel-toggle')) return;
-      if (document.body.classList.contains('embedded')) flip();
+      if (document.body.classList.contains('embedded')) this._setPanelExpanded(!root.classList.contains('expanded'));
     });
+    this._syncSheetScrim();
   }
 
   /* ---- Public API ---- */
@@ -890,48 +986,67 @@ class UIKit {
     return {
       get root() { return self._panelEls.root; },
       get body() { return self._panelEls.body; },
-      expand()  { self._panelEls.root?.classList.add('expanded');  self._panelEls.toggle?.setAttribute('aria-expanded', 'true'); },
-      collapse(){ self._panelEls.root?.classList.remove('expanded'); self._panelEls.toggle?.setAttribute('aria-expanded', 'false'); },
-      toggle()  {
-        const r = self._panelEls.root; if (!r) return;
-        const on = r.classList.toggle('expanded');
-        self._panelEls.toggle?.setAttribute('aria-expanded', String(on));
-      },
+      expand()  { self._setPanelExpanded(true); },
+      collapse(){ self._setPanelExpanded(false); },
+      toggle()  { const r = self._panelEls.root; if (r) self._setPanelExpanded(!r.classList.contains('expanded')); },
+      get isOpen() { return !!self._panelEls.root?.classList.contains('expanded'); },
       selectTab(id) { self._selectTab(id); },
+      remeasure() { if (self._measurePanel) self._measurePanel(); },     /* call after adding content to the panel body */
     };
   }
 
-  get chip() {
+  /* Phase 7b2: stage canvases. A picture that is not a time series (a spectrum, an advance curve, a torque map) stays a canvas,
+     but it lives over the 3D stage (bottom corner, above the dock), never in the dock or the info panel.
+       const cv = ui.stage.canvas({ id, label, width, height, corner:'bl'|'br', size })  → the <canvas> (logical size width × height, CSS scales it)
+       ui.stage.caption(id, text)   (a changing caption, e.g. the mode name)   ·   ui.stage.remove(id)
+     The layer ignores pointer events (orbit controls keep working). Modules draw into the returned canvas as before. */
+  get stage() {
     const self = this;
     return {
-      set(id, value) { const r = self._chipRows[id]; if (r) r.textContent = value; },
-      setBig(value, unit) {
-        const v = self._chipEls.value;
-        if (!v) return;
-        v.innerHTML = `${value}<span>${unit ?? ''}</span>`;
+      canvas({ id, label = '', width = 320, height = 120, corner = 'bl', size = 0 } = {}) {
+        if (!self._stageLayer) {
+          self._stageLayer = document.createElement('div');
+          self._stageLayer.id = 'ui-stage-layer'; self._stageLayer.className = 'ui-stage-layer';
+          document.body.appendChild(self._stageLayer);
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'ui-stage-cv ui-card'; wrap.dataset.corner = corner === 'br' ? 'br' : 'bl';
+        if (id) wrap.dataset.stage = id;
+        if (size) wrap.style.setProperty('--stage-cv-w', size + 'px');      /* CSS width in px (default 224; never wider than 60 vw) */
+        if (label) { const cap = document.createElement('div'); cap.className = 'ui-stage-cap'; cap.textContent = label; wrap.appendChild(cap); }
+        const cv = document.createElement('canvas');
+        cv.width = width; cv.height = height; cv.style.aspectRatio = width + ' / ' + height;
+        cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', label || 'Live chart');
+        wrap.appendChild(cv);
+        self._stageLayer.appendChild(wrap);
+        return cv;
       },
-      setColor(color) { if (self._chipEls.value) self._chipEls.value.style.color = color; },
-      setBar(pct, color) {
-        const f = self._chipEls.fill;
-        if (!f) return;
-        f.style.width = Math.max(0, Math.min(100, pct)) + '%';
-        if (color) f.style.background = color;
-      },
-      setStatus(text, on) {
-        if (!self._chipEls.status) return;
-        self._chipEls.statusText.textContent = text;
-        self._chipEls.status.classList.toggle('on', !!on);
-      },
-      get root() { return self._chipEls.root; },
+      caption(id, text) { const n = self._stageLayer && self._stageLayer.querySelector('[data-stage="' + id + '"] .ui-stage-cap'); if (n && n.textContent !== text) n.textContent = text; },
+      remove(id) { const n = self._stageLayer && self._stageLayer.querySelector('[data-stage="' + id + '"]'); if (n) n.remove(); },
+      get root() { return self._stageLayer || null; },
+    };
+  }
+
+  /* Phase 7a: the Monitor API. set(config) rebuilds the channels; update(patch) writes values (text ≤ 9 Hz, traces ≤ 30 Hz).
+       set({ value:{label,unit,max}, rows:[[id,label]], traces:[{id,series:[…]}], gauge, status:true, footer })
+       update({ label, value, rows:{id:text|[text,tone]}, rowLabels:{id:text}, traces:{id:[v…]|null}, gauge, status:[text,on,tone?] })  — see monitor-core.js */
+  get monitor() {
+    const self = this, M = () => self._monitor;
+    return {
+      set(cfg) { if (!M()) self._buildMonitor(cfg); else M().set(cfg); },
+      update(p) { if (M()) M().update(p); },
+      flush() { if (M()) M().flush(); },
+      open(on) { if (M()) M().open(on); },
+      get isOpen() { return !!M() && M().isOpen; },
+      get root() { return M() ? M().root : null; },
     };
   }
 
   get toolbar() {
     const self = this;
     return {
-      setRpmLabel(text) { if (self._toolbar?.rpmLabel) self._toolbar.rpmLabel.textContent = text; },
-      get root() { return self._toolbar?.root; },
-      get speedInput() { return self._toolbar?.root?.querySelector('#speed'); },
+      get root() { return self._dock.root; },                 /* the dock is the toolbar now */
+      get dock() { return self._dock; },
     };
   }
 
@@ -959,8 +1074,10 @@ class UIKit {
 
     const defaultHandlers = {
       setPlaying:   v => { if ('playing'    in state) state.playing    = !!v; },
-      setSpeed:     v => { if ('speedMul' in state) { let x = +v; if (_speed) x = Math.max(+_speed.min, Math.min(+_speed.max, x)); state.speedMul = x; } },
-      setLabels:    v => { if ('showLabels' in state) state.showLabels = !!v; },
+      setSpeed:     v => { if ('speedMul' in state) state.speedMul = clampSpeed(v); },
+      setLabels:    v => { if ('showLabels' in state) state.showLabels = !!v; },          /* legacy boolean */
+      setLabelDensity: () => {},                                                          /* wrapped below */
+      toggleInfo:   () => { self.panel.toggle(); },
       setGas:       v => { if ('showGas'    in state) state.showGas    = !!v; },
       setTheme:     v => { viewManager?.setTheme?.(v); },
       setWireframe: v => { viewManager?.setWireframe?.(!!v); },
@@ -970,9 +1087,8 @@ class UIKit {
     /* ─── Auto-wire the toolbar controls the kit itself creates ─── */
     const _play  = document.getElementById('btn-play');
     const _reset = document.getElementById('btn-reset');
-    const _speed = document.getElementById('speed');
-    const _lab   = document.getElementById('chk-labels');
-    const _gas   = document.getElementById('chk-gas');
+    const _lab   = document.getElementById('chk-labels');            /* legacy: not built by the kit any more */
+    const _gas   = document.getElementById('chk-gas');               /* Flow toggle, dock options row */
 
     function _syncPlayIcons() {
       const ip  = document.getElementById('icon-play');
@@ -983,7 +1099,6 @@ class UIKit {
       if (_play) _play.setAttribute('aria-label', playing ? 'Pause' : 'Play');
     }
     function _syncControls() {
-      if (_speed && 'speedMul' in state) _speed.value = state.speedMul;
       if (_lab   && 'showLabels' in state) _lab.checked = !!state.showLabels;
       if (_gas   && 'showGas' in state)    _gas.checked = !!state.showGas;
     }
@@ -997,50 +1112,57 @@ class UIKit {
     if (_reset) _reset.addEventListener('click', () => {
       if (onCommand) onCommand({ action: 'reset' });
     });
-    if (_speed) _speed.addEventListener('input', () => {
-      state.speedMul = parseFloat(_speed.value);
-    });
     if (_lab)   _lab.addEventListener('change', () => { state.showLabels = _lab.checked; });
 
-    /* 3-state label density: All -> Key -> None -> All ... */
-    const _dens = document.getElementById('btn-density');
-    const DENS = [
-      { level: 2, name: 'All',  dots: 3 },
-      { level: 1, name: 'Key',  dots: 2 },
-      { level: 0, name: 'None', dots: 0 },
-    ];
-    let _densIdx = 0;
-    function _applyDensity(idx) {
-      _densIdx = idx;
-      const d = DENS[idx];
-      window.__autolabLabels?.setDensity(d.level);
-      window.__autolabDensity = d.level;   /* modules with their own labels (cooling) read this */
-      if ('showLabels' in state) state.showLabels = d.level > 0;
-      if (_dens) {
-        _dens.classList.toggle('active', d.level > 0);
-        _dens.title = 'Labels: ' + d.name;
-        _dens.setAttribute('aria-label', 'Label density: ' + d.name);
-        _dens.innerHTML = '<svg viewBox="0 0 24 24">' +
-          (d.dots >= 1 ? '<path d="M3 6h18v2H3z"/>' : '') +
-          (d.dots >= 3 ? '<path d="M3 11h18v2H3z"/>' : '') +
-          (d.dots >= 2 ? '<path d="M3 16h18v2H3z"/>' : '') +
-          (d.dots === 0 ? '<path d="M4 4l16 16-1.4 1.4L2.6 5.4z"/><path d="M3 11h18v2H3z" opacity=".35"/>' : '') +
-          '</svg>';
+    /* 3-state label density (All → Key → None): the button lives in the ⋯ menu now (shell, or the
+       standalone chrome.js menu below). This applies a level to labels.js + the module's own state. */
+    let _densLevel = 2;
+    function _applyLevel(level) {
+      _densLevel = [0, 1, 2].includes(level) ? level : 2;
+      window.__autolabLabels?.setDensity(_densLevel);
+      window.__autolabDensity = _densLevel;   /* modules with their own labels (cooling) read this */
+      if ('showLabels' in state) state.showLabels = _densLevel > 0;
+    }
+
+    /* ─── Keys: the ONE keymap lives in keys.js (R5). ───────────────────────
+       Module-owned: Space play/pause · R reset · D label density.
+       Shell-owned (L theme · W wireframe · X x-ray · Esc): forwarded to the shell when
+       embedded; handled here when standalone (no shell above us). */
+    function send(msg) {
+      if (!embedded) return;
+      try { window.parent.postMessage(Object.assign({ source: 'auto-module', moduleId }, msg), '*'); }
+      catch (_) {}
+    }
+    const SHELL_KEYS = ['theme', 'wireframe', 'xray', 'close'];
+    function handleKey(action) {
+      if (action === 'togglePlay') {
+        dispatch({ action: 'setPlaying', value: !(state.playing !== false) });   /* same path as a shell command */
+        send({ type: 'state', playing: state.playing !== false });
+      } else if (action === 'reset') {
+        if (_reset) _reset.click(); else if (onCommand) onCommand({ action: 'reset' });
+      } else if (action === 'labelDensity') {
+        const next = nextDensity(typeof window.__autolabDensity === 'number' ? window.__autolabDensity : 2);
+        dispatch({ action: 'setLabelDensity', value: next });
+        send({ type: 'state', density: next });
+      } else if (!embedded) {                               /* standalone owns the shell keys too */
+        const vs = viewManager && viewManager.getState ? viewManager.getState() : null;
+        if (action === 'theme' && vs)          viewManager.setTheme(vs.theme === 'light' ? 'dark' : 'light');
+        else if (action === 'wireframe' && vs) viewManager.setWireframe(!vs.wireframe);
+        else if (action === 'xray' && vs)      viewManager.setXRay(!vs.xray);
+        else if (action === 'close') {                      /* Esc: close the menu / info sheet first, then leave */
+          if (menu && menu.isOpen) menu.close();
+          else if (self.panel.isOpen && isPhone(window.innerWidth, window.innerHeight)) self.panel.collapse();
+          else if (self._header) self._header.back.click();
+        }
+        syncMenu();                                         /* D / L / W / X change state from outside the menu */
       }
     }
-    if (_dens) _dens.addEventListener('click', () => _applyDensity((_densIdx + 1) % DENS.length));
-
-    /* Shared shortcuts (same in every module): P play/pause · R reset · D label density · Esc back (standalone).
-       Space is NOT used here — braking, clutch and turbocharger use it as the pedal. */
-    window.addEventListener('keydown', (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-      if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
-      const k = e.key.toLowerCase();
-      if      (k === 'p' && _play)  { _play.click(); }
-      else if (k === 'r' && _reset) { _reset.click(); }
-      else if (k === 'd' && _dens)  { _dens.click(); }
-      else if (e.key === 'Escape' && !embedded) { const h = document.getElementById('btn-home'); if (h) location.href = h.href; }
+    const keyRouter = createKeyRouter({
+      owns: (a) => !embedded || !SHELL_KEYS.includes(a),
+      handle: handleKey,
+      forward: (a) => send({ type: 'key', action: a })
     });
+    installKeys(window, keyRouter);
     if (_gas)   _gas.addEventListener('change', () => { state.showGas    = _gas.checked; });
 
     /* Wrap defaultHandlers so incoming shell commands keep the visible
@@ -1048,15 +1170,51 @@ class UIKit {
     const wrappedHandlers = {
       ...defaultHandlers,
       setPlaying: v => { defaultHandlers.setPlaying(v); _syncPlayIcons(); },
-      setSpeed:   v => { defaultHandlers.setSpeed(v);   if (_speed) _speed.value = state.speedMul; },
-      setLabels:  v => { _applyDensity(v ? 0 : 2);      if (_lab)   _lab.checked = state.showLabels; },  /* keeps density button in sync with shell */
+      setSpeed:   v => { defaultHandlers.setSpeed(v); },
+      setLabels:  v => { _applyLevel(v ? 2 : 0);        if (_lab)   _lab.checked = state.showLabels; },  /* legacy boolean; shell now sends setLabelDensity */
+      setLabelDensity: v => { _applyLevel(+v); if (_lab) _lab.checked = state.showLabels; },
       setGas:     v => { defaultHandlers.setGas(v);     if (_gas)   _gas.checked = state.showGas; },
     };
 
-    function send(msg) {
-      if (!embedded) return;
-      try { window.parent.postMessage(Object.assign({ source: 'auto-module', moduleId }, msg), '*'); }
-      catch (_) {}
+    /* One dispatch path for shell commands AND local key actions. */
+    function dispatch(d) {
+      const h = wrappedHandlers[d.action];
+      if (h) h(d.value);
+      if (onCommand) onCommand(d);
+    }
+
+    /* ─── Standalone ⋯ menu: the MODULE is the owner here (the shell owns it when embedded). ───
+       onChange applies speed → state.speedMul, density → labels + state.showLabels,
+       theme / wireframe / x-ray → viewManager (which keeps wireframe and x-ray exclusive).
+       menu.update() never fires onChange, so syncMenu() is safe to call from anywhere. */
+    let menu = null;
+    function syncMenu() {
+      if (!menu) return;
+      const vs = viewManager && viewManager.getState ? viewManager.getState() : { theme: 'dark', wireframe: false, xray: false };
+      menu.update({
+        speed: state.speedMul,
+        density: typeof window.__autolabDensity === 'number' ? window.__autolabDensity : _densLevel,
+        theme: vs.theme, wireframe: vs.wireframe, xray: vs.xray
+      });
+    }
+    if (!embedded) {
+      const phone = isPhone(window.innerWidth, window.innerHeight);
+      _applyLevel(phone ? 1 : 2);                            /* default label density: Key on phones */
+      menu = createMenu({
+        doc: document,
+        state: { speed: state.speedMul, density: _densLevel },
+        onToggle: (open) => { if (self._header) self._header.setMenuExpanded(open); },
+        onChange: (key, v) => {
+          if (key === 'speed')          dispatch({ action: 'setSpeed', value: v });
+          else if (key === 'density')   dispatch({ action: 'setLabelDensity', value: v });
+          else if (key === 'theme')     viewManager?.setTheme?.(v);
+          else if (key === 'wireframe') viewManager?.setWireframe?.(!!v);
+          else if (key === 'xray')      viewManager?.setXRay?.(!!v);
+          syncMenu();
+        }
+      });
+      self._menu = menu;
+      syncMenu();
     }
 
     window.addEventListener('message', (e) => {
@@ -1064,9 +1222,8 @@ class UIKit {
       if (!d || d.source !== 'auto-shell') return;
       if (d.moduleId && d.moduleId !== moduleId) return;
       if (d.type !== 'command' && d.type !== 'query') return;
-      const h = wrappedHandlers[d.action];
-      if (h) h(d.value);
-      if (onCommand) onCommand(d);
+      if (d.action === 'key') { keyRouter.incoming(d.value); return; }   /* key forwarded by the shell */
+      dispatch(d);
     });
 
     return {

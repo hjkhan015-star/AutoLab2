@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Spark Plugs — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #facc15; }
@@ -150,7 +151,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #facc15 68%, black); }
 #sp-ui-toggle {
   position: fixed;
   right: 14px;
-  bottom: 84px;
+  bottom: calc(var(--dock-h, 24vh) + var(--s-3, 12px));   /* Phase 2: clear the control dock */
   z-index: 10000;
   width: 42px; height: 42px;
   border-radius: 50%;

@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0a0d13">
 <title>Fuel Injection (MPFI &amp; CRDI) — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <style>
   /* ══════════════════════════════════════════════════════════════
      PANEL READOUT — badge, live rows, description, trim graph
@@ -75,32 +76,6 @@
   }
   #mp-trims .trim-bar .v { text-align: right; font-weight: 700; color: var(--text, #e5e7eb); }
 
-  /* ── Fuel trim history graph ── */
-  #mp-graph-wrap {
-    margin-top: 14px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(148,163,184,.14);
-  }
-  #mp-graph-wrap .title {
-    font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
-    color: #94a3b8; margin-bottom: 6px;
-    display: flex; justify-content: space-between;
-  }
-  #mp-graph {
-    width: 100%; height: 72px; display: block;
-    border-radius: 6px;
-    background: rgba(2,6,16,.7);
-    border: 1px solid rgba(148,163,184,.18);
-  }
-  #mp-graph-wrap .legend {
-    display: flex; gap: 12px; margin-top: 5px;
-    font-size: 9.5px; color: #94a3b8;
-  }
-  #mp-graph-wrap .legend span { display: inline-flex; align-items: center; gap: 4px; }
-  #mp-graph-wrap .legend i {
-    width: 8px; height: 3px; border-radius: 2px;
-  }
-
   #mp-desc {
     margin-top: 12px;
     font-size: 12.5px; line-height: 1.55;
@@ -109,29 +84,6 @@
   #mp-desc strong { color: var(--text, #e5e7eb); font-weight: 700; }
   #mp-desc em { color: #f59e0b; font-style: normal; font-weight: 700; }
 
-  #mp-actions {
-    margin-top: 14px;
-    display: flex; flex-wrap: wrap; gap: 6px;
-  }
-  #mp-actions button {
-    flex: 1 1 auto;
-    min-width: 92px;
-    padding: 6px 10px;
-    font: 600 11px/1.2 ui-sans-serif, system-ui, sans-serif;
-    border-radius: 8px;
-    border: 1px solid rgba(148,163,184,.32);
-    background: rgba(15,23,42,.72);
-    color: #e2e8f0;
-    cursor: pointer;
-    transition: background .15s, border-color .15s, color .15s;
-  }
-  #mp-actions button:hover { background: rgba(148,163,184,.18); }
-  #mp-actions button.on {
-    background: var(--al-accent, #22c55e);
-    color: #fff; border-color: transparent;
-  }
-  #mp-actions button.cold { border-color: rgba(56,189,248,.5); color: #7dd3fc; }
-  #mp-actions button.warn { border-color: rgba(239,68,68,.5); color: #fca5a5; }
 
   html.light-theme .mp-rows .mp-row b { color: #0a0d13; }
   html.light-theme #mp-desc { color: #475569; }
@@ -214,8 +166,10 @@
   const labels      = Base.createLabelSystem();
   const state       = Base.createUIState();
 
-  /* The kit's speedMul is repurposed as engine load (0–1). */
-  state.speedMul = 0.20;
+  /* PHASE 1 (D8): engine load (0–1) is a MODULE quantity. It used to be stored in state.speedMul,
+     which the shell's speed control also wrote. Now it is local; the ⋯ menu's Sim speed can never
+     change it. Temporary — Phase 3 moves it to a dock axis control. */
+  const loadFrac = () => ui.controls.value('load') / 100;   /* the 'load' axis (0..100 %) is the only store */
 
   /* ══════════════════════════════════════════════════════════════
      MATERIALS — each one documented with its intended use
@@ -1714,47 +1668,32 @@
             </div>
           </div>
 
-          <div id="mp-graph-wrap">
-            <div class="title">
-              <span>Fuel trim history</span>
-              <span data-mp="trim-state">Balanced</span>
-            </div>
-            <canvas id="mp-graph" width="260" height="72"></canvas>
-            <div class="legend">
-              <span><i style="background:#38bdf8"></i>STFT</span>
-              <span><i style="background:#a855f7"></i>LTFT</span>
-              <span><i style="background:#22c55e"></i>Target</span>
-            </div>
-          </div>
-
           <div id="mp-desc"></div>
 
-          <div id="mp-actions">
-            <button type="button" class="cold" data-action="cold">❄ Cold start</button>
-            <button type="button" data-action="egr">EGR pulse</button>
-            <button type="button" data-action="reset">⟲ Reset trims</button>
-          </div>
         </div>
       `
     },
-    chip: {
-      label: 'Live mixture',
-      value: 14.7,
-      unit:  ':1',
-      bar:   true,
-      rows: [
-        { id: 'afr', label: 'AFR',   value: '14.7 : 1' },
-        { id: 'pw',  label: 'Pulse', value: '2.4 ms' }
-      ],
-      status: { text: 'Balanced · Stoich' }
+    monitor: {
+      config: { label: 'Live mixture', value: { label: 'Live mixture', unit: ':1', max: 100, bar: true }, rows: [['afr', 'AFR'], ['pw', 'Pulse'], ['trim', 'Fuel trim'], ['rpm', 'Engine speed']],
+        traces: [{ id: 'trimhist', label: 'Fuel trim history (%)', min: -20, max: 20, length: 80,
+                   series: [{ id: 'stft', label: 'STFT', color: 'var(--accent)' }, { id: 'ltft', label: 'LTFT', color: 'var(--accent-2)' }] }],
+        status: { text: 'Balanced · Stoich' } },
+      initial: { value: { text: '14.7', unit: ':1' }, rows: { afr: '14.7 : 1', pw: '2.4 ms', trim: 'Balanced', rpm: '—' }, status: ['Balanced · Stoich', false] }
     },
     toolbar: {
       play: true,
       reset: true,
-      speed: { label: 'Engine load', min: 0, max: 1, step: 0.02, value: 0.20 },
       labels: true,
       gas: true
-    }
+    },
+    axes: [{ id: 'load', preset: 'load', def: 20, label: 'Engine load', side: 'left', onChange: () => updateRpmLabelFromLoad() }],
+
+    /* Phase 6: cold start, EGR pulse and reset trims are controls.js actions in the dock options row */
+    options: [
+      { id: 'cold',  type: 'action', label: 'Cold start',  onAction: () => triggerColdStart() },
+      { id: 'egr',   type: 'action', label: 'EGR pulse',   onAction: () => triggerEgrPulse() },
+      { id: 'trims', type: 'action', label: 'Reset trims', tone: 'crit', onAction: () => resetTrims() }
+    ]
   });
 
   /* ─── Resolve panel DOM refs ─────────────────────────────────── */
@@ -1781,21 +1720,11 @@
   const elEgrLbl    = panelBody.querySelector('[data-mp="egr-lbl"]');
   const elSensorLbl = panelBody.querySelector('[data-mp="sensor-lbl"]');
   const elDesc      = panelBody.querySelector('#mp-desc');
-  const elTrimState = panelBody.querySelector('[data-mp="trim-state"]');
-  const elGraph     = panelBody.querySelector('#mp-graph');
+  ui.panel.remeasure();                       /* the panel lost its graph block (now the Monitor trace 'trimhist' + row 'trim') */
 
   /* Per-cylinder trim bar fills and value labels. */
   const trimFills  = [0, 1, 2, 3].map(i => panelBody.querySelector(`[data-trim="${i}"]`));
   const trimLabels = [0, 1, 2, 3].map(i => panelBody.querySelector(`[data-trimval="${i}"]`));
-
-  /* Actions row. */
-  const btnCold  = panelBody.querySelector('[data-action="cold"]');
-  const btnEgr   = panelBody.querySelector('[data-action="egr"]');
-  const btnReset = panelBody.querySelector('[data-action="reset"]');
-
-  /* Graph canvas context. */
-  let gctx = null;
-  if (elGraph) gctx = elGraph.getContext('2d');
 
   /* ══════════════════════════════════════════════════════════════
      MODE SWITCHING — swap visible geometry + readout labels
@@ -1892,7 +1821,7 @@
     viewManager.setMeshMaterial(fuelSurface, isCRDI ? M.dieselTop : M.fuelTop);
 
     /* Show the EGR action only in CRDI; hide otherwise. */
-    if (btnEgr) btnEgr.style.display = isCRDI ? '' : 'none';
+    ui.controls.setHidden('egr', !isCRDI);
 
     /* Clear per-mode state that shouldn't persist. */
     egrPosition = 0;
@@ -1919,8 +1848,7 @@
   /* Simulated STFT oscillation, averaged for the trim bar. */
   let stft = 0;
 
-  /* Rolling history for the graph. */
-  const graphHistory = { stft: [], ltft: [], max: 80 };
+  /* The trim history is the Monitor trace 'trim' (80 samples, 5 Hz). */
   let graphClock = 0;
 
   /* Per-cylinder adaptive trims, −15 % to +15 %. */
@@ -1955,8 +1883,8 @@
 
   /** Update the toolbar's live RPM hint. */
   function updateRpmLabelFromLoad() {
-    const rpm = rpmFromLoad(state.speedMul);
-    ui.toolbar.setRpmLabel('~' + Math.round(rpm) + ' rpm');
+    const rpm = rpmFromLoad(loadFrac());
+    ui.monitor.update({ rows: { rpm: '~' + Math.round(rpm) + ' rpm' } });
   }
 
   /* ══════════════════════════════════════════════════════════════
@@ -2006,9 +1934,10 @@
     }
 
     /* ── Chip ── */
-    ui.chip.set('afr', isCRDI ? afr.toFixed(0) + ' : 1' : afr.toFixed(1) + ' : 1');
-    ui.chip.set('pw',  pw.toFixed(2) + ' ms');
-    ui.chip.setBig(isCRDI ? afr.toFixed(0) : afr.toFixed(1), ':1');
+    ui.monitor.update({
+      value: { text: String(isCRDI ? afr.toFixed(0) : afr.toFixed(1)), unit: ':1' },
+      rows: { afr: isCRDI ? afr.toFixed(0) + ' : 1' : afr.toFixed(1) + ' : 1', pw: pw.toFixed(2) + ' ms' }
+    });
 
     let name, color;
     if (!isCRDI) {
@@ -2022,9 +1951,10 @@
       else if (afr < 35) { name = 'High Load';         color = '#8b5cf6'; }
       else               { name = 'Lean · Efficient';  color = '#3b82f6'; }
     }
-    ui.chip.setColor(color);
-    ui.chip.setBar(Math.min(100, Math.abs(afr - (isCRDI ? 30 : 14.7)) * 40 + 20), color);
-    ui.chip.setStatus(name, name.includes('Stoich') || name.includes('Efficient'));
+    ui.monitor.update({
+      value: { color: color || '', bar: Math.min(100, Math.abs(afr - (isCRDI ? 30 : 14.7)) * 40 + 20), barColor: color },
+      status: [name, !!(name.includes('Stoich') || name.includes('Efficient'))]
+    });
 
     /* ── Badge override for cold start or rich condition ── */
     if (elBadge) {
@@ -2052,87 +1982,20 @@
     }
 
     /* ── Trim state word ── */
-    if (elTrimState) {
-      if (coldStartT > 0)          elTrimState.textContent = 'Cold enrich';
-      else if (Math.abs(ecuTrim) > 8) elTrimState.textContent = 'Correcting';
-      else if (Math.abs(ecuTrim) > 3) elTrimState.textContent = 'Trimming';
-      else                         elTrimState.textContent = 'Balanced';
-    }
+    ui.monitor.update({ rows: { trim: coldStartT > 0 ? 'Cold enrich' : Math.abs(ecuTrim) > 8 ? 'Correcting' : Math.abs(ecuTrim) > 3 ? 'Trimming' : 'Balanced' } });
   }
 
   /** Push a fresh (STFT, LTFT) sample and redraw the small graph. */
   function pushTrimSample() {
-    graphHistory.stft.push(stft);
-    graphHistory.ltft.push(ecuTrim);
-    if (graphHistory.stft.length > graphHistory.max) graphHistory.stft.shift();
-    if (graphHistory.ltft.length > graphHistory.max) graphHistory.ltft.shift();
+    ui.monitor.update({ traces: { trimhist: [stft, ecuTrim] } });   /* the sim already limits both to ±20 %, the old canvas's range: the trace range is fixed at ±20 */
   }
 
-  function drawTrimGraph() {
-    if (!gctx) return;
-    const W = elGraph.width;
-    const H = elGraph.height;
-    gctx.clearRect(0, 0, W, H);
-
-    /* Grid lines */
-    gctx.strokeStyle = 'rgba(148,163,184,0.14)';
-    gctx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-      const y = Math.round((H * i) / 4) + 0.5;
-      gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
-    }
-
-    /* Zero line */
-    gctx.strokeStyle = 'rgba(148,163,184,0.28)';
-    gctx.beginPath();
-    gctx.moveTo(0, H / 2);
-    gctx.lineTo(W, H / 2);
-    gctx.stroke();
-
-    /* Target band — green shading between ±2 % */
-    const yTop = H / 2 - (2 / 20) * (H / 2);
-    const yBot = H / 2 + (2 / 20) * (H / 2);
-    gctx.fillStyle = 'rgba(34,197,94,0.08)';
-    gctx.fillRect(0, yTop, W, yBot - yTop);
-
-    /* STFT (blue) */
-    gctx.strokeStyle = '#38bdf8';
-    gctx.lineWidth = 1.4;
-    gctx.beginPath();
-    for (let i = 0; i < graphHistory.stft.length; i++) {
-      const v = graphHistory.stft[i];
-      const x = (i / (graphHistory.max - 1)) * W;
-      const y = H / 2 - (Math.max(-20, Math.min(20, v)) / 20) * (H / 2);
-      if (i === 0) gctx.moveTo(x, y); else gctx.lineTo(x, y);
-    }
-    gctx.stroke();
-
-    /* LTFT (purple) */
-    gctx.strokeStyle = '#a855f7';
-    gctx.lineWidth = 1.4;
-    gctx.beginPath();
-    for (let i = 0; i < graphHistory.ltft.length; i++) {
-      const v = graphHistory.ltft[i];
-      const x = (i / (graphHistory.max - 1)) * W;
-      const y = H / 2 - (Math.max(-20, Math.min(20, v)) / 20) * (H / 2);
-      if (i === 0) gctx.moveTo(x, y); else gctx.lineTo(x, y);
-    }
-    gctx.stroke();
-
-    /* Axis labels */
-    gctx.fillStyle = 'rgba(148,163,184,0.6)';
-    gctx.font = '600 8px ui-sans-serif,system-ui,sans-serif';
-    gctx.fillText('+20%', 4, 10);
-    gctx.fillText('0', 4, H / 2 + 3);
-    gctx.fillText('−20%', 4, H - 4);
-  }
 
   /* ══════════════════════════════════════════════════════════════
      ACTIONS — cold start, EGR pulse, reset
      ══════════════════════════════════════════════════════════════ */
   function triggerColdStart() {
     coldStartT = COLD_START_DURATION;
-    if (btnCold) btnCold.classList.add('on');
   }
   function triggerEgrPulse() {
     if (sysMode !== 'crdi') return;
@@ -2143,14 +2006,8 @@
     stft     = 0;
     coldStartT = 0;
     for (let i = 0; i < 4; i++) cylTrims[i] = 0;
-    graphHistory.stft.length = 0;
-    graphHistory.ltft.length = 0;
-    if (btnCold) btnCold.classList.remove('on');
+    ui.monitor.update({ traces: { trimhist: null } });
   }
-
-  if (btnCold)  btnCold.addEventListener('click', triggerColdStart);
-  if (btnEgr)   btnEgr.addEventListener('click', triggerEgrPulse);
-  if (btnReset) btnReset.addEventListener('click', resetTrims);
 
   /* ══════════════════════════════════════════════════════════════
      BRIDGE
@@ -2162,8 +2019,7 @@
       if (d.action === 'reset') {
         resetTrims();
         cyclePhase = 0;
-        state.speedMul = 0.20;
-        if (ui.toolbar.speedInput) ui.toolbar.speedInput.value = 0.20;
+        ui.controls.resetAll();
         updateRpmLabelFromLoad();
       }
     }
@@ -2174,9 +2030,6 @@
   /* Initial state. */
   applyModeSwitch('mpfi');
   updateRpmLabelFromLoad();
-  if (ui.toolbar.speedInput) {
-    ui.toolbar.speedInput.addEventListener('input', updateRpmLabelFromLoad);
-  }
 
   /* ══════════════════════════════════════════════════════════════
      ANIMATION
@@ -2193,7 +2046,7 @@
     const sim = state.playing ? dt : 0;
     const isCRDI = sysMode === 'crdi';
 
-    const throttle = Math.max(0, Math.min(1, state.speedMul));
+    const throttle = Math.max(0, Math.min(1, loadFrac()));
     const rpm      = rpmFromLoad(throttle);
 
     /* ═══ Physics per mode ═══ */
@@ -2207,7 +2060,6 @@
       /* Cold-start enrichment */
       if (coldStartT > 0) {
         coldStartT = Math.max(0, coldStartT - sim);
-        if (coldStartT === 0 && btnCold) btnCold.classList.remove('on');
       }
       const coldEnrich = coldStartT > 0 ? 2.4 * (coldStartT / COLD_START_DURATION) : 0;
 
@@ -2520,7 +2372,6 @@
     if (graphClock > 0.20) {
       graphClock = 0;
       pushTrimSample();
-      drawTrimGraph();
     }
 
     /* ═══ Labels ═══ */

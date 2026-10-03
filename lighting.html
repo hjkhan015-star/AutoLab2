@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vehicle Lighting — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #fde047; }
@@ -28,6 +29,8 @@ html.light-theme { --al-accent: color-mix(in oklch, #fde047 68%, black); }
 <script type="module">
 import { runGuidedModule } from './components.js';
 
+let dipMode = 1;                               /* 0 off · 1 low · 2 high; set by the 'dip' choice (default Low) */
+
 /* ── CONFIG (module content) ─────────────────────────────────────── */
 const CFG = {
   moduleId: 'lighting',
@@ -38,7 +41,12 @@ const CFG = {
   camPos: [1.8, 2.6, 9.2],
   target: [0.4, -0.25, 0],
   floorY: -1.9,
-  ctl: { label: 'Dip switch', val: 45, caption: 'Off · Low · High' },
+  ctl: null,                                   /* Phase 6: the dip switch is a 3-stop choice, not a slider */
+  options: [
+    { id: 'dip', type: 'choice', layout: 'segmented', label: 'Dip switch', ariaLabel: 'Headlamp dip switch',
+      options: [{ id: 'off', label: 'Off' }, { id: 'low', label: 'Low beam' }, { id: 'high', label: 'High beam' }],
+      def: 'low', primary: true, side: 'left', onChange: (id, i) => { dipMode = i; } },
+  ],
   chipLabel: 'Lamp power',
   rows: [['mode', 'Mode'], ['range', 'Reach']],
   ro: [
@@ -53,7 +61,7 @@ const CFG = {
   overview: `<div class="al-sec"><h4>Optics</h4><p>A tiny coil of tungsten sits at the <b>focus</b> of a parabolic reflector. Every ray leaving the focus bounces off the mirror parallel — that is how a point of light becomes a <b>beam</b>. The fluted lens then spreads and shapes it into a legal road pattern.</p></div>
 <div class="al-sec"><h4>Two filaments, one bulb</h4><ul><li><b>High beam</b> — filament exactly at the focus, nothing in the way: a level, full-power beam reaching 100 m+.</li><li><b>Low beam</b> — filament lifted off the focus so the beam dips, and a small <b>metal shield</b> chops the top off the light. The sharp <b>cut-off</b> on the screen is that shield, projected — with its step lifted toward the roadside to light signs and pedestrians.</li></ul></div>
 <div class="al-sec"><h4>Why a relay</h4><p>A 55 W lamp pulls about <b>4.5 A</b> — far too much for a thin dash switch. The stalk feeds only the relay coil (≈0.2 A); the relay contacts carry the lamp current straight from the battery, through the fuse.</p></div>
-<div class="al-sec"><h4>Try this</h4><ul><li>Drag the dip switch and watch the ray fan, the light wedge and the screen pattern change together.</li><li>Follow the current: red feed → fuse → relay → yellow (low) or white (high) wire → bulb, and back on the black ground.</li><li>Listen for the relay click on every switch change.</li></ul></div>`,
+<div class="al-sec"><h4>Try this</h4><ul><li>Switch between Off, Low and High beam and watch the ray fan, the light wedge and the screen pattern change together.</li><li>Follow the current: red feed → fuse → relay → yellow (low) or white (high) wire → bulb, and back on the black ground.</li><li>Listen for the relay click on every switch change.</li></ul></div>`,
   faults: [
     ["Blown bulb or fuse", "One or both beams dark.",
      "Check the fuse first, then probe for 12 V at the lamp connector with the switch on."],
@@ -355,7 +363,7 @@ let mode=-1,I=0,hL=0,hH=0,armA=.31;
 function setFil(m,h){m.emissive.setRGB(.45+.55*h,.10+.78*h,.02+.55*h);m.emissiveIntensity=3.4*h;}
 
 function update(c){
-  const k=c.k, m=k<.12?0:k<.6?1:2;
+  const m=dipMode;
   if(m!==mode){if(mode>=0)click(m>0);mode=m;for(const d of dots)d.u=Math.random()*.25;}
   const tgt=m===0?0:m===1?55:60;
   I +=(tgt-I )*Math.min(1,c.dt*(m?8.5:3.2));   // halogen lights in ~0.15 s
@@ -407,7 +415,7 @@ function update(c){
         temp:[I<1?'cold':Math.round(temp)+' °C',I>40?'warn':''],
         range:[m===0?'—':m===1?'≈ 40 m · cut-off':'100 m+',''],
         relay:[m?'closed · carrying':'open',m?'ok':'']},
-    status:[name,m>0],ctl:name};
+    status:[name,m>0]};
 }
 
 drawWall(0,0);
