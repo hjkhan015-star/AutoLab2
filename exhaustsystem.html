@@ -178,7 +178,7 @@ import { Parts } from './components.js';
     }),
     glassTube:   new THREE.MeshStandardMaterial({
       color: 0xaebfd2, metalness: 0.35, roughness: 0.22,
-      transparent: true, opacity: 0.10, side: THREE.DoubleSide, depthWrite: false
+      transparent: true, opacity: 0.17, side: THREE.DoubleSide, depthWrite: false
     })
   };
 
@@ -266,6 +266,38 @@ import { Parts } from './components.js';
   /* ═══════════════════════════════════════════════════════════
      WAVE TUBE FACTORY
      ═══════════════════════════════════════════════════════════ */
+  /* Radiated-sound rings: bigger / brighter the louder the pulse leaves the pipe */
+  const emitGeo = new THREE.TorusGeometry(0.3, 0.02, 6, 44);
+  function makeEmitter(parent, x, y, n = 9) {
+    const items = [];
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(emitGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false }));
+      m.rotation.y = Math.PI / 2; m.visible = false; parent.add(m); items.push({ m, life: 0, amp: 0 });
+    }
+    return {
+      spawn(amp) { const it = items.find(o => o.life <= 0); if (!it) return;
+        it.life = 1; it.amp = amp; it.m.material.color.setHex(amp > 0.5 ? 0xff5a3b : 0x38bdf8); it.m.visible = true; },
+      update(dt) { for (const it of items) { if (it.life <= 0) continue;
+        it.life -= dt * 1.1; if (it.life <= 0) { it.m.visible = false; continue; }
+        const g = 1 - it.life;
+        it.m.scale.setScalar(0.5 + g * (2.0 + 3.4 * it.amp));
+        it.m.position.set(x + g * (0.4 + 1.5 * it.amp), y, 0);
+        it.m.material.opacity = it.life * (0.12 + 0.6 * it.amp); } }
+    };
+  }
+  function makeGasPts(parent, count) {
+    const pos = new Float32Array(count * 3), col = new Float32Array(count * 3);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({ map: particleTex, size: 0.085, sizeAttenuation: true,
+      vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+    pts.frustumCulled = false; parent.add(pts);
+    const d = []; for (let i = 0; i < count; i++) d.push({ t: Math.random(), a: Math.random() * TAU, rr: Math.random(), sp: 0.6 + Math.random() * 0.8 });
+    return { pos, col, g, d, count };
+  }
+
   const ringGeo = new THREE.RingGeometry(0.10, 0.24, 24, 1);
 
   function createWaveTube({ y = 0, baffles = [], hasPacking = false, len = TUNING.prLen, r = TUNING.prR } = {}) {
@@ -375,7 +407,26 @@ import { Parts } from './components.js';
       bars.push({ x: bx, fill });
     });
 
-    return { group, len, r, baffles, waves, reflections, bars, source, output, spawnTimer: 0 };
+    /* upgrades: flanges, feet, perforated core, source glow, gas particles, radiated-sound rings */
+    for (const xOff of [-len / 2, len / 2]) {
+      const fl = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.07, r + 0.07, 0.06, 40), M.steel);
+      fl.rotation.z = Math.PI / 2; fl.position.x = xOff; fl.castShadow = true; group.add(fl);
+    }
+    for (const fx of [-1.7, 1.7]) {
+      const ft = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.2, 0.5), M.steelDark);
+      ft.position.set(fx, -r - 0.1, 0); ft.castShadow = true; group.add(ft);
+    }
+    if (hasPacking) {
+      const core = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, len - 0.12, 24, 1, true),
+        new THREE.MeshStandardMaterial({ color: 0xb87333, metalness: 0.8, roughness: 0.35, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }));
+      core.rotation.z = Math.PI / 2; group.add(core);
+    }
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: particleTex, color: 0xff6a2b, transparent: true, opacity: 0.6,
+      blending: THREE.AdditiveBlending, depthWrite: false }));
+    glow.position.copy(source.position); glow.scale.set(1.1, 1.1, 1); group.add(glow);
+    const gas = makeGasPts(group, 64);
+    const emit = makeEmitter(group, len / 2 + 1.3, 0, 8);
+    return { group, len, r, baffles, waves, reflections, bars, source, output, spawnTimer: 0, glow, gas, emit, flash: 0 };
   }
 
   function spawnWave(tube, x, amp) {
@@ -407,7 +458,7 @@ import { Parts } from './components.js';
     const interval = clamp(TUNING.waveSpawnBase / (0.45 + rf), 0.18, 1.2);
     if (tube.spawnTimer > interval) {
       tube.spawnTimer = 0;
-      spawnWave(tube, -len / 2 - 1.15, 1);
+      spawnWave(tube, -len / 2 - 1.15, 1); tube.flash = 1;
     }
 
     for (const w of waves) {
@@ -421,7 +472,7 @@ import { Parts } from './components.js';
           if (sm.atten < 1) w.mesh.material.color.lerp(new THREE.Color(0x4ade80), 0.45);
         }
       }
-      if (w.x > len / 2 + 1.15) { w.life = 0; w.mesh.visible = false; continue; }
+      if (w.x > len / 2 + 1.15) { tube.emit.spawn(w.amp); w.life = 0; w.mesh.visible = false; continue; }
       w.mesh.position.set(w.x, 0, 0);
       w.mesh.scale.setScalar(0.55 + w.amp * 1.55);
       w.mesh.material.opacity = 0.25 + w.amp * 0.70;
@@ -449,6 +500,20 @@ import { Parts } from './components.js';
       bar.fill.scale.y += (0.08 + peak - bar.fill.scale.y) * Math.min(1, dt * 6);
     }
 
+    tube.flash = Math.max(0, tube.flash - dt * 5);
+    tube.glow.scale.setScalar(0.8 + tube.flash * 0.9); tube.glow.material.opacity = 0.3 + tube.flash * 0.6;
+    tube.emit.update(dt);
+    { const G = tube.gas, env = (x) => { let e = 1; for (const b of baffles) if (x > b) e *= (1 - sm.reflect); return e; };
+      for (let i = 0; i < G.count; i++) {
+        const q = G.d[i]; q.t = (q.t + dt * (0.06 + 0.16 * rf) * q.sp) % 1;
+        const x = -len / 2 - 1.0 + q.t * (len + 2.0), e = env(x);
+        let rad = tube.r * (0.2 + 0.65 * q.rr) * (0.3 + 0.7 * e); if (Math.abs(x) > len / 2) rad = Math.min(rad, 0.09);
+        const a = q.a + time * q.sp * (3 + 7 * e);
+        G.pos[i * 3] = x; G.pos[i * 3 + 1] = Math.sin(a) * rad; G.pos[i * 3 + 2] = Math.cos(a) * rad;
+        const k = 0.55 + 0.45 * e;
+        G.col[i * 3] = (0.25 + 0.75 * e) * k; G.col[i * 3 + 1] = (0.85 - 0.5 * e) * k; G.col[i * 3 + 2] = (0.6 - 0.45 * e) * k;
+      }
+      G.g.attributes.position.needsUpdate = true; G.g.attributes.color.needsUpdate = true; }
     const pulse = 0.5 + 0.5 * Math.sin(time * 6);
     tube.source.material.opacity = 0.55 + pulse * 0.35;
     tube.source.scale.setScalar(0.85 + pulse * 0.25);
@@ -469,12 +534,17 @@ import { Parts } from './components.js';
   const compareBotTube = createWaveTube({ y: -1.0, baffles: [], hasPacking: false });
   compareView.add(compareTopTube.group, compareBotTube.group);
 
-  labels.add('cmp-sil',   'Silenced · ~78 dB');
-  labels.add('cmp-str',   'Straight pipe · ~96 dB');
   const compareLabels = [
-    { id:'cmp-sil', text:'Silenced · ~78 dB', pos: v3(-3.0, 1.55, 0) },
-    { id:'cmp-str', text:'Straight pipe · ~96 dB', pos: v3(-3.0, -0.45, 0) }
+    { id:'cmp-sil', text:'Silenced · ~78 dB', pos: v3(-3.0, 1.62, 0), t: 1 },
+    { id:'cmp-str', text:'Straight pipe · ~96 dB', pos: v3(-3.0, -0.38, 0), t: 1 },
+    { id:'cmp-baf', text:'Baffle · reflects ~55 %', pos: v3(-1.0, 1.5, 0), t: 1 },
+    { id:'cmp-pck', text:'Fibreglass packing', pos: v3(0.2, 0.62, 0), t: 2 },
+    { id:'cmp-ref', text:'← Reflected waves', pos: v3(-1.9, 0.5, 0), t: 2 },
+    { id:'cmp-open', text:'No baffles · full strength', pos: v3(0.3, -1.6, 0), t: 1 },
+    { id:'cmp-rs', text:'Quiet sound', pos: v3(4.3, 1.45, 0), t: 2 },
+    { id:'cmp-rl', text:'LOUD sound', pos: v3(4.3, -0.55, 0), t: 2 }
   ];
+  compareLabels.forEach(d => labels.add(d.id, d.text, d.t));
 
   /* ═══════════════════════════════════════════════════════════
      CATALYST VIEW
@@ -618,136 +688,199 @@ import { Parts } from './components.js';
   /* ═══════════════════════════════════════════════════════════
      FULL SYSTEM VIEW
      ═══════════════════════════════════════════════════════════ */
-  const FS_MAN = -3.2, FS_CAT = -1.55, FS_RES = -0.10, FS_MUF = 1.30, FS_TAIL = 2.85;
-
-  const engBlock = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.62), M.engine);
-  engBlock.position.set(FS_MAN - 0.55, 0.15, 0);
-  engBlock.castShadow = true;
-  fullView.add(engBlock);
-
-  const manifoldGroup = new THREE.Group();
-  manifoldGroup.position.set(FS_MAN, 0, 0);
-  fullView.add(manifoldGroup);
-
-  [0.40, 0.22, 0.04, -0.14].forEach(startY => {
-    const curve = new THREE.CatmullRomCurve3([
-      v3(-0.12, startY, 0), v3(0.18, startY - 0.10, 0),
-      v3(0.55, 0.14, 0), v3(0.92, 0.05, 0)
-    ]);
-    manifoldGroup.add(new THREE.Mesh(
-      new THREE.TubeGeometry(curve, 20, 0.05, isLowEnd ? 8 : 10, false), M.manifold
-    ));
-  });
-  const collector = makeCyl(0.12, 0.35, M.manifold, 'x');
-  collector.position.set(1.05, 0.05, 0);
-  manifoldGroup.add(collector);
-
-  const downpipe = makeCyl(0.09, 0.35, M.pipeSolid.clone(), 'x');
-  downpipe.position.set(-1.95, 0.05, 0);
-  applyThermalGradient(downpipe, 700, 620);
-  fullView.add(downpipe);
-
-  const fsCatShell = makeCutCyl(0.24, 1.00, M.shell, 'x');
-  fsCatShell.position.x = FS_CAT;
-  fullView.add(fsCatShell);
-
-  const honeycombFullMat = M.honeycomb.clone();
-  honeycombFullMat.emissiveIntensity = 0.05;
-  for (let i = 0; i < 6; i++) {
-    for (let j = 0; j < 6; j++) {
-      const cy = (i - 2.5) * 0.07, cz = (j - 2.5) * 0.07;
-      if (Math.hypot(cy, cz) > 0.20) continue;
-      const cell = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.052, 0.052), honeycombFullMat);
-      cell.position.set(FS_CAT, cy, cz);
-      fullView.add(cell);
-    }
+  const FX = { muf: 1.85, cat: -1.35, res: 0.15, tailEnd: 4.15 };
+  const XA = -3.0, XB = 4.0;
+  const fsHeatRGB = (t, o) => {
+    const A = [1.0, 0.42, 0.12], B = [0.78, 0.42, 0.22], C = [0.42, 0.5, 0.62];
+    const k = t < 0.5 ? t * 2 : (t - 0.5) * 2, P = t < 0.5 ? A : B, Q = t < 0.5 ? B : C;
+    for (let i = 0; i < 3; i++) o[i] = P[i] + (Q[i] - P[i]) * k;
+  };
+  const fsPipes = [];
+  function fsPipe(x0, x1, r) {
+    const mesh = makeCyl(r, x1 - x0, new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, metalness: 0.75,
+      roughness: 0.35, emissive: 0xff3a00, emissiveIntensity: 0 }), 'x');
+    const cx = (x0 + x1) / 2; mesh.position.set(cx, 0.05, 0); mesh.castShadow = true;
+    const pos = mesh.geometry.attributes.position, col = new Float32Array(pos.count * 3), c = [0, 0, 0];
+    for (let i = 0; i < pos.count; i++) { fsHeatRGB(clamp((cx - pos.getY(i) - XA) / (XB - XA), 0, 1), c); col.set(c, i * 3); }
+    mesh.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    mesh.userData.t = clamp((cx - XA) / (XB - XA), 0, 1); fsPipes.push(mesh); fullView.add(mesh); return mesh;
   }
-  [-0.50, 0.50].forEach(xOff => {
-    const cap = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.030, 8, 24), M.steelDark);
-    cap.rotation.y = Math.PI / 2;
-    cap.position.set(FS_CAT + xOff, 0, 0);
-    fullView.add(cap);
+  function fsCone(xc, rL, rR, len, y = 0.05) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rL, rR, len, 28), M.steel);
+    m.rotation.z = Math.PI / 2; m.position.set(xc, y, 0); m.castShadow = true; fullView.add(m); return m;
+  }
+  const glassPacking = M.packing.clone();
+
+  /* underbody ghost + engine */
+  const floorPan = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.04, 1.5),
+    new THREE.MeshStandardMaterial({ color: 0x66738a, transparent: true, opacity: 0.16, roughness: 0.6, metalness: 0.3, depthWrite: false }));
+  floorPan.position.set(0.1, 0.92, 0); fullView.add(floorPan);
+  const engBlock = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.15, 1.0), M.engine);
+  engBlock.position.set(-4.75, 0.1, 0); engBlock.castShadow = true; fullView.add(engBlock);
+  const engHead = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, 1.0), M.steelDark);
+  engHead.position.set(-4.75, 0.78, 0); fullView.add(engHead);
+  const runnerMat = new THREE.MeshStandardMaterial({ color: 0x8a5a3a, metalness: 0.85, roughness: 0.35, emissive: 0xff4400, emissiveIntensity: 0 });
+  [-0.33, -0.11, 0.11, 0.33].forEach((z, i) => {
+    const y0 = 0.4 - i * 0.02;
+    const curve = new THREE.CatmullRomCurve3([v3(-4.05, y0, z), v3(-3.75, y0 - 0.1, z * 0.8), v3(-3.4, 0.12, z * 0.35), v3(-3.1, 0.05, 0)]);
+    fullView.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.055, isLowEnd ? 8 : 12, false), runnerMat));
+    const port = makeCyl(0.09, 0.1, M.steel, 'x'); port.position.set(-4.06, y0, z); fullView.add(port);
   });
+  const collector = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.11, 0.3, 24), runnerMat);
+  collector.rotation.z = Math.PI / 2; collector.position.set(-3.1, 0.05, 0); fullView.add(collector);
 
-  const midpipe1 = makeCyl(0.10, 0.60, M.pipeSolid.clone(), 'x');
-  midpipe1.position.set(-0.70, 0.05, 0);
-  applyThermalGradient(midpipe1, 560, 430);
-  fullView.add(midpipe1);
+  fsPipe(-3.0, -2.25, 0.11);                                   /* downpipe */
+  for (let i = 0; i < 6; i++) {                                /* flex bellows */
+    const t = new THREE.Mesh(new THREE.TorusGeometry(0.125, 0.032, 8, 24), M.steel);
+    t.rotation.y = Math.PI / 2; t.position.set(-2.22 + i * 0.045, 0.05, 0); fullView.add(t);
+  }
+  const o2 = new THREE.Group(); o2.position.set(-2.62, 0.16, 0); fullView.add(o2);
+  { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.2, 12), M.o2Body); b.position.y = 0.1; o2.add(b);
+    const h = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 6), M.steelDark); h.position.y = 0.04; o2.add(h); }
+  const o2Glow = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), new THREE.MeshBasicMaterial({ color: 0x22c55e, blending: THREE.AdditiveBlending, transparent: true }));
+  o2Glow.position.y = 0.23; o2.add(o2Glow);
 
-  const fsResonator = makeCutCyl(0.20, 0.55, M.shell, 'x');
-  fsResonator.position.x = FS_RES;
-  fullView.add(fsResonator);
-  const resBranch = makeCyl(0.045, 0.20, M.perforated, 'y');
-  resBranch.position.set(FS_RES, 0.30, 0);
-  fullView.add(resBranch);
+  /* catalytic converter */
+  fsCone(FX.cat - 0.62, 0.11, 0.27, 0.22); fsCone(FX.cat + 0.62, 0.27, 0.11, 0.22);
+  const catShell = makeCutCyl(0.29, 1.05, M.shell, 'x'); catShell.position.x = FX.cat; fullView.add(catShell);
+  const honeycombFullMat = M.honeycomb.clone(); honeycombFullMat.emissiveIntensity = 0.05;
+  for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+    const cy = (i - 3.5) * 0.065, cz = (j - 3.5) * 0.065; if (Math.hypot(cy, cz) > 0.25) continue;
+    const cell = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.05, 0.05), honeycombFullMat);
+    cell.position.set(FX.cat, 0.05 + cy, cz); fullView.add(cell);
+  }
+  [-0.5, 0.5].forEach(xo => { const cap = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.03, 8, 28), M.steelDark);
+    cap.rotation.y = Math.PI / 2; cap.position.set(FX.cat + xo, 0.05, 0); fullView.add(cap); });
 
-  const midpipe2 = makeCyl(0.10, 0.50, M.pipeSolid.clone(), 'x');
-  midpipe2.position.set(0.35, 0.05, 0);
-  applyThermalGradient(midpipe2, 400, 300);
-  fullView.add(midpipe2);
+  fsPipe(-0.74, -0.14, 0.10);
+  /* resonator */
+  fsCone(FX.res - 0.38, 0.1, 0.21, 0.16); fsCone(FX.res + 0.38, 0.21, 0.1, 0.16);
+  const resShell = makeCutCyl(0.22, 0.62, M.shell, 'x'); resShell.position.x = FX.res; fullView.add(resShell);
+  const resCore = makeCyl(0.09, 0.62, M.perforated, 'x'); resCore.position.set(FX.res, 0.05, 0); fullView.add(resCore);
+  const resPack = makeCyl(0.2, 0.58, glassPacking, 'x'); resPack.position.set(FX.res, 0.05, 0); fullView.add(resPack);
+  const resBranch = makeCyl(0.1, 0.26, M.shell, 'y'); resBranch.position.set(FX.res, 0.42, 0); fullView.add(resBranch);
+  fsPipe(0.46, 0.9, 0.10);
 
-  const fsMufflerShell = makeCutCyl(0.32, 1.55, M.shell, 'x');
-  fsMufflerShell.position.x = FS_MUF;
-  fullView.add(fsMufflerShell);
-  [-0.42, 0, 0.42].forEach(xOff => {
-    const baffle = makeCyl(0.28, 0.025, M.baffle, 'x');
-    baffle.position.x = FS_MUF + xOff;
-    fullView.add(baffle);
+  /* muffler (two interchangeable interiors) */
+  fsCone(FX.muf - 1.05, 0.1, 0.36, 0.2); fsCone(FX.muf + 1.05, 0.36, 0.1, 0.2);
+  const mufShell = makeCutCyl(0.4, 1.9, M.shell, 'x'); mufShell.position.x = FX.muf; fullView.add(mufShell);
+  const mufSil = new THREE.Group(); const mufStr = new THREE.Group(); fullView.add(mufSil, mufStr);
+  [-0.5, 0, 0.5].forEach(xo => { const bf = makeCyl(0.37, 0.03, M.baffle, 'x'); bf.position.set(FX.muf + xo, 0.05, 0); mufSil.add(bf); });
+  const inTube = makeCyl(0.075, 1.2, M.perforated, 'x'); inTube.position.set(FX.muf - 0.35, -0.14, 0); mufSil.add(inTube);
+  const outTube = makeCyl(0.075, 1.2, M.perforated, 'x'); outTube.position.set(FX.muf + 0.35, 0.16, 0); mufSil.add(outTube);
+  const silPack = makeCyl(0.37, 1.8, glassPacking, 'x'); silPack.position.set(FX.muf, 0.05, 0); mufSil.add(silPack);
+  const strCore = makeCyl(0.1, 1.9, M.perforated, 'x'); strCore.position.set(FX.muf, 0.05, 0); mufStr.add(strCore);
+  const strPack = makeCyl(0.34, 1.8, glassPacking, 'x'); strPack.position.set(FX.muf, 0.05, 0); mufStr.add(strPack);
+
+  fsPipe(2.9, 3.95, 0.10);
+  const tipMat = new THREE.MeshStandardMaterial({ color: 0xe0e6ef, metalness: 0.95, roughness: 0.12, emissive: 0xff5a1e, emissiveIntensity: 0 });
+  const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.12, 0.3, 32), tipMat);
+  tip.rotation.z = Math.PI / 2; tip.position.set(4.02, 0.05, 0); fullView.add(tip);
+
+  [-0.45, 0.65, 3.3].forEach(hx => {                           /* rubber hangers up to the floor pan */
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.78, 8), M.steelDark); rod.position.set(hx, 0.5, 0); fullView.add(rod);
+    const rub = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.025, 8, 16), M.packing); rub.position.set(hx, 0.2, 0); rub.rotation.y = Math.PI / 2; fullView.add(rub);
   });
-  const fsInletTube = makeCyl(0.07, 1.05, M.perforated, 'x');
-  fsInletTube.position.set(FS_MUF, -0.14, 0);
-  fullView.add(fsInletTube);
+  const hotGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: particleTex, color: 0xff5a1e, transparent: true, opacity: 0.5,
+    blending: THREE.AdditiveBlending, depthWrite: false }));
+  hotGlow.position.set(-3.3, 0.1, 0); hotGlow.scale.set(1.6, 1.6, 1); fullView.add(hotGlow);
 
-  const tailpipe = makeCyl(0.10, 1.35, M.pipeSolid.clone(), 'x');
-  tailpipe.position.set(FS_MUF + 1.45, 0.05, 0);
-  applyThermalGradient(tailpipe, 280, 150);
-  fullView.add(tailpipe);
+  /* gas path (silencer: S-path through the muffler; straight: through the core) */
+  let fsPath = [], fsSegLens = [], fsPathTotal = 0;
+  function buildFsPath(sil) {
+    const y = 0.05, mu = FX.muf;
+    fsPath = [v3(-4.05, 0.3, 0), v3(-3.55, 0.15, 0), v3(-3.0, y, 0), v3(-2.2, y, 0), v3(FX.cat, y, 0), v3(-0.2, y, 0), v3(FX.res, y, 0), v3(0.6, y, 0),
+      ...(sil ? [v3(mu - 0.95, y, 0), v3(mu - 0.75, -0.14, 0), v3(mu + 0.25, -0.14, 0), v3(mu + 0.25, 0.16, 0), v3(mu + 0.9, 0.16, 0), v3(mu + 1.0, y, 0)]
+              : [v3(mu - 0.95, y, 0), v3(mu + 1.0, y, 0)]),
+      v3(3.0, y, 0), v3(FX.tailEnd, y, 0)];
+    fsSegLens = []; fsPathTotal = 0;
+    for (let i = 0; i < fsPath.length - 1; i++) { const l = fsPath[i].distanceTo(fsPath[i + 1]); fsSegLens.push(l); fsPathTotal += l; }
+  }
+  buildFsPath(true);
+  function applyFullMuffler() { const sil = sndMode === 'silencer'; mufSil.visible = sil; mufStr.visible = !sil; buildFsPath(sil); }
 
-  const tailTip = makeCyl(0.12, 0.28, M.chrome, 'x');
-  tailTip.position.set(FS_TAIL + 0.72, 0.05, 0);
-  fullView.add(tailTip);
-
-  const FS_N = isLowEnd ? 70 : 120;
+  const FS_N = isLowEnd ? 70 : 130;
   const fsFlowGeo = new THREE.BufferGeometry();
-  const fsFlowPos = new Float32Array(FS_N * 3);
-  const fsFlowCol = new Float32Array(FS_N * 3);
+  const fsFlowPos = new Float32Array(FS_N * 3), fsFlowCol = new Float32Array(FS_N * 3);
   fsFlowGeo.setAttribute('position', new THREE.BufferAttribute(fsFlowPos, 3));
-  fsFlowGeo.setAttribute('color',    new THREE.BufferAttribute(fsFlowCol, 3));
-  const fsFlowPts = new THREE.Points(fsFlowGeo, new THREE.PointsMaterial({
-    map: particleTex, size: 0.10, sizeAttenuation: true,
-    vertexColors: true, transparent: true, opacity: 0.9,
-    depthWrite: false, blending: THREE.AdditiveBlending
-  }));
-  fsFlowPts.frustumCulled = false;
-  fullView.add(fsFlowPts);
-
-  const fsFlowPath = [
-    v3(FS_MAN - 0.25, 0.30, 0), v3(FS_MAN + 0.60, 0.20, 0), v3(FS_MAN + 1.00, 0.05, 0),
-    v3(FS_CAT, 0.05, 0), v3(FS_RES, 0.05, 0),
-    v3(FS_MUF - 0.55, 0.05, 0), v3(FS_MUF - 0.20, -0.14, 0), v3(FS_MUF + 0.50, -0.14, 0),
-    v3(FS_MUF + 0.90, 0.05, 0), v3(FS_TAIL + 0.60, 0.05, 0)
-  ];
-  const fsSegLens = [];
-  let fsPathTotal = 0;
-  for (let i = 0; i < fsFlowPath.length - 1; i++) {
-    const l = fsFlowPath[i].distanceTo(fsFlowPath[i + 1]);
-    fsSegLens.push(l);
-    fsPathTotal += l;
-  }
+  fsFlowGeo.setAttribute('color', new THREE.BufferAttribute(fsFlowCol, 3));
+  const fsFlowPts = new THREE.Points(fsFlowGeo, new THREE.PointsMaterial({ map: particleTex, size: 0.1, sizeAttenuation: true,
+    vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+  fsFlowPts.frustumCulled = false; fullView.add(fsFlowPts);
   const fsFlowData = [];
-  for (let i = 0; i < FS_N; i++) {
-    fsFlowData.push({ t: Math.random(), speed: 0.5 + Math.random() * 0.5, j: Math.random() });
+  for (let i = 0; i < FS_N; i++) fsFlowData.push({ t: Math.random(), speed: 0.5 + Math.random() * 0.5, j: Math.random() });
+
+  const fsRingGeo = new THREE.TorusGeometry(0.2, 0.014, 6, 32);
+  const fsRings = [];
+  for (let i = 0; i < 16; i++) {
+    const m = new THREE.Mesh(fsRingGeo, new THREE.MeshBasicMaterial({ color: 0xff3b3b, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false }));
+    m.rotation.y = Math.PI / 2; m.visible = false; fullView.add(m); fsRings.push({ m, s: 0, on: false });
+  }
+  const fsEmit = makeEmitter(fullView, FX.tailEnd + 0.1, 0.05, 10);
+  const AX = [-5, -1.9, -0.8, -0.18, 0.48, 0.9, 2.8, 6], A_SIL = [1, 1, 0.92, 0.92, 0.62, 0.62, 0.2, 0.2], A_STR = [1, 1, 0.92, 0.92, 0.68, 0.68, 0.86, 0.86];
+  function ampAt(x) {
+    const A = sndMode === 'silencer' ? A_SIL : A_STR; let i = 0;
+    while (i < AX.length - 2 && x > AX[i + 1]) i++;
+    return A[i] + (A[i + 1] - A[i]) * clamp((x - AX[i]) / (AX[i + 1] - AX[i]), 0, 1);
+  }
+  const _fp = { x: 0, y: 0 };
+  function fsAt(sd) {
+    let d = clamp(sd, 0, fsPathTotal), i = 0;
+    while (i < fsSegLens.length - 1 && d > fsSegLens[i]) { d -= fsSegLens[i]; i++; }
+    const k = fsSegLens[i] > 1e-5 ? d / fsSegLens[i] : 0, a = fsPath[i], b = fsPath[i + 1];
+    _fp.x = a.x + (b.x - a.x) * k; _fp.y = a.y + (b.y - a.y) * k; return _fp;
+  }
+  let fsSpawn = 0, fsHeat = 0.3;
+  function updateFull(dt, rf) {
+    fsHeat += ((0.2 + 0.8 * rf) - fsHeat) * Math.min(1, dt * 0.4);
+    const fl = 0.85 + 0.15 * Math.sin(time * 5);
+    for (const m of fsPipes) m.material.emissiveIntensity = fsHeat * 0.6 * (1 - m.userData.t) * fl;
+    runnerMat.emissiveIntensity = fsHeat * 0.9 * fl; honeycombFullMat.emissiveIntensity = 0.05 + fsHeat * 0.5 * fl;
+    tipMat.emissiveIntensity = fsHeat * 0.18; hotGlow.material.opacity = 0.15 + fsHeat * 0.5 * fl;
+    o2Glow.material.opacity = 0.5 + 0.5 * Math.sin(time * 6);
+    fsSpawn += dt;
+    if (fsSpawn > clamp(0.5 / (0.4 + rf * 1.6), 0.14, 0.9)) {
+      fsSpawn = 0; const r = fsRings.find(o => !o.on); if (r) { r.on = true; r.s = 0; r.m.visible = true; }
+    }
+    for (const r of fsRings) {
+      if (!r.on) continue;
+      r.s += dt * (1.2 + 2.6 * rf);
+      if (r.s >= fsPathTotal) { fsEmit.spawn(ampAt(FX.tailEnd)); r.on = false; r.m.visible = false; continue; }
+      const q = fsAt(r.s), a = ampAt(q.x);
+      r.m.position.set(q.x, q.y, 0); r.m.scale.setScalar(0.6 + a * 1.5);
+      r.m.material.opacity = 0.3 + a * 0.6;
+      r.m.material.color.setRGB(0.29 + 0.71 * a, 0.87 - 0.64 * a, 0.5 - 0.27 * a);
+    }
+    fsEmit.update(dt);
+    if (!state.showGas) return;
+    const c = [0, 0, 0];
+    for (let i = 0; i < FS_N; i++) {
+      const p = fsFlowData[i];
+      p.t += dt * p.speed * TUNING.flowFullRate * (0.4 + rf); if (p.t > 1) p.t -= 1;
+      const q = fsAt(p.t * fsPathTotal), a = ampAt(q.x), jit = 0.01 + 0.05 * a * (0.5 + rf);
+      fsFlowPos[i * 3] = q.x + Math.sin(time * 4 + p.j * TAU) * 0.03;
+      fsFlowPos[i * 3 + 1] = q.y + Math.cos(time * 5 + p.j * TAU) * jit;
+      fsFlowPos[i * 3 + 2] = Math.sin(time * 6 + p.j * 9) * jit;
+      fsHeatRGB(clamp((q.x - XA) / (XB - XA), 0, 1), c);
+      const br = 0.55 + 0.7 * fsHeat; fsFlowCol[i * 3] = c[0] * br; fsFlowCol[i * 3 + 1] = c[1] * br; fsFlowCol[i * 3 + 2] = c[2] * br;
+    }
+    fsFlowGeo.attributes.position.needsUpdate = true; fsFlowGeo.attributes.color.needsUpdate = true;
   }
 
   const fsLabelDefs = [
-    { id:'fs-eng',  text:'Engine · 4 cyl',      pos: v3(FS_MAN - 0.55, 0.80, 0) },
-    { id:'fs-man',  text:'Exhaust manifold',    pos: v3(FS_MAN + 0.55, 0.60, 0) },
-    { id:'fs-cat',  text:'Catalytic converter', pos: v3(FS_CAT, 0.45, 0) },
-    { id:'fs-res',  text:'Resonator',           pos: v3(FS_RES, 0.42, 0) },
-    { id:'fs-muf',  text:'Muffler',             pos: v3(FS_MUF, 0.55, 0) },
-    { id:'fs-tail', text:'Tailpipe',            pos: v3(FS_TAIL + 0.45, 0.35, 0) }
+    { id:'fs-eng',  text:'Engine · 4 cyl',                pos: v3(-4.75, 1.1, 0) },
+    { id:'fs-man',  text:'Manifold · ~700 °C',            pos: v3(-3.5, 0.62, 0) },
+    { id:'fs-o2',   text:'O₂ sensor',                     pos: v3(-2.62, 0.55, 0), tier: 2 },
+    { id:'fs-flex', text:'Flex joint',                    pos: v3(-2.1, -0.32, 0), tier: 2 },
+    { id:'fs-cat',  text:'Catalytic converter · cleans',  pos: v3(FX.cat, 0.55, 0) },
+    { id:'fs-res',  text:'Resonator · kills drone',       pos: v3(FX.res, 0.7, 0) },
+    { id:'fs-muf',  text:'Muffler · reflects & absorbs',  pos: v3(FX.muf, 0.62, 0) },
+    { id:'fs-hang', text:'Rubber hanger',                 pos: v3(0.65, 0.95, 0), tier: 2 },
+    { id:'fs-tail', text:'Tailpipe · ~150 °C',            pos: v3(3.6, 0.4, 0) },
+    { id:'fs-snd',  text:'Sound leaves here',             pos: v3(4.5, 0.7, 0), tier: 2 }
   ];
-  fsLabelDefs.forEach(d => labels.add(d.id, d.text));
+  fsLabelDefs.forEach(d => labels.add(d.id, d.text, d.tier || 1));
 
   /* ═══════════════════════════════════════════════════════════
      MODE INFO + SND MODES
@@ -801,6 +934,21 @@ import { Parts } from './components.js';
              <br><br>
              Use <em>Rich / Stoich / Lean</em> below and watch which pollutant slips through. Heat matters too: <em>light-off ≈ 250–300 °C</em>, so most trip emissions leave in the first minute. Lead, sulphur, oil ash and misfires (raw fuel burning inside the brick above 1000 °C) all destroy a catalyst.`;
 
+  MODE_INFO.compare.desc = `<strong>Same engine pulse, two exits.</strong> Each flash on the left is one exhaust pulse — a pressure wave (red ring) racing down the pipe at the speed of sound.
+             <br><br>
+             <strong>Top · silenced.</strong> Every baffle bounces about half of the wave straight back (orange rings) and fibreglass soaks up the rest. The gas particles calm down and cool from orange to green; by the tailpipe the wave is small, so the sound rings leaving the pipe are small and blue.
+             <br><br>
+             <strong>Bottom · straight pipe.</strong> Nothing stops the wave: particles stay turbulent and hot, and big red sound rings leave the tailpipe — about <em>18 dB louder</em>.
+             <br><br>
+             Turn <em>Sound</em> on and flip <em>Muffler</em> to hear that difference.
+             <div class="ex-legend"><span style="color:#ff3b3b"><i></i>Wave</span><span style="color:#ff9a3b"><i></i>Reflected</span><span style="color:#4ade80"><i></i>Weak wave</span><span style="color:#38bdf8"><i></i>Quiet sound</span></div>`;
+  MODE_INFO.full.desc = `<strong>Follow one exhaust pulse from engine to air.</strong> Hot gas leaves each cylinder at ~700 °C and the four runners merge in the <strong>manifold</strong>.
+             <br><br>
+             The <strong>catalytic converter</strong> turns CO, HC and NOx into CO₂, H₂O and N₂ (the honeycomb glows as it works). The <strong>resonator</strong> cancels one drone frequency, and the <strong>muffler</strong> forces the wave through baffles and packing so most of it is reflected or absorbed. Watch the pulse rings turn from red to green as they shrink.
+             <br><br>
+             Switch <em>Muffler</em> to <em>Straight pipe</em>: the muffler interior becomes an open core, the rings stay red and large sound rings leave the tip. Gas colour shows temperature: it cools from ~700 °C to ~150 °C along the way.
+             <div class="ex-legend"><span style="color:#ff5a1e"><i></i>Hot gas</span><span style="color:#8fa0b8"><i></i>Cooled gas</span><span style="color:#ff3b3b"><i></i>Strong pulse</span><span style="color:#4ade80"><i></i>Weak pulse</span></div>`;
+
   const SND_MODES = {
     silencer: { name:'Silencer',      dB: 78, atten: 0.42, reflect: 0.55, gain: 0.34, noise: 0.45, q: 1.2 },
     straight: { name:'Straight Pipe', dB: 96, atten: 1.00, reflect: 0.05, gain: 0.80, noise: 1.00, q: 7.0 }
@@ -810,7 +958,7 @@ import { Parts } from './components.js';
      UI — kit chrome + sound widget
      ═══════════════════════════════════════════════════════════ */
   /* State — declared before UI.create's onMount runs */
-  let mode = 'principle';
+  let mode = 'compare';
   let sndMode = 'silencer';
   let time = 0, runTime = 0, catT = 20, rpm = 2880;
   const isCold = () => runTime < TUNING.coldStartDur;
@@ -844,9 +992,9 @@ import { Parts } from './components.js';
 
     toolbar: {
       play: true, reset: true,
-      speed: { label: 'Engine RPM', min: 0.15, max: 2.5, step: 0.05, value: 1.00 },
       labels: true, gas: true
     },
+    axes: [{ id: 'rpm', preset: 'rpm', max: 6000, def: 2800, label: 'Engine speed', side: 'left' }],
 
     /* Phase 6: sound, muffler, mixture and view are controls.js controls in the dock options row */
     options: [
@@ -866,11 +1014,8 @@ import { Parts } from './components.js';
       { id: 'muffler', type: 'choice', layout: 'segmented', label: 'Muffler', ariaLabel: 'Muffler type',
         options: [{ id: 'silencer', label: 'Silencer' }, { id: 'straight', label: 'Straight pipe' }],
         onChange: (id) => setSndMode(id) },
-      { id: 'lambda', type: 'choice', layout: 'segmented', label: 'Mixture', ariaLabel: 'Air-fuel mixture lambda',
-        options: [{ id: 'rich', label: 'Rich 0.97' }, { id: 'stoich', label: 'Stoich 1.00' }, { id: 'lean', label: 'Lean 1.03' }], def: 'stoich',
-        onChange: (id) => setCatLam(id) },
-      { id: 'config', type: 'choice', layout: 'select', label: 'View', ariaLabel: 'Exhaust view',
-        options: [{ id: 'principle', label: 'Principle' }, { id: 'compare', label: 'Compare' }, { id: 'catalyst', label: 'Catalyst' }, { id: 'full', label: 'Full System' }] }
+      { id: 'config', type: 'choice', layout: 'segmented', label: 'View', ariaLabel: 'Exhaust view', def: 'compare',
+        options: [{ id: 'compare', label: 'Compare' }, { id: 'full', label: 'Full system' }] }
     ]
   });
 
@@ -1020,7 +1165,7 @@ import { Parts } from './components.js';
   }
   wireSoundWidget();
 
-  const CONFIG_ORDER = ['principle', 'compare', 'catalyst', 'full'];
+  const CONFIG_ORDER = ['compare', 'full'];
   const CONFIG_LABELS = {
     principle: 'Principle', compare: 'Compare',
     catalyst:  'Catalyst',  full:    'Full System'
@@ -1064,16 +1209,16 @@ import { Parts } from './components.js';
 
     labels.hideAll();
 
-    if (m === 'principle')     animateCamera([2.4, 1.6, 5.0],  [0, -0.20, 0]);
-    else if (m === 'compare')  animateCamera([3.2, 0.4, 5.6],  [0, 0.00, 0]);
-    else if (m === 'catalyst') animateCamera([2.2, 1.7, 4.4],  [0, 0.10, 0]);
-    else                       animateCamera([4.0, 2.6, 7.6],  [0.10, 0.05, 0]);
+    const wide = innerWidth / innerHeight < 1;
+    if (m === 'compare') animateCamera(wide ? [2.0, 1.4, 14.0] : [1.0, 1.1, 11.8], wide ? [0, 0, 0] : [-0.5, 0, 0]);
+    else                 animateCamera(wide ? [2.0, 2.4, 15.0] : [0.6, 1.9, 12.2], wide ? [-0.4, 0.05, 0] : [-0.7, 0.05, 0]);
   }
 
   ctl.on('config', (i) => { const m = CONFIG_ORDER[i]; if (m !== mode) applyMode(m); });
 
   function setSndMode(m) {
     sndMode = m;
+    applyFullMuffler();
     SND.mode = m;
     ctl.set('muffler', m === 'straight' ? 1 : 0);        /* keep the dock choice in step (bridge setMuffler) */
     ui.stage.caption('spectrum', 'Acoustic spectrum · ' + SND_MODES[m].name);
@@ -1171,236 +1316,130 @@ import { Parts } from './components.js';
     catFlowGeo.attributes.position.needsUpdate = true;
     catFlowGeo.attributes.color.needsUpdate = true;
   }
-  function updateFull(dt, rf) {
-    if (!state.showGas) return;
-    for (let i = 0; i < FS_N; i++) {
-      const p = fsFlowData[i];
-      p.t += dt * p.speed * TUNING.flowFullRate * (0.4 + rf);
-      if (p.t > 1) p.t -= 1;
-      let d = p.t * fsPathTotal, seg = 0;
-      while (seg < fsSegLens.length - 1 && d > fsSegLens[seg]) { d -= fsSegLens[seg]; seg++; }
-      const k = fsSegLens[seg] > 1e-5 ? d / fsSegLens[seg] : 0;
-      const a = fsFlowPath[seg], b = fsFlowPath[seg + 1];
-      fsFlowPos[i * 3]     = a.x + (b.x - a.x) * k + Math.sin(time * 4 + p.j * TAU) * 0.03;
-      fsFlowPos[i * 3 + 1] = a.y + (b.y - a.y) * k + Math.cos(time * 4 + p.j * TAU) * 0.03;
-      fsFlowPos[i * 3 + 2] = a.z + (b.z - a.z) * k;
-      const t = p.t;
-      fsFlowCol[i * 3]     = 1.00 - t * 0.55;
-      fsFlowCol[i * 3 + 1] = 0.45 - t * 0.05;
-      fsFlowCol[i * 3 + 2] = 0.16 + t * 0.55;
-    }
-    fsFlowGeo.attributes.position.needsUpdate = true;
-    fsFlowGeo.attributes.color.needsUpdate = true;
-  }
-
-  /* ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
      AUDIO ENGINE
      ═══════════════════════════════════════════════════════════ */
   const SND = { ready:false, on:false, ctx:null, mode:'silencer' };
 
-  function bandlimitedWave(ctx, harmonicCount, rolloff) {
-    const n = harmonicCount;
-    const real = new Float32Array(n + 1);
-    const imag = new Float32Array(n + 1);
-    for (let i = 1; i <= n; i++) imag[i] = (1 / i) * Math.pow(1 / i, rolloff - 1);
-    return ctx.createPeriodicWave(real, imag, { disableNormalization: false });
-  }
-  function firingPulseCurve(n, sharpness) {
-    const c = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      const x = (i / (n - 1)) * 2 - 1;
-      c[i] = x > 0 ? Math.pow(x, sharpness) : 0;
-    }
-    return c;
-  }
+  const SND_BASE_RPM = 3000;
   function raspCurve(n) {
     const c = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      const x = (i / (n - 1)) * 2 - 1;
-      c[i] = Math.tanh(x * 1.6) + 0.22 * Math.tanh(x * x * x * 1.4);
-    }
+    for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(x * 2.4) * 0.9 + 0.1 * Math.tanh(x * 7); }
     return c;
+  }
+  function softClip(n, k) {
+    const c = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); }
+    return c;
+  }
+  /* 4-cylinder, 4-stroke firing loop: 8 engine cycles of 4 uneven pulses (thump + crack + gas rush), looped at 3000 rpm */
+  function buildFiringLoop(ctx) {
+    const sr = ctx.sampleRate, cycleT = 120 / SND_BASE_RPM, cycles = 8;
+    const len = Math.floor(sr * cycleT * cycles), buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+    const bias = [1.0, 0.88, 1.06, 0.94], N = Math.floor(sr * 0.06);
+    for (let c = 0; c < cycles; c++) for (let k = 0; k < 4; k++) {
+      const t0 = (c * 4 + k) * cycleT / 4 + (Math.random() - 0.5) * 0.0012;
+      const amp = bias[k] * (0.88 + Math.random() * 0.24), st = Math.floor(t0 * sr);
+      let lp = 0;
+      for (let i = 0; i < N; i++) {
+        const t = i / sr, w = Math.random() * 2 - 1; lp = lp * 0.72 + w * 0.28;
+        const thump = Math.sin(TAU * (52 * t + 2.4 * (1 - Math.exp(-45 * t)))) * Math.exp(-t * 52);
+        const crack = w * Math.exp(-t * 260), rush = lp * Math.exp(-t * 85);
+        d[(st + i) % len] += amp * (0.95 * thump + 0.55 * crack + 0.75 * rush);
+      }
+    }
+    let pk = 0; for (let i = 0; i < len; i++) pk = Math.max(pk, Math.abs(d[i]));
+    for (let i = 0; i < len; i++) d[i] = d[i] / pk * 0.9;
+    return buf;
+  }
+  function noiseBuf(ctx, sec) {
+    const b = ctx.createBuffer(1, Math.floor(ctx.sampleRate * sec), ctx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return b;
+  }
+  function popSound(vol) {                         /* straight-pipe crackle / pop */
+    const ctx = SND.ctx, t = ctx.currentTime + Math.random() * 0.14;
+    const src = ctx.createBufferSource(); src.buffer = SND.noise;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 600 + Math.random() * 2200; bp.Q.value = 0.9;
+    const g = ctx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05 + Math.random() * 0.05);
+    src.connect(bp); bp.connect(g); g.connect(SND.bus); src.start(t, Math.random() * 0.8, 0.12);
   }
 
   function initAudio() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
-    const ctx = new AC();
-    SND.ctx = ctx;
+    const ctx = new AC(); SND.ctx = ctx;
+    SND.noise = noiseBuf(ctx, 1);
+    SND.src = ctx.createBufferSource(); SND.src.buffer = buildFiringLoop(ctx); SND.src.loop = true;
 
-    SND.oscA = ctx.createOscillator();
-    SND.oscA.setPeriodicWave(bandlimitedWave(ctx, 14, 1.0));
-    SND.oscB = ctx.createOscillator();
-    SND.oscB.setPeriodicWave(bandlimitedWave(ctx, 8, 0.7));
-    SND.sub  = ctx.createOscillator();
-    SND.sub.type = 'triangle';
-
-    const gA = ctx.createGain(); gA.gain.value = 0.14;
-    const gB = ctx.createGain(); gB.gain.value = 0.06;
-    const gS = ctx.createGain(); gS.gain.value = 0.20;
-
-    SND.pulseOsc = ctx.createOscillator();
-    SND.pulseOsc.type = 'sine';
-    const shaper = ctx.createWaveShaper();
-    shaper.curve = firingPulseCurve(1024, 8);
-    const depth = ctx.createGain(); depth.gain.value = 0.55;
-    SND.pulseGain = ctx.createGain(); SND.pulseGain.gain.value = 0.32;
-    SND.pulseOsc.connect(shaper);
-    shaper.connect(depth);
-    depth.connect(SND.pulseGain.gain);
-
-    const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < d.length; i++) {
-      const w = Math.random() * 2 - 1;
-      last = (last + 0.025 * w) / 1.025;
-      d[i] = last * 3.2 + w * 0.28;
-    }
-    SND.noiseSrc = ctx.createBufferSource();
-    SND.noiseSrc.buffer = buf;
-    SND.noiseSrc.loop = true;
-    const noiseBP = ctx.createBiquadFilter();
-    noiseBP.type = 'bandpass';
-    noiseBP.frequency.value = 480;
-    noiseBP.Q.value = 0.7;
-    SND.noiseGain = ctx.createGain(); SND.noiseGain.gain.value = 0.42;
-    SND.noiseSrc.connect(noiseBP);
-    noiseBP.connect(SND.pulseGain);
-    SND.pulseGain.connect(SND.noiseGain);
-
-    const engine = ctx.createGain();
-    gA.connect(engine); gB.connect(engine); gS.connect(engine);
-    SND.noiseGain.connect(engine);
-
-    SND.pipeRes = [];
-    [[92, 5.0, 3.5], [188, 5.5, 2.6], [305, 6.0, 1.8], [465, 7.0, 1.0]].forEach(([f, q, g]) => {
-      const p = ctx.createBiquadFilter();
-      p.type = 'peaking'; p.frequency.value = f; p.Q.value = q; p.gain.value = g;
-      SND.pipeRes.push(p);
+    SND.pipeRes = [];                              /* pipe resonances ring after every pulse */
+    let node = SND.src;
+    [[95, 6, 6], [190, 6, 5], [310, 7, 4], [470, 7, 3], [760, 6, 2.5]].forEach(([f, q, g]) => {
+      const p = ctx.createBiquadFilter(); p.type = 'peaking'; p.frequency.value = f; p.Q.value = q; p.gain.value = g;
+      node.connect(p); node = p; SND.pipeRes.push(p);
     });
-
-    SND.raspIn  = ctx.createGain(); SND.raspIn.gain.value  = 0.05;
-    SND.rasp    = ctx.createWaveShaper(); SND.rasp.curve = raspCurve(2048);
-    SND.raspHP  = ctx.createBiquadFilter();
-    SND.raspHP.type = 'highpass'; SND.raspHP.frequency.value = 180; SND.raspHP.Q.value = 0.7;
-    SND.raspOut = ctx.createGain(); SND.raspOut.gain.value = 0.18;
-    SND.raspIn.connect(SND.rasp);
-    SND.rasp.connect(SND.raspHP);
-    SND.raspHP.connect(SND.raspOut);
-
-    SND.mufIn  = ctx.createGain(); SND.mufIn.gain.value  = 1.0;
-    SND.mufOut = ctx.createGain(); SND.mufOut.gain.value = 1.0;
-
-    SND.mufNotch = [];
-    [[130, 6, -15], [260, 6, -12], [410, 6, -9]].forEach(([f, q, g]) => {
-      const n = ctx.createBiquadFilter();
-      n.type = 'peaking'; n.frequency.value = f; n.Q.value = q; n.gain.value = g;
-      SND.mufNotch.push(n);
-    });
-    SND.mufPeak = ctx.createBiquadFilter();
-    SND.mufPeak.type = 'peaking';
-    SND.mufPeak.frequency.value = 175;
-    SND.mufPeak.Q.value = 1.2;
-    SND.mufPeak.gain.value = 2;
-
-    SND.mufShelf = ctx.createBiquadFilter();
-    SND.mufShelf.type = 'highshelf';
-    SND.mufShelf.frequency.value = 700;
-    SND.mufShelf.gain.value = -13;
-
-    SND.mufLP = ctx.createBiquadFilter();
-    SND.mufLP.type = 'lowpass';
-    SND.mufLP.frequency.value = 1800;
-    SND.mufLP.Q.value = 0.5;
-
-    let node = engine;
-    SND.pipeRes.forEach(p => { node.connect(p); node = p; });
     const pipeOut = node;
 
-    pipeOut.connect(SND.raspIn);
-    pipeOut.connect(SND.mufIn);
+    SND.mufIn = ctx.createGain(); SND.mufOut = ctx.createGain();   /* silencer voice: warm, muffled */
+    pipeOut.connect(SND.mufIn); let m = SND.mufIn;
+    [[130, 6, -10], [260, 6, -8], [410, 6, -6]].forEach(([f, q, g]) => {
+      const n = ctx.createBiquadFilter(); n.type = 'peaking'; n.frequency.value = f; n.Q.value = q; n.gain.value = g;
+      m.connect(n); m = n;
+    });
+    SND.mufShelf = ctx.createBiquadFilter(); SND.mufShelf.type = 'highshelf'; SND.mufShelf.frequency.value = 700; SND.mufShelf.gain.value = -9;
+    SND.mufLP = ctx.createBiquadFilter(); SND.mufLP.type = 'lowpass'; SND.mufLP.frequency.value = 1500; SND.mufLP.Q.value = 0.6;
+    m.connect(SND.mufShelf); SND.mufShelf.connect(SND.mufLP); SND.mufLP.connect(SND.mufOut);
 
-    let m = SND.mufIn;
-    SND.mufNotch.forEach(n => { m.connect(n); m = n; });
-    m.connect(SND.mufPeak);
-    SND.mufPeak.connect(SND.mufShelf);
-    SND.mufShelf.connect(SND.mufLP);
-    SND.mufLP.connect(SND.mufOut);
+    SND.raspIn = ctx.createGain(); SND.raspOut = ctx.createGain();  /* straight voice: harsh, raspy, bright */
+    const rasp = ctx.createWaveShaper(); rasp.curve = raspCurve(2048); rasp.oversample = '2x';
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 130; hp.Q.value = 0.7;
+    const pres = ctx.createBiquadFilter(); pres.type = 'peaking'; pres.frequency.value = 1100; pres.Q.value = 0.9; pres.gain.value = 6;
+    const edge = ctx.createBiquadFilter(); edge.type = 'peaking'; edge.frequency.value = 2800; edge.Q.value = 1.0; edge.gain.value = 5;
+    pipeOut.connect(SND.raspIn); SND.raspIn.connect(rasp); rasp.connect(hp); hp.connect(pres); pres.connect(edge); edge.connect(SND.raspOut);
 
-    const preMaster = ctx.createGain();
-    SND.raspOut.connect(preMaster);
-    SND.mufOut.connect(preMaster);
+    const rumble = ctx.createBufferSource(); rumble.buffer = noiseBuf(ctx, 2); rumble.loop = true;
+    const rlp = ctx.createBiquadFilter(); rlp.type = 'lowpass'; rlp.frequency.value = 120;
+    SND.rumbleGain = ctx.createGain(); SND.rumbleGain.gain.value = 0;
+    rumble.connect(rlp); rlp.connect(SND.rumbleGain);
 
-    SND.loudness = ctx.createGain();
-    SND.loudness.gain.value = 0.34;
-    preMaster.connect(SND.loudness);
-
+    SND.bus = ctx.createGain();
+    SND.mufOut.connect(SND.bus); SND.raspOut.connect(SND.bus); SND.rumbleGain.connect(SND.bus);
+    SND.loudness = ctx.createGain(); SND.loudness.gain.value = 1.2;
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -16; comp.knee.value = 12;
-    comp.ratio.value = 4; comp.attack.value = 0.006; comp.release.value = 0.16;
-
+    comp.threshold.value = -20; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.14;
+    const makeup = ctx.createGain(); makeup.gain.value = 2.2;
+    const clip = ctx.createWaveShaper(); clip.curve = softClip(1024, 1.5);
     SND.master = ctx.createGain(); SND.master.gain.value = 0;
-    SND.analyser = ctx.createAnalyser();
-    SND.analyser.fftSize = 512;
-    SND.analyser.smoothingTimeConstant = 0.72;
-
-    SND.loudness.connect(comp);
-    comp.connect(SND.master);
-    SND.master.connect(SND.analyser);
-    SND.analyser.connect(ctx.destination);
-
-    SND.oscA.start(); SND.oscB.start(); SND.sub.start();
-    SND.pulseOsc.start(); SND.noiseSrc.start();
-    SND.ready = true;
+    SND.analyser = ctx.createAnalyser(); SND.analyser.fftSize = 512; SND.analyser.smoothingTimeConstant = 0.72;
+    SND.bus.connect(SND.loudness); SND.loudness.connect(comp); comp.connect(makeup); makeup.connect(clip);
+    clip.connect(SND.master); SND.master.connect(SND.analyser); SND.analyser.connect(ctx.destination);
+    SND.src.start(); rumble.start();
+    SND.lastRpm = rpm; SND.ready = true;
     applyAudioMode(SND.mode, 0.001);
   }
 
   function applyAudioMode(mode, tau = 0.09) {
     if (!SND.ready) return;
-    const t = SND.ctx.currentTime;
-    const set = (param, v) => param.setTargetAtTime(v, t, tau);
-    if (mode === 'silencer') {
-      set(SND.mufIn.gain, 1.00); set(SND.mufOut.gain, 1.00);
-      set(SND.raspIn.gain, 0.05); set(SND.raspOut.gain, 0.18);
-      set(SND.loudness.gain, 0.34);
-    } else {
-      set(SND.mufIn.gain, 0.10); set(SND.mufOut.gain, 0.10);
-      set(SND.raspIn.gain, 1.00); set(SND.raspOut.gain, 1.00);
-      set(SND.loudness.gain, 0.80);
-    }
+    const t = SND.ctx.currentTime, set = (param, v) => param.setTargetAtTime(v, t, tau), sil = mode === 'silencer';
+    set(SND.mufIn.gain, sil ? 1 : 0);  set(SND.mufOut.gain, sil ? 1 : 0);
+    set(SND.raspIn.gain, sil ? 0 : 1.2); set(SND.raspOut.gain, sil ? 0 : 1);
+    set(SND.loudness.gain, sil ? 1.2 : 2.6);
   }
 
   function updateAudio() {
     if (!SND.ready) return;
-    const ctx = SND.ctx, now = ctx.currentTime;
-    const sm = SND_MODES[sndMode];
-    const rf = rpm / 6000;
-    const rpmAcoustic = rpm * (1 - bpLossFactor() * rf);
-    const wobble = 1 + 0.012 * Math.sin(now * 1.7) + 0.006 * Math.sin(now * 3.3);
-    const ff = clamp(rpmAcoustic / 30, 20, 230) * wobble;
-
-    SND.oscA.frequency.setTargetAtTime(ff, now, 0.08);
-    SND.oscB.frequency.setTargetAtTime(ff * 2, now, 0.08);
-    SND.sub.frequency.setTargetAtTime(Math.max(20, ff / 2), now, 0.08);
-    SND.pulseOsc.frequency.setTargetAtTime(ff, now, 0.08);
-
-    const cold = isCold() ? 1.35 : 1.0;
-    const qScale = 0.55 + 0.85 * rf;
-    SND.pipeRes.forEach((p, i) => {
-      p.Q.setTargetAtTime(([5.0, 5.5, 6.0, 7.0][i]) * qScale, now, 0.2);
-    });
-
-    const notchDepth = sndMode === 'silencer' ? 1 : 0.35;
-    SND.mufNotch.forEach((n, i) => {
-      n.gain.setTargetAtTime([-15, -12, -9][i] * notchDepth, now, 0.15);
-    });
-    SND.mufShelf.gain.setTargetAtTime(sndMode === 'silencer' ? -13 : -5, now, 0.15);
-    SND.mufLP.frequency.setTargetAtTime(
-      clamp((sndMode === 'silencer' ? 1800 : 4200) * (0.7 + 0.5 * rf) * cold, 150, 9000), now, 0.15);
-
-    SND.noiseGain.gain.setTargetAtTime(sm.noise * cold, now, 0.15);
-    SND.master.gain.setTargetAtTime(SND.on ? 0.55 : 0, now, 0.10);
+    const ctx = SND.ctx, now = ctx.currentTime, rf = rpm / 6000, sil = sndMode === 'silencer';
+    const wob = 1 + 0.006 * Math.sin(now * 1.9) + 0.003 * Math.sin(now * 4.1);
+    SND.src.playbackRate.setTargetAtTime(clamp(rpm / SND_BASE_RPM, 0.2, 2.6) * wob, now, 0.07);
+    SND.mufLP.frequency.setTargetAtTime(clamp(900 + 1400 * rf, 600, 3200) * (isCold() ? 0.85 : 1), now, 0.15);
+    SND.rumbleGain.gain.setTargetAtTime((sil ? 0.5 : 0.2) * (0.4 + rf), now, 0.2);
+    SND.master.gain.setTargetAtTime(SND.on ? 0.95 : 0, now, 0.1);
+    if (SND.on && !sil) {
+      const drop = (SND.lastRpm || rpm) - rpm;
+      if (drop > 250) for (let i = 0; i < 4; i++) popSound(0.5 + Math.random() * 0.5);
+      else if (rpm > 1800 && Math.random() < 0.12 + 0.3 * rf) popSound(0.25 + Math.random() * 0.4);
+    }
+    SND.lastRpm = rpm;
   }
 
   let _sndWasOn = false;
@@ -1510,11 +1549,11 @@ import { Parts } from './components.js';
       });
     } else {
       if (exR1l) exR1l.textContent = 'Engine RPM';
-      if (exR2l) exR2l.textContent = 'Gas temp';
-      if (exR3l) exR3l.textContent = 'Backpressure';
+      if (exR2l) exR2l.textContent = 'Gas temp · manifold → tip';
+      if (exR3l) exR3l.textContent = 'Noise · manifold → tip';
       if (exR1)  exR1.textContent = rpmTxt + ' rpm';
-      if (exR2)  exR2.textContent = Math.round(90 + 630 * rf) + ' °C';
-      if (exR3)  exR3.textContent = `~${backpressure()} mbar`;
+      if (exR2)  exR2.textContent = Math.round(250 + 470 * rf) + ' → ' + Math.round(100 + 90 * rf) + ' °C';
+      if (exR3)  exR3.textContent = `${noise + (sndMode === 'silencer' ? 40 : 24)} → ${noise} dB`;
       ui.monitor.update({
         label: 'Tailpipe noise',
         value: { text: String(noise), unit: 'dB', color: '#38bdf8', bar: clamp((noise - 60) / 45, 0, 1) * 100, barColor: '#38bdf8' },
@@ -1555,7 +1594,7 @@ import { Parts } from './components.js';
 
   /* Initialize */
   setSndMode('silencer');
-  applyMode('principle', true);
+  applyMode('compare', true);
 
   /* ═══════════════════════════════════════════════════════════
      MAIN LOOP
@@ -1566,12 +1605,11 @@ import { Parts } from './components.js';
   function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.05);
-    const sim = state.playing ? dt : 0;
+    const sim = state.playing ? dt * (state.speedMul || 1) : 0;
     time += sim;
     runTime += sim;
 
-    const rfRaw = state.speedMul / 2.5;
-    const baseRpm = 800 + rfRaw * 5200;
+    const baseRpm = ctl.value('rpm') || 2800;
     rpm = baseRpm * (1 - bpLossFactor() * (baseRpm / 6000) * 0.5);
     const rf = rpm / 6000;
 
