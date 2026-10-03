@@ -5,52 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Exhaust Gas Recirculation — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="components.css">
 <style>
 :root { --al-accent: #a78bfa; }
 html.light-theme { --al-accent: color-mix(in oklch, #a78bfa 68%, black); }
 
-#egr-panel{
-  position:fixed; left:12px; top:12px; z-index:30;
-  width:264px; max-width:46vw;
-  padding:10px 12px 12px;
-  border:1px solid var(--border,#333);
-  border-radius:10px;
-  background:color-mix(in oklab, var(--surface-2,#14181d) 88%, transparent);
-  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
-  box-shadow:0 8px 28px rgba(0,0,0,.38);
-  font:500 11px/1.35 var(--font-mono, ui-monospace, monospace);
-  color:var(--text-dim,#9aa4b2);
-  max-height:calc(100dvh - 24px); overflow:auto;
-}
-#egr-panel.folded .egr-body{ display:none; }
-.egr-h{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-.egr-h span{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-mute,#6b7280); font-weight:700; }
-.egr-h button{ width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); cursor:pointer; font:inherit; line-height:1; }
-.egr-h button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.egr-w{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
-.egr-w label{ display:flex; justify-content:space-between; gap:8px; font-size:10px; letter-spacing:.06em;
-  text-transform:uppercase; color:var(--text-mute,#6b7280); }
-.egr-w b{ color:var(--text,#e5e7eb); font-weight:700; }
-#egr-panel .al-range{ height:22px; }
-#egr-panel .al-sel{ min-height:32px; font-size:11px; }
-.egr-btns{ display:flex; gap:6px; margin-bottom:8px; }
-.egr-btns button{ flex:1 1 0; min-height:30px; padding:0 4px; border:1px solid var(--border,#333); border-radius:6px;
-  background:transparent; color:var(--text-dim,#9aa4b2); font:inherit; font-size:11px; cursor:pointer; }
-.egr-btns button:hover{ border-color:var(--al-accent); color:var(--text,#e5e7eb); }
-.egr-btns button.on{ border-color:var(--al-accent); color:var(--text,#e5e7eb); background:rgba(167,139,250,.14); }
-#egr-clean{ color:#38bdf8; border-color:rgba(56,189,248,.4); }
-#egr-clean:hover{ border-color:#38bdf8; }
-.egr-warn{ display:none; margin:0 0 8px; padding:7px 8px; border-radius:6px;
-  border:1px solid var(--crit,#ef4444); background:rgba(239,68,68,.08);
-  font-size:10px; line-height:1.45; color:var(--crit,#ef4444); }
-.egr-warn.show{ display:block; }
-#egr-graph{ width:100%; height:auto; display:block; border:1px solid var(--border,#333);
-  border-radius:6px; background:rgba(0,0,0,.28); }
-.egr-key{ display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:10px; color:var(--text-mute,#6b7280); }
-.egr-key i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
-@media (max-width:700px){ #egr-panel{ width:208px; padding:8px 9px 10px; } }
 </style>
 </head>
 <body>
@@ -68,7 +28,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #a78bfa 68%, black); }
 </script>
 
 <script type="module">
-import { runGuidedModule } from './components.js';
+import { runGuidedModule, controls } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
 const CFG = {
@@ -80,7 +40,11 @@ const CFG = {
   "camPos": [5.6, 3.0, 7.6],
   "target": [0, 0, 0],
   "floorY": -2.4,
-  "ctl": { "label": "EGR command", "val": 40, "caption": "Recirculation" },
+  ctls: [   /* Phase 3: sliders live in the dock as axis controls; ctls[0] (id 'ctl') = the main 0-100 % control */
+    { id:'ctl', label:"EGR command", caption:"Recirculation", preset:'percent', def:40 },
+    { id:'load', preset:'load', def:45, label:'Engine load', onChange:(v)=>{ S.load = v / 100; } },
+    { id:'rpm', preset:'rpm', max:4500, def:2200, label:'Engine speed', onChange:(v)=>{ S.rpm = v; } },
+  ],
   "chipLabel": "NOx (ppm)",
   "rows": [["lift", "Valve lift"], ["temp", "Peak flame temp"]],
   "ro": [
@@ -225,79 +189,18 @@ const S = {
   speed: 1
 };
 
-const panel = document.createElement('div');
-panel.id = 'egr-panel';
-let faultOptions = '';
-for (const id in FAULT_INFO) {
-  faultOptions += '<option value="' + id + '"' + (id === 'none' ? ' selected' : '') + '>' + FAULT_INFO[id].label + '</option>';
-}
-panel.innerHTML =
-  '<div class="egr-h"><span>EGR simulation</span><button type="button" id="egr-fold" aria-label="Collapse controls">&#8211;</button></div>' +
-  '<div class="egr-body">' +
-    '<div class="egr-w"><label for="egr-load">Engine load <b id="egr-load-v">45 %</b></label>' +
-      '<input id="egr-load" class="al-range" type="range" min="0" max="100" step="1" value="45" aria-label="Engine load"></div>' +
-    '<div class="egr-w"><label for="egr-rpm">Engine speed <b id="egr-rpm-v">2200 rpm</b></label>' +
-      '<input id="egr-rpm" class="al-range" type="range" min="800" max="4500" step="50" value="2200" aria-label="Engine speed"></div>' +
-    '<div class="egr-w"><label for="egr-fault">Fault injection</label>' +
-      '<select id="egr-fault" class="al-sel" aria-label="Fault injection">' + faultOptions + '</select></div>' +
-    '<div class="egr-w"><label>Simulation speed</label>' +
-      '<div class="egr-btns" id="egr-speed">' +
-        '<button type="button" data-sp="1" class="on">1&times;</button>' +
-        '<button type="button" data-sp="5">5&times;</button>' +
-        '<button type="button" data-sp="20">20&times;</button>' +
-      '</div></div>' +
-    '<div class="egr-btns">' +
-      '<button type="button" id="egr-clean">Clean valve</button>' +
-      '<button type="button" id="egr-reset">Reset</button>' +
-    '</div>' +
-    '<div class="egr-warn" id="egr-warn"></div>' +
-    '<canvas id="egr-graph" width="480" height="150" aria-label="NOx and peak flame temperature history"></canvas>' +
-    '<div class="egr-key"><span><i style="background:#a78bfa"></i>NOx ppm</span><span><i style="background:#f97316"></i>Peak &deg;C</span></div>' +
-  '</div>';
-document.body.appendChild(panel);
 
-const elFold   = document.getElementById('egr-fold');
-const elLoad   = document.getElementById('egr-load');
-const elLoadV  = document.getElementById('egr-load-v');
-const elRpm    = document.getElementById('egr-rpm');
-const elRpmV   = document.getElementById('egr-rpm-v');
-const elFault  = document.getElementById('egr-fault');
-const elSpeed  = document.getElementById('egr-speed');
-const elClean  = document.getElementById('egr-clean');
-const elReset  = document.getElementById('egr-reset');
-const elWarn   = document.getElementById('egr-warn');
-const gcv      = document.getElementById('egr-graph');
-const gctx     = gcv.getContext('2d');
-
-elFold.addEventListener('click', () => {
-  panel.classList.toggle('folded');
-  elFold.innerHTML = panel.classList.contains('folded') ? '&#43;' : '&#8211;';
-});
-elLoad.addEventListener('input', () => {
-  S.load = (Number(elLoad.value) || 0) / 100;
-  elLoadV.textContent = Math.round(S.load * 100) + ' %';
-});
-elRpm.addEventListener('input', () => {
-  S.rpm = Number(elRpm.value) || 800;
-  elRpmV.textContent = S.rpm + ' rpm';
-});
-elFault.addEventListener('change', () => { S.fault = elFault.value; });
-elSpeed.addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-sp]');
-  if (!b) return;
-  S.speed = Number(b.dataset.sp) || 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o === b));
-});
-elClean.addEventListener('click', () => { sim.carbon = 0.0; });
 
 /* ── simulation state (module level so Reset can reach it) ───────── */
-const GRAPH_N = 150;
+/* Phase 7a: the history lives in the Monitor (CFG.traces); the module only hands over one normalised sample
+   per ~140 ms while the sim runs (0..100 % of each old axis range) and the current warning sentence. */
+let traceSample = null, traceClear = false, warnText = '';
+const traceN = (v, lo, hi) => Math.round(clampN((v - lo) / (hi - lo), 0, 1) * 1000) / 10;
 const sim = {
   valve: 0.0,
   carbon: 0.0,
   coolant: 1.0,
-  lastT: -1,
-  samples: []
+  lastT: -1
 };
 
 function resetModel() {
@@ -305,57 +208,15 @@ function resetModel() {
   sim.carbon = 0.0;
   sim.coolant = 1.0;
   sim.lastT = -1;
-  sim.samples.length = 0;
+  traceClear = true;                  /* Monitor trace is cleared on the next update */
 }
 function resetAll() {
-  S.load = 0.45; elLoad.value = 45; elLoadV.textContent = '45 %';
-  S.rpm = 2200;  elRpm.value = 2200; elRpmV.textContent = '2200 rpm';
-  S.fault = 'none'; elFault.value = 'none';
+  S.load = 0.45;
+  S.rpm = 2200;
+  S.fault = 'none';
   S.speed = 1;
-  elSpeed.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.sp === '1'));
   resetModel();
-  const ctlEl = document.getElementById('ctl');
-  if (ctlEl) { ctlEl.value = String(CFG.ctl.val); ctlEl.dispatchEvent(new Event('input', { bubbles: true })); }
-}
-elReset.addEventListener('click', resetAll);
-
-/* ── rolling graph ───────────────────────────────────────────────── */
-function drawGraph() {
-  const W = gcv.width, Hh = gcv.height;
-  gctx.clearRect(0, 0, W, Hh);
-  gctx.strokeStyle = 'rgba(148,163,184,0.16)';
-  gctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    const y = Math.round(Hh * i / 4) + 0.5;
-    gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
-  }
-  const n = sim.samples.length;
-  if (n < 2) return;
-  const xAt = (i) => ((i + (GRAPH_N - n)) / (GRAPH_N - 1)) * W;
-  const yN  = (v) => Hh - clampN(v / 1600, 0, 1) * (Hh - 6) - 3;
-  const yT  = (v) => Hh - clampN((v - 600) / 2000, 0, 1) * (Hh - 6) - 3;
-
-  gctx.beginPath();
-  gctx.moveTo(xAt(0), Hh);
-  for (let i = 0; i < n; i++) gctx.lineTo(xAt(i), yN(sim.samples[i].N));
-  gctx.lineTo(xAt(n - 1), Hh);
-  gctx.closePath();
-  gctx.fillStyle = 'rgba(167,139,250,0.16)';
-  gctx.fill();
-
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yN(sim.samples[i].N);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#a78bfa'; gctx.lineWidth = 1.6; gctx.stroke();
-
-  gctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const x = xAt(i), y = yT(sim.samples[i].T);
-    if (i) gctx.lineTo(x, y); else gctx.moveTo(x, y);
-  }
-  gctx.strokeStyle = '#f97316'; gctx.lineWidth = 1.4; gctx.stroke();
+  controls.resetAll();                 /* every axis back to its default (store -> onChange -> S) */
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -541,11 +402,7 @@ function build(H){
    const now = performance.now();
    if (now - lastDom > 140) {
      lastDom = now;
-     if (dt > 0) {
-       sim.samples.push({ N: nox, T: Tpeak });
-       if (sim.samples.length > GRAPH_N) sim.samples.shift();
-       drawGraph();
-     }
+     if (dt > 0) traceSample = [traceN(nox, 0, 1600), traceN(Tpeak, 600, 2600)];
      let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
      if (!warn) {
        if (sim.carbon > 0.55) {
@@ -558,8 +415,7 @@ function build(H){
          warn = 'NOx at ' + nox.toFixed(0) + ' ppm - very high. Add EGR to bring peak flame temperature down.';
        }
      }
-     elWarn.textContent = warn;
-     elWarn.classList.toggle('show', !!warn);
+     warnText = warn;
    }
 
    /* ── 10. readouts ─────────────────────────────────────────── */
@@ -573,6 +429,10 @@ function build(H){
    const stState     = (nox > 900 || sim.coolant < 0.35 || fault === 'coolerleak') ? 'crit'
                      : (soot > 0.55 || sim.carbon > 0.5 || fault === 'stuckopen') ? 'warn'
                      : 'ok';
+
+   let tr;
+   if (traceClear) { traceClear = false; traceSample = null; tr = { hist: null }; }
+   else if (traceSample) { tr = { hist: traceSample }; traceSample = null; }
 
    return {
      big: nox.toFixed(0),
@@ -593,13 +453,31 @@ function build(H){
        cool:   [(sim.coolant * 100).toFixed(0) + ' %', coolState],
        state:  [stateTxt, stState]
      },
-     status: [stateTxt, true],
+     status: [warnText || stateTxt, true, warnText ? 'warn' : ''],
+      traces: tr,
      ctl: (egrFrac / EGR_MAX * 100).toFixed(0) + ' % EGR'
    };
   }
  };
 }
 
+/* Phase 6: every option / action lives in the dock (controls.js), nothing interactive is left in the panel.
+   'Time scale' is the module's own physics time-compression (thermal warm-up); the menu's Sim speed is separate. */
+CFG.options = [
+  { id: "fault", type: 'choice', layout: 'select', label: "Fault injection", options: Object.keys(FAULT_INFO).map(id => ({ id, label: FAULT_INFO[id].label })), def: 'none',
+    onChange: (id) => { S.fault = id; } },
+  { id: 'timeScale', type: 'choice', layout: 'segmented', label: 'Time scale', options: [{ id: '1', label: '1×' }, { id: '5', label: '5×' }, { id: '20', label: '20×' }], def: '1',
+    onChange: (id) => { S.speed = Number(id) || 1; } },
+  { id: "clean", type: 'action', label: "Clean valve",
+    onAction: () => { sim.carbon = 0.0; } }
+];
+CFG.onReset = resetAll;      /* the dock Reset runs the module reset (model + every control) */
+/* Phase 7a: the old history canvas is a Monitor trace. Both series are drawn as 0..100 % of their old axis ranges. */
+CFG.traces = [{ id: 'hist', label: 'NOx and peak flame temperature history (% of full scale)', min: 0, max: 100, length: 150,
+  series: [
+    { id: 'a', label: 'NOx ppm', color: 'var(--accent)' },
+    { id: 'b', label: 'Peak \u00B0C', color: 'var(--warn)' }
+  ] }];
 runGuidedModule(CFG, build);
 </script>
 </body>

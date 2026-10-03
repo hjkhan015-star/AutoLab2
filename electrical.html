@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0a0d13">
 <title>Battery · Starter · Alternator — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <style>
   /* ═══════════════════════════════════════════════════════════
      PANEL READOUT INTERIOR — badge, description, chemistry equation
@@ -69,127 +70,11 @@
   /* ═══════════════════════════════════════════════════════════
      WIDGET INTERIOR — direction toggle (battery mode)
      ═══════════════════════════════════════════════════════════ */
-  #direction-toggle {
-    display: flex; flex-direction: column; gap: 4px;
-  }
-  #direction-toggle .dt-btn {
-    width: 92px; height: 44px; border-radius: 11px;
-    background: rgba(10,14,20,.82);
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    color: var(--text-dim, #94a3b8);
-    font-size: 11px; font-weight: 800; letter-spacing: .06em;
-    text-transform: uppercase; cursor: pointer;
-    transition: all var(--dur-fast, .18s) var(--ease-out, ease);
-    font-family: var(--font-mono);
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 6px 16px rgba(0,0,0,.5);
-    display: flex; align-items: center; justify-content: center; gap: 5px;
-  }
-  #direction-toggle .dt-btn:hover {
-    color: var(--text, #e5e7eb);
-    border-color: rgba(255,255,255,.25);
-  }
-  #direction-toggle .dt-btn.active.discharge {
-    background: linear-gradient(135deg,#dc2626,#ef4444); color: #fff;
-    border-color: transparent;
-    box-shadow: 0 0 14px rgba(239,68,68,.5), 0 6px 16px rgba(0,0,0,.5);
-  }
-  #direction-toggle .dt-btn.active.charge {
-    background: linear-gradient(135deg,#22c55e,#4ade80); color: #0a1a0e;
-    border-color: transparent;
-    box-shadow: 0 0 14px rgba(34,197,94,.5), 0 6px 16px rgba(0,0,0,.5);
-  }
-  html.light-theme #direction-toggle .dt-btn {
-    background: rgba(255,255,255,.94);
-    border-color: rgba(15,23,42,.14);
-    color: #475569;
-  }
 
   /* ═══════════════════════════════════════════════════════════
      WIDGET INTERIOR — ignition key selector (charging mode)
      ═══════════════════════════════════════════════════════════ */
-  #key-selector {
-    display: flex; flex-direction: column; gap: 4px;
-  }
-  #key-selector .ks-caption {
-    font-size: 10px; font-weight: 800; letter-spacing: .16em;
-    text-transform: uppercase; color: #64748b;
-    text-align: center; padding: 4px 0 2px;
-  }
-  #key-selector .ks-item {
-    width: 64px; height: 42px; border-radius: 11px;
-    background: rgba(10,14,20,.82);
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    color: var(--text-dim, #94a3b8);
-    font-size: 10.5px; font-weight: 800; letter-spacing: .06em;
-    text-transform: uppercase; cursor: pointer;
-    transition: all var(--dur-fast, .18s) var(--ease-out, ease);
-    font-family: var(--font-mono);
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 6px 16px rgba(0,0,0,.5);
-  }
-  #key-selector .ks-item:hover {
-    color: var(--text, #e5e7eb);
-    border-color: rgba(255,255,255,.25);
-  }
-  #key-selector .ks-item.active {
-    background: linear-gradient(135deg,#22c55e,#4ade80);
-    color: #06121a; border-color: transparent;
-    box-shadow: 0 0 14px rgba(34,197,94,.55), 0 6px 16px rgba(0,0,0,.5);
-  }
-  #key-selector .ks-item.active.start {
-    background: linear-gradient(135deg,#f59e0b,#fbbf24);
-    box-shadow: 0 0 14px rgba(245,158,11,.55), 0 6px 16px rgba(0,0,0,.5);
-  }
-  html.light-theme #key-selector .ks-item {
-    background: rgba(255,255,255,.94);
-    border-color: rgba(15,23,42,.14);
-    color: #475569;
-  }
 
-  /* ═══════════════════════════════════════════════════════════
-     WIDGET INTERIOR — 3-phase waveform canvas (alternator mode)
-     ═══════════════════════════════════════════════════════════ */
-  #waveform-panel {
-    display: flex; flex-direction: column; gap: 6px;
-    background: rgba(10,14,20,.86);
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    border-radius: 12px;
-    padding: 10px 12px;
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    min-width: 220px;
-    box-shadow: 0 6px 20px rgba(0,0,0,.5);
-  }
-  #waveform-panel .wf-label {
-    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
-    color: #8d9aaa; font-weight: 700;
-    font-family: var(--font-sans);
-  }
-  #waveform-canvas {
-    display: block; width: 100%; height: 70px; border-radius: 6px;
-    background: rgba(0,0,0,.28);
-  }
-  #waveform-panel .wf-legend {
-    display: flex; gap: 12px; font-size: 10px;
-    color: var(--text-dim, #94a3b8);
-    font-weight: 700; letter-spacing: .03em;
-  }
-  #waveform-panel .wf-legend span { display: flex; align-items: center; gap: 4px; }
-  #waveform-panel .wf-legend i {
-    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
-  }
-
-  html.light-theme #waveform-panel {
-    background: rgba(255,255,255,.94);
-    border-color: rgba(15,23,42,.14);
-  }
-  html.light-theme #waveform-panel .wf-label { color: #64748b; }
-  html.light-theme #waveform-canvas { background: rgba(15,23,42,.06); }
-
-  @media (max-width: 600px) {
-    #waveform-panel { min-width: 180px; padding: 8px 10px; }
-    #waveform-canvas { height: 56px; }
-  }
 </style>
 </head>
 <body>
@@ -1010,6 +895,21 @@ import { Parts } from './components.js';
   };
 
   /* ============================================================
+     MONITOR CONFIGS (7b2): the 3-phase waveform is a Monitor trace, shown in alternator mode only.
+     Same shape and range as the old canvas: 3 cycles across the window, y = ±1.5625 amplitudes (the old ±H/2 at 0.32·H amplitude).
+     ============================================================ */
+  const WF_LEN = 240, WF_CYCLES = 3, WF_STEP = WF_CYCLES * TAU / (WF_LEN - 1);
+  const MON_BASE = {
+    label: 'Electrical', value: { label: 'Electrical', unit: '% SOC', max: 100, bar: true },
+    rows: [['eng', 'Engine'], ['net', 'Load']], status: { text: 'Ready' }
+  };
+  const MON_ALT = Object.assign({}, MON_BASE, {
+    traces: [{ id: 'wave', label: '3-phase AC → rectified DC', min: -1.5625, max: 1.5625, length: WF_LEN,
+      series: [{ id: 'a', label: 'Phase A', color: 'var(--crit)' }, { id: 'b', label: 'Phase B', color: 'var(--ok)' },
+               { id: 'c', label: 'Phase C', color: 'var(--accent)' }, { id: 'dc', label: 'DC out', color: 'var(--warn)' }] }]
+  });
+
+  /* ============================================================
      UI — kit-driven chrome + module widgets
      ============================================================ */
   const ui = UI.create({
@@ -1058,16 +958,9 @@ import { Parts } from './components.js';
              and the charging circuit balances supply against every load on the vehicle.`
     },
 
-    chip: {
-      label: 'Electrical',
-      value: 85,
-      unit:  '% SOC',
-      bar:   true,
-      rows: [
-        { id: 'eng', label: 'Engine', value: '~900 rpm' },
-        { id: 'net', label: 'Load',   value: '0 A' }
-      ],
-      status: { text: 'Ready' }
+    monitor: {
+      config: MON_BASE,
+      initial: { value: { text: '85', unit: '% SOC' }, rows: { eng: '~900 rpm', net: '0 A' }, status: ['Ready', false] }
     },
 
     toolbar: {
@@ -1076,71 +969,18 @@ import { Parts } from './components.js';
       labels: true, gas: true
     },
 
-    widgets: {
-      bl: {
-        caption: '',
-        html: `
-          <div id="direction-toggle" style="display:none">
-            <button class="dt-btn discharge active" data-dir="discharge">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-              Discharge
-            </button>
-            <button class="dt-btn charge" data-dir="charge">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-              Charge
-            </button>
-          </div>
-          <div id="waveform-panel" style="display:none">
-            <div class="wf-label">3-phase AC → rectified DC</div>
-            <canvas id="waveform-canvas" width="480" height="160"></canvas>
-            <div class="wf-legend">
-              <span><i style="background:#ef4444"></i>Phase A</span>
-              <span><i style="background:#22c55e"></i>Phase B</span>
-              <span><i style="background:#38bdf8"></i>Phase C</span>
-              <span><i style="background:#f59e0b"></i>DC out</span>
-            </div>
-          </div>
-        `,
-        onMount: (el) => {
-          el.querySelectorAll('#direction-toggle .dt-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-              direction = btn.dataset.dir;
-              el.querySelectorAll('#direction-toggle .dt-btn').forEach(b =>
-                b.classList.toggle('active', b === btn));
-              if (elChemArrow) elChemArrow.textContent = direction === 'discharge' ? '→' : '←';
-            });
-          });
-        }
-      },
-      br: {
-        caption: '',
-        html: `
-          <div id="key-selector" style="display:none">
-            <div class="ks-caption">Ignition</div>
-            <button class="ks-item" data-key="off">Off</button>
-            <button class="ks-item" data-key="acc">ACC</button>
-            <button class="ks-item active" data-key="on">On</button>
-            <button class="ks-item start" data-key="start">Start</button>
-          </div>
-        `,
-        onMount: (el) => {
-          el.querySelectorAll('#key-selector .ks-item').forEach(btn => {
-            btn.addEventListener('click', () => {
-              keyState = btn.dataset.key;
-              el.querySelectorAll('#key-selector .ks-item').forEach(b =>
-                b.classList.toggle('active', b === btn));
-              if (keyState === 'start') {
-                setTimeout(() => {
-                  keyState = 'on';
-                  el.querySelectorAll('#key-selector .ks-item').forEach(b =>
-                    b.classList.toggle('active', b.dataset.key === 'on'));
-                }, 1600);
-              }
-            });
-          });
-        }
-      }
-    }
+    /* Phase 6: charge / discharge and the ignition switch are controls.js choices (shown per mode) */
+    options: [
+      { id: 'direction', type: 'choice', layout: 'segmented', label: 'Battery', ariaLabel: 'Battery direction',
+        options: [{ id: 'discharge', label: 'Discharge' }, { id: 'charge', label: 'Charge' }],
+        onChange: (id) => { direction = id; if (elChemArrow) elChemArrow.textContent = direction === 'discharge' ? '\u2192' : '\u2190'; } },
+      { id: 'key', type: 'choice', layout: 'segmented', label: 'Ignition', ariaLabel: 'Ignition switch',
+        options: [{ id: 'off', label: 'Off' }, { id: 'acc', label: 'ACC' }, { id: 'on', label: 'On' }, { id: 'start', label: 'Start', tone: 'crit' }], def: 'on',
+        onChange: (id) => {
+          keyState = id;
+          if (id === 'start') setTimeout(() => { if (keyState === 'start') { keyState = 'on'; ui.controls.set('key', 2); } }, 1600);
+        } }
+    ]
   });
 
   /* ── panel readout refs ── */
@@ -1157,10 +997,9 @@ import { Parts } from './components.js';
   const elR2         = panelBody ? panelBody.querySelector('[data-el="r2"]') : null;
   const elR3         = panelBody ? panelBody.querySelector('[data-el="r3"]') : null;
 
-  /* ── waveform canvas refs (widget built by kit) ── */
-  const waveCanvas  = document.getElementById('waveform-canvas');
-  const waveCtx     = waveCanvas ? waveCanvas.getContext('2d') : null;
-  let wavePhase = 0;
+  let wavePhase = 0;     /* advances with time (1.6 rad/s) */
+  let wfPhase = 0;       /* phase of the last sample pushed to the trace */
+  let monAlt = false;    /* which Monitor config is active */
 
   /* ============================================================
      MODE SWITCHING
@@ -1196,12 +1035,15 @@ import { Parts } from './components.js';
       if (elR3Label) elR3Label.textContent = 'Battery';
     }
 
-    const dirWrap  = document.getElementById('direction-toggle');
-    const waveWrap = document.getElementById('waveform-panel');
-    const keyWrap  = document.getElementById('key-selector');
-    if (dirWrap)  dirWrap.style.display  = m === 'battery'    ? 'flex' : 'none';
-    if (waveWrap) waveWrap.style.display = m === 'alternator' ? 'flex' : 'none';
-    if (keyWrap)  keyWrap.style.display  = m === 'charging'   ? 'flex' : 'none';
+    ui.controls.setHidden('direction', m !== 'battery');
+    ui.controls.setHidden('key', m !== 'charging');
+    if ((m === 'alternator') !== monAlt) {         /* the waveform trace exists only in alternator mode */
+      monAlt = !monAlt;
+      ui.monitor.set(monAlt ? MON_ALT : MON_BASE);
+      if (monAlt) primeWave();
+      updateReadouts();
+      ui.monitor.flush();
+    }
 
     labels.hideAll();
   }
@@ -1392,104 +1234,63 @@ import { Parts } from './components.js';
     const socPct = Math.round(batterySOC * 100);
 
     if (mode === 'battery') {
-      ui.chip.setBig(socPct, '% SOC');
       const col = socPct > 60 ? '#22c55e' : socPct > 25 ? '#f59e0b' : '#ef4444';
-      ui.chip.setColor(col);
-      ui.chip.setBar(socPct, col);
+      ui.monitor.update({ value: { text: String(socPct), unit: '% SOC', color: col || '', bar: socPct, barColor: col } });
       if (elR1) elR1.textContent = batteryVoltage.toFixed(2) + ' V';
       if (elR2) elR2.textContent = batteryCurrent.toFixed(1) + ' A';
-      ui.chip.set('eng', Math.round(engineRPM) + ' rpm');
-      ui.chip.set('net', batteryCurrent.toFixed(1) + ' A');
-      ui.chip.setStatus(direction === 'charge' ? 'Charging' : 'Discharging',
-                        direction === 'charge');
+      ui.monitor.update({
+        rows: { eng: Math.round(engineRPM) + ' rpm', net: batteryCurrent.toFixed(1) + ' A' },
+        status: [direction === 'charge' ? 'Charging' : 'Discharging', direction === 'charge']
+      });
     } else if (mode === 'alternator') {
       const outA = Math.round(alternatorOutput);
-      ui.chip.setBig(outA, 'A out');
       const col = outA > 60 ? '#22c55e' : outA > 30 ? '#38bdf8' : '#f59e0b';
-      ui.chip.setColor(col);
-      ui.chip.setBar(Math.min(100, (outA / 90) * 100), col);
+      ui.monitor.update({ value: { text: String(outA), unit: 'A out', color: col || '', bar: Math.min(100, (outA / 90) * 100), barColor: col } });
       if (elR1) elR1.textContent = Math.round(engineRPM) + ' rpm';
       if (elR2) elR2.textContent = Math.round(engineRPM / 60 * 6) + ' Hz';
       if (elR3) elR3.textContent = (13.8 + alternatorOutput / 90 * 0.9).toFixed(2) + ' V';
-      ui.chip.set('eng', Math.round(engineRPM) + ' rpm');
-      ui.chip.set('net', outA + ' A');
-      ui.chip.setStatus('Generating', true);
+      ui.monitor.update({ rows: { eng: Math.round(engineRPM) + ' rpm', net: outA + ' A' }, status: ['Generating', true] });
     } else {
       const netA = batteryCurrent;
-      ui.chip.setBig((netA >= 0 ? '+' : '') + Math.round(netA), 'A');
       const col = netA > 2 ? '#22c55e' : netA > -2 ? '#38bdf8' : '#f59e0b';
-      ui.chip.setColor(col);
-      ui.chip.setBar(socPct, socPct > 60 ? '#22c55e' : socPct > 25 ? '#f59e0b' : '#ef4444');
+      ui.monitor.update({
+        value: { text: String((netA >= 0 ? '+' : '') + Math.round(netA)), unit: 'A', color: col || '', bar: socPct, barColor: socPct > 60 ? '#22c55e' : socPct > 25 ? '#f59e0b' : '#ef4444' }
+      });
       if (elR1) elR1.textContent = Math.round(loadAmps) + ' A';
       if (elR2) elR2.textContent = Math.round(alternatorOutput) + ' A';
       if (elR3) elR3.textContent = (netA > 0 ? 'charging ' : netA < 0 ? 'discharging ' : 'float ') + socPct + '%';
-      ui.chip.set('eng', Math.round(engineRPM) + ' rpm');
-      ui.chip.set('net', Math.round(loadAmps) + ' A');
-      if (keyState === 'off')       ui.chip.setStatus('Off', false);
-      else if (keyState === 'acc')  ui.chip.setStatus('ACC', false);
-      else if (keyState === 'start') ui.chip.setStatus('Cranking', false);
-      else if (netA > 2)             ui.chip.setStatus('Charging', true);
-      else if (netA < -2)            ui.chip.setStatus('Discharging', false);
-      else                           ui.chip.setStatus('Float', true);
+      ui.monitor.update({ rows: { eng: Math.round(engineRPM) + ' rpm', net: Math.round(loadAmps) + ' A' } });
+      if (keyState === 'off')       ui.monitor.update({ status: ['Off', false] });
+      else if (keyState === 'acc')  ui.monitor.update({ status: ['ACC', false] });
+      else if (keyState === 'start') ui.monitor.update({ status: ['Cranking', false] });
+      else if (netA > 2)             ui.monitor.update({ status: ['Charging', true] });
+      else if (netA < -2)            ui.monitor.update({ status: ['Discharging', false] });
+      else                           ui.monitor.update({ status: ['Float', true] });
     }
 
-    ui.toolbar.setRpmLabel('~' + Math.round(engineRPM) + ' rpm');
   }
 
   /* ============================================================
-     WAVEFORM CANVAS
+     WAVEFORM → Monitor trace 'wave'
+     The old canvas drew y = midY − v·amplitude over 3 cycles; the sample maths below is that formula, moved out of the draw function
+     unchanged: A/B/C = sin(θ − p·τ/3), DC = −0.85 − 0.08·sin(6θ) (the old canvas drew the DC line below the mid line; kept as it was).
+     Samples are taken at fixed PHASE steps (WF_STEP), so the picture always shows 3 cycles and scrolls as before.
      ============================================================ */
-  function drawWaveform() {
-    if (!waveCtx) return;
-    const W = waveCanvas.width;
-    const H = waveCanvas.height;
-    waveCtx.clearRect(0, 0, W, H);
-
-    const midY = H / 2;
-    const amplitude = H * 0.32;
-    const freqScale = 3.0;
-
-    waveCtx.strokeStyle = 'rgba(148,163,184,.12)';
-    waveCtx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-      waveCtx.beginPath();
-      waveCtx.moveTo(0, (H * i / 4));
-      waveCtx.lineTo(W, (H * i / 4));
-      waveCtx.stroke();
+  function waveSamples(th) {
+    return [Math.sin(th), Math.sin(th - TAU / 3), Math.sin(th - 2 * TAU / 3), -0.85 - 0.08 * Math.sin(th * 6)];
+  }
+  function primeWave() {                       /* fill the window at once, as the old canvas always showed 3 full cycles */
+    for (let k = WF_LEN - 1; k >= 0; k--) ui.monitor.update({ traces: { wave: waveSamples(wavePhase - k * WF_STEP) } });
+    wfPhase = wavePhase;
+  }
+  function pushWave() {
+    if (!monAlt) { wfPhase = wavePhase; return; }
+    let n = 0;
+    while (wfPhase + WF_STEP <= wavePhase && n++ < WF_LEN) {
+      wfPhase += WF_STEP;
+      ui.monitor.update({ traces: { wave: waveSamples(wfPhase) } });
     }
-    waveCtx.strokeStyle = 'rgba(148,163,184,.28)';
-    waveCtx.beginPath();
-    waveCtx.moveTo(0, midY);
-    waveCtx.lineTo(W, midY);
-    waveCtx.stroke();
-
-    const phaseColors = ['#ef4444', '#22c55e', '#38bdf8'];
-    for (let p = 0; p < 3; p++) {
-      waveCtx.strokeStyle = phaseColors[p];
-      waveCtx.lineWidth = 1.6;
-      waveCtx.beginPath();
-      for (let x = 0; x < W; x++) {
-        const t = x / W;
-        const angle = t * freqScale * TAU + wavePhase - p * TAU / 3;
-        const y = midY - Math.sin(angle) * amplitude;
-        if (x === 0) waveCtx.moveTo(x, y);
-        else waveCtx.lineTo(x, y);
-      }
-      waveCtx.stroke();
-    }
-
-    waveCtx.strokeStyle = '#f59e0b';
-    waveCtx.lineWidth = 2.2;
-    waveCtx.beginPath();
-    const dcLevel = -amplitude * 0.85;
-    for (let x = 0; x < W; x++) {
-      const t = x / W;
-      const ripple = Math.sin(t * freqScale * TAU * 6 + wavePhase * 6) * amplitude * 0.08;
-      const y = midY - dcLevel + ripple;
-      if (x === 0) waveCtx.moveTo(x, y);
-      else waveCtx.lineTo(x, y);
-    }
-    waveCtx.stroke();
+    if (n >= WF_LEN) wfPhase = wavePhase;
   }
 
   /* ============================================================
@@ -1504,10 +1305,7 @@ import { Parts } from './components.js';
     electronicsTime = 0;
     direction = 'discharge';
     keyState = 'on';
-    document.querySelectorAll('#direction-toggle .dt-btn').forEach(b =>
-      b.classList.toggle('active', b.dataset.dir === 'discharge'));
-    document.querySelectorAll('#key-selector .ks-item').forEach(b =>
-      b.classList.toggle('active', b.dataset.key === 'on'));
+    ui.controls.resetAll();                  /* direction -> discharge, key -> On */
     if (elChemArrow) elChemArrow.textContent = '→';
   }
 
@@ -1554,7 +1352,7 @@ import { Parts } from './components.js';
     }
 
     wavePhase += dt * 1.6;
-    if (mode === 'alternator') drawWaveform();
+    pushWave();
 
     lastReadout += dt;
     if (lastReadout > 0.10) {

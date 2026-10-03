@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0a0d13">
 <title>Differential — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <style>
   /* ═══════════════════════════════════════════════════════════
      PANEL READOUT INTERIOR — wheel-speed split bars
@@ -80,121 +81,10 @@
   /* ═══════════════════════════════════════════════════════════
      WIDGET INTERIOR — traction / display controls (bottom-left)
      ═══════════════════════════════════════════════════════════ */
-  .diff-controls {
-    display: flex; flex-direction: column; gap: 8px;
-    padding: 10px 12px;
-    background: rgba(10,14,20,.82);
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    border-radius: var(--r-sm, 12px);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    font-size: 11px;
-    color: var(--text-dim, #94a3b8);
-    box-shadow: 0 6px 20px rgba(0,0,0,.45);
-    min-width: 178px;
-  }
-  .diff-controls .select-group {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 10.5px; letter-spacing: .04em;
-    text-transform: uppercase; font-weight: 700;
-  }
-  .diff-controls select {
-    flex: 1;
-    background: rgba(255,255,255,.06);
-    border: 1px solid rgba(255,255,255,.12);
-    color: var(--text, #e5e7eb);
-    padding: 6px 24px 6px 10px;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 11px; font-weight: 700; letter-spacing: .03em;
-    cursor: pointer; outline: none;
-    appearance: none; -webkit-appearance: none;
-    transition: background var(--dur-fast, .15s) var(--ease-out, ease);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 9px center;
-  }
-  .diff-controls select:hover { background-color: rgba(255,255,255,.12); }
-  .diff-controls select option { background: #161b22; color: #e5e7eb; }
-  .diff-controls .toggle {
-    display: flex; align-items: center; gap: 6px;
-    font-weight: 600; letter-spacing: .02em; cursor: pointer;
-  }
-  .diff-controls .toggle input[type=checkbox] { accent-color: var(--accent, #38bdf8); }
-
-  /* ═══════════════════════════════════════════════════════════
-     WIDGET INTERIOR — steering wheel (bottom-right)
-     ═══════════════════════════════════════════════════════════ */
-  #steer-overlay {
-    display: flex; flex-direction: column; align-items: center;
-    pointer-events: none;
-  }
-  #steer-wheel {
-    pointer-events: auto; cursor: grab;
-    width: 118px; height: 118px;
-    filter: drop-shadow(0 10px 22px rgba(0,0,0,.65));
-    transition: filter var(--dur-fast, .2s) var(--ease-out, ease);
-  }
-  #steer-wheel:hover {
-    filter: drop-shadow(0 10px 22px rgba(0,0,0,.65))
-            drop-shadow(0 0 12px rgba(56,189,248,.22));
-  }
-  #steer-wheel.grabbing { cursor: grabbing; }
-  #steer-rotor {
-    transition: transform var(--dur-fast, .03s) linear;
-    will-change: transform;
-    transform-origin: center center;
-  }
-  .sw-rim-shadow { fill: none; stroke: rgba(0,0,0,.55); stroke-width: 9; opacity: .55; }
-  .sw-rim { fill: none; stroke: url(#sw-rim-grad); stroke-width: 8; }
-  .sw-rim-hi { fill: none; stroke: url(#sw-rim-hi-grad); stroke-width: 2.5; opacity: .75; }
-  .sw-spoke { fill: url(#sw-spoke-grad); stroke: rgba(0,0,0,.35); stroke-width: 0.8; }
-  .sw-hub-ring { fill: none; stroke: rgba(0,0,0,.55); stroke-width: 2; }
-  .sw-hub { fill: url(#sw-hub-grad); stroke: #b9c2cc; stroke-width: 1.4; }
-  .sw-hub-dot { fill: #b9c2cc; opacity: .85; }
-  .sw-marker { fill: var(--accent, #38bdf8); filter: drop-shadow(0 0 4px rgba(56,189,248,.9)); }
-
-  #steer-label {
-    margin-top: 10px; color: var(--text-dim, #94a3b8);
-    font-size: 10.5px; font-weight: 700;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    background: rgba(10,14,20,.82);
-    padding: 5px 12px; border-radius: 999px;
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    border: 1px solid var(--border, rgba(255,255,255,.08));
-    pointer-events: none;
-    box-shadow: 0 4px 14px rgba(0,0,0,.4);
-    white-space: nowrap;
-  }
 
   /* ═══════════════════════════════════════════════════════════
      OVERLAY — camera presets (top-right)
      ═══════════════════════════════════════════════════════════ */
-  #cam-presets {
-    position: fixed; top: calc(16px + var(--safe-t, 0px)); right: calc(16px + var(--safe-r, 0px));
-    z-index: 40;
-    display: flex; gap: 4px;
-    background: rgba(10,14,20,.82); padding: 6px;
-    border-radius: 12px;
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border, rgba(255,255,255,.08));
-    box-shadow: 0 4px 14px rgba(0,0,0,.4);
-  }
-  .cam-btn {
-    background: transparent; border: 1px solid transparent;
-    color: var(--text-dim, #94a3b8); padding: 7px 13px;
-    border-radius: var(--r-sm, 8px); cursor: pointer;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
-    text-transform: uppercase;
-    transition: all var(--dur-fast, .15s) var(--ease-out, ease);
-    font-family: inherit;
-  }
-  .cam-btn:hover { background: rgba(255,255,255,.06); color: var(--text, #e5e7eb); }
-  .cam-btn.active {
-    background: var(--accent, #38bdf8); color: #0d1117;
-    border-color: var(--accent, #38bdf8);
-    box-shadow: 0 0 14px rgba(56,189,248,.4);
-  }
 
   /* ═══════════════════════════════════════════════════════════
      OVERLAY — wheel-slip flash
@@ -264,32 +154,7 @@
   html.light-theme #diff-eq,
   html.light-theme #wheel-speed-extra { border-color: rgba(15,23,42,.12); }
 
-  html.light-theme .diff-controls {
-    background: rgba(255,255,255,.94);
-    border-color: rgba(15,23,42,.14);
-    color: #475569;
-  }
-  html.light-theme .diff-controls select {
-    background-color: rgba(15,23,42,.05);
-    border-color: rgba(15,23,42,.14);
-    color: #0a0d13;
-  }
-  html.light-theme .diff-controls select option { background: #fff; color: #0a0d13; }
-
-  html.light-theme #cam-presets {
-    background: rgba(255,255,255,.94);
-    border-color: rgba(15,23,42,.14);
-  }
-  html.light-theme .cam-btn { color: #475569; }
-  html.light-theme .cam-btn:hover { background: rgba(15,23,42,.06); color: #0a0d13; }
-  html.light-theme .cam-btn.active { color: #ffffff; }
-
-  html.light-theme #steer-label {
-    background: rgba(255,255,255,.94);
-    border-color: rgba(15,23,42,.14);
-    color: #334155;
-  }
-  html.light-theme #steer-wheel { filter: drop-shadow(0 8px 20px rgba(15,23,42,.18)); }
+  html.light-theme  html.light-theme  html.light-theme
 
   html.light-theme .tyre-speed-chip {
     background: rgba(255,255,255,.94);
@@ -307,14 +172,6 @@
   }
 
   @media (max-width: 720px) {
-    #cam-presets {
-      top: calc(env(safe-area-inset-top, 0px) + 70px);
-      right: 10px;
-      padding: 4px;
-    }
-    .cam-btn { padding: 6px 9px; font-size: 10px; }
-    #steer-wheel { width: 86px; height: 86px; }
-    #steer-label { display: none; }
     .tyre-speed-chip { padding: 4px 8px; }
     .tyre-speed-chip .tsc-label { font-size: 10px; }
     .tyre-speed-chip .tsc-val { font-size: 10.5px; }
@@ -323,14 +180,6 @@
 </head>
 <body>
   <div id="canvas-wrap"></div>
-
-  <div id="cam-presets">
-    <button class="cam-btn active" data-mode="orbit">Orbit</button>
-    <button class="cam-btn" data-mode="chase">Chase</button>
-    <button class="cam-btn" data-mode="top">Top</button>
-    <button class="cam-btn" data-mode="side">Side</button>
-    <button class="cam-btn" data-mode="diff">Diff</button>
-  </div>
 
   <div id="status-flash"></div>
 
@@ -1517,9 +1366,8 @@
      AUTO DRIVE
      ═══════════════════════════════════════════════════════════ */
   let autoDrive = true;
-  let chkAutoDrive = null; /* assigned by widget onMount */
-  function disengageAutoDrive() {
-    if (autoDrive) { autoDrive = false; if (chkAutoDrive) chkAutoDrive.checked = false; }
+    function disengageAutoDrive() {
+    if (autoDrive) { autoDrive = false; ui.controls.set('autodrive', false); }
   }
 
   const AUTO_LOOKAHEAD   = 5.5;
@@ -1553,13 +1401,7 @@
   /* ═══════════════════════════════════════════════════════════
      STEERING STATE
      ═══════════════════════════════════════════════════════════ */
-  let steerWheelEl = null;   /* assigned by widget onMount */
-  let steerRotorEl = null;   /* assigned by widget onMount */
-  let steerAngle = 0, steerInput = 0;
-  let steerDragging = false, steerPointerId = null, steerLastPointerAngle = 0;
-  const STEER_RETURN_RATE = 4.0;
-
-  const clampSteer = a => Math.max(-MAX_STEER_ANGLE, Math.min(MAX_STEER_ANGLE, a));
+  let steerAngle = 0, steerInput = 0;   /* radians, > 0 = clockwise; the 'wheel' dial owns the value */
 
   /* ═══════════════════════════════════════════════════════════
      UI — kit-driven chrome + module widgets
@@ -1569,10 +1411,6 @@
   let camMode = 'orbit';
 
   /* Widget DOM refs (assigned in onMount) */
-  let selTraction = null;
-  let chkLocked = null;
-  let chkSection = null;
-  let chkExplode = null;
 
   const ui = UI.create({
     moduleId: 'differential',
@@ -1612,16 +1450,9 @@
              the two side gears turn at different speeds.`
     },
 
-    chip: {
-      label: 'Vehicle speed',
-      value: 0,
-      unit:  'u/s',
-      bar:   true,
-      rows: [
-        { id: 'rpmL', label: 'Rear L', value: '0 rpm' },
-        { id: 'rpmR', label: 'Rear R', value: '0 rpm' }
-      ],
-      status: { text: 'Open' }
+    monitor: {
+      config: { label: 'Vehicle speed', value: { label: 'Vehicle speed', unit: 'u/s', max: 100, bar: true }, rows: [['rpmL', 'Rear L'], ['rpmR', 'Rear R'], ['rpm', 'Input speed']], status: { text: 'Open' } },
+      initial: { value: { text: '0', unit: 'u/s' }, rows: { rpmL: '0 rpm', rpmR: '0 rpm', rpm: '—' }, status: ['Open', false] }
     },
 
     toolbar: {
@@ -1630,129 +1461,29 @@
       labels: true, gas: true
     },
 
-    widgets: {
-      bl: {
-        caption: 'Traction & display',
-        html: `
-          <div class="diff-controls">
-            <div class="select-group">
-              <span>Traction</span>
-              <select id="traction-mode" aria-label="Traction mode">
-                <option value="none">Full grip</option>
-                <option value="left">Left wheel slip</option>
-                <option value="right">Right wheel slip</option>
-              </select>
-            </div>
-            <label class="toggle"><input type="checkbox" id="chk-locked"> Locked</label>
-            <label class="toggle"><input type="checkbox" id="chk-autodrive" checked> Auto Drive</label>
-            <label class="toggle"><input type="checkbox" id="chk-section"> Section</label>
-            <label class="toggle"><input type="checkbox" id="chk-explode"> Explode</label>
-          </div>
-        `,
-        onMount: (el) => {
-          selTraction  = el.querySelector('#traction-mode');
-          chkLocked    = el.querySelector('#chk-locked');
-          chkAutoDrive = el.querySelector('#chk-autodrive');
-          chkSection   = el.querySelector('#chk-section');
-          chkExplode   = el.querySelector('#chk-explode');
+    /* Phase 6: traction, the four display toggles and the camera preset are controls.js controls in the dock options row */
+    options: [
+      { id: 'traction', type: 'choice', layout: 'select', label: 'Traction', ariaLabel: 'Traction mode',
+        options: [{ id: 'none', label: 'Full grip' }, { id: 'left', label: 'Left wheel slip' }, { id: 'right', label: 'Right wheel slip' }],
+        onChange: (id) => { tractionMode = id; } },
+      { id: 'locked', type: 'toggle', label: 'Locked', ariaLabel: 'Locked differential', onChange: (on) => { diffLocked = on; } },
+      { id: 'autodrive', type: 'toggle', label: 'Auto drive', def: true, onChange: (on) => { autoDrive = on; } },
+      { id: 'section', type: 'toggle', label: 'Section', onChange: (on) => { applySection(on); } },
+      { id: 'explode', type: 'toggle', label: 'Explode', onChange: (on) => { explodeTarget = on ? 1 : 0; } },
+      { id: 'camera', type: 'choice', layout: 'select', label: 'Camera', ariaLabel: 'Camera preset',
+        options: [{ id: 'orbit', label: 'Orbit' }, { id: 'chase', label: 'Chase' }, { id: 'top', label: 'Top' }, { id: 'side', label: 'Side' }, { id: 'diff', label: 'Diff' }],
+        onChange: (id) => { const prev = camMode; camMode = id; if ((prev === 'diff') !== (camMode === 'diff')) setIsolation(camMode === 'diff'); } }
+    ],
 
-          if (chkLocked) chkLocked.addEventListener('change', () => { diffLocked = chkLocked.checked; });
-          if (selTraction) selTraction.addEventListener('change', () => { tractionMode = selTraction.value; });
-          if (chkSection) chkSection.addEventListener('change', () => { applySection(chkSection.checked); });
-          if (chkExplode) chkExplode.addEventListener('change', () => { explodeTarget = chkExplode.checked ? 1 : 0; });
-          if (chkAutoDrive) chkAutoDrive.addEventListener('change', () => { autoDrive = chkAutoDrive.checked; });
-        }
-      },
-
-      br: {
-        caption: 'Drag to steer',
-        html: `
-          <div id="steer-overlay">
-            <div id="steer-wheel" role="slider" tabindex="0"
-                 aria-label="Steering wheel — drag to steer"
-                 aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0">
-              <div id="steer-rotor">
-                <svg viewBox="-60 -60 120 120" aria-hidden="true">
-                  <defs>
-                    <radialGradient id="sw-rim-grad" cx="35%" cy="28%" r="85%">
-                      <stop offset="0%"  stop-color="#6b7788"/>
-                      <stop offset="45%" stop-color="#3a4555"/>
-                      <stop offset="100%" stop-color="#161c24"/>
-                    </radialGradient>
-                    <radialGradient id="sw-rim-hi-grad" cx="35%" cy="24%" r="70%">
-                      <stop offset="0%"  stop-color="#c8d1dc" stop-opacity="0.9"/>
-                      <stop offset="70%" stop-color="#c8d1dc" stop-opacity="0"/>
-                    </radialGradient>
-                    <linearGradient id="sw-spoke-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%"  stop-color="#5a6577"/>
-                      <stop offset="100%" stop-color="#262d38"/>
-                    </linearGradient>
-                    <radialGradient id="sw-hub-grad" cx="35%" cy="30%" r="80%">
-                      <stop offset="0%"  stop-color="#4a5568"/>
-                      <stop offset="100%" stop-color="#151a22"/>
-                    </radialGradient>
-                  </defs>
-                  <circle class="sw-rim-shadow" cx="0" cy="2" r="48"/>
-                  <circle class="sw-rim" cx="0" cy="0" r="48"/>
-                  <circle class="sw-rim-hi" cx="0" cy="0" r="48"/>
-                  <rect class="sw-spoke" x="-48" y="-6" width="34" height="12" rx="6"/>
-                  <rect class="sw-spoke" x="14"  y="-6" width="34" height="12" rx="6"/>
-                  <rect class="sw-spoke" x="-6"  y="14" width="12" height="34" rx="6"/>
-                  <circle class="sw-hub-ring" cx="0" cy="0" r="16"/>
-                  <circle class="sw-hub" cx="0" cy="0" r="14"/>
-                  <circle class="sw-hub-dot" cx="0" cy="0" r="3.5"/>
-                  <path class="sw-marker" d="M0,-57 L-8,-45 L8,-45 Z"/>
-                </svg>
-              </div>
-            </div>
-            <div id="steer-label">Drag to steer</div>
-          </div>
-        `,
-        onMount: (el) => {
-          steerWheelEl = el.querySelector('#steer-wheel');
-          steerRotorEl = el.querySelector('#steer-rotor');
-          if (!steerWheelEl) return;
-
-          function pointerAngle(e) {
-            const r = steerWheelEl.getBoundingClientRect();
-            return Math.atan2(e.clientY - (r.top + r.height/2), e.clientX - (r.left + r.width/2));
-          }
-
-          steerWheelEl.addEventListener('pointerdown', (e) => {
-            e.preventDefault();
-            disengageAutoDrive();
-            steerDragging = true; steerPointerId = e.pointerId;
-            try { steerWheelEl.setPointerCapture(e.pointerId); } catch (_) {}
-            steerLastPointerAngle = pointerAngle(e);
-            steerWheelEl.classList.add('grabbing');
-          });
-          steerWheelEl.addEventListener('pointermove', (e) => {
-            if (!steerDragging || e.pointerId !== steerPointerId) return;
-            e.preventDefault();
-            const a = pointerAngle(e);
-            let d = a - steerLastPointerAngle;
-            if (d >  Math.PI) d -= Math.PI * 2;
-            if (d < -Math.PI) d += Math.PI * 2;
-            steerLastPointerAngle = a;
-            steerAngle = clampSteer(steerAngle + d);
-            steerInput = steerAngle / MAX_STEER_ANGLE;
-          });
-          const endDrag = () => {
-            if (!steerDragging) return;
-            steerDragging = false; steerPointerId = null;
-            steerWheelEl.classList.remove('grabbing');
-          };
-          steerWheelEl.addEventListener('pointerup', endDrag);
-          steerWheelEl.addEventListener('pointercancel', endDrag);
-          steerWheelEl.addEventListener('lostpointercapture', endDrag);
-          steerWheelEl.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft')  { e.preventDefault(); disengageAutoDrive(); steerAngle = clampSteer(steerAngle - 0.16); steerInput = steerAngle/MAX_STEER_ANGLE; }
-            if (e.key === 'ArrowRight') { e.preventDefault(); disengageAutoDrive(); steerAngle = clampSteer(steerAngle + 0.16); steerInput = steerAngle/MAX_STEER_ANGLE; }
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); steerAngle = 0; steerInput = 0; }
-          });
-        }
-      }
-    }
+    /* Phase 5: the steering wheel is a controls.js dial (id 'wheel'). Range = ±MAX_STEER_ANGLE (±129.6°), clockwise =
+       right = positive, exactly the old steerAngle sign (steerInput = dial). It springs back to centre unless Auto
+       Drive is steering (the module then drives it with controls.set, which never springs). Enter / Home = centre.
+       k = 4.14 s⁻¹ is the old return rate 4.0 (0.933 / frame at 60 Hz) as a time constant. */
+    axes: [
+      { id: 'wheel', type: 'dial', look: 'wheel', label: 'Steering', ariaLabel: 'Steering wheel',
+        range: 2 * MAX_STEER_ANGLE * 180 / Math.PI, def: 0, step: 1, spring: 'return', k: 4.14, side: 'right',
+        onGrab: (on) => { if (on) disengageAutoDrive(); } }
+    ]
   });
 
   /* ── panel readout element handles ── */
@@ -1767,30 +1498,20 @@
   /* ═══════════════════════════════════════════════════════════
      CAMERA PRESETS
      ═══════════════════════════════════════════════════════════ */
-  document.querySelectorAll('.cam-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const prev = camMode;
-      camMode = btn.dataset.mode;
-      document.querySelectorAll('.cam-btn').forEach(b => b.classList.toggle('active', b === btn));
-      if ((prev === 'diff') !== (camMode === 'diff')) setIsolation(camMode === 'diff');
-    });
-  });
-
   function resetAll() {
+    ui.controls.resetAll();                       /* wheel back to centre */
     steerAngle = 0; steerInput = 0;
-    autoDrive = true; if (chkAutoDrive) chkAutoDrive.checked = true;
+    autoDrive = true;                              /* the toggles themselves are reset by controls.resetAll() above */
     vehiclePos.set(0, 0, 0); vehicleHeading = 0;
     vehicleGroup.position.copy(vehiclePos);
     vehicleGroup.rotation.set(0, 0, 0);
     trailRearL.clear(); trailRearR.clear();
     trailFrontL.clear(); trailFrontR.clear();
-    if (chkSection) { chkSection.checked = false; applySection(false); }
-    if (chkExplode) { chkExplode.checked = false; explodeTarget = 0; explodeAmount = 0; }
+    explodeTarget = 0; explodeAmount = 0;
     flowArrows.forEach(a => { a.visible = true; });
     if (controls && controls.target) controls.target.set(0, 0.5, 0.5);
     bodyRoll = 0; bodyPitch = 0; lastV = 0;
     camMode = 'orbit';
-    document.querySelectorAll('.cam-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'orbit'));
     setIsolation(false);
   }
 
@@ -1848,19 +1569,16 @@
   }
 
   function updateDiff(dt) {
-    if (autoDrive && !steerDragging) {
+    if (autoDrive && !ui.controls.dragging('wheel')) {
       const desiredInput = computeAutoSteerInput(vehiclePos, vehicleHeading);
       const desiredAngle = desiredInput * MAX_STEER_ANGLE;
       steerAngle += (desiredAngle - steerAngle) * Math.min(1, dt * AUTO_STEER_RATE);
-    } else if (!steerDragging && steerAngle !== 0) {
-      steerAngle += (0 - steerAngle) * Math.min(1, dt * STEER_RETURN_RATE);
-      if (Math.abs(steerAngle) < 0.002) steerAngle = 0;
+      ui.controls.set('wheel', steerAngle / MAX_STEER_ANGLE);     /* Auto Drive turns the wheel (no spring) */
+    } else {
+      steerAngle = ui.controls.get('wheel') * MAX_STEER_ANGLE;    /* the dial owns it: drag, ←/→, spring-back */
     }
 
     steerInput = steerAngle / MAX_STEER_ANGLE;
-    if (steerRotorEl) {
-      steerRotorEl.style.transform = 'rotate(' + (steerAngle / DEG).toFixed(2) + 'deg)';
-    }
 
     const omega_c = 2.2 * state.speedMul;
     const roadAngle = -steerInput * MAX_ROAD_ANGLE;
@@ -2010,9 +1728,9 @@
     const rpmBase = 900 * (state.speedMul / 0.85);
     const rpmL = (omegaL / omega_c) * rpmBase;
     const rpmR = (omegaR / omega_c) * rpmBase;
-    ui.chip.set('rpmL', Math.round(rpmL) + (slip && tractionMode === 'left' ? ' ⚠' : '') + ' rpm');
-    ui.chip.set('rpmR', Math.round(rpmR) + (slip && tractionMode === 'right' ? ' ⚠' : '') + ' rpm');
-    ui.toolbar.setRpmLabel(`~${Math.round(rpmBase)} rpm`);
+    ui.monitor.update({
+      rows: { rpmL: Math.round(rpmL) + (slip && tractionMode === 'left' ? ' ⚠' : '') + ' rpm', rpmR: Math.round(rpmR) + (slip && tractionMode === 'right' ? ' ⚠' : '') + ' rpm', rpm: `~${Math.round(rpmBase)} rpm` }
+    });
 
     if (elTurnR) {
       if (Math.abs(tanRoad) < 0.008) elTurnR.textContent = '∞ (straight)';
@@ -2020,8 +1738,7 @@
     }
 
     /* Chip big number + bar = vehicle speed */
-    ui.chip.setBig((v * 3.6).toFixed(1), 'u/s');
-    ui.chip.setBar(Math.min(100, Math.abs(v) * 25), '#38bdf8');
+    ui.monitor.update({ value: { text: String((v * 3.6).toFixed(1)), unit: 'u/s', bar: Math.min(100, Math.abs(v) * 25), barColor: '#38bdf8' } });
 
     if (elDiffMode) {
       if (diffLocked) elDiffMode.textContent = 'Locked 🔒';
@@ -2029,9 +1746,9 @@
       else            elDiffMode.textContent = 'Open';
     }
 
-    if (diffLocked) ui.chip.setStatus('Locked 🔒', true);
-    else if (slip)  ui.chip.setStatus('Open · SLIP ⚠', false);
-    else            ui.chip.setStatus('Open', true);
+    if (diffLocked) ui.monitor.update({ status: ['Locked 🔒', true] });
+    else if (slip)  ui.monitor.update({ status: ['Open · SLIP ⚠', false] });
+    else            ui.monitor.update({ status: ['Open', true] });
 
     if (slip && !diffLocked && flashTimer <= 0) setFlash('Wheel Slip — Torque Lost!');
   }
