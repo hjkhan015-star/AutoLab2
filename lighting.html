@@ -29,6 +29,8 @@ html.light-theme { --al-accent: color-mix(in oklch, #fde047 68%, black); }
 <script type="module">
 import { runGuidedModule } from './components.js';
 
+let viewMode = 'front', turnMode = 0;
+const sw = { side: true, drl: false, fog: false, rfog: false, brake: false, rev: false, cabin: false };
 let dipMode = 1;                               /* 0 off · 1 low · 2 high; set by the 'dip' choice (default Low) */
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
@@ -37,28 +39,43 @@ const CFG = {
   title: 'Vehicle Lighting',
   kicker: 'Electrical & Starting',
   accent: '#fde047',
-  badge: 'H4 · dual-filament lab',
-  camPos: [1.8, 2.6, 9.2],
-  target: [0.4, -0.25, 0],
+  badge: 'Full vehicle lighting',
+  camPos: [6.4, 1.3, 5.6],
+  target: [1.2, -1.0, 0],
   floorY: -1.9,
   ctl: null,                                   /* Phase 6: the dip switch is a 3-stop choice, not a slider */
   options: [
+    { id: 'view', type: 'choice', layout: 'segmented', label: 'View', ariaLabel: 'Scene view',
+      options: [{ id: 'front', label: 'Car front' }, { id: 'rear', label: 'Car rear' }, { id: 'lab', label: 'Lamp lab' }],
+      def: 'front', onChange: (id, i) => { viewMode = ['front', 'rear', 'lab'][i]; } },
     { id: 'dip', type: 'choice', layout: 'segmented', label: 'Dip switch', ariaLabel: 'Headlamp dip switch',
       options: [{ id: 'off', label: 'Off' }, { id: 'low', label: 'Low beam' }, { id: 'high', label: 'High beam' }],
       def: 'low', primary: true, side: 'left', onChange: (id, i) => { dipMode = i; } },
+    { id: 'turn', type: 'choice', layout: 'segmented', label: 'Indicators', ariaLabel: 'Turn indicators and hazard',
+      options: [{ id: 'off', label: 'Off' }, { id: 'left', label: '◄ Left' }, { id: 'right', label: 'Right ►' }, { id: 'haz', label: 'Hazard' }],
+      def: 'off', primary: true, side: 'right', onChange: (id, i) => { turnMode = i; } },
+    { id: 'brake', type: 'toggle', label: 'Brake', def: false, onChange: (v) => { sw.brake = v; } },
+    { id: 'rev', type: 'toggle', label: 'Reverse', def: false, onChange: (v) => { sw.rev = v; } },
+    { id: 'side', type: 'toggle', label: 'Side lights', def: true, onChange: (v) => { sw.side = v; } },
+    { id: 'drl', type: 'toggle', label: 'DRL', def: false, onChange: (v) => { sw.drl = v; } },
+    { id: 'fog', type: 'toggle', label: 'Front fog', def: false, onChange: (v) => { sw.fog = v; } },
+    { id: 'rfog', type: 'toggle', label: 'Rear fog', def: false, onChange: (v) => { sw.rfog = v; } },
+    { id: 'cabin', type: 'toggle', label: 'Cabin light', def: false, onChange: (v) => { sw.cabin = v; } },
   ],
   chipLabel: 'Lamp power',
   rows: [['mode', 'Mode'], ['range', 'Reach']],
   ro: [
     ['mode', 'Switch position'], ['pw', 'Lamp power'], ['cur', 'Circuit current'],
     ['volt', 'System voltage'], ['temp', 'Filament temp'],
-    ['range', 'Beam reach'], ['relay', 'Relay']
+    ['range', 'Beam reach'], ['relay', 'Relay'], ['lit', 'Lit lamps'], ['turn', 'Indicators']
   ],
   legend: [
     ['#fde047', 'Beam / filament'], ['#ef4444', 'Live feed'], ['#facc15', 'Low-beam wire'],
-    ['#e8ecf2', 'High-beam wire'], ['#64748b', 'Ground'], ['#e5e7eb', 'Reflector']
+    ['#e8ecf2', 'High-beam wire'], ['#64748b', 'Ground'], ['#e5e7eb', 'Reflector'],
+    ['#ffa31a', 'Indicator (amber)'], ['#ff2a1a', 'Tail / brake (red)'], ['#f4f8ff', 'Reverse / DRL (white)']
   ],
-  overview: `<div class="al-sec"><h4>Optics</h4><p>A tiny coil of tungsten sits at the <b>focus</b> of a parabolic reflector. Every ray leaving the focus bounces off the mirror parallel — that is how a point of light becomes a <b>beam</b>. The fluted lens then spreads and shapes it into a legal road pattern.</p></div>
+  overview: `<div class="al-sec"><h4>Every lamp on a car</h4><ul><li><b>Headlamps</b> — low beam (dipped, cut-off) and high beam; <b>DRL</b> — daytime running lights, off when headlamps are on.</li><li><b>Position / side lights</b> — white at the front, dim red tails, plate lamp.</li><li><b>Indicators</b> — amber, front, rear and side repeaters; flash ≈ 90 / min. <b>Hazard</b> flashes all four together.</li><li><b>Brake lights</b> — red, brighter than the tails, plus the high-level third lamp. <b>Reverse</b> — white. <b>Fog</b> — front (wide, low) and a single bright red rear fog.</li><li>Switch each on its own: lamps latch and combine, exactly like the stalks and switches in a car. Total load and current update live.</li></ul></div>
+<div class="al-sec"><h4>Optics</h4><p>A tiny coil of tungsten sits at the <b>focus</b> of a parabolic reflector. Every ray leaving the focus bounces off the mirror parallel — that is how a point of light becomes a <b>beam</b>. The fluted lens then spreads and shapes it into a legal road pattern.</p></div>
 <div class="al-sec"><h4>Two filaments, one bulb</h4><ul><li><b>High beam</b> — filament exactly at the focus, nothing in the way: a level, full-power beam reaching 100 m+.</li><li><b>Low beam</b> — filament lifted off the focus so the beam dips, and a small <b>metal shield</b> chops the top off the light. The sharp <b>cut-off</b> on the screen is that shield, projected — with its step lifted toward the roadside to light signs and pedestrians.</li></ul></div>
 <div class="al-sec"><h4>Why a relay</h4><p>A 55 W lamp pulls about <b>4.5 A</b> — far too much for a thin dash switch. The stalk feeds only the relay coil (≈0.2 A); the relay contacts carry the lamp current straight from the battery, through the fuse.</p></div>
 <div class="al-sec"><h4>Try this</h4><ul><li>Switch between Off, Low and High beam and watch the ray fan, the light wedge and the screen pattern change together.</li><li>Follow the current: red feed → fuse → relay → yellow (low) or white (high) wire → bulb, and back on the black ground.</li><li>Listen for the relay click on every switch change.</li></ul></div>`,
@@ -74,7 +91,11 @@ const CFG = {
     ["Relay clicks, lamps stay dark", "Coil pulls in, but no output.",
      "The contacts are burnt. Jump the relay output to confirm, then replace the relay."],
     ["'HID/LED retrofit' bulbs in halogen optics", "Glare, scattered light, failed inspection.",
-     "The reflector is computed around a filament position — a random LED chip scatters everywhere except the road."]
+     "The reflector is computed around a filament position — a random LED chip scatters everywhere except the road."],
+    ["Indicators flash twice as fast", "Rapid 'hyper-flash' on one side.",
+     "A bulb on that side is blown (or an LED swap lowered the load). Check each lamp on that side, then the flasher relay."],
+    ["Brake light always on / never on", "Lamps lit with the pedal up, or dark when braking.",
+     "Check the brake-pedal switch and its adjustment, then the bulbs and the fuse."]
   ],
   quiz: [
     ["Why do headlamps switch through a relay?",
@@ -92,13 +113,19 @@ const CFG = {
      "Corrosion or a loose terminal drops voltage across itself — the lamp never sees full power."],
     ["Low beam lights the road for roughly…",
      ["40 m", "400 m", "4 m"], 0,
-     "Low beam must light the road without dazzling — about 40 m of reach, against 100 m+ for high beam."]
+     "Low beam must light the road without dazzling — about 40 m of reach, against 100 m+ for high beam."],
+    ["What does an indicator that flashes twice as fast usually mean?",
+     ["A bulb on that side has failed", "The battery is over-charged", "The hazard switch is stuck"], 0,
+     "The flasher unit senses current. A failed bulb lowers the load, so the relay clicks faster."],
+    ["Which lamps carry the highest filament power on a halogen car?",
+     ["Headlamps and fog lamps (≈ 55 W)", "Tail lamps", "Plate lamps"], 0,
+     "Headlamps and fog lamps are ≈ 55 W each; tails and plate lamps are only a few watts."]
   ]
 };
 
 /* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
 function build(H){
-const {box,cyl,cylX,pipe,stream,root,THREE}=H;
+const {box,cyl,cylX,cylZ,pipe,stream,root,THREE}=H;
 
 /* ═══ geometry constants — reflector is a true parabola ═══
    vertex X0, focal length FL, rim radius R. rim at RIMX, focus at FOC. */
@@ -107,6 +134,7 @@ const RIMX=X0+R*R/(4*FL);                 // ≈ -3.79
 const FOC=[X0+FL,0];                      // high filament: exactly at the focus
 const LOWF=[X0+.47,.08];                  // low filament: lifted + forward → beam dips
 const LENSX=RIMX+.02, W_=512, H_=312;
+const DZ=-3.4;                            // the circuit bench sits behind the beam lane, not in it
 
 /* ═══ small helpers ═══ */
 const M=(c,m,r,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,metalness:m,roughness:r},o));
@@ -130,6 +158,11 @@ const prof=[];for(let i=0;i<=26;i++){const r=.12+(R-.12)*i/26;prof.push(new THRE
 const refl=new THREE.Mesh(new THREE.LatheGeometry(prof,44,Math.PI/2,Math.PI),
   M(0xf2f6fb,1,.06,{side:THREE.DoubleSide,envMapIntensity:1.5}));
 refl.rotation.z=-Math.PI/2;root.add(refl);
+
+/* dark housing shell behind the reflector (same half-cutaway) */
+const hp=[];for(let i=0;i<=22;i++){const r=.12+(R+.07-.12)*i/22;hp.push(new THREE.Vector2(r,r*r/(4*FL)-.08));}
+const housing=new THREE.Mesh(new THREE.LatheGeometry(hp,44,Math.PI/2,Math.PI),M(0x1a1d24,.35,.55,{side:THREE.DoubleSide}));
+housing.rotation.z=-Math.PI/2;root.add(housing);
 
 /* flat cut-away face (the classic orange section) */
 const shp=new THREE.Shape();shp.moveTo(0,0);
@@ -194,13 +227,16 @@ const rayBlockM=(()=>{const g=new THREE.BufferGeometry();
   const l=new THREE.LineSegments(g,m);l.frustumCulled=false;root.add(l);return m;})();
 
 /* ═══ volumetric beam wedges — low is a half-cone with a hard top edge ═══ */
-function wedge(r1,len,half,tilt,col){
-  const g=new THREE.CylinderGeometry(.2,r1,len,26,1,true,half?-Math.PI/2:0,half?Math.PI:Math.PI*2);
+function wedge(r1,len,half,tilt,col,ox=LENSX,oy=0,oz=0,par=root,ry=0){
+  const g=new THREE.CylinderGeometry(r1,.2,len,26,12,true,half?-Math.PI/2:0,half?Math.PI:Math.PI*2);
   g.rotateX(Math.PI/2);g.rotateY(Math.PI/2);g.translate(len/2,0,0);
-  const m=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0,
+  const pa=g.attributes.position,ca=new Float32Array(pa.count*3);
+  for(let i=0;i<pa.count;i++){const f=Math.pow(Math.max(0,1-pa.getX(i)/len),1.2);ca[i*3]=ca[i*3+1]=ca[i*3+2]=f;}
+  g.setAttribute('color',new THREE.BufferAttribute(ca,3));
+  const m=new THREE.MeshBasicMaterial({color:col,vertexColors:true,transparent:true,opacity:0,
     blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false});
-  const gr=new THREE.Group();gr.position.set(LENSX,0,0);gr.rotation.z=tilt;
-  gr.add(new THREE.Mesh(g,m));root.add(gr);return m;}
+  const gr=new THREE.Group();gr.position.set(ox,oy,oz);gr.rotation.set(0,ry,tilt);
+  gr.add(new THREE.Mesh(g,m));par.add(gr);return m;}
 const lowWideM =wedge(1.5, 8.7,true, -.12,0xffe9b8);
 const lowCoreM =wedge(.72, 8.4,true, -.105,0xfff3d0);
 const highWideM=wedge(1.6, 9.3,false, 0,   0xdfeaff);
@@ -261,6 +297,14 @@ const poolM=new THREE.MeshBasicMaterial({map:poolTex,transparent:true,opacity:0,
 const pool=new THREE.Mesh(new THREE.PlaneGeometry(1,1),poolM);
 pool.rotation.x=-Math.PI/2;pool.position.y=-1.883;root.add(pool);
 
+/* road under the beam */
+const roadT=tex(1024,512,g=>{g.fillStyle='#1b1f27';g.fillRect(0,0,1024,512);
+  for(let i=0;i<2600;i++){g.fillStyle='rgba('+(120+Math.random()*60|0)+','+(125+Math.random()*60|0)+',140,'+Math.random()*.1+')';g.fillRect(Math.random()*1024,Math.random()*512,2,2);}
+  g.fillStyle='rgba(235,240,248,.75)';g.fillRect(0,22,1024,7);g.fillRect(0,483,1024,7);
+  g.fillStyle='rgba(253,224,71,.6)';for(let x=10;x<1024;x+=96)g.fillRect(x,252,56,7);});
+const road=new THREE.Mesh(new THREE.PlaneGeometry(18,4.6),new THREE.MeshStandardMaterial({map:roadT,roughness:.9,metalness:0}));
+road.rotation.x=-Math.PI/2;road.position.set(2.5,-1.895,0);roadT.wrapS=THREE.RepeatWrapping;roadT.repeat.set(1.7,1);root.add(road);
+
 /* photon stream — light particles flying lamp → wall */
 const PN=170,pPos=new Float32Array(PN*3),dots=[];
 const pGeo=new THREE.BufferGeometry();pGeo.setAttribute('position',new THREE.BufferAttribute(pPos,3));
@@ -272,13 +316,16 @@ function roll(d,m){d.a=m===2?Math.random()*6.283:Math.PI+Math.random()*Math.PI;
   d.r=.25+Math.random()*(m===2?1.3:1.05);}
 
 /* ═══ lab bench, stand, battery, fuse, relay, dip switch ═══ */
-box(8.6,.16,1.8,M(0x272c36,.35,.6),-1.3,-1.33,0);
-[[-5.15,.72],[2.55,.72],[-5.15,-.72],[2.55,-.72]].forEach(([x,z])=>box(.1,.55,.1,M(0x1a1e26,.3,.7),x,-1.62,z));
+box(2.6,.16,1.6,M(0x272c36,.35,.6),-4.4,-1.33,0);   // lamp pedestal
+[[-5.5,.65],[-3.3,.65],[-5.5,-.65],[-3.3,-.65]].forEach(([x,z])=>box(.1,.55,.1,M(0x1a1e26,.3,.7),x,-1.62,z));
 box(.09,.75,.09,M(0x303642,.4,.55),-5.0,-.87,0);     // stand pole
 box(.6,.05,.05,M(0x303642,.4,.55),-4.7,-.53,0);      // arm
 box(.05,.4,.05,M(0x303642,.4,.55),-4.62,-.33,0);     // riser
 box(.07,.18,.22,M(0x3a4150,.4,.5),-4.64,-.12,0);     // lamp clamp
 
+const _c0=root.children.length;                       // ── everything below = circuit bench (moved behind the beam)
+box(6.6,.16,1.8,M(0x272c36,.35,.6),-1.9,-1.33,0);
+[[-5.0,.72],[1.1,.72],[-5.0,-.72],[1.1,-.72]].forEach(([x,z])=>box(.1,.55,.1,M(0x1a1e26,.3,.7),x,-1.62,z));
 box(.6,.42,.9,M(0x23272e,.25,.55),-4.35,-1.04,0);    // battery
 cyl(.05,.05,.09,M(0xb03434,.5,.4),-4.52,-.8,0);      // + post
 cyl(.05,.05,.09,M(0x24262c,.5,.4),-4.18,-.8,0);      // − post
@@ -325,11 +372,12 @@ const wRed=M(0xd23c3c,.3,.55),wYel=M(0xdcb23f,.3,.55),wWht=M(0xd8dde5,.3,.55),
       wGnd=M(0x39404d,.3,.6),wCtl=M(0xb03535,.3,.55);
 const mainPath=[[-4.52,-.74,0],[-4.52,-1.02,0],[-3.5,-1.06,0],[-2.9,-1.06,0],
                 [-2.35,-1.02,0],[-1.88,-.94,0],[-1.52,-.9,0]];
-const feedLo=[[-1.08,-.9,-.06],[-1.0,-.62,-.06],[-.96,-.44,-.06],[-3.5,-.4,-.06],
-               [-4.3,-.4,-.06],[-4.55,-.22,-.06],[-4.55,-.06,-.06]];
-const feedHi=[[-1.08,-.9,.06],[-1.0,-.62,.06],[-.96,-.44,.06],[-3.5,-.4,.06],
-               [-4.3,-.4,.06],[-4.55,-.22,.06],[-4.55,-.06,.06]];
-const gndPath=[[-4.6,.04,.09],[-4.66,-.25,.09],[-4.66,-.6,.09],[-4.4,-1.02,.09],
+/* circuit-local coords; lamp-end points sit at lamp z minus DZ so the wires cross the gap behind the lamp */
+const feedLo=[[-1.08,-.9,-.06],[-1.0,-.62,-.06],[-.96,-.44,-.06],[-3.5,-.4,-.06],[-4.78,-.4,-.06],
+              [-4.78,-.4,1.6],[-4.78,-.4,3.34],[-4.6,-.2,3.34],[-4.55,-.06,3.34]];
+const feedHi=[[-1.08,-.9,.06],[-1.0,-.62,.06],[-.96,-.44,.06],[-3.5,-.4,.06],[-4.9,-.4,.06],
+              [-4.9,-.4,1.6],[-4.9,-.4,3.46],[-4.6,-.2,3.46],[-4.55,-.06,3.46]];
+const gndPath=[[-4.6,.04,3.49],[-4.72,-.2,3.49],[-4.72,-.7,3.49],[-4.72,-.7,1.2],[-4.4,-1.02,.09],
                [-4.18,-1.0,.09],[-4.18,-.76,.09]];
 const ctlPath=[[-4.52,-.74,.16],[-4.55,-1.1,.44],[.1,-1.1,.44],[.5,-.98,.4],[.58,-.84,.3],
                [.63,-.68,.2],[.6,-.72,-.14],[.52,-1.02,-.4],[-1.05,-1.02,-.4],
@@ -342,10 +390,13 @@ const sMain=stream(mainPath,16,0xffd27a,.1),
       sGnd =stream(gndPath,13,0x9fb2c8,.09),
       sCtl =stream(ctlPath,8,0xff9d9d,.12);
 
+const circuit=new THREE.Group();circuit.position.set(0,0,DZ);root.add(circuit);
+root.children.slice(_c0,-1).forEach(o=>circuit.add(o));   // (slice end -1 = the circuit group itself)
+
 /* roadside distance markers (10 m = the wall) */
 [[-1.92,'2 m'],[.88,'5 m'],[3.68,'8 m']].forEach(([x,t])=>{
-  cyl(.016,.016,.55,M(0x3a4150,.5,.5),x,-1.62,-2.35);
-  txtSprite(t,.5).position.set(x,-1.28,-2.35);});
+  cyl(.016,.016,.55,M(0x3a4150,.5,.5),x,-1.62,2.3);
+  txtSprite(t,.5).position.set(x,-1.28,2.3);});
 
 /* ═══ relay click (tiny synthesized clack) ═══ */
 let AC=null;
@@ -364,6 +415,8 @@ function setFil(m,h){m.emissive.setRGB(.45+.55*h,.10+.78*h,.02+.55*h);m.emissive
 
 function update(c){
   const m=dipMode;
+  if(viewMode!==lastView)setView();
+  if(viewMode!=='lab')carUpdate(c);
   if(m!==mode){if(mode>=0)click(m>0);mode=m;for(const d of dots)d.u=Math.random()*.25;}
   const tgt=m===0?0:m===1?55:60;
   I +=(tgt-I )*Math.min(1,c.dt*(m?8.5:3.2));   // halogen lights in ~0.15 s
@@ -379,8 +432,8 @@ function update(c){
   lampLight.intensity=2.9*Math.min(1,bL+bH); lampLight.position.y=.09*hL-.02;
 
   rayHighM.opacity=.5*hH; rayLowM.opacity=.5*hL; rayBlockM.opacity=.4*hL;
-  lowWideM.opacity=.15*bL; lowCoreM.opacity=.22*bL;
-  highWideM.opacity=.12*bH; highCoreM.opacity=.2*bH;
+  lowWideM.opacity=.26*bL; lowCoreM.opacity=.38*bL;
+  highWideM.opacity=.22*bH; highCoreM.opacity=.34*bH;
 
   if(hL>=hH){pool.scale.set(4.8,2.8,1);pool.position.set(-1.6,-1.883,0);poolM.opacity=.5*bL;}
   else{pool.scale.set(8.8,3.2,1);pool.position.set(.8,-1.883,0);poolM.opacity=.55*bH;}
@@ -393,7 +446,7 @@ function update(c){
     else{pPos[i*3]=LENSX+u*9.2;pPos[i*3+1]=r*Math.sin(d.a)-u*1.03;pPos[i*3+2]=r*Math.cos(d.a);}}
   pGeo.attributes.position.needsUpdate=true;
 
-  drawWall(bL,bH);
+  if(viewMode==='lab')drawWall(bL,bH);
 
   armA+=((m>0?1:0)-armA)*Math.min(1,c.dt*26);
   armPivot.rotation.z=.31-.47*armA;
@@ -406,7 +459,7 @@ function update(c){
   sGnd.update(c.t,.16,on);
 
   const name=['OFF','LOW BEAM','HIGH BEAM'][m], cur=I/12.4, volt=12.62-.28*(I/60), temp=25+44*I;
-  return {big:Math.round(I),unit:' W',bar:I/60*100,
+  const out={big:Math.round(I),unit:' W',bar:I/60*100,
     rows:{mode:name,range:m===0?'—':m===1?'≈ 40 m':'100 m+'},
     ro:{mode:[name,'hi'],
         pw:[I.toFixed(0)+' W',''],
@@ -416,10 +469,99 @@ function update(c){
         range:[m===0?'—':m===1?'≈ 40 m · cut-off':'100 m+',''],
         relay:[m?'closed · carrying':'open',m?'ok':'']},
     status:[name,m>0]};
+  if(viewMode==='lab'){out.ro.lit=['—',''];out.ro.turn=['—',''];return out;}
+  return carOut(out);
 }
 
 drawWall(0,0);
+
+/* ═══ FULL VEHICLE LIGHTING — a car with every lamp type, each driven by its own control ═══ */
+const labObjs=root.children.filter(o=>o!==road);
+const carG=new THREE.Group();root.add(carG);
+const paint=new THREE.MeshPhysicalMaterial({color:0x2f4a8a,metalness:.65,roughness:.3,clearcoat:1,clearcoatRoughness:.15});
+const darkP=M(0x15181e,.3,.6),steelM=M(0xb9c2ce,.9,.25);
+const glassC=new THREE.MeshPhysicalMaterial({color:0x0e1622,metalness:.1,roughness:.05,transparent:true,opacity:.8});
+function extr(pts,w,mat,bev){const sh=new THREE.Shape();pts.forEach(([x,y],i)=>i?sh.lineTo(x,y):sh.moveTo(x,y));
+  const g=new THREE.ExtrudeGeometry(sh,{depth:w,bevelEnabled:!!bev,bevelSize:.05,bevelThickness:.05,bevelSegments:2});g.translate(0,0,-w/2);
+  const m=new THREE.Mesh(g,mat);m.castShadow=true;carG.add(m);return m;}
+extr([[-2.3,-1.4],[2.3,-1.4],[2.32,-1.0],[2.2,-.78],[1.05,-.66],[-1.45,-.66],[-2.2,-.74],[-2.32,-.98]],1.8,paint,true);
+extr([[1.0,-.66],[.55,-.12],[-.85,-.12],[-1.35,-.66]],1.66,glassC);
+box(1.4,.05,1.66,paint,-.15,-.1,0,carG);
+const FX=2.39,RX=-2.39;
+box(.14,.3,1.9,darkP,2.3,-1.22,0,carG);box(.14,.3,1.9,darkP,-2.3,-1.22,0,carG);
+box(.04,.2,.6,darkP,FX-.02,-.92,0,carG);box(.02,.03,.6,steelM,FX,-.82,0,carG);
+box(.02,.2,.5,M(0xe8ecf2,.1,.5),FX,-1.18,0,carG);box(.02,.2,.5,M(0xe8ecf2,.1,.5),RX,-1.08,0,carG);
+[[1.4,1],[1.4,-1],[-1.4,1],[-1.4,-1]].forEach(([x,s])=>{const z=s*.86;
+  cyl(.44,.44,.02,darkP,x,-1.5,s*.96,carG,24);
+  cylZ(.38,.38,.26,M(0x16181d,.2,.8),x,-1.52,z,carG,24);cylZ(.25,.25,.27,steelM,x,-1.52,z,carG,20);cylZ(.06,.06,.3,darkP,x,-1.52,z,carG,10);});
+[-1,1].forEach(s=>box(.08,.24,.56,darkP,FX-.03,-.88,s*.55,carG));
+
+/* lamp factory: emissive lens + additive glow; each lamp eases to its target (halogen slow, LED fast) */
+const lamps=[],byKey={};
+const WATT={low:55,high:60,drl:6,posf:5,fog:55,indFL:21,indFR:21,repL:5,repR:5,tail:21,indRL:21,indRR:21,rev:16,rfog:21,chmsl:5,plate:5,cabin:5};
+function lamp(key,col,x,y,z,w,h,d,sz,rate,face,disc){
+  const m=new THREE.MeshStandardMaterial({color:new THREE.Color(col).multiplyScalar(.35),emissive:col,emissiveIntensity:0,roughness:.2,metalness:.1});
+  if(disc)cylX(w,w,d,m,x,y,z,carG,18);else box(w,h,d,m,x,y,z,carG);
+  const sp=glow(col,sz);carG.add(sp);sp.position.set(x+face[0]*.1,y,z+face[1]*.1);
+  const l={key,m,sp,sz,v:0,rate};lamps.push(l);(byKey[key]=byKey[key]||[]).push(l);}
+[-1,1].forEach(s=>{               // s<0 = car's left (car faces +x, so +z is its right)
+  const L=s<0?'L':'R';
+  lamp('low',0xfff1c9,FX,-.88,s*.67,.075,0,.025,.9,11,[1,0],1);
+  lamp('high',0xdfeaff,FX,-.88,s*.43,.075,0,.025,1.0,11,[1,0],1);
+  lamp('drl',0xf4f8ff,FX,-.7,s*.55,.03,.035,.5,.55,40,[1,0]);
+  lamp('posf',0xfff2d0,FX,-1.0,s*.55,.035,0,.02,.4,40,[1,0],1);
+  lamp('fog',0xfff0b8,FX+.0,-1.25,s*.62,.07,0,.03,.8,11,[1,0],1);
+  lamp('ind'+'F'+L,0xffa31a,FX,-.88,s*.9,.04,.11,.2,.65,16,[1,0]);
+  lamp('rep'+L,0xffa31a,1.75,-.9,s*.96,.14,.05,.03,.35,16,[0,s]);
+  lamp('tail',0xff2a1a,RX,-.88,s*.55,.04,.16,.4,.8,14,[-1,0]);
+  lamp('ind'+'R'+L,0xffa31a,RX,-.88,s*.9,.04,.11,.2,.65,16,[-1,0]);
+  lamp('rev',0xf4f8ff,RX,-.92,s*.22,.04,.07,.2,.7,12,[-1,0]);});
+lamp('rfog',0xff3a22,RX,-1.22,.5,.04,.06,.2,.8,12,[-1,0]);
+lamp('chmsl',0xff2a1a,-1.4,-.6,0,.03,.05,.5,.7,40,[-1,0]);
+lamp('plate',0xfff6e0,RX,-.96,0,.03,.03,.14,.4,40,[-1,0]);
+lamp('cabin',0xffe2b0,-.15,-.16,0,.6,.01,.55,1.8,8,[0,0]);
+
+/* beams + road pools for the car */
+const bm={low:[],high:[],rev:[]};
+[-1,1].forEach(s=>{bm.low.push(wedge(1.1,8,true,-.1,0xffe9b8,FX,-.88,s*.67,carG));
+  bm.high.push(wedge(1.3,9.5,false,0,0xdfeaff,FX,-.88,s*.43,carG));
+  bm.rev.push(wedge(.7,3.4,false,0,0xf4f8ff,RX,-.92,s*.22,carG,Math.PI));});
+function carPool(col,x,sx,sz){const m=new THREE.MeshBasicMaterial({map:poolTex,color:col,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,fog:false});
+  const p=new THREE.Mesh(new THREE.PlaneGeometry(1,1),m);p.rotation.x=-Math.PI/2;p.position.set(x,-1.883,0);p.scale.set(sx,sz,1);carG.add(p);return m;}
+const pLow=carPool(0xffffff,5.6,7,3.4),pHigh=carPool(0xffffff,8,11,3.8),pRev=carPool(0xffffff,-4.2,4,3),pRed=carPool(0xff2a1a,-3.7,3.2,2.6);
+const avg=k=>byKey[k].reduce((a,l)=>a+l.v,0)/byKey[k].length;
+const TURN=['Off','Left ◄','Right ►','Hazard ◄►'];let carTot=0;
+function carUpdate(c){
+  const flash=(c.t*1.5)%1<.5,hz=turnMode===3,tl=(turnMode===1||hz)&&flash?1:0,tr=(turnMode===2||hz)&&flash?1:0;
+  const T={low:dipMode===1?1:0,high:dipMode===2?1:0,drl:sw.drl&&dipMode===0?.8:0,posf:sw.side?.5:0,fog:sw.fog?1:0,
+    tail:sw.brake?1:sw.side?.3:0,plate:sw.side?1:0,rev:sw.rev?1:0,rfog:sw.rfog?1:0,chmsl:sw.brake?1:0,cabin:sw.cabin?.9:0,
+    indFL:tl,repL:tl,indRL:tl,indFR:tr,repR:tr,indRR:tr};
+  let tot=0;
+  lamps.forEach(l=>{l.v+=((T[l.key]||0)-l.v)*Math.min(1,c.dt*l.rate);
+    l.m.emissiveIntensity=l.v*2.6;l.sp.material.opacity=.9*l.v;l.sp.scale.setScalar(l.sz*(.55+.6*l.v));tot+=WATT[l.key]*l.v;});
+  carTot=tot;
+  bm.low.forEach(m=>m.opacity=.3*avg('low'));bm.high.forEach(m=>m.opacity=.26*avg('high'));bm.rev.forEach(m=>m.opacity=.24*avg('rev'));
+  pLow.opacity=.5*avg('low');pHigh.opacity=.55*avg('high');pRev.opacity=.5*avg('rev');pRed.opacity=.55*avg('tail');
+}
+function carOut(o){const tot=carTot,V=Math.max(11.2,12.62-.0045*tot),lit=lamps.filter(l=>l.v>.05).length,hv=Math.max(avg('low'),avg('high'));
+  o.big=Math.round(tot);o.bar=Math.min(100,tot/6);
+  o.ro.pw=[Math.round(tot)+' W',tot>400?'warn':''];o.ro.cur=[(tot/V).toFixed(1)+' A',tot/V>30?'warn':''];o.ro.volt=[V.toFixed(1)+' V',''];
+  o.ro.temp=[hv<.02?'cold':Math.round(25+44*55*hv)+' °C',hv>.7?'warn':''];
+  o.ro.lit=[lit+' / '+lamps.length,''];o.ro.turn=[TURN[turnMode],turnMode?'warn':''];
+  o.status=[lit?lit+' lamps lit':'All off',lit>0];return o;}
+const VIEWS={front:[[6.4,1.3,5.6],[1.2,-1.0,0]],rear:[[-6.4,1.3,5.6],[-1.2,-1.0,0]],lab:[[1.4,3.2,11.0],[.4,-.55,-1.1]]};
+let lastView='front';
+function setView(){lastView=viewMode;const lab=viewMode==='lab',v=VIEWS[viewMode];
+  labObjs.forEach(o=>o.visible=lab);carG.visible=!lab;
+  H.camera.position.set(...v[0]);H.orbit.target.set(...v[1]);H.orbit.update();}
+labObjs.forEach(o=>o.visible=false);
+const LF=[['Headlamp — low / high beam',[2.4,-.7,.55]],['Daytime running light',[2.4,-.62,.3]],['Front fog lamp',[2.4,-1.32,.62]],
+  ['Front indicator',[2.4,-.78,.9]],['Side repeater',[1.75,-.78,.97]],['Cabin light',[-.15,-.3,0]]];
+const LR=[['Tail / brake light',[-2.4,-.78,.55]],['Rear indicator',[-2.4,-.78,.9]],['Reverse light',[-2.4,-.97,.22]],
+  ['Rear fog lamp',[-2.4,-1.3,.5]],['Third brake light',[-1.4,-.5,0]],['Plate lamp',[-2.4,-.92,0]]];
+
 return {
+  showLabel:i=>i<12?viewMode==='lab':i<12+LF.length?viewMode==='front':viewMode==='rear',
   labels:[
     ['Parabolic reflector',[-4.85,.95,-.35]],
     ['Low-beam filament',[-4.13,.35,.05]],
@@ -428,11 +570,12 @@ return {
     ['Fluted lens',[-3.79,1.3,0]],
     ['Aiming screen · 10 m',[5.4,2.15,0]],
     ['Sharp cut-off',[5.3,-.85,-1.75]],
-    ['Battery 12 V',[-4.35,-.55,.5]],
-    ['Fuse',[-2.9,-.8,.25]],
-    ['Relay — cutaway',[-1.3,-.52,.4]],
-    ['Dip switch',[.9,-.42,.5]],
-    ['Live feed wire',[-3.0,-.2,.1]]
+    ['Battery 12 V',[-4.35,-.55,.5+DZ]],
+    ['Fuse',[-2.9,-.8,.25+DZ]],
+    ['Relay — cutaway',[-1.3,-.52,.4+DZ]],
+    ['Dip switch',[.9,-.42,.5+DZ]],
+    ['Live feed wire',[-3.0,-.3,.1+DZ]],
+    ...LF, ...LR
   ],
   update
 };
