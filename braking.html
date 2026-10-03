@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0a0d13">
 <title>Hydraulic Braking System — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <style>
   .br-readout {
     display: flex; flex-direction: column;
@@ -59,110 +60,8 @@
   }
   .br-pascal .mult b { color: var(--ok); font-weight: 900; }
 
-  .cfg-group {
-    display: flex; align-items: center; gap: 4px;
-    padding-left: 8px; margin-left: 4px;
-    border-left: 1px solid var(--border);
-  }
-  .cfg-arrow {
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    border: none;
-    background: var(--surface-3);
-    color: var(--text);
-    font-size: 14px; line-height: 1;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-family: inherit; padding: 0;
-    transition: background var(--dur-fast) var(--ease-out),
-                color var(--dur-fast) var(--ease-out);
-  }
-  .cfg-arrow:hover, .cfg-arrow:active {
-    background: var(--accent); color: #0b0e14;
-  }
-  #cfg-label {
-    min-width: 92px; text-align: center; white-space: nowrap;
-    font-size: 10.5px; font-weight: 700;
-    letter-spacing: .02em;
-    color: var(--text);
-    font-family: var(--font-mono);
-  }
 
-  .br-toggle {
-    padding: 0 10px; height: 30px;
-    border-radius: var(--r-sm);
-    background: var(--surface-3);
-    color: var(--text-dim);
-    font-size: 10px; font-weight: 800;
-    letter-spacing: .05em; text-transform: uppercase;
-    border: 1px solid var(--border);
-    cursor: pointer; font-family: inherit;
-    transition: background var(--dur-fast) var(--ease-out),
-                color var(--dur-fast) var(--ease-out),
-                border-color var(--dur-fast) var(--ease-out),
-                box-shadow var(--dur-fast) var(--ease-out);
-  }
-  .br-toggle:hover { color: var(--text); }
-  .br-toggle.active {
-    background: color-mix(in oklch, var(--crit) 22%, transparent);
-    color: var(--crit);
-    border-color: color-mix(in oklch, var(--crit) 45%, transparent);
-    box-shadow: 0 0 10px color-mix(in oklch, var(--crit) 35%, transparent);
-  }
 
-  .br-pedal {
-    display: flex; flex-direction: column;
-    align-items: center; gap: 6px;
-  }
-  .br-pedal-track {
-    position: relative;
-    width: 62px; height: 148px;
-    pointer-events: auto; cursor: pointer;
-    touch-action: none;
-    user-select: none; -webkit-user-select: none;
-    border-radius: var(--r-md);
-    overflow: hidden;
-    background: var(--surface-3);
-    border: 1px solid var(--border);
-    box-shadow: inset 0 0 0 1px oklch(1 0 0 / .03),
-                0 10px 24px oklch(0 0 0 / .35);
-    transition: border-color var(--dur-fast) var(--ease-out);
-  }
-  .br-pedal-track.active { border-color: color-mix(in oklch, var(--crit) 60%, transparent); }
-  .br-pedal-fill {
-    position: absolute; left: 0; right: 0; bottom: 0;
-    height: 0%;
-    background: linear-gradient(180deg, #dc2626, #f87171);
-    transition: height var(--dur-fast) linear;
-  }
-  .br-pedal-pad {
-    position: absolute;
-    left: -6px; right: -6px;
-    bottom: 0%; height: 42px;
-    transform: translateY(50%);
-    filter: drop-shadow(0 6px 10px oklch(0 0 0 / .55));
-    transition: bottom var(--dur-fast) linear,
-                filter var(--dur-fast) var(--ease-out);
-  }
-  .br-pedal-track.active .br-pedal-pad {
-    filter: drop-shadow(0 0 12px color-mix(in oklch, var(--crit) 55%, transparent))
-            drop-shadow(0 6px 10px oklch(0 0 0 / .55));
-  }
-  .br-pedal-pad svg { width: 100%; height: 100%; display: block; }
-  .br-pedal-pad .plate {
-    fill: var(--surface-3);
-    stroke: color-mix(in oklch, var(--text) 40%, transparent);
-    stroke-width: 1.4;
-  }
-  .br-pedal-pad .grip { fill: color-mix(in oklch, var(--text) 28%, transparent); }
-  .br-pedal-track.active .br-pedal-pad .plate { stroke: var(--crit); }
-
-  @media (max-width: 600px) {
-    .br-pedal-track { width: 48px; height: 118px; }
-    .br-pedal-pad { height: 34px; }
-    .cfg-arrow { width: 19px; height: 19px; font-size: 12px; }
-    #cfg-label { min-width: 72px; font-size: 10px; }
-    .br-toggle { padding: 0 8px; height: 26px; font-size: 10px; }
-  }
 </style>
 </head>
 <body>
@@ -1360,11 +1259,9 @@ import { Parts } from './components.js';
   /* ═══════════════════════════════════════════════════════════════════
      STATE
      ═══════════════════════════════════════════════════════════════════ */
-  let pedalPos = 0;
   let effectivePedal = 0;
   let rotorTemp = 32;
   let drumTemp = 32;
-  let spaceHeld = false;
   let frame = 0;
   let lastDomUpdate = 0;
 
@@ -1400,14 +1297,9 @@ import { Parts } from './components.js';
       desc: CONFIG_DEFS[0].desc
     },
 
-    chip: {
-      label: 'Brake temperature',
-      value: 32, unit: '°C', bar: true,
-      rows: [
-        { id: 'front', label: 'Front', value: '32 °C' },
-        { id: 'rear',  label: 'Rear',  value: '32 °C' }
-      ],
-      status: { text: 'Cold' }
+    monitor: {
+      config: { label: 'Brake temperature', value: { label: 'Brake temperature', unit: '°C', max: 100, bar: true }, rows: [['front', 'Front'], ['rear', 'Rear']], status: { text: 'Cold' } },
+      initial: { value: { text: '32', unit: '°C' }, rows: { front: '32 °C', rear: '32 °C' }, status: ['Cold', false] }
     },
 
     toolbar: {
@@ -1417,31 +1309,23 @@ import { Parts } from './components.js';
       extras: []
     },
 
-    widgets: {
-      br: {
-        caption: 'Press &amp; hold · <span data-pedal-cap>0%</span>',
-        html: `
-          <div class="br-pedal">
-            <div class="br-pedal-track" data-role="track"
-                 role="slider" tabindex="0"
-                 aria-label="Brake pedal"
-                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-              <div class="br-pedal-fill" data-role="fill"></div>
-              <div class="br-pedal-pad" data-role="pad">
-                <svg viewBox="0 0 70 44" aria-hidden="true">
-                  <rect class="plate" x="4" y="4" width="62" height="36" rx="9"/>
-                  <rect class="grip" x="12" y="12" width="46" height="4" rx="2"/>
-                  <rect class="grip" x="12" y="20" width="46" height="4" rx="2"/>
-                  <rect class="grip" x="12" y="28" width="46" height="4" rx="2"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-        `,
-        onMount: (el) => wirePedal(el)
-      }
-    }
+    /* Phase 4: the brake pedal is a controls.js pedal (id 'brake'); read it with ui.controls.get('brake').
+       k = -ln(0.88)·60 — the old per-frame spring-back factor, now time-based. */
+    axes: [
+      { id: 'brake', look: 'pedal', label: 'Brake', preset: 'percent', spring: 'return', k: 7.67, keys: 'arrows', side: 'right', color: 'var(--crit)' }
+    ],
+
+    /* Phase 6: toggles + the configuration choice live in the dock options row */
+    options: [
+      { id: 'config', type: 'choice', layout: 'select', label: 'Configuration', options: CONFIG_DEFS.map(d => ({ id: d.id, label: d.label })) },
+      { id: 'abs',  type: 'toggle', label: 'ABS',  ariaLabel: 'ABS, anti-lock braking system' },
+      { id: 'fail', type: 'toggle', label: 'FAIL', ariaLabel: 'Simulate front circuit failure' },
+      { id: 'air',  type: 'toggle', label: 'AIR',  ariaLabel: 'Air bubble in the lines' }
+    ]
   });
+  ui.controls.on('abs',  (v) => { state.abs = v === 1; });
+  ui.controls.on('fail', (v) => { state.circuitFail = v === 1; });
+  ui.controls.on('air',  (v) => { state.airBubble = v === 1; });
 
   const panelBody = ui.panel.body;
   const badgeEl     = document.getElementById('stroke-badge');
@@ -1467,86 +1351,6 @@ import { Parts } from './components.js';
     mult: panelBody.querySelector('[data-pc="mult"]')
   };
 
-  /* ═════════════════════════════════════════════════════════════════════
-     ★ DEFENSIVE TOOLBAR WIRING
-     Works even if the shell's kit.js hasn't auto-wired yet. If your kit.js
-     has been updated, this block is harmless (idempotent duplicate).
-     ═════════════════════════════════════════════════════════════════════ */
-  (function wireToolbar() {
-    const playBtn  = document.getElementById('btn-play');
-    const resetBtn = document.getElementById('btn-reset');
-    const speedInp = document.getElementById('speed');
-    const chkLab   = document.getElementById('chk-labels');
-    const chkGas   = document.getElementById('chk-gas');
-
-    function syncIcons() {
-      const ip  = document.getElementById('icon-play');
-      const ipa = document.getElementById('icon-pause');
-      if (ip)  ip.style.display  = state.playing ? 'none'  : 'block';
-      if (ipa) ipa.style.display = state.playing ? 'block' : 'none';
-    }
-    syncIcons();
-
-    if (playBtn)  playBtn.addEventListener('click', () => {
-      state.playing = !state.playing;
-      syncIcons();
-    });
-    if (resetBtn) resetBtn.addEventListener('click', resetSim);
-    if (speedInp) speedInp.addEventListener('input', () => {
-      state.speedMul = parseFloat(speedInp.value);
-    });
-    if (chkLab) chkLab.addEventListener('change', () => { state.showLabels = chkLab.checked; });
-    if (chkGas) chkGas.addEventListener('change', () => { state.showGas    = chkGas.checked; });
-
-    /* Watch state.playing in case it changes from the shell — keep icons honest */
-    setInterval(syncIcons, 500);
-
-    window.__brakeSyncIcons = syncIcons;
-  })();
-
-  /* ═══════════════════════════════════════════════════════════════════
-     TOOLBAR EXTRAS — toggles + config switcher
-     ═══════════════════════════════════════════════════════════════════ */
-  (function buildToolbarExtras() {
-    const extras = document.getElementById('toolbar-extras');
-    if (!extras) return;
-
-    const toggleGroup = document.createElement('div');
-    toggleGroup.className = 'cfg-group';
-    toggleGroup.innerHTML = `
-      <button class="br-toggle" id="br-toggle-abs" title="ABS — Anti-lock Braking System">ABS</button>
-      <button class="br-toggle" id="br-toggle-fail" title="Simulate front circuit failure">FAIL</button>
-      <button class="br-toggle" id="br-toggle-air" title="Air bubble in the lines">AIR</button>
-    `;
-    extras.appendChild(toggleGroup);
-
-    const cfgGroup = document.createElement('div');
-    cfgGroup.className = 'cfg-group';
-    cfgGroup.innerHTML = `
-      <button class="cfg-arrow" id="cfg-prev" type="button" aria-label="Previous configuration">‹</button>
-      <span id="cfg-label">${CONFIG_DEFS[0].label}</span>
-      <button class="cfg-arrow" id="cfg-next" type="button" aria-label="Next configuration">›</button>
-    `;
-    extras.appendChild(cfgGroup);
-
-    document.getElementById('br-toggle-abs').addEventListener('click', (e) => {
-      state.abs = !state.abs;
-      e.currentTarget.classList.toggle('active', state.abs);
-    });
-    document.getElementById('br-toggle-fail').addEventListener('click', (e) => {
-      state.circuitFail = !state.circuitFail;
-      e.currentTarget.classList.toggle('active', state.circuitFail);
-    });
-    document.getElementById('br-toggle-air').addEventListener('click', (e) => {
-      state.airBubble = !state.airBubble;
-      e.currentTarget.classList.toggle('active', state.airBubble);
-    });
-  })();
-
-  const cfgLabelEl = document.getElementById('cfg-label');
-  const cfgPrevEl  = document.getElementById('cfg-prev');
-  const cfgNextEl  = document.getElementById('cfg-next');
-
   let bridge = null;
 
   function applyConfig(idx) {
@@ -1554,7 +1358,7 @@ import { Parts } from './components.js';
     configs.forEach((c, i) => { c.group.visible = (i === activeConfigIdx); });
 
     const active = configs[activeConfigIdx];
-    if (cfgLabelEl) cfgLabelEl.textContent = active.label;
+    ui.controls.set('config', activeConfigIdx);          /* keeps the dock choice in step (no-op when it already matches) */
     badgeTextEl.textContent = active.label;
     badgeEl.style.background = `color-mix(in oklch, ${active.badge} 18%, transparent)`;
     badgeEl.style.color = active.badge;
@@ -1592,97 +1396,14 @@ import { Parts } from './components.js';
 
     if (bridge) bridge.setStatus(active.label, active.badge);
   }
-  function stepConfig(dir) { applyConfig(activeConfigIdx + dir); }
-  if (cfgPrevEl) cfgPrevEl.addEventListener('click', () => stepConfig(-1));
-  if (cfgNextEl) cfgNextEl.addEventListener('click', () => stepConfig(1));
+  ui.controls.on('config', (i) => { if (i !== activeConfigIdx) applyConfig(i); });
   applyConfig(0);
-
-  /* ═══════════════════════════════════════════════════════════════════
-     PEDAL WIDGET
-     ═══════════════════════════════════════════════════════════════════ */
-  function wirePedal(root) {
-    const track  = root.querySelector('[data-role="track"]');
-    const fill   = root.querySelector('[data-role="fill"]');
-    const pad    = root.querySelector('[data-role="pad"]');
-    const caption = document.getElementById('ui-widget-br-cap');
-
-    let dragging = false;
-    let pointerId = null;
-    let returnRAF = 0;
-
-    function setPos(v) {
-      pedalPos = Math.max(0, Math.min(1, v));
-      const pct = Math.round(pedalPos * 100);
-      fill.style.height = pct + '%';
-      pad.style.bottom  = pct + '%';
-      track.setAttribute('aria-valuenow', String(pct));
-      if (caption) {
-        const span = caption.querySelector('[data-pedal-cap]');
-        if (span) span.textContent = pct + '%';
-      }
-    }
-    function percentFromEvent(e) {
-      const r = track.getBoundingClientRect();
-      return Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height));
-    }
-    function cancelReturn() {
-      if (returnRAF) { cancelAnimationFrame(returnRAF); returnRAF = 0; }
-    }
-    function springRelease() {
-      cancelReturn();
-      const step = () => {
-        const next = pedalPos * 0.88;
-        setPos(next < 0.005 ? 0 : next);
-        returnRAF = pedalPos > 0 ? requestAnimationFrame(step) : 0;
-      };
-      returnRAF = requestAnimationFrame(step);
-    }
-
-    track.addEventListener('pointerdown', e => {
-      e.preventDefault();
-      cancelReturn();
-      dragging = true;
-      pointerId = e.pointerId;
-      try { track.setPointerCapture(e.pointerId); } catch (_) {}
-      track.classList.add('active');
-      setPos(percentFromEvent(e));
-    });
-    track.addEventListener('pointermove', e => {
-      if (!dragging || e.pointerId !== pointerId) return;
-      e.preventDefault();
-      setPos(percentFromEvent(e));
-    });
-    function endDrag() {
-      if (!dragging) return;
-      dragging = false;
-      pointerId = null;
-      track.classList.remove('active');
-      springRelease();
-    }
-    track.addEventListener('pointerup', endDrag);
-    track.addEventListener('pointercancel', endDrag);
-    track.addEventListener('lostpointercapture', endDrag);
-
-    root.__setPos = setPos;
-    root.__cancelReturn = cancelReturn;
-  }
-
-  window.addEventListener('keydown', e => {
-    if (e.code === 'Space' && !e.repeat && !e.target.closest('button, input, [role="slider"]')) {
-      e.preventDefault();
-      spaceHeld = true;
-      const w = document.getElementById('ui-widget-br');
-      if (w && w.__cancelReturn) w.__cancelReturn();
-    }
-  });
-  window.addEventListener('keyup', e => {
-    if (e.code === 'Space') spaceHeld = false;
-  });
 
   /* ═══════════════════════════════════════════════════════════════════
      FORCE MODEL
      ═══════════════════════════════════════════════════════════════════ */
   function computeForces() {
+    const pedalPos = ui.controls.get('brake');
     const airPenalty = state.airBubble ? 0.65 : 1.0;
     const padClearance = 0.12;
     const raw = pedalPos <= padClearance ? 0 : (pedalPos - padClearance) / (1 - padClearance);
@@ -1747,9 +1468,10 @@ import { Parts } from './components.js';
     const t = Math.max(rotorTemp, drumTemp);
     const tRounded = Math.round(t);
 
-    ui.chip.setBig(tRounded, '°C');
-    ui.chip.set('front', Math.round(rotorTemp) + ' °C');
-    ui.chip.set('rear',  Math.round(drumTemp)  + ' °C');
+    ui.monitor.update({
+      value: { text: String(tRounded), unit: '°C' },
+      rows: { front: Math.round(rotorTemp) + ' °C', rear: Math.round(drumTemp)  + ' °C' }
+    });
 
     let c, status;
     if (t < 80)       { c = '#38bdf8'; status = 'Cold'; }
@@ -1758,18 +1480,14 @@ import { Parts } from './components.js';
     else if (t < 600) { c = '#f97316'; status = 'Very hot'; }
     else              { c = '#ef4444'; status = '⚠ Overheating'; }
 
-    ui.chip.setColor(c);
-    ui.chip.setBar(Math.min(100, (t / 700) * 100), c);
-    ui.chip.setStatus(status, t < 400);
+    ui.monitor.update({ value: { color: c || '', bar: Math.min(100, (t / 700) * 100), barColor: c }, status: [status, t < 400] });
   }
 
   /* ═══════════════════════════════════════════════════════════════════
      RESET + BRIDGE
      ═══════════════════════════════════════════════════════════════════ */
   function resetSim() {
-    const w = document.getElementById('ui-widget-br');
-    if (w && w.__cancelReturn) w.__cancelReturn();
-    if (w && w.__setPos) w.__setPos(0);
+    ui.controls.resetAll();                       /* releases the brake pedal */
     rotorTemp = 32;
     drumTemp  = 32;
     applyConfig(0);
@@ -1782,7 +1500,6 @@ import { Parts } from './components.js';
       switch (d.action) {
         case 'setPlaying':
           state.playing = !!d.value;
-          if (window.__brakeSyncIcons) window.__brakeSyncIcons();
           break;
         case 'setSpeed':
           state.speedMul = +d.value;
@@ -1815,11 +1532,7 @@ import { Parts } from './components.js';
     const dt = Math.min(clock.getDelta(), 0.05);
     const sim = state.playing ? dt * state.speedMul : 0;
 
-    if (spaceHeld) {
-      const w = document.getElementById('ui-widget-br');
-      if (w && w.__setPos) w.__setPos(Math.min(1, pedalPos + 0.15));
-    }
-
+    const pedalPos = ui.controls.get('brake');
     const forces = computeForces();
 
     const active = configs[activeConfigIdx];

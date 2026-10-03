@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0a0d13">
 <title>Carburetor — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
 <style>
   /* ═══════════════════════════════════════════════════════════════════
      Carburetor module — widget interiors + small panel extras.
@@ -38,105 +39,9 @@
   }
   .carb-note strong { color: var(--text); }
 
-  .cfg-group {
-    display: flex; align-items: center; gap: 4px;
-    padding-left: 8px; margin-left: 4px;
-    border-left: 1px solid var(--border);
-  }
-  .cfg-arrow {
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    border: none;
-    background: var(--surface-3);
-    color: var(--text);
-    font-size: 14px; line-height: 1;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-family: inherit; padding: 0;
-    transition: background var(--dur-fast) var(--ease-out),
-                color var(--dur-fast) var(--ease-out);
-  }
-  .cfg-arrow:hover, .cfg-arrow:active {
-    background: var(--accent);
-    color: #0b0e14;
-  }
-  #cfg-label {
-    min-width: 92px; text-align: center; white-space: nowrap;
-    font-size: 10.5px; font-weight: 700;
-    letter-spacing: .02em;
-    color: var(--text);
-    font-family: var(--font-mono);
-  }
 
-  .carb-pedal {
-    display: flex; flex-direction: column;
-    align-items: center;
-    gap: 6px;
-  }
-  .carb-pedal-track {
-    position: relative;
-    width: 54px; height: 158px;
-    pointer-events: auto; cursor: pointer;
-    touch-action: none; user-select: none;
-    -webkit-user-select: none;
-    border-radius: var(--r-md);
-    overflow: hidden;
-    background: var(--surface-3);
-    border: 1px solid var(--border);
-    box-shadow: inset 0 0 0 1px oklch(1 0 0 / .03),
-                0 10px 24px oklch(0 0 0 / .35);
-    transition: border-color var(--dur-fast) var(--ease-out);
-  }
-  .carb-pedal-track.active {
-    border-color: color-mix(in oklch, var(--accent) 55%, transparent);
-  }
-  .carb-pedal-fill {
-    position: absolute; left: 0; right: 0; bottom: 0;
-    height: 0%;
-    background: linear-gradient(180deg, #f97316, #f59e0b);
-    transition: height var(--dur-fast) linear,
-                background var(--dur-base) var(--ease-out);
-  }
-  .carb-pedal-ticks span {
-    position: absolute; left: 7px; right: 7px;
-    height: 1px;
-    background: color-mix(in oklch, var(--text) 15%, transparent);
-  }
-  .carb-pedal-ticks span:nth-child(1) { bottom: 25%; }
-  .carb-pedal-ticks span:nth-child(2) { bottom: 50%; }
-  .carb-pedal-ticks span:nth-child(3) { bottom: 75%; }
-  .carb-pedal-pad {
-    position: absolute;
-    left: -4px; right: -4px;
-    bottom: 0%; height: 34px;
-    transform: translateY(50%);
-    filter: drop-shadow(0 6px 10px oklch(0 0 0 / .6));
-    transition: bottom var(--dur-fast) linear,
-                filter var(--dur-fast) var(--ease-out);
-  }
-  .carb-pedal-track.active .carb-pedal-pad {
-    filter: drop-shadow(0 0 10px color-mix(in oklch, var(--accent) 55%, transparent))
-            drop-shadow(0 6px 10px oklch(0 0 0 / .6));
-  }
-  .carb-pedal-pad svg { width: 100%; height: 100%; display: block; }
-  .carb-pedal-pad .plate {
-    fill: var(--surface-3);
-    stroke: color-mix(in oklch, var(--text) 40%, transparent);
-    stroke-width: 1.4;
-  }
-  .carb-pedal-pad .grip {
-    fill: color-mix(in oklch, var(--text) 28%, transparent);
-  }
-  .carb-pedal-track.active .carb-pedal-pad .plate {
-    stroke: var(--accent);
-  }
 
-  @media (max-width: 600px) {
-    .carb-pedal-track { width: 44px; height: 128px; }
-    .cfg-arrow { width: 19px; height: 19px; font-size: 12px; }
-    #cfg-label { min-width: 72px; font-size: 9px; }
-  }
-
-  #ui-chip #chip-row-phase { font-size: 10px; }
+  #ui-monitor [data-row="phase"] .mon-row-v { font-size: 10px; }
 </style>
 </head>
 <body>
@@ -1000,7 +905,6 @@
   /* ═══════════════════════════════════════════════════════════════════
      STATE
      ═══════════════════════════════════════════════════════════════════ */
-  let accelPos = 0;
   let lastPhaseIdx = -1;
 
   const RPM_AT_DEFAULT_SPEED = 900;
@@ -1026,14 +930,9 @@
       hint: ''
     },
 
-    chip: {
-      label: 'Live mixture',
-      value: '12.4',
-      unit: ' : 1',
-      rows: [
-        { id: 'thr',   label: 'Throttle', value: '0%' },
-        { id: 'phase', label: 'Phase',    value: 'Idle' }
-      ]
+    monitor: {
+      config: { label: 'Live mixture', value: { label: 'Live mixture', unit: ' : 1', max: 100, bar: false }, rows: [['thr', 'Throttle'], ['phase', 'Phase'], ['rpm', 'Engine speed']], status: null },
+      initial: { value: { text: '12.4', unit: ' : 1' }, rows: { thr: '0%', phase: 'Idle', rpm: '—' } }
     },
 
     toolbar: {
@@ -1042,31 +941,10 @@
       labels: true, gas: true
     },
 
-    widgets: {
-      br: {
-        caption: 'Press &amp; hold · <span data-throttle-cap>0%</span>',
-        html: `
-          <div class="carb-pedal">
-            <div class="carb-pedal-track" data-role="track"
-                 role="slider" tabindex="0"
-                 aria-label="Accelerator pedal"
-                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-              <div class="carb-pedal-fill" data-role="fill"></div>
-              <div class="carb-pedal-ticks"><span></span><span></span><span></span></div>
-              <div class="carb-pedal-pad" data-role="pad">
-                <svg viewBox="0 0 60 34" aria-hidden="true">
-                  <rect class="plate" x="4" y="4" width="52" height="26" rx="8"/>
-                  <rect class="grip" x="10" y="9" width="40" height="4" rx="2"/>
-                  <rect class="grip" x="10" y="16" width="40" height="4" rx="2"/>
-                  <rect class="grip" x="10" y="23" width="40" height="4" rx="2"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-        `,
-        onMount: (el) => wirePedal(el)
-      }
-    }
+    /* Phase 4: the accelerator is a controls.js pedal (id 'throttle'). k = -ln(0.86)·60. */
+    axes: [
+      { id: 'throttle', look: 'pedal', label: 'Throttle', preset: 'percent', spring: 'return', k: 9.05, keys: 'arrows', ticks: 3, side: 'right' }
+    ]
   });
 
   /* ── Mixture ratio chip ── */
@@ -1082,60 +960,11 @@
   noteEl.innerHTML = mixturePhases[0].desc;
   panelBody.appendChild(noteEl);
 
-  /* ═════════════════════════════════════════════════════════════════════
-     ★ TOOLBAR WIRING — connects kit-generated controls to `state`
-     ═════════════════════════════════════════════════════════════════════ */
-  (function wireToolbar() {
-    const playBtn  = document.getElementById('btn-play');
-    const resetBtn = document.getElementById('btn-reset');
-    const speedInp = document.getElementById('speed');
-    const chkLab   = document.getElementById('chk-labels');
-    const chkGas   = document.getElementById('chk-gas');
-
-    function syncPlayIcons() {
-      const ip  = document.getElementById('icon-play');
-      const ipa = document.getElementById('icon-pause');
-      if (ip)  ip.style.display  = state.playing ? 'none'  : 'block';
-      if (ipa) ipa.style.display = state.playing ? 'block' : 'none';
-    }
-    syncPlayIcons();
-
-    if (playBtn) playBtn.addEventListener('click', () => {
-      state.playing = !state.playing;
-      syncPlayIcons();
-    });
-    if (resetBtn) resetBtn.addEventListener('click', resetSim);
-    if (speedInp) speedInp.addEventListener('input', () => {
-      state.speedMul = parseFloat(speedInp.value);
-    });
-    if (chkLab) chkLab.addEventListener('change', () => { state.showLabels = chkLab.checked; });
-    if (chkGas) chkGas.addEventListener('change', () => { state.showGas    = chkGas.checked; });
-
-    /* Expose the sync so the shell's `setPlaying` command keeps icons fresh */
-    window.__carbSyncPlayIcons = syncPlayIcons;
-  })();
-
-  /* ═════════════════════════════════════════════════════════════════════
-     CONFIG SWITCHER
-     ═════════════════════════════════════════════════════════════════════ */
-  (function buildConfigSwitcher() {
-    const extras = document.getElementById('toolbar-extras');
-    if (!extras) return;
-    const cfgGroup = document.createElement('div');
-    cfgGroup.className = 'cfg-group';
-    cfgGroup.setAttribute('role', 'group');
-    cfgGroup.setAttribute('aria-label', 'Fuel delivery configuration');
-    cfgGroup.innerHTML = `
-      <button class="cfg-arrow" id="cfg-prev" type="button" aria-label="Previous configuration">‹</button>
-      <span id="cfg-label">${CONFIG_DEFS[0].label}</span>
-      <button class="cfg-arrow" id="cfg-next" type="button" aria-label="Next configuration">›</button>
-    `;
-    extras.appendChild(cfgGroup);
-  })();
-
-  const cfgLabelEl = document.getElementById('cfg-label');
-  const cfgPrevEl  = document.getElementById('cfg-prev');
-  const cfgNextEl  = document.getElementById('cfg-next');
+  /* Phase 6: the configuration switcher is a dock choice (replaces the ‹ › arrows + label) */
+  ui.addOptions([
+    { id: 'config', type: 'choice', layout: 'select', label: 'Fuel delivery', ariaLabel: 'Fuel delivery configuration',
+      options: CONFIG_DEFS.map(d => ({ id: d.id, label: d.label })) }
+  ]);
 
   let bridge = null;
 
@@ -1144,16 +973,14 @@
     configs.forEach((c, i) => { c.group.visible = (i === activeConfigIdx); });
 
     const active = configs[activeConfigIdx];
-    if (cfgLabelEl) cfgLabelEl.textContent = active.label;
+    ui.controls.set('config', activeConfigIdx);          /* keep the dock choice in step */
     panelBody.querySelector('#stroke-desc').innerHTML = active.desc;
 
     if (active.id !== 'carb') labels.hideAll();
 
     if (bridge) bridge.setStatus(active.label, active.badge);
   }
-  function stepConfig(dir) { applyConfig(activeConfigIdx + dir); }
-  if (cfgPrevEl) cfgPrevEl.addEventListener('click', () => stepConfig(-1));
-  if (cfgNextEl) cfgNextEl.addEventListener('click', () => stepConfig(1));
+  ui.controls.on('config', (i) => { if (i !== activeConfigIdx) applyConfig(i); });
   applyConfig(0);
 
   /* ═══════════════════════════════════════════════════════════════════
@@ -1172,8 +999,7 @@
     afrEls.forEach(el => { el.textContent = ratioStr + ' : 1'; });
     mixRatioEl.textContent = ratioStr + ' : 1';
 
-    ui.chip.setBig(ratioStr, ' : 1');
-    ui.chip.set('thr', pct + '%');
+    ui.monitor.update({ value: { text: String(ratioStr), unit: ' : 1' }, rows: { thr: pct + '%' } });
 
     const idx = phaseIndex(t);
     if (idx !== lastPhaseIdx) {
@@ -1183,101 +1009,15 @@
       badgeEl.style.background = `color-mix(in oklch, ${m.color} 18%, transparent)`;
       badgeEl.style.color = m.color;
       noteEl.innerHTML = m.desc;
-      ui.chip.set('phase', m.name.split(' — ')[0]);
+      ui.monitor.update({ rows: { phase: m.name.split(' — ')[0] } });
     }
-  }
-
-  /* ═══════════════════════════════════════════════════════════════════
-     PEDAL WIDGET
-     ═══════════════════════════════════════════════════════════════════ */
-  function wirePedal(root) {
-    const track  = root.querySelector('[data-role="track"]');
-    const fill   = root.querySelector('[data-role="fill"]');
-    const pad    = root.querySelector('[data-role="pad"]');
-    const caption = document.getElementById('ui-widget-br-cap');
-
-    let dragging = false;
-    let pointerId = null;
-    let returnRAF = null;
-    let keyHeld = false;
-
-    function setPos(v) {
-      accelPos = Math.max(0, Math.min(1, v));
-      const pct = Math.round(accelPos * 100);
-      fill.style.height = pct + '%';
-      pad.style.bottom  = pct + '%';
-      track.setAttribute('aria-valuenow', String(pct));
-      if (caption) {
-        const span = caption.querySelector('[data-throttle-cap]');
-        if (span) span.textContent = pct + '%';
-      }
-    }
-    function percentFromEvent(e) {
-      const r = track.getBoundingClientRect();
-      return Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height));
-    }
-    function cancelReturn() {
-      if (returnRAF) { cancelAnimationFrame(returnRAF); returnRAF = null; }
-    }
-    function springRelease() {
-      cancelReturn();
-      const step = () => {
-        const next = accelPos * 0.86;
-        setPos(next < 0.004 ? 0 : next);
-        returnRAF = accelPos > 0 ? requestAnimationFrame(step) : null;
-      };
-      returnRAF = requestAnimationFrame(step);
-    }
-
-    track.addEventListener('pointerdown', e => {
-      e.preventDefault();
-      cancelReturn();
-      dragging = true;
-      pointerId = e.pointerId;
-      try { track.setPointerCapture(e.pointerId); } catch (_) {}
-      track.classList.add('active');
-      if (caption) caption.classList.add('active');
-      setPos(percentFromEvent(e));
-    });
-    track.addEventListener('pointermove', e => {
-      if (!dragging || e.pointerId !== pointerId) return;
-      e.preventDefault();
-      setPos(percentFromEvent(e));
-    });
-    function endDrag() {
-      if (!dragging) return;
-      dragging = false;
-      pointerId = null;
-      track.classList.remove('active');
-      if (caption) caption.classList.remove('active');
-      springRelease();
-    }
-    track.addEventListener('pointerup', endDrag);
-    track.addEventListener('pointercancel', endDrag);
-    track.addEventListener('lostpointercapture', endDrag);
-    track.addEventListener('keydown', e => {
-      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-      e.preventDefault();
-      cancelReturn();
-      keyHeld = true;
-      setPos(accelPos + (e.key === 'ArrowUp' ? 0.05 : -0.05));
-    });
-    track.addEventListener('keyup', e => {
-      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-      if (keyHeld) { keyHeld = false; springRelease(); }
-    });
-
-    root.__setPos = setPos;
-    root.__cancelReturn = cancelReturn;
   }
 
   /* ═══════════════════════════════════════════════════════════════════
      RESET + BRIDGE
      ═══════════════════════════════════════════════════════════════════ */
   function resetSim() {
-    const brWidget = document.getElementById('ui-widget-br');
-    if (brWidget && brWidget.__cancelReturn) brWidget.__cancelReturn();
-    if (brWidget && brWidget.__setPos) brWidget.__setPos(0);
+    ui.controls.resetAll();                       /* releases the throttle pedal */
     applyConfig(0);
   }
 
@@ -1288,7 +1028,6 @@
       switch (d.action) {
         case 'setPlaying':
           state.playing = !!d.value;
-          if (window.__carbSyncPlayIcons) window.__carbSyncPlayIcons();
           break;
         case 'setSpeed':
           state.speedMul = +d.value;
@@ -1303,12 +1042,9 @@
           state.showGas = !!d.value;
           { const c = document.getElementById('chk-gas'); if (c) c.checked = state.showGas; }
           break;
-        case 'setAccelerator': {
-          const brWidget = document.getElementById('ui-widget-br');
-          if (brWidget && brWidget.__cancelReturn) brWidget.__cancelReturn();
-          if (brWidget && brWidget.__setPos) brWidget.__setPos(+d.value);
+        case 'setAccelerator':
+          ui.controls.set('throttle', +d.value);          /* 0..1, stays where it is (no spring) */
           break;
-        }
         case 'reset': resetSim(); break;
       }
     }
@@ -1327,12 +1063,11 @@
     frame++;
     const dt = Math.min(clock.getDelta(), 0.05);
 
+    const accelPos = ui.controls.get('throttle');
     const ratio = afrRatio(accelPos);
     setMixtureUI(accelPos, ratio);
 
-    ui.toolbar.setRpmLabel(
-      '~' + Math.round(RPM_AT_DEFAULT_SPEED * (state.speedMul / DEFAULT_SPEED_MUL)) + ' rpm'
-    );
+    ui.monitor.update({ rows: { rpm: '~' + Math.round(RPM_AT_DEFAULT_SPEED * (state.speedMul / DEFAULT_SPEED_MUL)) + ' rpm' } });
 
     const active = configs[activeConfigIdx];
     if (state.playing) {

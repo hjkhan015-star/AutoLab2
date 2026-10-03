@@ -6,79 +6,7 @@
 <meta name="theme-color" content="#0a0d13">
 <title>Clutch — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
-<style>
-  /* ═══════════════════════════════════════════════════════════
-     WIDGET-INTERIOR STYLES ONLY (clutch pedal SVG)
-     ═══════════════════════════════════════════════════════════ */
-  .clutch-pedal-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    pointer-events: none;
-  }
-
-  #clutch-pedal {
-    width: clamp(94px, 24vw, 168px);
-    height: clamp(120px, 29vw, 196px);
-    pointer-events: auto;
-    cursor: grab;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-    filter: drop-shadow(0 10px 20px rgba(0,0,0,.62));
-  }
-
-  #clutch-pedal.grabbing { cursor: grabbing; }
-
-  #clutch-pedal.grabbing #clutch-pedal-rotor {
-    filter:
-      drop-shadow(0 0 14px rgba(56,189,248,.42))
-      drop-shadow(0 10px 18px rgba(0,0,0,.65));
-  }
-
-  #clutch-pedal-rotor {
-    transform-origin: 50% 86%;
-    transform-box: fill-box;
-    transition: transform var(--dur-fast, .045s) linear;
-    will-change: transform;
-  }
-
-  html.light-theme .cp-bg { fill: rgba(255,255,255,.96); stroke: rgba(15,23,42,.14); }
-  html.light-theme #clutch-pedal-state { background: rgba(255,255,255,.94); color: #475569; border-color: rgba(15,23,42,.14); }
-  .cp-bg    { fill: rgba(10,14,20,.74); stroke: rgba(255,255,255,.10); stroke-width: 1.5; }
-  .cp-arm   { fill: #303947; stroke: #8f9bad; stroke-width: 1.5; }
-  .cp-joint { fill: #171c24; stroke: #9ca9bb; stroke-width: 1.5; }
-  .cp-pad   { fill: #222934; stroke: #b7c1cf; stroke-width: 2; }
-  .cp-pad-hi{ fill: none; stroke: #687487; stroke-width: 1.6; opacity: .8; }
-  .cp-groove{ stroke: #11151b; stroke-width: 2.2; stroke-linecap: round; opacity: .9; }
-  .cp-accent{ fill: var(--accent, #38bdf8); opacity: .95; }
-
-  #clutch-pedal-state {
-    margin-top: 7px;
-    color: var(--text-dim, #aab4c3);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .55px;
-    text-transform: uppercase;
-    background: rgba(10,14,20,.76);
-    padding: 5px 11px;
-    border-radius: 20px;
-    backdrop-filter: blur(9px);
-    -webkit-backdrop-filter: blur(9px);
-    border: 1px solid var(--border, rgba(255,255,255,.08));
-    pointer-events: none;
-    transition: color var(--dur-fast, .15s) var(--ease-out, ease), border-color var(--dur-fast, .15s) var(--ease-out, ease);
-    white-space: nowrap;
-  }
-  #clutch-pedal-state.active {
-    color: var(--accent, #38bdf8);
-    border-color: rgba(56,189,248,.38);
-  }
-
-  @media (max-width: 600px) {
-    #clutch-pedal-state { font-size: 10px; padding: 4px 8px; }
-  }
-</style>
+<link rel="stylesheet" href="controls.css">
 </head>
 <body>
   <div id="canvas-wrap"></div>
@@ -843,9 +771,7 @@ import { Parts } from './components.js';
   const T_LOAD        = 0.25;
   const IDLE_FLOOR    = 0.42;
 
-  let clPedalTarget = 0;
-  let clPedalInput  = 0;
-  let clPedalHeld   = false;
+  let clPedalInput  = 0;          /* eased pedal position used by the simulation (the control only reports pressed / not) */
 
   let clOmegaIn  = OMEGA_BASE;
   let clOmegaOut = 0;
@@ -857,12 +783,6 @@ import { Parts } from './components.js';
   let clPhaseOutput   = 0;
   let clFlowPhase     = 0;
 
-  /* DOM refs populated by widget onMount */
-  let clutchPedalEl   = null;
-  let clutchRotorEl   = null;
-  let clutchStateEl   = null;
-  let clutchAccentEl  = null;
-
   /* Real clutches have "free play" then a bite point: the plate only
      starts clamping over roughly the last 60% of pedal release, and
      clamp force ramps in smoothly (spring-load curve) rather than
@@ -873,44 +793,8 @@ import { Parts } from './components.js';
     return bite * bite * (3 - 2 * bite); // smoothstep
   }
 
-  function setPedalVisual(active) {
-    if (clutchPedalEl) clutchPedalEl.classList.toggle('grabbing', active);
-    if (clutchStateEl) clutchStateEl.classList.toggle('active', active);
-    if (clutchStateEl) {
-      clutchStateEl.textContent = active ? 'Disengaging clutch' : 'Hold to disengage';
-    }
-    if (clutchPedalEl) clutchPedalEl.setAttribute('aria-pressed', active ? 'true' : 'false');
-    if (clutchAccentEl) clutchAccentEl.setAttribute('opacity', active ? '1' : '.95');
-  }
-
-  function pedalDown(e) {
-    if (e && e.cancelable) e.preventDefault();
-    const source = e?.currentTarget;
-    if (source?.setPointerCapture && e?.pointerId != null) {
-      try { source.setPointerCapture(e.pointerId); } catch (_) {}
-    }
-    clPedalHeld = true;
-    clPedalTarget = 1;
-    setPedalVisual(true);
-  }
-
-  function pedalUp() {
-    if (!clPedalHeld) return;
-    clPedalHeld = false;
-    clPedalTarget = 0;
-    setPedalVisual(false);
-  }
-
-  window.addEventListener('keydown', e => {
-    if (e.code === 'Space' && !e.repeat) pedalDown(e);
-  });
-  window.addEventListener('keyup', e => {
-    if (e.code === 'Space') pedalUp();
-  });
-  window.addEventListener('blur', pedalUp);
-
   /* ═══════════════════════════════════════════════════════════
-     16. UI — kit-driven chrome + custom clutch-pedal widget
+     16. UI — kit-driven chrome + clutch momentary control
      ═══════════════════════════════════════════════════════════ */
   const ui = UI.create({
     moduleId: 'clutch',
@@ -925,16 +809,9 @@ import { Parts } from './components.js';
              so the disc slips freely.`
     },
 
-    chip: {
-      label: 'Clutch slip',
-      value: 0,
-      unit:  'rpm',
-      bar:   true,
-      rows: [
-        { id: 'fw',  label: 'Flywheel',     value: '— rpm' },
-        { id: 'out', label: 'Output shaft', value: '— rpm' }
-      ],
-      status: { text: 'Engaged' }
+    monitor: {
+      config: { label: 'Clutch slip', value: { label: 'Clutch slip', unit: 'rpm', max: 100, bar: true }, rows: [['fw', 'Flywheel'], ['out', 'Output shaft'], ['rpm', 'Engine speed']], status: { text: 'Engaged' } },
+      initial: { value: { text: '0', unit: 'rpm' }, rows: { fw: '— rpm', out: '— rpm', rpm: '—' }, status: ['Engaged', false] }
     },
 
     toolbar: {
@@ -943,75 +820,28 @@ import { Parts } from './components.js';
       labels: true, gas: true
     },
 
-    widgets: {
-      br: {
-        caption: 'Hold to disengage',
-        html: `
-          <div class="clutch-pedal-wrap">
-            <div id="clutch-pedal"
-                 role="button"
-                 tabindex="0"
-                 aria-label="Clutch pedal — hold to disengage"
-                 aria-pressed="false">
-              <svg viewBox="0 0 140 190" aria-hidden="true">
-                <rect class="cp-bg" x="6" y="5" width="128" height="178" rx="24"/>
-                <g id="clutch-pedal-rotor">
-                  <circle class="cp-joint" cx="70" cy="152" r="12"/>
-                  <rect class="cp-arm" x="64" y="55" width="12" height="98" rx="6"/>
-                  <rect x="67" y="59" width="3" height="89" rx="1.5" fill="#d5dce6" opacity=".38"/>
-                  <rect class="cp-pad" x="43" y="24" width="54" height="49" rx="11"/>
-                  <rect class="cp-pad-hi" x="47" y="28" width="46" height="41" rx="8"/>
-                  <line class="cp-groove" x1="53" y1="38" x2="87" y2="38"/>
-                  <line class="cp-groove" x1="53" y1="46" x2="87" y2="46"/>
-                  <line class="cp-groove" x1="53" y1="54" x2="87" y2="54"/>
-                  <line class="cp-groove" x1="53" y1="62" x2="87" y2="62"/>
-                  <rect id="clutch-pedal-accent" class="cp-accent" x="65" y="12" width="10" height="6" rx="3"/>
-                </g>
-              </svg>
-            </div>
-            <div id="clutch-pedal-state">Hold to disengage</div>
-          </div>
-        `,
-        onMount: (el) => {
-          clutchPedalEl  = el.querySelector('#clutch-pedal');
-          clutchRotorEl  = el.querySelector('#clutch-pedal-rotor');
-          clutchStateEl  = el.querySelector('#clutch-pedal-state');
-          clutchAccentEl = el.querySelector('#clutch-pedal-accent');
-
-          if (clutchPedalEl) {
-            clutchPedalEl.addEventListener('pointerdown', pedalDown);
-            clutchPedalEl.addEventListener('pointerup', pedalUp);
-            clutchPedalEl.addEventListener('pointercancel', pedalUp);
-            clutchPedalEl.addEventListener('lostpointercapture', pedalUp);
-
-            clutchPedalEl.addEventListener('keydown', e => {
-              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pedalDown(e); }
-            });
-            clutchPedalEl.addEventListener('keyup', e => {
-              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pedalUp(); }
-            });
-          }
-        }
-      }
-    }
+    /* Phase 4: the clutch pedal is a controls.js momentary (id 'clutch', 0 / 1). Shift, Enter or Space on the focused
+       pedal, or a pointer hold, press it. The eased engage / disengage stays in stepPedal(). */
+    axes: [
+      { id: 'clutch', type: 'momentary', label: 'Clutch', ariaLabel: 'Clutch pedal — hold to disengage', keys: 'arrows', side: 'right', color: 'var(--crit)' }
+    ]
   });
 
   function resetClutch() {
-    clPedalTarget = 0;
+    ui.controls.resetAll();                       /* releases the clutch pedal */
     clPedalInput  = 0;
-    clPedalHeld   = false;
     clOmegaIn     = OMEGA_BASE * state.speedMul;
     clOmegaOut    = 0;
     clPhaseFlywheel = clPhaseDisc = clPhaseOutput = clFlowPhase = 0;
     clFlywheelGrp.rotation.x = 0;
     clDiscGrp.rotation.x     = 0;
     clInputGrp.rotation.x    = 0;
-    setPedalVisual(false);
   }
 
   function stepPedal(dt) {
-    const tau = clPedalTarget > clPedalInput ? PEDAL_TAU_IN : PEDAL_TAU_OUT;
-    clPedalInput += (clPedalTarget - clPedalInput) * Math.min(1, dt * tau);
+    const pressed = ui.controls.get('clutch');           /* 0 / 1 */
+    const tau = pressed > clPedalInput ? PEDAL_TAU_IN : PEDAL_TAU_OUT;
+    clPedalInput += (pressed - clPedalInput) * Math.min(1, dt * tau);
     if (clPedalInput < 0.0005) clPedalInput = 0;
     if (clPedalInput > 0.9995) clPedalInput = 1;
 
@@ -1031,10 +861,6 @@ import { Parts } from './components.js';
     const haloOp = 0.55 + p * 0.45;
     clMats.discEdge.opacity = haloOp;
 
-    if (clutchRotorEl) {
-      const angle = THREE.MathUtils.lerp(0, 13, p);
-      clutchRotorEl.style.transform = `rotate(${angle.toFixed(2)}deg)`;
-    }
   }
 
   function stepPhysics(dt) {
@@ -1133,22 +959,18 @@ import { Parts } from './components.js';
     const rpmOut = Math.round(clOmegaOut * RPM_PER_UNIT);
     const slip   = Math.abs(rpmIn - rpmOut);
 
-    ui.chip.set('fw',  rpmIn  + ' rpm');
-    ui.chip.set('out', rpmOut + ' rpm');
-    ui.chip.setBig(slip, 'rpm');
-
     const engagement = engagementFromPedal(clPedalInput);
-    ui.chip.setBar(Math.round(engagement * 100),
-      engagement > 0.95 ? '#22c55e' : engagement > 0.05 ? '#f59e0b' : '#ef4444');
-
-    ui.toolbar.setRpmLabel(`~${Math.round(OMEGA_BASE * state.speedMul * RPM_PER_UNIT)} rpm`);
-
     let s;
     if (engagement < 0.02) s = 'Disengaged';
     else if (engagement < 0.98) s = 'Releasing';
     else if (clLastSlipping) s = 'Slipping';
     else s = 'Engaged';
-    ui.chip.setStatus(s, s === 'Engaged');
+
+    ui.monitor.update({
+      value: { text: String(slip), unit: 'rpm', bar: Math.round(engagement * 100), barColor: engagement > 0.95 ? '#22c55e' : engagement > 0.05 ? '#f59e0b' : '#ef4444' },
+      rows: { fw: rpmIn + ' rpm', out: rpmOut + ' rpm', rpm: `~${Math.round(OMEGA_BASE * state.speedMul * RPM_PER_UNIT)} rpm` },
+      status: [s, s === 'Engaged']
+    });
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -1160,7 +982,7 @@ import { Parts } from './components.js';
     onCommand: (d) => {
       switch (d.action) {
         case 'reset': resetClutch(); break;
-        case 'setPedal': if (+d.value) pedalDown(); else pedalUp(); break;
+        case 'setPedal': ui.controls.set('clutch', +d.value ? 1 : 0); break;
       }
     }
   });

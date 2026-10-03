@@ -39,18 +39,6 @@
 .al-opt.no{border-color:var(--crit);color:var(--crit);}
 .al-exp{display:none;font-size:11px;line-height:1.45;color:var(--text-mute);margin-top:4px;}
 .al-q.done .al-exp{display:block;}
-.al-w{display:flex;flex-direction:column;gap:6px;min-width:170px;}
-.al-w label{display:flex;justify-content:space-between;gap:8px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-mute);}
-.al-w b{color:var(--text);font-family:var(--font-mono);}
-.al-range{width:100%;height:28px;background:transparent;accent-color:var(--al-accent);cursor:pointer;}
-.al-range:focus-visible{outline:2px solid var(--al-accent);outline-offset:2px;}
 .al-legend{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text-dim);}
 .al-legend span{display:flex;align-items:center;gap:7px;}
 .al-legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
-/* select control (obd2, abs-esc) */
-.al-sel{
-  width:100%;min-height:38px;padding:0 8px;font:inherit;font-size:12px;
-  background:var(--surface-2);color:var(--text);
-  border:1px solid var(--border);border-radius:var(--r-xs,6px);
-}
-.al-sel:focus-visible{outline:2px solid var(--al-accent);outline-offset:2px;}
