@@ -119,7 +119,12 @@ await t('lighting: the dip switch is a 3-stop choice (id dip, default Low), no s
   assert.ok(!/val:\s*45/.test(s), 'old slider value left behind');
   assert.match(s, /const m\s*=\s*dipMode/, 'sim must read dipMode, not c.k');
   assert.ok(!/c\.k\b/.test(s), 'sim still reads the slider value');
-  const labels = [...s.matchAll(/\{\s*id:\s*'(off|low|high)'\s*,\s*label:/g)].map((m) => m[1]);
+  /* only the dip control's own options (other choices, e.g. the indicators, may also have an 'off' option) */
+  const start = s.search(/id:\s*'dip'\s*,\s*type:\s*'choice'/);
+  const rest = s.slice(start + 10);
+  const nextCtl = rest.search(/\bid:\s*'[\w-]+'\s*,\s*type:\s*'(?:choice|toggle|action)'/);
+  const dipSpec = s.slice(start, nextCtl < 0 ? undefined : start + 10 + nextCtl);
+  const labels = [...dipSpec.matchAll(/\{\s*id:\s*'(off|low|high)'\s*,\s*label:/g)].map((m) => m[1]);
   assert.deepEqual(labels, ['off', 'low', 'high']);
 });
 await t('components.js: CFG.ctl === null builds a guided module without a main slider', () => {

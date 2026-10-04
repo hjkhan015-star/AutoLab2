@@ -201,7 +201,7 @@ await t('7b1: no page calls ui.chip.* or declares a `chip:` config; no page reac
 await t('7b1: all 23 converted pages declare a monitor: block (config + initial), and call ui.monitor.update', () => {
   for (const m of CHIP23) {
     const s = rd(m + '.html');
-    assert.match(s, /\bmonitor:\s*\{\s*config:\s*(\{ label:|MON_BASE\b)/, `${m}: monitor config`);   /* 7b2: electrical switches between two named configs */
+    assert.match(s, /\bmonitor:\s*\{\s*config:\s*(\{ label:|monConfig\()/, `${m}: monitor config`);   /* 7b2/7b3: electrical, starting-system and exhaustsystem build one config per mode */
     assert.match(s, /initial:\s*\{/, `${m}: monitor initial`);
     assert.match(s, /ui\.monitor\.update\(/, `${m}: ui.monitor.update`);
   }
@@ -240,6 +240,14 @@ const objAfter = (src, re) => {                                                 
   throw new Error('unbalanced');
 };
 const cfgLiteral = (page) => objAfter(rd(page + '.html'), /\bmonitor:\s*\{\s*config:\s*(?=\{)/);
+/* 7b3: pages whose Monitor rows follow the mode build the config with monConfig(mode); evaluate that source (no DOM, no three.js) */
+const modeConfig = (page, mode) => {
+  const src = rd(page + '.html');
+  const from = ['const WF_LEN', 'const MON_ROWS', 'const MON_COMMON'].map((k) => src.indexOf(k)).filter((i) => i >= 0).sort((a, b) => a - b)[0];
+  const body = src.slice(from, src.indexOf('const ui = UI.create'));
+  return new Function('TUNING', 'TAU', body + '\nreturn monConfig;')({ redlineRpm: 6200 }, Math.PI * 2)(mode);
+};
+const anyConfig = (page, mode) => /\bmonitor:\s*\{\s*config:\s*monConfig\(/.test(rd(page + '.html')) ? modeConfig(page, mode) : new Function('return (' + cfgLiteral(page) + ')')();
 await t('7b2: no migrated page authors a <canvas> or <svg> chart in a template (stage canvases come from ui.stage.canvas)', () => {
   for (const m of P7B2) { const s = rd(m + '.html'); assert.ok(!/<canvas/.test(s), `${m}: <canvas in a template`); assert.ok(!/id="temp-graph"|graphSvg/.test(s), `${m}: svg graph`); }
 });
@@ -280,31 +288,28 @@ await t('7b2: kit.js ui.stage (canvas / caption / remove) exists; the stage laye
   assert.ok(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(block), 'stage CSS uses tokens only');
 });
 await t('7b2: each migrated page declares the decided channel and every config validates', () => {
-  const stub = { redlineRpm: 6200 };
-  const ev = (lit) => new Function('TUNING', 'WF_LEN', 'TAU', 'MON_BASE', 'return (' + lit + ')')(stub, 240, Math.PI * 2, {});
+  const ev = (page, mode) => anyConfig(page, mode);
   const want = { 'starting-system': ['speed', 2], lubrication: ['temps', 3], mpfi: ['trimhist', 2], cooling: ['temp', 1] };
   for (const m in want) {
-    const cfg = ev(cfgLiteral(m)); const v = M.validateMonitorConfig(cfg);
+    const cfg = ev(m, 'circuit'); const v = M.validateMonitorConfig(cfg);
     assert.ok(v.ok, `${m}: ${v.errors.join('; ')}`);
     const tr = v.config.traces.find((x) => x.id === want[m][0]); assert.ok(tr, `${m}: trace ${want[m][0]}`);
     assert.equal(tr.series.length, want[m][1], `${m}: series count`);
     assert.ok(tr.min != null && tr.max != null, `${m}: fixed axis range`);
   }
-  const lub = M.validateMonitorConfig(ev(cfgLiteral('lubrication'))).config.traces[0]; assert.deepEqual([lub.min, lub.max, lub.length], [20, 500, 240]);
-  const ss = M.validateMonitorConfig(ev(cfgLiteral('starting-system'))).config; assert.equal(ss.traces[0].max, 6200); assert.ok(ss.rows.some((r) => r.id === 'amps'), 'starting-system: current is a row');
-  assert.ok(M.validateMonitorConfig(ev(cfgLiteral('mpfi'))).config.rows.some((r) => r.id === 'trim'));
-  assert.ok(M.validateMonitorConfig(ev(cfgLiteral('cooling'))).config.rows.some((r) => r.id === 'surface'));
-  const mpfi = M.validateMonitorConfig(ev(cfgLiteral('mpfi'))).config.traces[0]; assert.deepEqual([mpfi.min, mpfi.max, mpfi.length], [-20, 20, 80]);
-  const cool = M.validateMonitorConfig(ev(cfgLiteral('cooling'))).config.traces[0]; assert.deepEqual([cool.min, cool.max, cool.length], [55, 125, 180]);
+  const lub = M.validateMonitorConfig(ev('lubrication')).config.traces[0]; assert.deepEqual([lub.min, lub.max, lub.length], [20, 500, 240]);
+  const ss = M.validateMonitorConfig(ev('starting-system', 'starter')).config; assert.equal(ss.traces[0].max, 6200); assert.ok(ss.rows.some((r) => r.id === 'amps'), 'starting-system: current is a row');
+  assert.ok(M.validateMonitorConfig(ev('mpfi')).config.rows.some((r) => r.id === 'trim'));
+  assert.ok(M.validateMonitorConfig(ev('cooling')).config.rows.some((r) => r.id === 'surface'));
+  const mpfi = M.validateMonitorConfig(ev('mpfi')).config.traces[0]; assert.deepEqual([mpfi.min, mpfi.max, mpfi.length], [-20, 20, 80]);
+  const cool = M.validateMonitorConfig(ev('cooling')).config.traces[0]; assert.deepEqual([cool.min, cool.max, cool.length], [55, 125, 180]);
 });
-await t('7b2: electrical — the waveform is the trace "wave" (4 series) in a second config used only in alternator mode', () => {
+await t('7b2: electrical — the waveform is the trace "wave" (4 series) in the alternator-mode config only', () => {
   const s = rd('electrical.html');
-  const body = s.slice(s.indexOf('const WF_LEN'), s.indexOf('const ui = UI.create'));
-  const alt = new Function('TAU', body + '\nreturn { MON_BASE, MON_ALT };')(Math.PI * 2);
-  assert.equal(M.validateMonitorConfig(alt.MON_BASE).config.traces.length, 0);
-  const v = M.validateMonitorConfig(alt.MON_ALT); assert.ok(v.ok, v.errors.join('; '));
-  assert.equal(v.config.traces[0].series.length, 4); assert.equal(v.config.rows.length, 2);
-  assert.match(s, /ui\.monitor\.set\(monAlt \? MON_ALT : MON_BASE\)/); assert.match(s, /config: MON_BASE/);
+  for (const m of ['battery', 'charging']) assert.equal(M.validateMonitorConfig(modeConfig('electrical', m)).config.traces.length, 0, m);
+  const v = M.validateMonitorConfig(modeConfig('electrical', 'alternator')); assert.ok(v.ok, v.errors.join('; '));
+  assert.equal(v.config.traces[0].series.length, 4);
+  assert.match(s, /ui\.monitor\.set\(monConfig\(m\)\)/); assert.match(s, /config: monConfig\('battery'\)/);
 });
 await t('7b2: electrical — the sampled waveform equals the old canvas formula (3 cycles, same scroll, DC drawn as before)', () => {
   const s = rd('electrical.html'); const TAU = Math.PI * 2;
@@ -336,9 +341,101 @@ await t('7b2: cooling — the surface-area meter is a Monitor row whose name fol
 await t('7b2: pages that lost a panel canvas call ui.panel.remeasure() once (ignition, crankshaft-piston, lubrication, mpfi)', () => {
   for (const m of ['ignition', 'crankshaft-piston', 'lubrication', 'mpfi']) assert.equal((rd(m + '.html').match(/ui\.panel\.remeasure\(\)/g) || []).length, 1, m);
 });
-await t('7b2: sw.js is autolab-v8.7.2 and no file was added (CORE_ASSETS unchanged)', () => {
-  assert.match(rd('sw.js'), /VERSION = 'autolab-v8\.7\.2'/);
+await t('7b2: no file was added in 7b2 / 7b3 (CORE_ASSETS unchanged)', () => {
+  assert.match(rd('sw.js'), /CORE_ASSETS/);
 });
+
+/* ───────────── Phase 7b3: one readout surface — duplicates, legends, panel readouts ───────────── */
+const ALL_HTML = readdirSync(new URL('../', import.meta.url)).filter((f) => f.endsWith('.html'));
+const P7B3_ROWS = { braking: ['pedal', 'pres', 'ffront', 'frear', 'tq'], steering: [], suspension: ['shockF', 'shockR', 'chassis'], turbocharger: ['iat'], gearbox: ['ratio'],
+  ignition: ['dwell', 'order'], lubrication: ['oil', 'brg', 'dmain', 'drod', 'dcyl', 'dcam', 'dring'], mpfi: ['pres', 'maf', 'map', 'iat', 'knock', 'o2', 'egr', 'cyl'],
+  differential: ['radius'], 'abs-esc': ['fl', 'fr', 'press', 'yaw', 'esc'], ecu: ['pw', 'kr', 'stft', 'ltft', 'loop', 'mil'], obd2: ['proto', 'mods', 'code', 'frpm', 'fcool'],
+  valvetrain: ['cam', 'adv', 'ev', 'ov', 've', 'eff'], 'crankshaft-piston': ['slow', 'cyc', 's1', 's2', 's3', 's4', 'pos', 'vel', 'acc', 'press', 'side', 'tq', 'tqm', 'pw', 'mps'] };
+await t('7b3: no bespoke panel readout grid is left — no .al-read, no ro-* ids, no kv / lr / ss / ig / mp / el / diff / steer / susp / ex readout rows', () => {
+  const bad = /(?<![\w-])al-read\b|\bid="ro-|readoutHTML|Widgets\.readout|kv-row|lr-row|ss-row|ig-row|mp-row|el-rows|diff-row|steer-row|susp-shock|ex-row|data-ss=|data-ig=|data-mp=|data-el="(?:r[123]|badge)|data-diff=|data-steer|data-susp|carb-readout|mechanism-readout|br-readout|gb-readout/;
+  for (const f of [...ALL_HTML, 'components.js', 'components.css']) assert.ok(!bad.test(rd(f.endsWith('.html') || f.includes('.') ? f : f + '.html')), `${f}: a readout grid / row is still in the page`);
+});
+await t('7b3: the panel readout slot holds text only (no <b>, no value spans, no bars, no canvas)', () => {
+  for (const f of ALL_HTML) {
+    const s = rd(f); const m = /\n\s*readout:\s*`/.exec(s); if (!m) continue;
+    const body = s.slice(m.index, s.indexOf('`', m.index + m[0].length));
+    assert.ok(!/<b[ >]|class="(val|row|v)"|<canvas|<svg|style="[^"]*width:\s*\d+%/.test(body), `${f}: numbers or bars inside the panel readout slot`);
+  }
+});
+await t('7b3: every row the 14 migrated pages write exists in their Monitor config, and every per-mode config validates (ids unique)', () => {
+  for (const [m, ids] of Object.entries(P7B3_ROWS)) {
+    const s = rd(m + '.html');
+    for (const id of ids) assert.ok(new RegExp(`\\[\\s*'${id}'\\s*,\\s*'[^']+'\\s*\\]|\\['${id}'`).test(s), `${m}: row ${id} is not declared`);
+  }
+  const modes = { electrical: ['battery', 'alternator', 'charging'], 'starting-system': ['circuit', 'starter', 'mesh', 'crank'], exhaustsystem: ['principle', 'compare', 'catalyst', 'full'] };
+  for (const [m, list] of Object.entries(modes)) for (const mode of list) { const v = M.validateMonitorConfig(modeConfig(m, mode)); assert.ok(v.ok, `${m}/${mode}: ${v.errors.join('; ')}`); }
+  for (const m of ['braking', 'suspension', 'turbocharger', 'gearbox', 'ignition', 'lubrication', 'mpfi', 'differential', 'cooling']) {
+    const v = M.validateMonitorConfig(anyConfig(m)); assert.ok(v.ok, `${m}: ${v.errors.join('; ')}`);
+  }
+});
+await t('7b3: a value is printed once — no migrated page repeats a row in the big value or two rows with the same name', () => {
+  const cfgs = [];
+  for (const m of ['braking', 'suspension', 'turbocharger', 'gearbox', 'ignition', 'lubrication', 'mpfi', 'differential', 'cooling']) cfgs.push([m, anyConfig(m)]);
+  for (const [m, modes] of Object.entries({ electrical: ['battery', 'alternator', 'charging'], 'starting-system': ['circuit', 'starter', 'mesh', 'crank'], exhaustsystem: ['principle', 'compare', 'catalyst', 'full'] }))
+    for (const mode of modes) cfgs.push([m + '/' + mode, modeConfig(m, mode)]);
+  for (const [name, c] of cfgs) {
+    const labels = c.rows.map((r) => String(r[1]).trim().toLowerCase());
+    assert.equal(new Set(labels).size, labels.length, `${name}: two rows with the same name`);
+  }
+  assert.ok(!modeConfig('starting-system', 'circuit').rows.some((r) => r[0] === 'amps'), 'circuit mode: current is the big value, not also a row');
+  assert.ok(!modeConfig('starting-system', 'circuit').rows.some((r) => r[0] === 'key'), 'circuit mode: the key name is the status');
+});
+await t('7b3: every legend is the Monitor footer (components.js + 9 hand-built pages); no <i style=background> legend markup outside it', () => {
+  for (const m of ['ignition', 'turbocharger', 'cooling', 'valvetrain', 'obd2', 'crankshaft-piston']) assert.match(rd(m + '.html'), /footer:\s*(LEGEND|')/, `${m}: footer`);
+  assert.match(rd('components.js'), /footer: CFG\.legend && CFG\.legend\.length \? Widgets\.legend\(CFG\)/);
+  assert.ok(!/widgets:\s*\{\s*br:/.test(rd('components.js')), 'components.js: no bottom-right legend widget');
+  for (const f of ALL_HTML) { const s = rd(f); assert.ok(!/\bal-legend\b|\bex-legend\b|\big-legend\b|id="flow-legend"|id="legend"|class="legend-row"|gp-legend|wf-legend/.test(s), `${f}: old legend markup`); }
+  assert.ok(!/\.al-legend/.test(rd('components.css')));
+  assert.match(rd('controls.css'), /\.ui-monitor \.mon-legend/);
+});
+await t('7b3: the info panel keeps no readout number — braking / steering / suspension / turbocharger / transmission / gearbox / differential panels have no readout rows', () => {
+  for (const m of ['braking', 'steering', 'suspension', 'turbocharger', 'transmission', 'gearbox', 'differential', 'carburetor', 'engine']) {
+    const s = rd(m + '.html'); const mm = /\n\s*readout:\s*`/.exec(s);
+    if (mm) { const body = s.slice(mm.index, s.indexOf('`', mm.index + mm[0].length)); assert.ok(!/\d+(\.\d+)?\s*(%|rpm|bar|N|Nm|kPa|°C|V|A|ms)\b/.test(body.replace(/<[^>]+>/g, ' ').replace(/A₁|A₂|F₁|F₂|ω/g, '')), `${m}: a number sits in the panel readout`); }
+  }
+});
+await t('7b3: kit.monitorRows — a Monitor-row sink with textContent / className (tone), writes to dropped names are ignored', () => {
+  const k = rd('kit.js'); const a = k.indexOf('export function monitorRows'), b = k.indexOf('export const DEG');
+  const fn = new Function(k.slice(a, b).replace('export function', 'function') + '\nreturn monitorRows;')();
+  const calls = []; const ui = { monitor: { update: (p) => calls.push(p) } };
+  const ro = fn(ui, ['fl', 'slip'], ['speed']);
+  ro.fl.textContent = '80 km/h'; ro.fl.className = 'v crit'; ro.slip.textContent = '12 %'; ro.slip.className = 'v ok'; ro.speed.textContent = '80'; ro.speed.className = 'v warn';
+  assert.deepEqual(calls[0], { rows: { fl: '80 km/h' } }); assert.deepEqual(calls[1], { rows: { fl: ['80 km/h', 'crit'] } });
+  assert.deepEqual(calls.at(-1), { rows: { slip: ['12 %', 'ok'] } }); assert.equal(calls.length, 4, 'dropped names write nothing');
+  ro.fl.className = 'v'; assert.deepEqual(calls.at(-1), { rows: { fl: '80 km/h' } }, 'a className without a tone word clears the tone');
+});
+await t('7b3: rowLabels are only used on declared rows; braking / steering / turbocharger / mpfi / cooling / crankshaft-piston rename rows with the mode', () => {
+  for (const [m, ids] of Object.entries({ braking: ['pres', 'ffront', 'frear'], steering: ['rack', 'road'], turbocharger: ['drive'], mpfi: ['o2', 'pw', 'knock'], cooling: ['surface'], 'crankshaft-piston': ['pos'] })) {
+    const s = rd(m + '.html'); assert.match(s, /rowLabels:/, `${m}: rowLabels`);
+    for (const id of ids) assert.ok(new RegExp(`\\['${id}'`).test(s), `${m}: ${id} declared`);
+  }
+});
+await t('7b3: dead CSS — none of the removed readout selectors survives in any page, components.css or app.css', () => {
+  const bad = /#(ign|mp|ss|ex|diff|steer|susp|trans|live|gb)-readout|\.(kv|dm|lr|ig|mp|ss|ex|diff|steer|susp)-(row|bar|fill|num|name|dot|shock|rows|legend|trims)|#damage-block|#state-badge|#mp-badge|#cycle-bar|\.cyc-marker|(?<![\w-])\.al-read|\.el-badge|\.carb-readout|\.mechanism-readout|#wheel-speed-extra/;
+  for (const f of [...ALL_HTML, 'components.css', 'app.css', 'controls.css']) { const s = rd(f); const css = (s.match(/<style[^>]*>[^]*?<\/style>/g) || [s]).join('\n'); assert.ok(!bad.test(css), `${f}: dead readout CSS`); }
+});
+await t('7b3: MONITOR-MAP.md — the 7a table has no row that is not "7b done", and every page is in it', () => {
+  const md = rd('MONITOR-MAP.md'); const rows = md.split('\n').filter((l) => /^\| [a-z0-9-]+ \| (bespoke|guided|—|-)/.test(l));
+  assert.ok(rows.length >= 42, 'table rows: ' + rows.length);
+  for (const r of rows) assert.match(r.split('|')[7].trim(), /^7b done/, r.slice(0, 40));
+  for (const f of ALL_HTML) { const name = f.replace('.html', ''); if (name === 'index' || name === '404') continue;           /* shell pages, not modules */ assert.ok(rows.some((r) => r.startsWith('| ' + name + ' |')), `${name} missing from the table`); }
+});
+await t('7b3: acceptance grep — no chip-row, al-read, ui-chip, setRpmLabel or ui.chip in any page, CSS or kit.js; no MutationObserver on the Monitor path', () => {
+  for (const f of [...ALL_HTML, 'app.css', 'controls.css', 'components.css', 'kit.js', 'monitor.js', 'monitor-core.js', 'components.js']) {
+    const s = rd(f); assert.ok(!/chip-row|(?<![\w-])al-read\b|ui-chip|setRpmLabel|ui\.chip\b/.test(s), `${f}: chip / al-read leftover`);
+  }
+  for (const f of ['kit.js', 'monitor.js', 'monitor-core.js', 'components.js', 'controls.js', 'dock.js']) assert.ok(!/MutationObserver/.test(rd(f)), `${f}: MutationObserver`);
+});
+await t('7b3: the dock has no legend page — components.js passes no widgets, and a page with legend config gets a footer', () => {
+  const c = rd('components.js'); assert.ok(!/widgets\s*:/.test(c.slice(c.indexOf('UI.create('))), 'components.js: UI.create without widgets');
+  assert.match(c, /footer: CFG\.legend/);
+});
+await t('7b3: sw.js is autolab-v8.8', () => { assert.match(rd('sw.js'), /VERSION = 'autolab-v8\.8'/); });
 
 let JSDOM = null;
 try {

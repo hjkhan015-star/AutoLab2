@@ -301,7 +301,7 @@ t('info: bottom sheet <= 50 vh on phones, closed by default; desktop keeps the s
   assert.match(kit, /onInfo: \(\) => this\.panel\.toggle\(\)/, 'standalone header ⓘ');
 });
 t('monitor: readout is a one-line strip on phones (28 px), unchanged card on desktop', () => {
-  assert.match(ctl, /\.ui-chip \{[^}]*height: var\(--monitor-strip-h\)/);
+  assert.match(ctl, /\.ui-monitor \{[^}]*height: var\(--monitor-strip-h\)/);   /* 7b3: the old .ui-chip rule is gone; the Monitor owns the strip */
   assert.match(ctl, /--monitor-strip-h: 28px/);
 });
 t('standalone: chrome.js header + menu, owner = module; keys D/L/W/X call menu.update()', () => {
