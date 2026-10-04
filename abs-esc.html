@@ -273,19 +273,6 @@ const TABS = {
     </div>`
 };
 
-function readoutHTML() {
-  return `<div class="al-read">
-    <span class="k">Vehicle speed</span><span class="v hi" id="ro-speed">—</span>
-    <span class="k">Wheel speed FL</span><span class="v" id="ro-fl">—</span>
-    <span class="k">Wheel speed FR</span><span class="v" id="ro-fr">—</span>
-    <span class="k">Slip</span><span class="v" id="ro-slip">—</span>
-    <span class="k">Brake pressure</span><span class="v" id="ro-press">—</span>
-    <span class="k">ABS state</span><span class="v" id="ro-abs">—</span>
-    <span class="k">Yaw rate</span><span class="v" id="ro-yaw">—</span>
-    <span class="k">ESC</span><span class="v" id="ro-esc">—</span>
-  </div>`;
-}
-
 const ui = Base.UI.create({
   moduleId: CFG.moduleId,
   panel: {
@@ -297,12 +284,11 @@ const ui = Base.UI.create({
       { id: 'quiz',     label: 'Self-check' }
     ],
     onTab: renderTab,
-    badge: { text: 'ABS ready', color: CFG.accent },
-    readout: readoutHTML()
+    badge: { text: 'ABS ready', color: CFG.accent }
   },
   monitor: {
-    config: { label: 'Vehicle', value: { label: 'Vehicle', unit: ' km/h', max: 100, bar: true }, rows: [['slip', 'Slip'], ['abs', 'ABS']], status: { text: 'Monitoring' } },
-    initial: { value: { text: '—', unit: ' km/h' }, rows: { slip: '—', abs: '—' }, status: ['Monitoring', false] }
+    config: { label: 'Vehicle', value: { label: 'Vehicle', unit: ' km/h', max: 100, bar: true }, rows: [['slip', 'Slip'], ['abs', 'ABS'], ['fl', 'Wheel speed FL'], ['fr', 'Wheel speed FR'], ['press', 'Brake pressure'], ['yaw', 'Yaw rate'], ['esc', 'ESC']], status: { text: 'Monitoring' } },
+    initial: { value: { text: '—', unit: ' km/h' }, rows: { slip: '—', abs: '—', fl: '—', fr: '—', press: '—', yaw: '—', esc: '—' }, status: ['Monitoring', false] }
   },
   toolbar: {
     play: true,
@@ -390,16 +376,8 @@ function simulate() {
 /* ═══════════════════════════════════════════════════════════════════════
    READOUTS
    ═══════════════════════════════════════════════════════════════════════ */
-const ro = {
-  speed: document.getElementById('ro-speed'),
-  fl:    document.getElementById('ro-fl'),
-  fr:    document.getElementById('ro-fr'),
-  slip:  document.getElementById('ro-slip'),
-  press: document.getElementById('ro-press'),
-  abs:   document.getElementById('ro-abs'),
-  yaw:   document.getElementById('ro-yaw'),
-  esc:   document.getElementById('ro-esc')
-};
+/* 7b3: the old panel grid is Monitor rows (vehicle speed, slip and ABS state repeated the big value / rows and are dropped) */
+const ro = Base.monitorRows(ui, ['fl', 'fr', 'press', 'yaw', 'esc'], ['speed', 'slip', 'abs']);
 
 function updateReadouts() {
   const s = simulate();

@@ -8,45 +8,6 @@
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  /* ═══════════════════════════════════════════════════════════
-     PANEL READOUT INTERIOR — wheel-speed split bars
-     ═══════════════════════════════════════════════════════════ */
-  #diff-readout { margin: 6px 0 8px; }
-  .diff-row {
-    display: flex; align-items: center; gap: 8px;
-    margin: 6px 0; font-size: 12px;
-    font-family: var(--font-mono);
-  }
-  .diff-name {
-    min-width: 74px; display: flex; align-items: center; gap: 6px;
-    color: var(--text-dim, #94a3b8);
-    font-family: var(--font-sans);
-    font-weight: 600; letter-spacing: 0.02em;
-  }
-  .diff-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    display: inline-block; box-shadow: 0 0 6px currentColor;
-  }
-  .diff-bar {
-    flex: 1; height: 5px; background: rgba(255,255,255,.06);
-    border-radius: 3px; overflow: hidden; position: relative;
-  }
-  .diff-bar::after {
-    content: ""; position: absolute; inset: 0; border-radius: 3px;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
-    pointer-events: none;
-  }
-  .diff-fill {
-    height: 100%; border-radius: 3px;
-    transition: width var(--dur-fast, .08s) linear;
-    width: 50%; box-shadow: 0 0 8px currentColor;
-  }
-  .diff-num {
-    min-width: 50px; text-align: right;
-    font-variant-numeric: tabular-nums;
-    color: var(--text, #e5e7eb);
-    font-weight: 700; font-size: 11.5px; letter-spacing: 0.01em;
-  }
   #diff-eq {
     text-align: center; color: var(--text-dim, #8b96a5);
     font-size: 11.5px; margin: 8px 0 2px;
@@ -56,27 +17,6 @@
     border-top: 1px solid var(--border, rgba(255,255,255,.08));
     border-bottom: 1px solid var(--border, rgba(255,255,255,.08));
   }
-  #wheel-speed-extra {
-    margin-top: 10px; padding-top: 10px;
-    border-top: 1px solid var(--border, rgba(255,255,255,.08));
-    display: flex; flex-direction: column; gap: 5px;
-    font-size: 11.5px; color: var(--text-dim, #94a3b8);
-  }
-  #wheel-speed-extra .row {
-    display: flex; justify-content: space-between; align-items: center;
-    gap: 10px;
-    font-family: var(--font-mono);
-  }
-  #wheel-speed-extra .row > span:first-child {
-    font-family: var(--font-sans);
-    font-weight: 500; letter-spacing: 0.01em;
-  }
-  #wheel-speed-extra .val {
-    color: var(--text, #e5e7eb); font-weight: 700;
-    font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
-  }
-  #wheel-speed-extra .warn { color: #f87171; font-weight: 800; }
-  #diff-mode-row .val { color: var(--accent, #38bdf8); }
 
   /* ═══════════════════════════════════════════════════════════
      WIDGET INTERIOR — traction / display controls (bottom-left)
@@ -141,20 +81,9 @@
     border-color: rgba(245,158,11,.45);
     box-shadow: 0 4px 14px rgba(0,0,0,.4), inset 0 0 0 1px rgba(245,158,11,.08);
   }
-
-  /* ═══════════════════════════════════════════════════════════
-     LIGHT THEME
-     ═══════════════════════════════════════════════════════════ */
-  html.light-theme .diff-num,
-  html.light-theme #wheel-speed-extra .val { color: #0a0d13; }
-  html.light-theme .diff-name,
-  html.light-theme #wheel-speed-extra,
+  
   html.light-theme #diff-eq { color: #475569; }
-  html.light-theme .diff-bar { background: rgba(15,23,42,.08); }
-  html.light-theme #diff-eq,
-  html.light-theme #wheel-speed-extra { border-color: rgba(15,23,42,.12); }
-
-  html.light-theme  html.light-theme  html.light-theme
+  html.light-theme #diff-eq{ border-color: rgba(15,23,42,.12); }
 
   html.light-theme .tyre-speed-chip {
     background: rgba(255,255,255,.94);
@@ -1420,28 +1349,7 @@
       title:  'Differential · Working Principle',
       badge:  { text: 'Differential', color: '#eab308' },
       readout: `
-        <div id="diff-readout">
-          <div class="diff-row">
-            <span class="diff-name"><span class="diff-dot" style="background:#38bdf8;color:#38bdf8"></span>Left</span>
-            <div class="diff-bar"><div class="diff-fill" data-diff="fill-left" style="background:#38bdf8;color:#38bdf8;width:50%"></div></div>
-            <span class="diff-num" data-diff="left-val">1.00×</span>
-          </div>
-          <div class="diff-row">
-            <span class="diff-name"><span class="diff-dot" style="background:#94a3b8;color:#94a3b8"></span>Carrier</span>
-            <div class="diff-bar"><div class="diff-fill" style="background:#94a3b8;color:#94a3b8;width:50%"></div></div>
-            <span class="diff-num" data-diff="carrier-val">1.00×</span>
-          </div>
-          <div class="diff-row">
-            <span class="diff-name"><span class="diff-dot" style="background:#f59e0b;color:#f59e0b"></span>Right</span>
-            <div class="diff-bar"><div class="diff-fill" data-diff="fill-right" style="background:#f59e0b;color:#f59e0b;width:50%"></div></div>
-            <span class="diff-num" data-diff="right-val">1.00×</span>
-          </div>
-        </div>
         <div id="diff-eq">ω<sub>L</sub> + ω<sub>R</sub> = 2 ω<sub>C</sub></div>
-        <div id="wheel-speed-extra">
-          <div class="row"><span>↻ Turn radius</span><span class="val" data-diff="turn-radius">∞</span></div>
-          <div class="row" id="diff-mode-row"><span>⚙ Diff state</span><span class="val" data-diff="mode">Open</span></div>
-        </div>
       `,
       desc: `<strong>Differential.</strong> The engine (front) drives the propeller shaft, which turns the
              spiral-bevel pinion, which drives the crown wheel (ring gear) and its carrier. Driving straight,
@@ -1451,8 +1359,8 @@
     },
 
     monitor: {
-      config: { label: 'Vehicle speed', value: { label: 'Vehicle speed', unit: 'u/s', max: 100, bar: true }, rows: [['rpmL', 'Rear L'], ['rpmR', 'Rear R'], ['rpm', 'Input speed']], status: { text: 'Open' } },
-      initial: { value: { text: '0', unit: 'u/s' }, rows: { rpmL: '0 rpm', rpmR: '0 rpm', rpm: '—' }, status: ['Open', false] }
+      config: { label: 'Vehicle speed', value: { label: 'Vehicle speed', unit: 'u/s', max: 100, bar: true }, rows: [['rpmL', 'Rear L'], ['rpmR', 'Rear R'], ['rpm', 'Input speed'], ['radius', 'Turn radius']], status: { text: 'Open' } },
+      initial: { value: { text: '0', unit: 'u/s' }, rows: { rpmL: '0 rpm', rpmR: '0 rpm', rpm: '—', radius: '∞ (straight)' }, status: ['Open', false] }
     },
 
     toolbar: {
@@ -1488,12 +1396,6 @@
 
   /* ── panel readout element handles ── */
   const panelBody   = ui.panel.body;
-  const elLeftVal   = panelBody ? panelBody.querySelector('[data-diff="left-val"]')   : null;
-  const elRightVal  = panelBody ? panelBody.querySelector('[data-diff="right-val"]')  : null;
-  const elFillL     = panelBody ? panelBody.querySelector('[data-diff="fill-left"]')  : null;
-  const elFillR     = panelBody ? panelBody.querySelector('[data-diff="fill-right"]') : null;
-  const elTurnR     = panelBody ? panelBody.querySelector('[data-diff="turn-radius"]'): null;
-  const elDiffMode  = panelBody ? panelBody.querySelector('[data-diff="mode"]')       : null;
 
   /* ═══════════════════════════════════════════════════════════
      CAMERA PRESETS
@@ -1719,36 +1621,17 @@
     }
 
     /* ─── Readouts ─── */
-    const rL = omegaL / omega_c, rR = omegaR / omega_c;
-    if (elLeftVal)  elLeftVal.textContent  = rL.toFixed(2) + '×';
-    if (elRightVal) elRightVal.textContent = rR.toFixed(2) + '×';
-    if (elFillL) elFillL.style.width  = Math.max(2, Math.min(100, rL*50)) + '%';
-    if (elFillR) elFillR.style.width = Math.max(2, Math.min(100, rR*50)) + '%';
 
     const rpmBase = 900 * (state.speedMul / 0.85);
     const rpmL = (omegaL / omega_c) * rpmBase;
     const rpmR = (omegaR / omega_c) * rpmBase;
+    const roadR = Math.abs(tanRoad) < 0.008 ? '∞ (straight)' : Math.abs(WHEELBASE / tanRoad).toFixed(2) + ' u';
+    /* one update per frame: rear wheel speeds + turn radius (rows), the speed chip (value + bar) and the diff state (status) */
     ui.monitor.update({
-      rows: { rpmL: Math.round(rpmL) + (slip && tractionMode === 'left' ? ' ⚠' : '') + ' rpm', rpmR: Math.round(rpmR) + (slip && tractionMode === 'right' ? ' ⚠' : '') + ' rpm', rpm: `~${Math.round(rpmBase)} rpm` }
+      rows: { rpmL: Math.round(rpmL) + (slip && tractionMode === 'left' ? ' ⚠' : '') + ' rpm', rpmR: Math.round(rpmR) + (slip && tractionMode === 'right' ? ' ⚠' : '') + ' rpm', rpm: `~${Math.round(rpmBase)} rpm`, radius: roadR },
+      value: { text: String((v * 3.6).toFixed(1)), unit: 'u/s', bar: Math.min(100, Math.abs(v) * 25), barColor: '#38bdf8' },
+      status: diffLocked ? ['Locked 🔒', true] : slip ? ['Open · SLIP ⚠', false] : ['Open', true]
     });
-
-    if (elTurnR) {
-      if (Math.abs(tanRoad) < 0.008) elTurnR.textContent = '∞ (straight)';
-      else elTurnR.textContent = Math.abs(WHEELBASE / tanRoad).toFixed(2) + ' u';
-    }
-
-    /* Chip big number + bar = vehicle speed */
-    ui.monitor.update({ value: { text: String((v * 3.6).toFixed(1)), unit: 'u/s', bar: Math.min(100, Math.abs(v) * 25), barColor: '#38bdf8' } });
-
-    if (elDiffMode) {
-      if (diffLocked) elDiffMode.textContent = 'Locked 🔒';
-      else if (slip)  elDiffMode.textContent = 'Open · SLIP ⚠';
-      else            elDiffMode.textContent = 'Open';
-    }
-
-    if (diffLocked) ui.monitor.update({ status: ['Locked 🔒', true] });
-    else if (slip)  ui.monitor.update({ status: ['Open · SLIP ⚠', false] });
-    else            ui.monitor.update({ status: ['Open', true] });
 
     if (slip && !diffLocked && flashTimer <= 0) setFlash('Wheel Slip — Torque Lost!');
   }

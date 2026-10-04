@@ -361,17 +361,8 @@ const TABS = {
     </div>`
 };
 
-function readoutHTML() {
-  return `<div class="al-read">
-    <span class="k">Protocol</span><span class="v hi" id="ro-proto">—</span>
-    <span class="k">Modules online</span><span class="v" id="ro-mods">—</span>
-    <span class="k">Codes stored</span><span class="v" id="ro-count">—</span>
-    <span class="k">Active code</span><span class="v" id="ro-code">—</span>
-    <span class="k">Freeze rpm</span><span class="v" id="ro-frpm">—</span>
-    <span class="k">Freeze coolant</span><span class="v" id="ro-fcool">—</span>
-    <span class="k">Malfunction lamp</span><span class="v" id="ro-mil">—</span>
-  </div>`;
-}
+/* 7b3: the module legend is the Monitor footer */
+const LEGEND = '<div class="mon-legend"><span><i style="background:#38bdf8"></i>Request frame</span><span><i style="background:#22d3ee"></i>Response frame</span><span><i style="background:#ffb020"></i>CAN-L</span><span><i style="background:#ef4444"></i>Battery +</span></div>';
 
 const ui = Base.UI.create({
   moduleId: CFG.moduleId,
@@ -384,29 +375,17 @@ const ui = Base.UI.create({
       { id: 'quiz',     label: 'Self-check' }
     ],
     onTab: renderTab,
-    badge: { text: 'No codes', color: CFG.accent },
-    readout: readoutHTML()
+    badge: { text: 'No codes', color: CFG.accent }
   },
   monitor: {
-    config: { label: 'Bus', value: { label: 'Bus', unit: ' kbit/s', max: 100, bar: true }, rows: [['dtc', 'DTCs'], ['mil', 'MIL']], status: { text: 'Connected' } },
-    initial: { value: { text: '—', unit: ' kbit/s' }, rows: { dtc: '—', mil: '—' }, status: ['Connected', false] }
+    config: { label: 'Bus', value: { label: 'Bus', unit: ' kbit/s', max: 100, bar: true }, rows: [['dtc', 'DTCs'], ['mil', 'MIL'], ['proto', 'Protocol'], ['mods', 'Modules online'], ['code', 'Active code'], ['frpm', 'Freeze rpm'], ['fcool', 'Freeze coolant']], footer: LEGEND, status: { text: 'Connected' } },
+    initial: { value: { text: '—', unit: ' kbit/s' }, rows: { dtc: '—', mil: '—', proto: '—', mods: '—', code: '—', frpm: '—', fcool: '—' }, status: ['Connected', false] }
   },
   toolbar: {
     play: true,
     reset: true,
     speed: { label: 'Bus rate', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
     labels: true
-  },
-  widgets: {
-    br: {
-      html: `<div class="al-legend">
-        <span><i style="background:#38bdf8"></i>Request frame</span>
-        <span><i style="background:#22d3ee"></i>Response frame</span>
-        <span><i style="background:#ffb020"></i>CAN-L</span>
-        <span><i style="background:#ef4444"></i>Battery +</span>
-      </div>`,
-      caption: 'Legend'
-    }
   },
 
   /* Phase 6: the stored code is a controls.js choice and Clear codes an action, both in the dock options row */
@@ -465,15 +444,8 @@ applyCodeVisuals();
 /* ═══════════════════════════════════════════════════════════════════════
    READOUTS
    ═══════════════════════════════════════════════════════════════════════ */
-const ro = {
-  proto: document.getElementById('ro-proto'),
-  mods:  document.getElementById('ro-mods'),
-  count: document.getElementById('ro-count'),
-  code:  document.getElementById('ro-code'),
-  frpm:  document.getElementById('ro-frpm'),
-  fcool: document.getElementById('ro-fcool'),
-  mil:   document.getElementById('ro-mil')
-};
+/* 7b3: the old panel grid is Monitor rows (codes stored and the lamp repeated the DTCs / MIL rows and are dropped) */
+const ro = Base.monitorRows(ui, ['proto', 'mods', 'code', 'frpm', 'fcool'], ['count', 'mil']);
 
 function updateReadouts() {
   const dtc = DTCS[state.dtcIndex];

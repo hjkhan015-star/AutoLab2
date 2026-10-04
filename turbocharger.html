@@ -7,44 +7,6 @@
 <title>Turbocharger — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
-<style>
-  /* ═══════════════════════════════════════════════════════════
-     PANEL READOUT — live rows + flow legend
-     ═══════════════════════════════════════════════════════════ */
-  #flow-legend {
-    display: flex; flex-wrap: wrap; gap: 6px 12px;
-    margin-top: 10px;
-    font-size: 10.5px; color: var(--text-dim, #9aa3b2);
-  }
-  #flow-legend span { display: inline-flex; align-items: center; gap: 5px; }
-  #flow-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
-
-  #live-readout {
-    display: flex; flex-direction: column; gap: 5px;
-    margin-top: 10px; font-size: 11.5px;
-    color: var(--text-dim, #94a3b8);
-  }
-  #live-readout .lr-row {
-    display: flex; justify-content: space-between; gap: 10px;
-    font-family: var(--font-mono);
-  }
-  #live-readout .lr-row > span:first-child {
-    font-family: var(--font-sans);
-    font-weight: 500;
-  }
-  #live-readout .lr-row b {
-    color: var(--text, #e5e7eb); font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-  html.light-theme #live-readout .lr-row b { color: #0a0d13; }
-
-  /* ═══════════════════════════════════════════════════════════
-     TOOLBAR EXTRAS — forced-induction config switcher
-     Same pattern as engine.html's engine-config switcher.
-     ═══════════════════════════════════════════════════════════ */
-  html.light-theme  html.light-theme  html.light-theme  @media (max-width: 600px) {
-  }
-</style>
 </head>
 <body>
   <div id="canvas-wrap"></div>
@@ -1198,19 +1160,6 @@ import { Parts } from './components.js';
       kicker: 'Forced Induction',
       title:  'Turbocharger · Working Principle',
       badge:  { text: 'Exhaust-Driven', color: '#ef4444' },
-      readout: `
-        <div id="live-readout">
-          <div class="lr-row"><span data-lbl="rpm">Turbine speed</span><b data-lr="rpm">0 rpm</b></div>
-          <div class="lr-row"><span>Exhaust gas temp</span><b data-lr="egt">20 °C</b></div>
-          <div class="lr-row"><span>Intake (post-IC)</span><b data-lr="iat">20 °C</b></div>
-        </div>
-        <div id="flow-legend">
-          <span><i style="background:#9ec9ff;box-shadow:0 0 6px #9ec9ff88"></i>Fresh air</span>
-          <span><i style="background:#ffb257;box-shadow:0 0 6px #ffb25788"></i>Hot compressed</span>
-          <span><i style="background:#38bdf8;box-shadow:0 0 6px #38bdf888"></i>Cooled charge</span>
-          <span><i style="background:#ff6a1a;box-shadow:0 0 6px #ff6a1a88"></i>Hot exhaust</span>
-        </div>
-      `,
       desc: `<strong>Turbocharger.</strong> Hot exhaust gas leaves the engine, dives down behind the block, and enters the turbine
              from below — spinning the <strong>turbine wheel</strong>. Through the shared shaft, the compressor pulls in fresh air:
              light sparse particles become a dense amber stream as they're compressed. The intercooler cools the charge before it
@@ -1219,8 +1168,10 @@ import { Parts } from './components.js';
     },
 
     monitor: {
-      config: { label: 'Boost pressure', value: { label: 'Boost pressure', unit: 'bar', max: 100, bar: true }, rows: [['drive', 'Speed'], ['egt', 'EGT'], ['rpm', 'Engine speed']], status: { text: 'Idle' } },
-      initial: { value: { text: '0', unit: 'bar' }, rows: { drive: '0 rpm', egt: '20 °C', rpm: '—' }, status: ['Idle', false] }
+      config: { label: 'Boost pressure', value: { label: 'Boost pressure', unit: 'bar', max: 100, bar: true }, rows: [['drive', 'Turbine speed'], ['egt', 'Exhaust gas temp'], ['iat', 'Intake (post-IC)'], ['rpm', 'Engine speed']],
+      footer: '<div class="mon-legend"><span><i style="background:#9ec9ff"></i>Fresh air</span><span><i style="background:#ffb257"></i>Hot compressed</span><span><i style="background:#38bdf8"></i>Cooled charge</span><span><i style="background:#ff6a1a"></i>Hot exhaust</span></div>',
+      status: { text: 'Idle' } },
+      initial: { value: { text: '0', unit: 'bar' }, rows: { drive: '0 rpm', egt: '20 °C', iat: '20 °C', rpm: '—' }, status: ['Idle', false] }
     },
 
     toolbar: {
@@ -1240,10 +1191,6 @@ import { Parts } from './components.js';
      PANEL READOUT REFS
      ═══════════════════════════════════════════════════════════ */
   const panelBody      = ui.panel.body;
-  const elRpm          = panelBody ? panelBody.querySelector('[data-lr="rpm"]')   : null;
-  const elEgt          = panelBody ? panelBody.querySelector('[data-lr="egt"]')   : null;
-  const elIat          = panelBody ? panelBody.querySelector('[data-lr="iat"]')   : null;
-  const elLblRpm       = panelBody ? panelBody.querySelector('[data-lbl="rpm"]')  : null;
   const strokeDescEl   = document.getElementById('stroke-desc');
   const badgeEl        = document.getElementById('stroke-badge');
   const badgeTextEl    = document.getElementById('badge-text');
@@ -1308,7 +1255,7 @@ import { Parts } from './components.js';
     }
 
     /* Update row label */
-    if (elLblRpm) elLblRpm.textContent = (id === 'turbo') ? 'Turbine speed' : 'Blower speed';
+    ui.monitor.update({ rowLabels: { drive: (id === 'turbo') ? 'Turbine speed' : 'Blower speed' } });
 
     /* Reset boost parameters */
     boost = 0;
@@ -1655,14 +1602,10 @@ import { Parts } from './components.js';
      ═══════════════════════════════════════════════════════════ */
   function updateReadouts() {
     if (currentMode === 'turbo') {
-      if (elRpm) elRpm.textContent = Math.round(turbineRpm / 1000).toLocaleString() + ',000 rpm';
       ui.monitor.update({ rows: { drive: Math.round(turbineRpm / 1000).toLocaleString() + 'k rpm' } });
     } else {
-      if (elRpm) elRpm.textContent = Math.round(scRpm).toLocaleString() + ' rpm';
       ui.monitor.update({ rows: { drive: Math.round(scRpm / 100) / 10 + 'k rpm' } });
     }
-    if (elEgt) elEgt.textContent = Math.round(egt) + ' °C';
-    if (elIat) elIat.textContent = Math.round(iatPostIc) + ' °C';
 
     let col;
     if (boost < 0.15)      col = '#64748b';
@@ -1672,7 +1615,7 @@ import { Parts } from './components.js';
 
     ui.monitor.update({
       value: { text: String(boost.toFixed(2)), unit: 'bar', color: col || '', bar: (boost / 1.5) * 100, barColor: col },
-      rows: { egt: Math.round(egt) + ' °C' }
+      rows: { egt: Math.round(egt) + ' °C', iat: Math.round(iatPostIc) + ' °C' }
     });
 
     let statusTxt, ok;

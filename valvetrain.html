@@ -295,19 +295,8 @@ const TABS = {
     </div>`
 };
 
-function readoutHTML() {
-  return `<div class="al-read">
-    <span class="k">Engine speed</span><span class="v hi" id="ro-rpm">—</span>
-    <span class="k">Cam angle</span><span class="v" id="ro-cam">—</span>
-    <span class="k">Intake lift</span><span class="v" id="ro-li">—</span>
-    <span class="k">Exhaust lift</span><span class="v" id="ro-le">—</span>
-    <span class="k">Cam advance</span><span class="v" id="ro-adv">—</span>
-    <span class="k">Valve event</span><span class="v" id="ro-ev">—</span>
-    <span class="k">Overlap</span><span class="v" id="ro-ov">—</span>
-    <span class="k">Volumetric eff.</span><span class="v" id="ro-ve">—</span>
-    <span class="k">Torque effect</span><span class="v" id="ro-eff">—</span>
-  </div>`;
-}
+/* 7b3: the module legend is the Monitor footer */
+const LEGEND = '<div class="mon-legend"><span><i style="background:#38bdf8"></i>Intake valve</span><span><i style="background:#f97316"></i>Exhaust valve</span><span><i style="background:#b8c0cc"></i>Camshaft</span><span><i style="background:#9aa3b2"></i>Valve spring</span></div>';
 
 const ui = Base.UI.create({
   moduleId: CFG.moduleId,
@@ -320,12 +309,11 @@ const ui = Base.UI.create({
       { id: 'quiz',     label: 'Self-check' }
     ],
     onTab: renderTab,
-    badge: { text: 'OHV · DOHC', color: CFG.accent },
-    readout: readoutHTML()
+      badge: { text: 'OHV · DOHC', color: CFG.accent }
   },
   monitor: {
-    config: { label: 'Engine', value: { label: 'Engine', unit: ' rpm', max: 100, bar: true }, rows: [['in', 'Intake'], ['ex', 'Exhaust']], status: { text: 'Running' } },
-    initial: { value: { text: '—', unit: ' rpm' }, rows: { in: '—', ex: '—' }, status: ['Running', false] }
+    config: { label: 'Engine', value: { label: 'Engine', unit: ' rpm', max: 100, bar: true }, rows: [['in', 'Intake lift'], ['ex', 'Exhaust lift'], ['cam', 'Cam angle'], ['adv', 'Cam advance'], ['ev', 'Valve event'], ['ov', 'Overlap'], ['ve', 'Volumetric eff.'], ['eff', 'Torque effect']], footer: LEGEND, status: { text: 'Running' } },
+    initial: { value: { text: '—', unit: ' rpm' }, rows: { in: '—', ex: '—', cam: '—', adv: '—', ev: '—', ov: '—', ve: '—', eff: '—' }, status: ['Running', false] }
   },
   toolbar: {
     play: true,
@@ -342,17 +330,6 @@ const ui = Base.UI.create({
       options: [{ id: 'ohv', label: 'OHV pushrod' }, { id: 'dohc', label: 'DOHC' }], def: 'ohv', onChange: () => applyLayout() },
     { id: 'advance', type: 'action', label: 'Advance +10\u00b0', ariaLabel: 'Advance the intake cam by 10 degrees', onAction: () => advanceCam() }
   ],
-  widgets: {
-    br: {
-      html: `<div class="al-legend">
-        <span><i style="background:#38bdf8"></i>Intake valve</span>
-        <span><i style="background:#f97316"></i>Exhaust valve</span>
-        <span><i style="background:#b8c0cc"></i>Camshaft</span>
-        <span><i style="background:#9aa3b2"></i>Valve spring</span>
-      </div>`,
-      caption: 'Legend'
-    }
-  }
 });
 
 const tabHost = document.createElement('div');
@@ -373,17 +350,8 @@ function advanceCam() {
 /* ═══════════════════════════════════════════════════════════════════════
    READOUTS
    ═══════════════════════════════════════════════════════════════════════ */
-const ro = {
-  rpm:  document.getElementById('ro-rpm'),
-  cam:  document.getElementById('ro-cam'),
-  li:   document.getElementById('ro-li'),
-  le:   document.getElementById('ro-le'),
-  adv:  document.getElementById('ro-adv'),
-  ev:   document.getElementById('ro-ev'),
-  ov:   document.getElementById('ro-ov'),
-  ve:   document.getElementById('ro-ve'),
-  eff:  document.getElementById('ro-eff')
-};
+/* 7b3: the old panel grid is Monitor rows (engine speed and the two lifts repeated the big value / the Intake and Exhaust lift rows and are dropped) */
+const ro = Base.monitorRows(ui, ['cam', 'adv', 'ev', 'ov', 've', 'eff'], ['rpm', 'li', 'le']);
 
 /* Valve events in crank degrees (TDC = 0 at the start of intake). Advance moves the intake cam only. */
 const IN = { open: -25, dur: 260 }, EX = { open: 460, dur: 285 };

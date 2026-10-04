@@ -8,20 +8,6 @@
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  .br-readout {
-    display: flex; flex-direction: column;
-    gap: 5px;
-    margin-top: 4px;
-    font-size: 11.5px;
-    color: var(--text-dim);
-  }
-  .br-readout .row { display: flex; justify-content: space-between; gap: 10px; }
-  .br-readout b {
-    color: var(--text); font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    font-family: var(--font-mono);
-  }
-
   .br-pascal {
     margin-top: 12px;
     padding: 10px 12px;
@@ -42,24 +28,10 @@
     color: var(--accent);
     margin-bottom: 6px;
   }
-  .br-pascal .row {
-    display: flex; justify-content: space-between; gap: 10px;
-    font-size: 11px; color: var(--text-dim);
-    line-height: 1.6;
+  .br-pascal .note {
+    font-size: 11px; line-height: 1.5; color: var(--text-dim);
+    font-family: var(--font-sans);
   }
-  .br-pascal .row b {
-    color: var(--text); font-weight: 800;
-    font-variant-numeric: tabular-nums;
-  }
-  .br-pascal .mult {
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid color-mix(in oklch, var(--accent) 20%, transparent);
-    display: flex; justify-content: space-between;
-    font-size: 11px; color: var(--text-dim);
-  }
-  .br-pascal .mult b { color: var(--ok); font-weight: 900; }
-
 
 
 </style>
@@ -1276,30 +1248,18 @@ import { Parts } from './components.js';
       title:  'Hydraulic Braking System',
       badge:  { text: CONFIG_DEFS[0].label, color: CONFIG_DEFS[0].badge },
       readout: `
-        <div class="br-readout">
-          <div class="row"><span>Pedal force (F₁)</span><b data-fr="pedal">0 N</b></div>
-          <div class="row"><span data-lbl="pressure">Line pressure</span><b data-fr="pres">0 kPa</b></div>
-          <div class="row"><span data-lbl="front">Front axle force</span><b data-fr="cal">0 N</b></div>
-          <div class="row"><span data-lbl="rear">Rear axle force</span><b data-fr="shoe">0 N</b></div>
-          <div class="row"><span>Braking torque</span><b data-fr="tq">0 Nm</b></div>
-        </div>
         <div class="br-pascal">
           <div class="label">Pascal's Law</div>
           <div class="eq">P = F₁/A₁ = F₂/A₂</div>
-          <div class="row"><span>F₁ (pedal)</span><b data-pc="f1">0 N</b></div>
-          <div class="row"><span>A₁ (MC piston)</span><b>3.1 cm²</b></div>
-          <div class="row"><span>P (pressure)</span><b data-pc="p">0 kPa</b></div>
-          <div class="row"><span>A₂ (caliper)</span><b>25 cm²</b></div>
-          <div class="row"><span>F₂ (caliper)</span><b data-pc="f2">0 N</b></div>
-          <div class="mult"><span>Force multiplication</span><b data-pc="mult">8.0×</b></div>
+          <div class="note">Master-cylinder piston A₁ = 3.1 cm², caliper piston A₂ = 25 cm²: the pedal force is multiplied by A₂/A₁ (about 8×) on its way to the caliper. The live forces and pressure are in the readout.</div>
         </div>
       `,
       desc: CONFIG_DEFS[0].desc
     },
 
     monitor: {
-      config: { label: 'Brake temperature', value: { label: 'Brake temperature', unit: '°C', max: 100, bar: true }, rows: [['front', 'Front'], ['rear', 'Rear']], status: { text: 'Cold' } },
-      initial: { value: { text: '32', unit: '°C' }, rows: { front: '32 °C', rear: '32 °C' }, status: ['Cold', false] }
+      config: { label: 'Brake temperature', value: { label: 'Brake temperature', unit: '°C', max: 100, bar: true }, rows: [['front', 'Front temp'], ['rear', 'Rear temp'], ['pedal', 'Pedal force (F₁)'], ['pres', 'Line pressure'], ['ffront', 'Front axle force'], ['frear', 'Rear axle force'], ['tq', 'Braking torque']], status: { text: 'Cold' } },
+      initial: { value: { text: '32', unit: '°C' }, rows: { front: '32 °C', rear: '32 °C', pedal: '0 N', pres: '0 kPa', ffront: '0 N', frear: '0 N', tq: '0 Nm' }, status: ['Cold', false] }
     },
 
     toolbar: {
@@ -1332,25 +1292,6 @@ import { Parts } from './components.js';
   const badgeTextEl = document.getElementById('badge-text');
   const pascalEl    = panelBody.querySelector('.br-pascal');
 
-  const frEls = {
-    pedal: panelBody.querySelector('[data-fr="pedal"]'),
-    pres:  panelBody.querySelector('[data-fr="pres"]'),
-    cal:   panelBody.querySelector('[data-fr="cal"]'),
-    shoe:  panelBody.querySelector('[data-fr="shoe"]'),
-    tq:    panelBody.querySelector('[data-fr="tq"]')
-  };
-  const lblEls = {
-    pressure: panelBody.querySelector('[data-lbl="pressure"]'),
-    front:    panelBody.querySelector('[data-lbl="front"]'),
-    rear:     panelBody.querySelector('[data-lbl="rear"]')
-  };
-  const pcEls = {
-    f1:   panelBody.querySelector('[data-pc="f1"]'),
-    p:    panelBody.querySelector('[data-pc="p"]'),
-    f2:   panelBody.querySelector('[data-pc="f2"]'),
-    mult: panelBody.querySelector('[data-pc="mult"]')
-  };
-
   let bridge = null;
 
   function applyConfig(idx) {
@@ -1367,27 +1308,15 @@ import { Parts } from './components.js';
 
     if (pascalEl) pascalEl.style.display = active.showPascal ? '' : 'none';
 
-    if (active.id === 'air') {
-      if (lblEls.pressure) lblEls.pressure.textContent = 'Air pressure';
-      if (lblEls.front)    lblEls.front.textContent    = 'Front chamber force';
-      if (lblEls.rear)     lblEls.rear.textContent     = 'Rear chamber force';
-    } else if (active.id === 'regen') {
-      if (lblEls.pressure) lblEls.pressure.textContent = 'Hydraulic pressure';
-      if (lblEls.front)    lblEls.front.textContent    = 'Regen braking force';
-      if (lblEls.rear)     lblEls.rear.textContent     = 'Friction force';
-    } else if (active.id === 'all-drum') {
-      if (lblEls.pressure) lblEls.pressure.textContent = 'Line pressure';
-      if (lblEls.front)    lblEls.front.textContent    = 'Front shoe force';
-      if (lblEls.rear)     lblEls.rear.textContent     = 'Rear shoe force';
-    } else if (active.id === 'all-disc') {
-      if (lblEls.pressure) lblEls.pressure.textContent = 'Line pressure';
-      if (lblEls.front)    lblEls.front.textContent    = 'Front caliper force';
-      if (lblEls.rear)     lblEls.rear.textContent     = 'Rear caliper force';
-    } else {
-      if (lblEls.pressure) lblEls.pressure.textContent = 'Line pressure';
-      if (lblEls.front)    lblEls.front.textContent    = 'Front caliper force';
-      if (lblEls.rear)     lblEls.rear.textContent     = 'Rear shoe force';
-    }
+    /* the force rows are named for the circuit in use (Monitor row names follow the configuration) */
+    const NAMES = {
+      air:        ['Air pressure',       'Front chamber force', 'Rear chamber force'],
+      regen:      ['Hydraulic pressure', 'Regen braking force', 'Friction force'],
+      'all-drum': ['Line pressure',      'Front shoe force',    'Rear shoe force'],
+      'all-disc': ['Line pressure',      'Front caliper force', 'Rear caliper force']
+    };
+    const nm = NAMES[active.id] || ['Line pressure', 'Front caliper force', 'Rear shoe force'];
+    ui.monitor.update({ rowLabels: { pres: nm[0], ffront: nm[1], frear: nm[2] } });
 
     /* Hide labels for configs that don't declare them */
     for (const key in labelDefs) {
@@ -1454,23 +1383,16 @@ import { Parts } from './components.js';
      READOUTS
      ═══════════════════════════════════════════════════════════════════ */
   function updateReadouts(f) {
-    if (frEls.pedal) frEls.pedal.textContent = Math.round(f.PEDAL_FORCE) + ' N';
-    if (frEls.pres)  frEls.pres.textContent  = Math.round(f.linePressure / 100) * 100 + ' kPa';
-    if (frEls.cal)   frEls.cal.textContent   = Math.round(f.frontForce) + ' N';
-    if (frEls.shoe)  frEls.shoe.textContent  = Math.round(f.rearForce) + ' N';
-    if (frEls.tq)    frEls.tq.textContent    = Math.round(f.brakeTorque) + ' Nm';
-
-    if (pcEls.f1)   pcEls.f1.textContent   = Math.round(f.F1) + ' N';
-    if (pcEls.p)    pcEls.p.textContent    = Math.round(f.linePressure / 100) * 100 + ' kPa';
-    if (pcEls.f2)   pcEls.f2.textContent   = Math.round(f.caliperForce) + ' N';
-    if (pcEls.mult) pcEls.mult.textContent = f.MULT.toFixed(1) + '×';
-
     const t = Math.max(rotorTemp, drumTemp);
     const tRounded = Math.round(t);
 
     ui.monitor.update({
       value: { text: String(tRounded), unit: '°C' },
-      rows: { front: Math.round(rotorTemp) + ' °C', rear: Math.round(drumTemp)  + ' °C' }
+      rows: {
+        front: Math.round(rotorTemp) + ' °C', rear: Math.round(drumTemp)  + ' °C',
+        pedal: Math.round(f.PEDAL_FORCE) + ' N', pres: Math.round(f.linePressure / 100) * 100 + ' kPa',
+        ffront: Math.round(f.frontForce) + ' N', frear: Math.round(f.rearForce) + ' N', tq: Math.round(f.brakeTorque) + ' Nm'
+      }
     });
 
     let c, status;

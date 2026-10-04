@@ -8,94 +8,6 @@
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  /* ═══════════════════════════════════════════════════════════
-     PANEL READOUT INTERIOR — state badge, live kv rows,
-     damage block, temperature graph
-     ═══════════════════════════════════════════════════════════ */
-  #state-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(74,222,128,.10);
-    border: 1px solid rgba(74,222,128,.35);
-    color: #4ade80;
-    font-size: 10px; font-weight: 800;
-    letter-spacing: .08em; text-transform: uppercase;
-    padding: 3px 9px; border-radius: 999px;
-    margin-bottom: 10px;
-    transition: all .3s;
-  }
-  #state-badge .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: currentColor; box-shadow: 0 0 8px currentColor;
-  }
-  #state-badge.warn { background: rgba(251,191,36,.12); border-color: rgba(251,191,36,.4); color: #fbbf24; }
-  #state-badge.crit { background: rgba(248,113,113,.14); border-color: rgba(248,113,113,.5); color: #f87171; }
-  #state-badge.dead { background: rgba(120,20,20,.35); border-color: rgba(248,113,113,.7); color: #fff; }
-
-  .kv-row {
-    display: flex; align-items: center; gap: 8px;
-    margin: 7px 0; font-size: 12px;
-    font-family: var(--font-mono);
-  }
-  .kv-name {
-    min-width: 88px; display: flex; align-items: center; gap: 6px;
-    color: var(--text-dim, #94a3b8);
-    font-family: var(--font-sans);
-    font-weight: 600; letter-spacing: .02em; font-size: 11px;
-  }
-  .kv-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    display: inline-block; box-shadow: 0 0 6px currentColor;
-    flex-shrink: 0;
-  }
-  .kv-bar {
-    flex: 1; height: 6px;
-    background: rgba(255,255,255,.06);
-    border-radius: 3px; overflow: hidden;
-  }
-  .kv-fill {
-    height: 100%; border-radius: 3px;
-    transition: width var(--dur-fast, .2s) linear, background var(--dur-slow, .4s);
-    box-shadow: 0 0 8px currentColor;
-  }
-  .kv-num {
-    min-width: 56px; text-align: right;
-    color: var(--text, #e5e7eb); font-weight: 800;
-    font-size: 11.5px; font-variant-numeric: tabular-nums;
-  }
-
-  #damage-block {
-    margin-top: 10px; padding-top: 10px;
-    border-top: 1px solid var(--border, rgba(255,255,255,.08));
-  }
-  .dm-row {
-    display: flex; align-items: center; gap: 8px;
-    margin: 5px 0; font-size: 11px;
-  }
-  .dm-name {
-    min-width: 80px; color: var(--text-dim, #94a3b8);
-    font-weight: 600; font-size: 10.5px; letter-spacing: .02em;
-  }
-  .dm-bar {
-    flex: 1; height: 5px;
-    background: rgba(255,255,255,.06);
-    border-radius: 3px; overflow: hidden;
-  }
-  .dm-fill {
-    height: 100%; width: 0%; border-radius: 3px;
-    background: #4ade80;
-    transition: width var(--dur-slow, .3s) linear, background var(--dur-slow, .3s);
-  }
-  .dm-num {
-    min-width: 34px; text-align: right;
-    font-family: var(--font-mono);
-    font-weight: 800; font-size: 10.5px;
-    color: var(--text-dim, #94a3b8);
-    font-variant-numeric: tabular-nums;
-  }
-
-  html.light-theme .dm-bar,
-  html.light-theme .kv-bar { background: rgba(15,23,42,.08); }
-  html.light-theme #damage-block { border-color: rgba(15,23,42,.12); }
 
   /* ═══════════════════════════════════════════════════════════
      OVERLAY — status flash
@@ -124,11 +36,6 @@
     border-color: rgba(220,38,38,.28);
     text-shadow: 0 0 20px rgba(220,38,38,.4);
   }
-
-  html.light-theme #state-badge { color: #15803d; }
-  html.light-theme #state-badge.warn { color: #d97706; }
-  html.light-theme #state-badge.crit { color: #dc2626; }
-  html.light-theme .kv-num { color: #0a0d13; }
 </style>
 </head>
 <body>
@@ -923,61 +830,6 @@ import { Parts } from './components.js';
       kicker: 'Engine · Inline-4',
       title:  'Lubrication Failure · Heat & Wear',
       badge:  { text: 'Oil & Wear', color: '#f59e0b' },
-      readout: `
-        <div id="state-badge">
-          <span class="dot"></span><span id="state-text">NORMAL · OIL ON</span>
-        </div>
-
-        <div class="kv-row">
-          <span class="kv-name"><span class="kv-dot" style="background:#ffd166;color:#ffd166"></span>Oil pressure</span>
-          <div class="kv-bar"><div class="kv-fill" id="kv-pressure" style="background:#ffd166;color:#ffd166;width:90%"></div></div>
-          <span class="kv-num" id="kv-pressure-val">3.50 bar</span>
-        </div>
-        <div class="kv-row">
-          <span class="kv-name"><span class="kv-dot" style="background:#38bdf8;color:#38bdf8"></span>Oil temp</span>
-          <div class="kv-bar"><div class="kv-fill" id="kv-oiltemp" style="background:#38bdf8;color:#38bdf8;width:18%"></div></div>
-          <span class="kv-num" id="kv-oiltemp-val">90°C</span>
-        </div>
-        <div class="kv-row">
-          <span class="kv-name"><span class="kv-dot" style="background:#f87171;color:#f87171"></span>Bearing temp</span>
-          <div class="kv-bar"><div class="kv-fill" id="kv-brg" style="background:#4ade80;color:#4ade80;width:20%"></div></div>
-          <span class="kv-num" id="kv-brg-val">95°C</span>
-        </div>
-        <div class="kv-row">
-          <span class="kv-name"><span class="kv-dot" style="background:#fb923c;color:#fb923c"></span>Friction</span>
-          <div class="kv-bar"><div class="kv-fill" id="kv-fric" style="background:#4ade80;color:#4ade80;width:5%"></div></div>
-          <span class="kv-num" id="kv-fric-val">0.08 µ</span>
-        </div>
-
-        <div id="damage-block">
-          <div class="dm-row">
-            <span class="dm-name">Main bearings</span>
-            <div class="dm-bar"><div class="dm-fill" id="dmg-main"></div></div>
-            <span class="dm-num" id="dmg-main-num">0%</span>
-          </div>
-          <div class="dm-row">
-            <span class="dm-name">Rod bearings</span>
-            <div class="dm-bar"><div class="dm-fill" id="dmg-rod"></div></div>
-            <span class="dm-num" id="dmg-rod-num">0%</span>
-          </div>
-          <div class="dm-row">
-            <span class="dm-name">Cylinder walls</span>
-            <div class="dm-bar"><div class="dm-fill" id="dmg-cyl"></div></div>
-            <span class="dm-num" id="dmg-cyl-num">0%</span>
-          </div>
-          <div class="dm-row">
-            <span class="dm-name">Cam lobes</span>
-            <div class="dm-bar"><div class="dm-fill" id="dmg-cam"></div></div>
-            <span class="dm-num" id="dmg-cam-num">0%</span>
-          </div>
-          <div class="dm-row">
-            <span class="dm-name">Piston rings</span>
-            <div class="dm-bar"><div class="dm-fill" id="dmg-ring"></div></div>
-            <span class="dm-num" id="dmg-ring-num">0%</span>
-          </div>
-        </div>
-
-      `,
       desc: `<strong>What happens without oil.</strong> Oil separates moving surfaces with a thin
              hydrodynamic film. Remove it and metal touches metal — friction rises,
              heat pours into the <em>bearings and cylinder walls</em>, clearances close, and
@@ -986,11 +838,11 @@ import { Parts } from './components.js';
     },
 
     monitor: {
-      config: { label: 'Bearing temperature', value: { label: 'Bearing temperature', unit: '°C', max: 100, bar: true }, rows: [['pres', 'Oil pressure'], ['fric', 'Friction']],
+      config: { label: 'Bearing temperature', value: { label: 'Bearing temperature', unit: '°C', max: 100, bar: true }, rows: [['pres', 'Oil pressure'], ['oil', 'Oil temp'], ['brg', 'Bearing temp'], ['fric', 'Friction'], ['dmain', 'Main bearings'], ['drod', 'Rod bearings'], ['dcyl', 'Cylinder walls'], ['dcam', 'Cam lobes'], ['dring', 'Piston rings']],
         traces: [{ id: 'temps', label: 'Temperatures (°C)', min: 20, max: 500, length: 240,
                    series: [{ id: 'oil', label: 'Oil', color: 'var(--accent)' }, { id: 'brg', label: 'Bearing', color: 'var(--crit)' }, { id: 'wall', label: 'Wall', color: 'var(--warn)' }] }],
         status: { text: 'Normal' } },
-      initial: { value: { text: '95', unit: '°C' }, rows: { pres: '3.50 bar', fric: '0.08 µ' }, status: ['Normal', true] }
+      initial: { value: { text: '95', unit: '°C' }, rows: { pres: '3.50 bar', oil: '90 °C', brg: '95 °C', fric: '0.08 µ', dmain: '0%', drod: '0%', dcyl: '0%', dcam: '0%', dring: '0%' }, status: ['Normal', true] }
     },
 
     toolbar: {
@@ -1012,34 +864,9 @@ import { Parts } from './components.js';
   });
 
   /* ═══════════════════════════════════════════════════════════
-     UI REFS (panel readout)
+     UI REFS
      ═══════════════════════════════════════════════════════════ */
-  const panelBody    = ui.panel.body;
-  const stateBadge   = panelBody ? panelBody.querySelector('#state-badge') : null;
-  const stateText    = panelBody ? panelBody.querySelector('#state-text') : null;
-  const kvPressure   = panelBody ? panelBody.querySelector('#kv-pressure') : null;
-  const kvPressureV  = panelBody ? panelBody.querySelector('#kv-pressure-val') : null;
-  const kvOilTemp    = panelBody ? panelBody.querySelector('#kv-oiltemp') : null;
-  const kvOilTempV   = panelBody ? panelBody.querySelector('#kv-oiltemp-val') : null;
-  const kvBrg        = panelBody ? panelBody.querySelector('#kv-brg') : null;
-  const kvBrgV       = panelBody ? panelBody.querySelector('#kv-brg-val') : null;
-  const kvFric       = panelBody ? panelBody.querySelector('#kv-fric') : null;
-  const kvFricV      = panelBody ? panelBody.querySelector('#kv-fric-val') : null;
-  const dmgEls = {
-    main: panelBody ? panelBody.querySelector('#dmg-main') : null,
-    rod:  panelBody ? panelBody.querySelector('#dmg-rod')  : null,
-    cyl:  panelBody ? panelBody.querySelector('#dmg-cyl')  : null,
-    cam:  panelBody ? panelBody.querySelector('#dmg-cam')  : null,
-    ring: panelBody ? panelBody.querySelector('#dmg-ring') : null
-  };
-  const dmgNumEls = {
-    main: panelBody ? panelBody.querySelector('#dmg-main-num') : null,
-    rod:  panelBody ? panelBody.querySelector('#dmg-rod-num')  : null,
-    cyl:  panelBody ? panelBody.querySelector('#dmg-cyl-num')  : null,
-    cam:  panelBody ? panelBody.querySelector('#dmg-cam-num')  : null,
-    ring: panelBody ? panelBody.querySelector('#dmg-ring-num') : null
-  };
-  ui.panel.remeasure();                       /* the panel lost its graph block (now the Monitor trace 'temps') */
+  ui.panel.remeasure();                       /* the panel lost its readout (now Monitor rows + the trace 'temps') */
   const flashEl = document.getElementById('status-flash');
 
   let flashTimer = 0;
@@ -1206,76 +1033,19 @@ import { Parts } from './components.js';
     });
   }
 
+  /* damage rows: the percentage, toned like the old bars (green < 25, amber < 60, amber-red < 90, red) */
+  const dmgRow = (v) => [Math.round(v) + '%', v < 25 ? 'ok' : (v < 90 ? 'warn' : 'crit')];
+
   function updateHUD() {
-    let cls = '', txt = '', col = '';
-    if (sim.seized) {
-      cls = 'dead'; txt = '✕ SEIZED'; col = '#fff';
-    } else if (!sim.oilOn && (sim.bearingTemp > 220 || sim.wallTemp > 220)) {
-      cls = 'crit'; txt = 'CRITICAL · OIL OFF'; col = '#f87171';
-    } else if (!sim.oilOn && (sim.bearingTemp > 140 || sim.wallTemp > 140)) {
-      cls = 'warn'; txt = 'WARNING · OIL OFF'; col = '#fbbf24';
-    } else if (!sim.oilOn) {
-      cls = 'warn'; txt = 'OIL OFF · WARMING'; col = '#fbbf24';
-    } else {
-      txt = 'NORMAL · OIL ON'; col = '#4ade80';
-    }
-    if (stateBadge) {
-      stateBadge.className = cls;
-      stateBadge.style.color = col;
-    }
-    if (stateText) stateText.textContent = txt;
-
-    const pPct = Math.max(0, Math.min(100, (sim.oilPressure / 3.5) * 100));
-    if (kvPressure) {
-      kvPressure.style.width = pPct + '%';
-      const pCol = sim.oilPressure > 2.0 ? '#ffd166' : (sim.oilPressure > 0.8 ? '#fb923c' : '#f87171');
-      kvPressure.style.background = pCol;
-      kvPressure.style.color = pCol;
-    }
-    if (kvPressureV) kvPressureV.textContent = sim.oilPressure.toFixed(2) + ' bar';
-
-    const oPct = Math.max(0, Math.min(100, (sim.oilTemp - 20) / 3.8));
-    if (kvOilTemp) {
-      kvOilTemp.style.width = oPct + '%';
-      const oCol = sim.oilTemp < 120 ? '#38bdf8' : (sim.oilTemp < 200 ? '#fbbf24' : '#f87171');
-      kvOilTemp.style.background = oCol;
-      kvOilTemp.style.color = oCol;
-    }
-    if (kvOilTempV) kvOilTempV.textContent = Math.round(sim.oilTemp) + '°C';
-
-    const bPct = Math.max(0, Math.min(100, (sim.bearingTemp - 20) / 3.8));
-    if (kvBrg) {
-      kvBrg.style.width = bPct + '%';
-      const bCol = sim.bearingTemp < 130 ? '#4ade80' : (sim.bearingTemp < 220 ? '#fbbf24' : '#f87171');
-      kvBrg.style.background = bCol;
-      kvBrg.style.color = bCol;
-    }
-    if (kvBrgV) kvBrgV.textContent = Math.round(sim.bearingTemp) + '°C';
-
-    const fPct = Math.max(0, Math.min(100, (sim.friction / 1.8) * 100));
-    if (kvFric) {
-      kvFric.style.width = fPct + '%';
-      const fCol = sim.friction < 0.3 ? '#4ade80' : (sim.friction < 0.9 ? '#fb923c' : '#f87171');
-      kvFric.style.background = fCol;
-      kvFric.style.color = fCol;
-    }
-    if (kvFricV) kvFricV.textContent = sim.friction.toFixed(2) + ' µ';
-
-    Object.keys(dmgEls).forEach(k => {
-      const v = sim.damage[k];
-      if (dmgEls[k]) {
-        dmgEls[k].style.width = v + '%';
-        const c = v < 25 ? '#4ade80' : (v < 60 ? '#fbbf24' : (v < 90 ? '#fb923c' : '#f87171'));
-        dmgEls[k].style.background = c;
-      }
-      if (dmgNumEls[k]) dmgNumEls[k].textContent = Math.round(v) + '%';
-    });
-
     /* Chip */
     const bCol = sim.bearingTemp < 130 ? '#4ade80' : (sim.bearingTemp < 220 ? '#fbbf24' : '#f87171');
     ui.monitor.update({
       value: { text: String(Math.round(sim.bearingTemp)), unit: '°C', color: bCol || '', bar: Math.min(100, (sim.bearingTemp - 20) / 3.8), barColor: bCol },
-      rows: { pres: sim.oilPressure.toFixed(2) + ' bar', fric: sim.friction.toFixed(2) + ' µ' }
+      rows: {
+        pres: sim.oilPressure.toFixed(2) + ' bar', fric: sim.friction.toFixed(2) + ' µ',
+        oil: Math.round(sim.oilTemp) + ' °C', brg: Math.round(sim.bearingTemp) + ' °C',
+        dmain: dmgRow(sim.damage.main), drod: dmgRow(sim.damage.rod), dcyl: dmgRow(sim.damage.cyl), dcam: dmgRow(sim.damage.cam), dring: dmgRow(sim.damage.ring)
+      }
     });
 
     let statusTxt, ok;
