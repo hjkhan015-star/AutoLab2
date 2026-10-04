@@ -43,20 +43,201 @@ const CFG = {
 };
 
 const state = Base.createUIState();
-state.fault   = 'none';          // none | o2 | maf | ckp | knock
-state.ignKey  = true;            // key on
-state.cranking= false;
+state.fault   = 'none';          // none | o2 | maf | ckp | tps | knock
 state.t       = 0;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ENGINE + ECU MODEL — pure, named functions
+   A 2.0 L four-cylinder petrol engine. Simplified physical trends, not a
+   calibration file: every table is a plausible shape, not a real map.
+   ═══════════════════════════════════════════════════════════════════════ */
+const clampN = (x, a, b) => (Number.isFinite(x) ? (x < a ? a : (x > b ? b : x)) : a);
+const lerpN  = (a, b, t) => a + (b - a) * t;
+
+const DISP_L      = 2.0;     /* litres, total displacement                        */
+const N_CYL       = 4;
+const AFR_STOICH  = 14.7;    /* air : fuel by mass at lambda = 1                  */
+const INJ_MG_MS   = 4.2;     /* mg/ms, injector static flow (about 330 cc/min)    */
+const DEAD_MS     = 0.7;     /* ms, injector opening dead time                    */
+const IAT_C       = 30;      /* degC, intake air temperature                      */
+const RPM_MAX     = 6500;
+const PLANT_BIAS  = 0.06;    /* the real engine delivers 6 % less fuel than commanded (injector tolerance) - the trims must find it */
+const ECT_RUN     = 90;      /* degC, warm coolant                                */
+const ECT_COLD    = 15;      /* degC, cold-start coolant                          */
+const TAU_WARM    = 45;      /* s, warm-up time constant (compressed for the lab) */
+const ECT_CLOSED  = 55;      /* degC, closed loop is allowed above this           */
+const O2_DELAY    = 0.30;    /* s, exhaust transport delay from cylinder to sensor */
+const K_STFT      = 0.10;    /* 1/s, short-term trim integrator rate              */
+const K_LTFT      = 0.05;    /* 1/s, long-term trim learning rate                 */
+const TRIM_LIM    = 0.25;    /* +-25 % trim authority                             */
+const O2_TAU      = 0.12;    /* s, sensor response                                */
+const KNOCK_STEP  = 1.5;     /* deg retard per detected knock event               */
+const KNOCK_MAX   = 12;      /* deg, maximum knock retard                         */
+const KNOCK_DECAY = 0.4;     /* deg/s, retard recovers when quiet                 */
+const KNOCK_FAULT = 16;      /* deg, how much a knock event (bad fuel / hot charge) lowers the knock limit */
+const LIMP_LOAD   = 0.22;    /* load cap in limp-home                             */
+const LIMP_RPM    = 2500;    /* rpm cap in limp-home                              */
+
+/* Calibration tables. Rows = engine speed, columns = manifold pressure. */
+const RPM_AX = [800, 1500, 2500, 3500, 4500, 5500, 6500];
+const MAP_AX = [30, 50, 70, 90, 100];
+const VE_TAB = [
+  [0.62, 0.66, 0.70, 0.73, 0.74],
+  [0.68, 0.74, 0.80, 0.85, 0.86],
+  [0.74, 0.81, 0.88, 0.94, 0.96],
+  [0.78, 0.86, 0.94, 1.01, 1.03],
+  [0.80, 0.88, 0.97, 1.04, 1.07],
+  [0.76, 0.84, 0.93, 1.00, 1.03],
+  [0.68, 0.75, 0.83, 0.89, 0.91]
+];
+const ADV_TAB = [                      /* degrees before TDC */
+  [28, 24, 18, 14, 12],
+  [32, 28, 23, 19, 16],
+  [36, 32, 28, 23, 20],
+  [38, 35, 31, 25, 23],
+  [39, 36, 33, 26, 24],
+  [38, 35, 32, 26, 24],
+  [36, 33, 30, 25, 23]
+];
+const VE_RANGE  = [0.60, 1.08];
+const ADV_RANGE = [10, 40];
+
+/* Fractional position of x on an axis (index units). */
+function fracIndex(ax, x) {
+  const v = clampN(x, ax[0], ax[ax.length - 1]);
+  let i = 0;
+  while (i < ax.length - 2 && v >= ax[i + 1]) i++;
+  return i + (v - ax[i]) / (ax[i + 1] - ax[i]);
+}
+/* Bilinear interpolation between the four nearest cells - what the ECU does on every lookup. */
+function bilerp(tab, fi, fj) {
+  const i0 = Math.min(Math.floor(fi), tab.length - 2), j0 = Math.min(Math.floor(fj), tab[0].length - 2);
+  const a = fi - i0, b = fj - j0;
+  return lerpN(lerpN(tab[i0][j0], tab[i0 + 1][j0], a), lerpN(tab[i0][j0 + 1], tab[i0 + 1][j0 + 1], a), b);
+}
+
+/* Manifold pressure (kPa). Direction: opening the throttle raises it; at high rpm a closed throttle pulls it lower. */
+function mapKpa(load, rN) {
+  const L = clampN(load, 0, 1), r = clampN(rN, 0, 1);
+  return clampN(26 + 74 * Math.pow(L, 1.1) - 6 * (1 - L) * r, 18, 101);
+}
+/* Air mass flow (g/s) = cycles per second x displacement x manifold air density x volumetric efficiency. */
+function airFlowGps(rpm, map, ve) {
+  const rho = map / (0.287 * (273 + IAT_C));                 /* kg/m3 */
+  return (rpm / 120) * (DISP_L / 1000) * rho * ve * 1000;
+}
+/* Air per cylinder per cycle (mg). */
+function airMgPerCyl(flowGps, rpm) { return rpm > 1 ? flowGps * 1000 / (rpm / 120) / N_CYL : 0; }
+/* Narrowband oxygen sensor voltage: steep step at lambda = 1. Direction: rich -> high, lean -> low. */
+function o2Volts(lam) { return 0.05 + 0.85 / (1 + Math.exp((lam - 1) / 0.008)); }
+/* Fuel target lambda. Direction: richer under power enrichment at high load and when the engine is cold. */
+function lambdaTarget(loadReq, warm) {
+  const power = loadReq > 0.78 ? 1 - 0.14 * clampN((loadReq - 0.78) / 0.22, 0, 1) : 1;
+  return power / (1 + 0.30 * (1 - clampN(warm, 0, 1)));
+}
+/* Knock limit (deg BTDC): the most spark advance the engine tolerates. Direction: falls with load. */
+function knockLimitDeg(load, faultOn) { return 54 - 28 * clampN(load, 0, 1) - (faultOn ? KNOCK_FAULT : 0); }
+
+const FAULT_DTC = { none: 'None', o2: 'P0134', maf: 'P0102', ckp: 'P0335', tps: 'P0122', knock: 'P0327' };
+
+/* Mutable model state (module level so Reset can reach it). */
+const ECU = { ect: ECT_RUN, stft: 0, ltft: 0, o2v: 0.45, knockRet: 0, knockT: 0, knocking: false, cyc: 0, clk: 0, q: [], R: null };
+
+function resetModel() {
+  ECU.ect = ECT_RUN; ECU.stft = 0; ECU.ltft = 0; ECU.o2v = 0.45;
+  ECU.knockRet = 0; ECU.knockT = 0; ECU.knocking = false; ECU.clk = 0; ECU.q = [];
+}
+
+/* One model step. dt = sim seconds (0 re-evaluates without integrating). Returns the readout record R. */
+function stepModel(dt, loadReq, rpmReq, fault, mapKey) {
+  const f = fault;
+  const noStart = f === 'ckp', limp = f === 'tps';
+  const L  = limp ? Math.min(loadReq, LIMP_LOAD) : loadReq;
+  const rpm = noStart ? 220 : (limp ? Math.min(rpmReq, LIMP_RPM) : rpmReq);
+  const rN = clampN((rpm - 800) / (RPM_MAX - 800), 0, 1);
+
+  /* warm-up */
+  if (dt > 0) ECU.ect += (ECT_RUN - ECU.ect) * (1 - Math.exp(-dt / TAU_WARM));
+  const warm = clampN((ECU.ect - 20) / 45, 0, 1);
+
+  /* air: what the engine really breathes, and what the ECU believes it breathes */
+  const map  = mapKpa(L, rN);
+  const fi = fracIndex(RPM_AX, rpm), fj = fracIndex(MAP_AX, map);
+  const veTab = bilerp(VE_TAB, fi, fj);
+  const veTrue = veTab * (1 + 0.08 * Math.sin(rpm / 900));    /* the real engine never matches the table exactly */
+  const airTrue = noStart ? 0 : airFlowGps(rpm, map, veTrue);
+  const airEst  = f === 'maf' ? airFlowGps(rpm, map, veTab)   /* speed-density: MAP + rpm + table */
+                              : airTrue * 1.005;              /* MAF sensor reads within half a percent */
+
+  /* fuel */
+  const closed = !noStart && f !== 'o2' && ECU.ect > ECT_CLOSED && loadReq <= 0.78;   /* no power enrichment, engine warm enough */
+  const lamTgt = closed ? 1 : lambdaTarget(loadReq, warm);
+  const trimTot = closed ? (1 + ECU.stft + ECU.ltft) : (1 + ECU.ltft);
+  const airMg = airMgPerCyl(airEst, rpm);
+  const fuelCmdMg = noStart ? 0 : airMg / (AFR_STOICH * lamTgt) * trimTot;
+  const pw = noStart ? 0 : fuelCmdMg / INJ_MG_MS + DEAD_MS;
+  const fuelActMg = noStart ? 0 : (pw - DEAD_MS) * INJ_MG_MS * (1 - PLANT_BIAS);
+  const lam = fuelActMg > 0 ? airMgPerCyl(airTrue, rpm) / (AFR_STOICH * fuelActMg) : 9.99;
+
+  /* oxygen sensor and short-term trim (a limit cycle around lambda = 1) */
+  let o2raw = f === 'o2' ? 0.45 : (ECU.ect < ECT_CLOSED ? 0.45 : o2Volts(lam));
+  if (noStart) o2raw = 0.05;
+  if (dt > 0) {
+    /* the sensor sits downstream of the cylinders: its reading is O2_DELAY seconds old, then smoothed by its own lag */
+    ECU.clk += dt; ECU.q.push([ECU.clk, o2raw]);
+    while (ECU.q.length > 1 && ECU.q[1][0] <= ECU.clk - O2_DELAY) ECU.q.shift();
+    const seen = ECU.q[0][1];
+    ECU.o2v += (seen - ECU.o2v) * (1 - Math.exp(-dt / O2_TAU));
+    if (closed) {
+      ECU.stft = clampN(ECU.stft + (ECU.o2v > 0.45 ? -K_STFT : K_STFT) * dt, -TRIM_LIM, TRIM_LIM);
+      ECU.ltft = clampN(ECU.ltft + K_LTFT * ECU.stft * dt, -TRIM_LIM, TRIM_LIM);
+    } else {
+      ECU.stft += (0 - ECU.stft) * (1 - Math.exp(-dt / 0.5));
+    }
+  }
+
+  /* spark: map, then knock control */
+  const advMap = noStart ? 0 : bilerp(ADV_TAB, fi, fj);
+  const limit = knockLimitDeg(L, f === 'knock');
+  const advCmd = advMap - ECU.knockRet;
+  const knocking = !noStart && advCmd > limit;
+  if (dt > 0) {
+    if (knocking) {
+      ECU.knockT += dt;
+      if (ECU.knockT >= 0.25) { ECU.knockT = 0; ECU.knockRet = Math.min(KNOCK_MAX, ECU.knockRet + KNOCK_STEP); }
+    } else {
+      ECU.knockT = 0;
+      ECU.knockRet = Math.max(0, ECU.knockRet - KNOCK_DECAY * dt);
+    }
+  }
+  ECU.knocking = knocking;
+
+  const loopTxt = noStart ? 'No start'
+    : limp ? 'Limp home (load capped)'
+    : f === 'o2' ? 'Open loop (default)'
+    : f === 'maf' && closed ? 'Speed-density'
+    : !closed && ECU.ect <= ECT_CLOSED ? 'Open loop (warm-up)'
+    : !closed ? 'Open loop (power)'
+    : 'Closed loop';
+
+  const duty = pw > 0 && rpm > 1 ? pw / (120000 / rpm) : 0;                            /* injector duty over the 720 deg cycle */
+  const egrDuty = (closed && L > 0.15 && L < 0.8 && ECU.ect > 60) ? 0.25 + 0.5 * L : 0;  /* purge / EGR valve schedule */
+  const R = { f, noStart, limp, L, rpm, rN, map, fi, fj, veTab, airTrue, airEst, lamTgt, lam, closed, pw, duty, egrDuty,
+    adv: advCmd, advMap, limit, knockRet: ECU.knockRet, knocking, stft: ECU.stft, ltft: ECU.ltft, o2v: ECU.o2v, ect: ECU.ect, warm, loopTxt,
+    dtc: FAULT_DTC[f] || 'None', mil: f !== 'none', mapKey };
+  ECU.R = R;
+  return R;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    SCENE
    ═══════════════════════════════════════════════════════════════════════ */
 const built = Base.buildScene({
   fov: 42,
-  camPos: [6.4, 4.4, 8.4],
-  target: [0, 0.55, 0],
+  camPos: [6.6, 4.8, 8.8],
+  target: [0, 0.75, 0],
   floorY: -1.6,
-  fogDensity: 0.030
+  fogDensity: 0.028
 });
 const { scene, camera, renderer, controls, wrap, viewManager, quality } = built;
 Base.attachResize(camera, renderer, wrap, built.baseFov);
@@ -71,12 +252,18 @@ scene.add(root);
 
 const mat = (color, metal = .3, rough = .6, extra = {}) =>
   new THREE.MeshStandardMaterial({ color, metalness: metal, roughness: rough, ...extra });
+const glassMat = (color, op = .25) => new THREE.MeshStandardMaterial({ color, metalness: .1, roughness: .2, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide });
+const glowMat = (color, i = 1) => new THREE.MeshStandardMaterial({ color, emissive: new THREE.Color(color), emissiveIntensity: i, metalness: 0, roughness: .5 });
+const addMesh = (geo, m, x, y, z, parent) => { const o = new THREE.Mesh(geo, m); o.position.set(x || 0, y || 0, z || 0); o.castShadow = !lowEnd; (parent || root).add(o); return o; };
+const BOX = (w, h, d, m, x, y, z, p) => addMesh(new THREE.BoxGeometry(w, h, d), m, x, y, z, p);
+const CYL = (rt, rb, h, m, x, y, z, p, seg = 16) => addMesh(new THREE.CylinderGeometry(rt, rb, h, seg), m, x, y, z, p);
+const CYLZ = (rt, rb, h, m, x, y, z, p, seg = 20) => { const o = CYL(rt, rb, h, m, x, y, z, p, seg); o.rotation.x = Math.PI / 2; return o; };
+const CYLX = (rt, rb, h, m, x, y, z, p, seg = 16) => { const o = CYL(rt, rb, h, m, x, y, z, p, seg); o.rotation.z = Math.PI / 2; return o; };
 
 const MAT = {
   caseMat:  M.matMetalDark || mat(0x1f242e, .65, .42),
   pcb:      mat(0x135c35, .06, .82),
   pcbChip:  mat(0x11151a, .35, .52),
-  chipTop:  mat(0x0a0d12, .55, .40),
   pin:      mat(0xc8b270, .85, .30),
   cap:      mat(0x2a2f38, .30, .55),
   capTop:   mat(0x0f1218, .10, .75),
@@ -86,364 +273,347 @@ const MAT = {
   sink:     mat(0xc0c8d2, .85, .30),
   sinkFin:  mat(0xa8b0bc, .80, .35),
   conn:     mat(0x1a1e26, .55, .55),
-  wire:     mat(0x556074, .45, .55),
-  pcbEdge:  mat(0x0d2016, .10, .80)
+  pcbEdge:  mat(0x0d2016, .10, .80),
+  steel:    mat(0x9aa3ae, .85, .30),
+  darkM:    mat(0x2a2f38, .55, .50),
+  brass:    mat(0xc8a24a, .80, .35)
 };
 
-const MEM_EMISSIVE = new Map();   // mat → base emissive intensity
-function track(mat, intensity) { MEM_EMISSIVE.set(mat, intensity); mat.emissiveIntensity = intensity; }
+/* deterministic scatter so the board looks the same on every load */
+let seed = 20241;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
 /* ═══════════════════════════════════════════════════════════════════════
    ECU ENCLOSURE
    ═══════════════════════════════════════════════════════════════════════ */
 const ECU_W = 2.6, ECU_H = 0.72, ECU_D = 1.8;
 const ECU_Y = 0.36;
+const TOP_Y = ECU_Y + ECU_H / 2;
 
-const caseMesh = new THREE.Mesh(new THREE.BoxGeometry(ECU_W, ECU_H, ECU_D), MAT.caseMat);
-caseMesh.position.y = ECU_Y;
-caseMesh.castShadow = true;
+const caseMesh = BOX(ECU_W, ECU_H, ECU_D, MAT.caseMat, 0, ECU_Y, 0);
 caseMesh.receiveShadow = true;
-root.add(caseMesh);
 
-/* Case sides (slightly darker, to read as a chassis) */
+/* Case walls (slightly darker, to read as a chassis) */
 const wallMat = mat(0x11151c, .55, .55);
 const wallT = 0.04;
 [
-  [0,             ECU_Y + ECU_H / 2 - wallT / 2, 0, ECU_W, wallT, ECU_D],
-  [0,             ECU_Y - ECU_H / 2 + wallT / 2, 0, ECU_W, wallT, ECU_D],
-  [0,             ECU_Y, ECU_D / 2 - wallT / 2, ECU_W, ECU_H, wallT],
-  [0,             ECU_Y, -ECU_D / 2 + wallT / 2, ECU_W, ECU_H, wallT]
-].forEach(([x, y, z, w, h, d]) => {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
-  m.position.set(x, y, z);
-  root.add(m);
+  [0, ECU_Y + ECU_H / 2 - wallT / 2, 0, ECU_W, wallT, ECU_D],
+  [0, ECU_Y - ECU_H / 2 + wallT / 2, 0, ECU_W, wallT, ECU_D],
+  [0, ECU_Y, ECU_D / 2 - wallT / 2, ECU_W, ECU_H, wallT],
+  [0, ECU_Y, -ECU_D / 2 + wallT / 2, ECU_W, ECU_H, wallT]
+].forEach(([x, y, z, w, h, d]) => BOX(w, h, d, wallMat, x, y, z));
+
+/* Mounting screws - 4 corners */
+const slotMat = mat(0x2a2f38, .5, .7);
+[[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([sx, sz], i) => {
+  const x = sx * (ECU_W / 2 - 0.16), z = sz * (ECU_D / 2 - 0.16);
+  CYL(0.055, 0.055, 0.028, MAT.screw, x, TOP_Y + 0.005, z, null, 14);
+  const slot = BOX(0.075, 0.006, 0.010, slotMat, x, TOP_Y + 0.02, z);
+  slot.rotation.y = i * 0.9;
 });
 
-/* Mounting screws — 4 corners */
-const screwGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.028, 14);
-const screwSlotGeo = new THREE.BoxGeometry(0.075, 0.006, 0.010);
-[
-  [-ECU_W / 2 + 0.16, ECU_Y + ECU_H / 2 + 0.005,  ECU_D / 2 - 0.16],
-  [ ECU_W / 2 - 0.16, ECU_Y + ECU_H / 2 + 0.005,  ECU_D / 2 - 0.16],
-  [-ECU_W / 2 + 0.16, ECU_Y + ECU_H / 2 + 0.005, -ECU_D / 2 + 0.16],
-  [ ECU_W / 2 - 0.16, ECU_Y + ECU_H / 2 + 0.005, -ECU_D / 2 + 0.16]
-].forEach(([x, y, z]) => {
-  const s = new THREE.Mesh(screwGeo, MAT.screw);
-  s.position.set(x, y, z);
-  root.add(s);
-  const slot = new THREE.Mesh(screwSlotGeo, mat(0x2a2f38, .5, .7));
-  slot.position.set(x, y + 0.015, z);
-  slot.rotation.y = Math.random() * Math.PI;
-  root.add(slot);
-});
+/* Heat sink on top - base plate + fins */
+BOX(1.9, 0.05, 1.1, MAT.sink, 0.15, TOP_Y + 0.025, 0);
+for (let i = 0; i < 9; i++) BOX(1.9, 0.18, 0.045, MAT.sinkFin, 0.15, TOP_Y + 0.14, -0.45 + i * 0.11);
 
-/* Heat sink on top — base plate + fins */
-const sinkBase = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.05, 1.1), MAT.sink);
-sinkBase.position.set(0.15, ECU_Y + ECU_H / 2 + 0.025, 0);
-sinkBase.castShadow = true;
-root.add(sinkBase);
+/* PCB sitting inside */
+BOX(2.32, 0.06, 1.52, MAT.pcb, 0, ECU_Y + 0.39, 0);
+BOX(2.34, 0.02, 1.54, MAT.pcbEdge, 0, ECU_Y + 0.36, 0);
 
-for (let i = 0; i < 9; i++) {
-  const f = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.18, 0.045), MAT.sinkFin);
-  f.position.set(0.15, ECU_Y + ECU_H / 2 + 0.14, -0.45 + i * 0.11);
-  f.castShadow = true;
-  root.add(f);
-}
-
-/* PCB sitting inside (top of case is open — the current ECU has lid removed) */
-const pcb = new THREE.Mesh(new THREE.BoxGeometry(2.32, 0.06, 1.52), MAT.pcb);
-pcb.position.y = ECU_Y + 0.39;
-pcb.castShadow = true;
-root.add(pcb);
-
-/* PCB edge chamfer / dark strip */
-const pcbEdge = new THREE.Mesh(new THREE.BoxGeometry(2.34, 0.02, 1.54), MAT.pcbEdge);
-pcbEdge.position.y = ECU_Y + 0.36;
-root.add(pcbEdge);
-
-/* ── Large ICs (the main processor & co-processor) ── */
-const mainChip = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.12, 0.52), MAT.pcbChip);
-mainChip.position.set(-0.72, ECU_Y + 0.48, 0);
-mainChip.castShadow = true;
-root.add(mainChip);
-/* Chip top with a subtle emissive "die" strip */
-const chipTop = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.01, 0.44),
-  new THREE.MeshStandardMaterial({
-    color: 0x0a0d12, metalness: .4, roughness: .35,
-    emissive: new THREE.Color(0xa855f7), emissiveIntensity: 0.6
-  }));
-chipTop.position.set(-0.72, ECU_Y + 0.545, 0);
-root.add(chipTop);
-track(chipTop.material, 0.6);
-
-/* Pins around the main chip */
+/* Main processor with a glowing die strip */
+const mainChip = BOX(0.66, 0.12, 0.52, MAT.pcbChip, -0.72, ECU_Y + 0.48, 0);
+const chipTop = BOX(0.58, 0.01, 0.44, glowMat(0xa855f7, 0.6), -0.72, ECU_Y + 0.545, 0);
 for (let i = 0; i < 10; i++) {
-  const pin = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.16), MAT.pin);
-  pin.position.set(-0.72 - 0.36 + i * 0.08, ECU_Y + 0.415, 0.34);
-  root.add(pin);
-  const pin2 = pin.clone();
-  pin2.position.z = -0.34;
-  root.add(pin2);
+  BOX(0.02, 0.05, 0.16, MAT.pin, -0.72 - 0.36 + i * 0.08, ECU_Y + 0.415, 0.34);
+  BOX(0.02, 0.05, 0.16, MAT.pin, -0.72 - 0.36 + i * 0.08, ECU_Y + 0.415, -0.34);
 }
+/* Co-processor and two memory chips (the flash holds the maps) */
+BOX(0.42, 0.10, 0.36, MAT.pcbChip, 0.35, ECU_Y + 0.47, -0.42);
+const flashChip = BOX(0.34, 0.09, 0.24, MAT.pcbChip, 0.35, ECU_Y + 0.465, 0.42);
+const flashGlow = BOX(0.26, 0.006, 0.16, glowMat(0x38bdf8, 0.3), 0.35, ECU_Y + 0.515, 0.42);
+BOX(0.34, 0.09, 0.24, MAT.pcbChip, -0.15, ECU_Y + 0.465, 0.42);
 
-/* Co-processor */
-const copro = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.10, 0.36), MAT.pcbChip);
-copro.position.set(0.35, ECU_Y + 0.47, -0.42);
-copro.castShadow = true;
-root.add(copro);
-
-/* Two small memory chips */
-[[0.35, 0.42], [-0.15, 0.42]].forEach(([x, z]) => {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.09, 0.24), MAT.pcbChip);
-  m.position.set(x, ECU_Y + 0.465, z);
-  m.castShadow = true;
-  root.add(m);
-});
-
-/* ── Passives ── */
-
-/* Electrolytic capacitors (can + top mark) */
+/* Electrolytic capacitors */
 function addCap(x, z, r = 0.075, h = 0.20) {
-  const can = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 14), MAT.cap);
-  can.position.set(x, ECU_Y + 0.39 + h / 2, z);
-  can.castShadow = true;
-  root.add(can);
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.002, r + 0.002, 0.006, 14), MAT.capTop);
-  top.position.set(x, ECU_Y + 0.39 + h + 0.003, z);
-  root.add(top);
+  CYL(r, r, h, MAT.cap, x, ECU_Y + 0.39 + h / 2, z, null, 14);
+  CYL(r + 0.002, r + 0.002, 0.006, MAT.capTop, x, ECU_Y + 0.39 + h + 0.003, z, null, 14);
 }
 [[-0.05, -0.62], [0.05, -0.62], [0.15, -0.62]].forEach(([x, z]) => addCap(x, z, 0.075, 0.22));
 [[0.55, 0.62], [0.68, 0.62]].forEach(([x, z]) => addCap(x, z, 0.090, 0.26));
 addCap(0.95, -0.10, 0.065, 0.18);
 
-/* Small chip capacitors and resistors — scattered */
+/* SMD scatter */
 const smdGeo = new THREE.BoxGeometry(0.045, 0.028, 0.030);
-const smdMatA = mat(0x1a1d24, .30, .70);
-const smdMatB = mat(0x2a1810, .30, .70);
-const smdMatC = mat(0x102030, .30, .70);
+const smdMats = [mat(0x2a1810, .3, .7), mat(0x1a1d24, .3, .7), mat(0x102030, .3, .7)];
 for (let i = 0; i < 46; i++) {
-  const x = -1.05 + Math.random() * 2.1;
-  const z = -0.68 + Math.random() * 1.36;
-  // avoid overlapping the main chip area
+  const x = -1.05 + rnd() * 2.1, z = -0.68 + rnd() * 1.36;
   if (Math.abs(x + 0.72) < 0.35 && Math.abs(z) < 0.30) continue;
-  const m = new THREE.Mesh(smdGeo, i % 3 === 0 ? smdMatB : (i % 3 === 1 ? smdMatA : smdMatC));
-  m.position.set(x, ECU_Y + 0.42, z);
-  m.rotation.y = Math.random() < 0.5 ? 0 : Math.PI / 2;
-  root.add(m);
+  const m = addMesh(smdGeo, smdMats[i % 3], x, ECU_Y + 0.42, z);
+  m.rotation.y = rnd() < 0.5 ? 0 : Math.PI / 2;
 }
+for (let i = 0; i < 5; i++) BOX(0.28, 0.045, 0.055, MAT.resistor, -0.35 + i * 0.14, ECU_Y + 0.42, 0.62);
+BOX(0.14, 0.06, 0.10, MAT.crystal, -0.95, ECU_Y + 0.45, -0.35);
 
-/* Resistor arrays (little black boxes with dots) */
-for (let i = 0; i < 5; i++) {
-  const r = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.045, 0.055), MAT.resistor);
-  r.position.set(-0.35 + i * 0.14, ECU_Y + 0.42, 0.62);
-  root.add(r);
-}
-
-/* Crystal oscillator (small silver can) */
-const xo = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, 0.10), MAT.crystal);
-xo.position.set(-0.95, ECU_Y + 0.45, -0.35);
-xo.castShadow = true;
-root.add(xo);
-
-/* ── Side connectors with visible pins ── */
+/* Side connectors with visible pins */
 function addConnector(sideSign) {
-  const conn = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.50, 1.30), MAT.conn);
-  conn.position.set(sideSign * 1.42, ECU_Y, 0);
-  conn.castShadow = true;
-  root.add(conn);
-
-  // Pin rows
-  for (let r = 0; r < 3; r++) {
-    for (let c = 0; c < 6; c++) {
-      const pin = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.012, 0.012, 0.09, 8),
-        MAT.pin
-      );
-      pin.position.set(sideSign * 1.58, -0.28 + r * 0.28, -0.50 + c * 0.20);
-      pin.rotation.z = Math.PI / 2;
-      root.add(pin);
-    }
+  BOX(0.26, 0.50, 1.30, MAT.conn, sideSign * 1.42, ECU_Y, 0);
+  const pinGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.09, 8);
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) {
+    const p = addMesh(pinGeo, MAT.pin, sideSign * 1.58, ECU_Y - 0.20 + r * 0.20, -0.50 + c * 0.20);
+    p.rotation.z = Math.PI / 2;
   }
-  // Sealing collar
-  const collar = new THREE.Mesh(
-    new THREE.BoxGeometry(0.05, 0.54, 1.34),
-    mat(0x0d1015, .55, .55)
-  );
-  collar.position.set(sideSign * 1.29, ECU_Y, 0);
-  root.add(collar);
+  BOX(0.05, 0.54, 1.34, mat(0x0d1015, .55, .55), sideSign * 1.29, ECU_Y, 0);
 }
 addConnector(-1);
-addConnector( 1);
+addConnector(1);
 
-/* ═══════════════════════════════════════════════════════════════════════
-   STATUS LEDS ON THE PCB
-   ═══════════════════════════════════════════════════════════════════════ */
+/* Status LEDs on the PCB */
 function addPCB_LED(x, z, color) {
-  const mat = new THREE.MeshStandardMaterial({
-    color, emissive: new THREE.Color(color),
-    emissiveIntensity: 0.2, roughness: .4, metalness: .2
-  });
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 10), mat);
-  m.position.set(x, ECU_Y + 0.42, z);
-  root.add(m);
-  return { mesh: m, mat };
+  const lm = new THREE.MeshStandardMaterial({ color, emissive: new THREE.Color(color), emissiveIntensity: 0.2, roughness: .4, metalness: .2 });
+  CYL(0.035, 0.035, 0.03, lm, x, ECU_Y + 0.42, z, null, 10);
+  return { mat: lm };
 }
-const ledPWR  = addPCB_LED(-1.05, 0.70, 0x22ff88);
-const ledCAN  = addPCB_LED(-0.95, 0.62, 0xffcc22);
-const ledMIL  = addPCB_LED(-0.85, 0.70, 0xff3333);
-const ledACT  = addPCB_LED(-0.75, 0.62, 0xa855f7);
+const ledPWR = addPCB_LED(-1.05, 0.70, 0x22ff88);
+const ledCAN = addPCB_LED(-0.95, 0.62, 0xffcc22);
+const ledMIL = addPCB_LED(-0.85, 0.70, 0xff3333);
+const ledACT = addPCB_LED(-0.75, 0.62, 0xa855f7);
 
 /* ═══════════════════════════════════════════════════════════════════════
-   SENSOR / ACTUATOR NODES
+   MAP SURFACE - the fuel / spark map as a 7 x 5 bar chart floating above the ECU
+   ═══════════════════════════════════════════════════════════════════════ */
+const MAP_Y = 1.42, BAR_DX = 0.30, BAR_DZ = 0.24, BAR_MIN = 0.05, BAR_RANGE = 0.46;
+const mapGroup = new THREE.Group(); mapGroup.position.set(0.15, MAP_Y, 0); root.add(mapGroup);
+BOX(2.34, 0.02, 1.42, glassMat(0xa855f7, .16), 0, -0.015, 0, mapGroup);
+mapGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.34, 0.02, 1.42)),
+  new THREE.LineBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0.7 })));
+[[-1.1, -0.65], [1.1, -0.65], [-1.1, 0.65], [1.1, 0.65]].forEach(([x, z]) =>
+  CYL(0.012, 0.012, MAP_Y - TOP_Y - 0.16, MAT.steel, 0.15 + x, TOP_Y + 0.16 + (MAP_Y - TOP_Y - 0.16) / 2, z, null, 6));
+const barGeo = new THREE.BoxGeometry(BAR_DX * 0.82, 1, BAR_DZ * 0.78);
+const bars = [];                                   /* bars[i][j]: i = rpm index, j = MAP index */
+for (let i = 0; i < RPM_AX.length; i++) {
+  bars.push([]);
+  for (let j = 0; j < MAP_AX.length; j++) {
+    const m = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: .2, roughness: .5, emissive: 0x000000, emissiveIntensity: 0 });
+    const b = new THREE.Mesh(barGeo, m);
+    b.position.set((i - 3) * BAR_DX, BAR_MIN / 2, (j - 2) * BAR_DZ);
+    b.scale.y = BAR_MIN;
+    mapGroup.add(b);
+    bars[i].push({ mesh: b, mat: m, h: BAR_MIN });
+  }
+}
+const probeMat = glowMat(0xffffff, 1.4);
+const probe = addMesh(new THREE.SphereGeometry(0.07, 14, 10), probeMat, 0, 0, 0, mapGroup);
+const probeLine = CYL(0.008, 0.008, 1, glowMat(0xffffff, .8), 0, 0, 0, mapGroup, 6);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SENSOR / ACTUATOR ASSEMBLIES
+   Each node is a small model of the real part; node.anim(R, ctx) animates it
+   from the engine model, node.tints are the materials that turn red on a fault.
    ═══════════════════════════════════════════════════════════════════════ */
 const NODE_Y = 0.42;
-const nodeBodyGeo = new THREE.BoxGeometry(0.44, 0.44, 0.44);
-const nodeEdgeGeo = new THREE.BoxGeometry(0.48, 0.48, 0.06);
-const pGeo = lowEnd
-  ? new THREE.SphereGeometry(0.055, 6, 5)
-  : new THREE.SphereGeometry(0.055, 10, 8);
+const pGeo = lowEnd ? new THREE.SphereGeometry(0.055, 6, 5) : new THREE.SphereGeometry(0.055, 10, 8);
 
 const INPUTS = [
-  { id: 'maf', text: 'MAF / MAP',     z: -1.50, color: 0x38bdf8 },
-  { id: 'ckp', text: 'Crank sensor',  z: -0.50, color: 0x38bdf8 },
-  { id: 'tps', text: 'Throttle pos.', z:  0.50, color: 0x38bdf8 },
-  { id: 'o2',  text: 'O₂ sensor',     z:  1.50, color: 0x38bdf8 }
+  { id: 'maf', text: 'MAF sensor',      z: -1.50, color: 0x38bdf8 },
+  { id: 'ckp', text: 'Crank sensor',    z: -0.50, color: 0x38bdf8 },
+  { id: 'tps', text: 'Throttle pos.',   z:  0.50, color: 0x38bdf8 },
+  { id: 'o2',  text: 'O\u2082 sensor',  z:  1.50, color: 0x38bdf8 }
 ];
 const OUTPUTS = [
-  { id: 'inj', text: 'Injectors',      z: -1.50, color: 0xffb020 },
-  { id: 'ign', text: 'Ignition coils', z: -0.50, color: 0xffb020 },
-  { id: 'thr', text: 'Throttle motor', z:  0.50, color: 0xffb020 },
-  { id: 'egr', text: 'EGR / purge',    z:  1.50, color: 0xffb020 }
+  { id: 'inj', text: 'Injectors',       z: -1.50, color: 0xffb020 },
+  { id: 'ign', text: 'Ignition coils',  z: -0.50, color: 0xffb020 },
+  { id: 'thr', text: 'Throttle motor',  z:  0.50, color: 0xffb020 },
+  { id: 'egr', text: 'EGR / purge',     z:  1.50, color: 0xffb020 }
 ];
 
-const lines = [];
+/* tinted material that remembers its healthy colour */
+function tintMat(spec, color, metal = .45, rough = .45) {
+  const m = mat(color, metal, rough);
+  spec.tints.push({ m, base: new THREE.Color(color) });
+  return m;
+}
+function addLED(spec, g, y) {
+  spec.ledMat = new THREE.MeshStandardMaterial({ color: 0x22ff88, emissive: new THREE.Color(0x22ff88), emissiveIntensity: 0.9, roughness: .4 });
+  spec.led = CYL(0.045, 0.045, 0.05, spec.ledMat, 0, y, 0, g, 10);
+}
+const duct = glassMat(0x7dd3fc, .22);
 
+const BUILD = {
+  maf(g, s) {
+    CYLZ(.19, .19, .95, duct, 0, 0, 0, g, 24);
+    BOX(.07, .34, .07, MAT.steel, 0, .17, 0, g);
+    BOX(.24, .13, .20, tintMat(s, 0x2a3140), 0, .39, 0, g);
+    const film = glowMat(0xff9a3c, .3);
+    BOX(.10, .02, .10, film, 0, 0, 0, g);
+    BOX(.34, .04, .34, MAT.darkM, 0, -.20, 0, g);
+    addLED(s, g, .52);
+    s.anim = (R) => { film.emissiveIntensity = s.dead ? 0 : 0.25 + 1.6 * clampN(R.airTrue / 100, 0, 1); };
+  },
+  ckp(g, s) {
+    const wheel = new THREE.Group(); g.add(wheel);
+    const disc = CYL(.30, .30, .09, tintMat(s, 0x3d4555, .7, .4), 0, 0, 0, wheel, 32); disc.rotation.x = Math.PI / 2;
+    const toothGeo = new THREE.BoxGeometry(.075, .085, .09);
+    for (let i = 1; i < 24; i++) {                  /* tooth 0 is missing - the sync gap */
+      const a = i / 24 * Math.PI * 2;
+      const t = addMesh(toothGeo, MAT.steel, Math.sin(a) * .335, Math.cos(a) * .335, 0, wheel);
+      t.rotation.z = -a;
+    }
+    CYLZ(.06, .06, .12, MAT.darkM, 0, 0, 0, g, 12);
+    BOX(.16, .16, .12, MAT.darkM, 0, .50, 0, g);
+    CYL(.035, .035, .12, MAT.steel, 0, .39, 0, g, 10);
+    BOX(.04, .03, .16, glowMat(0xffcc22, .8), 0, .44, 0, g);
+    addLED(s, g, .64);
+    s.anim = (R, c) => { wheel.rotation.z = -c.crank; };
+  },
+  tps(g, s) {
+    CYLZ(.24, .24, .62, duct, 0, 0, 0, g, 24);
+    const plateG = new THREE.Group(); g.add(plateG);
+    const plate = CYL(.225, .225, .03, MAT.steel, 0, 0, 0, plateG, 24); plate.rotation.x = Math.PI / 2;
+    CYLX(.03, .03, .64, MAT.steel, 0, 0, 0, g, 10);
+    BOX(.14, .18, .18, tintMat(s, 0x2a3140), .39, 0, 0, g);
+    addLED(s, g, .30);
+    s.anim = (R, c) => { plateG.rotation.x = c.throttle * Math.PI * 0.46; };
+  },
+  o2(g, s) {
+    CYLZ(.17, .17, .95, glassMat(0xf97316, .26), 0, 0, 0, g, 24);
+    CYL(.09, .09, .10, MAT.steel, 0, .18, 0, g, 10);
+    CYL(.075, .075, .10, MAT.steel, 0, .27, 0, g, 6);
+    CYL(.05, .05, .26, tintMat(s, 0x2a3140), 0, .45, 0, g, 12);
+    const tip = new THREE.MeshStandardMaterial({ color: 0x9ca3af, emissive: new THREE.Color(0xffa040), emissiveIntensity: .6, metalness: .3, roughness: .5 });
+    CYL(.04, .04, .16, tip, 0, .04, 0, g, 12);
+    addLED(s, g, .66);
+    const cLean = new THREE.Color(0x3b82f6), cRich = new THREE.Color(0xff7a2a);
+    s.anim = (R) => { tip.emissive.copy(cLean).lerp(cRich, clampN((R.o2v - 0.1) / 0.8, 0, 1)); tip.emissiveIntensity = s.dead ? 0.05 : 0.5 + 0.9 * (0.4 + R.o2v * 0.6); };
+  },
+  inj(g, s) {
+    CYLZ(.05, .05, 1.0, MAT.steel, 0, .22, 0, g, 12);
+    const sprays = [];
+    for (let j = 0; j < 4; j++) {
+      const z = -.36 + j * .24;
+      CYL(.045, .045, .30, tintMat(s, 0x2a3140), 0, .06, z, g, 12);
+      CYL(.02, .03, .08, MAT.steel, 0, -.13, z, g, 10);
+      BOX(.07, .05, .07, MAT.darkM, 0, .24, z, g);
+      const sm = new THREE.MeshBasicMaterial({ color: 0xbfe9ff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+      const cone = addMesh(new THREE.ConeGeometry(.12, .30, 14, 1, true), sm, 0, -.30, z, g);
+      cone.rotation.x = Math.PI;
+      sprays.push(sm);
+    }
+    addLED(s, g, .36);
+    s.anim = (R, c) => {
+      for (let j = 0; j < 4; j++) {
+        const phi = (((c.cyc - CYL_PH[j]) % 720) + 720) % 720;
+        const span = clampN(0.12 + R.duty * 1.6, 0.12, 0.9) * 180;
+        const on = !R.noStart && phi >= 360 && phi < 360 + span;
+        sprays[j].opacity = on ? clampN(0.35 + R.duty * 3, 0.35, 0.85) : 0;
+      }
+    };
+  },
+  ign(g, s) {
+    const sparks = [];
+    for (let j = 0; j < 4; j++) {
+      const z = -.36 + j * .24;
+      CYL(.065, .065, .30, tintMat(s, 0x6d28d9, .3, .5), 0, .08, z, g, 14);
+      BOX(.08, .06, .10, MAT.darkM, 0, .27, z, g);
+      CYL(.025, .025, .13, MAT.steel, 0, -.15, z, g, 8);
+      const sm = new THREE.MeshBasicMaterial({ color: 0xe9d5ff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+      sparks.push(addMesh(new THREE.SphereGeometry(.09, 10, 8), sm, 0, -.24, z, g));
+    }
+    addLED(s, g, .36);
+    s.anim = (R, c) => {
+      for (let j = 0; j < 4; j++) {
+        const phi = (((c.cyc - CYL_PH[j]) % 720) + 720) % 720;
+        const f = (!R.noStart && phi < 200) ? Math.exp(-phi / 40) : 0;
+        sparks[j].material.opacity = f;
+        sparks[j].scale.setScalar(0.7 + 1.2 * f);
+      }
+    };
+  },
+  thr(g, s) {
+    CYL(.14, .14, .34, MAT.steel, 0, 0, 0, g, 20);
+    CYL(.145, .145, .06, tintMat(s, 0x2a3140), 0, -.18, 0, g, 20);
+    const gear = new THREE.Group(); gear.position.y = .22; g.add(gear);
+    CYL(.17, .17, .05, MAT.brass, 0, 0, 0, gear, 20);
+    const tg = new THREE.BoxGeometry(.05, .05, .06);
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; const t = addMesh(tg, MAT.brass, Math.cos(a) * .185, 0, Math.sin(a) * .185, gear); t.rotation.y = -a; }
+    CYL(.03, .03, .08, MAT.darkM, 0, .06, 0, gear, 8);
+    BOX(.12, .08, .16, MAT.darkM, .18, -.05, 0, g);
+    addLED(s, g, .36);
+    s.anim = (R, c) => { gear.rotation.y = c.throttle * Math.PI * 1.6; };
+  },
+  egr(g, s) {
+    CYL(.13, .13, .26, tintMat(s, 0x2a3140), 0, 0, 0, g, 18);
+    const ring = glowMat(0xa78bfa, .2);
+    addMesh(new THREE.TorusGeometry(.14, .03, 8, 24), ring, 0, .05, 0, g).rotation.x = Math.PI / 2;
+    BOX(.34, .05, .34, MAT.darkM, 0, -.16, 0, g);
+    const pin = CYL(.025, .025, .30, mat(0xa78bfa, .5, .4), 0, .27, 0, g, 8);
+    addLED(s, g, .46);
+    s.anim = (R) => { ring.emissiveIntensity = s.dead ? 0 : 0.15 + 1.1 * R.egrDuty; pin.position.y = .27 + .10 * R.egrDuty; };
+  }
+};
+
+const CYL_PH = [0, 540, 180, 360];                 /* firing order 1-3-4-2 on the 720 deg cycle */
+const lines = [];
 function makeLink(a, b, colour) {
-  const mat = mat(0x556074, .45, .55);
-  const tube = Base.tubeBetween(a, b, 0.022, 0.022, mat, true);
+  const linkMat = mat(0x556074, .45, .55);
+  const tube = Base.tubeBetween(a, b, 0.022, 0.022, linkMat, true);
   tube.castShadow = false;
   root.add(tube);
-
   const parts = [];
   const n = lowEnd ? 3 : 4;
   for (let i = 0; i < n; i++) {
-    const p = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({
-      color: colour, transparent: true, opacity: 0.95,
-      blending: THREE.AdditiveBlending, depthWrite: false
-    }));
+    const p = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
     root.add(p);
     parts.push(p);
   }
-  const rec = { a: a.clone(), b: b.clone(), parts, mat, dead: false, baseColor: colour };
+  const rec = { a: a.clone(), b: b.clone(), parts, mat: linkMat, dead: false, baseColor: colour };
   lines.push(rec);
   return rec;
 }
-
 function makeNode(spec, side) {
+  spec.tints = [];
   const grp = new THREE.Group();
   grp.position.set(side * 3.0, NODE_Y, spec.z);
-
-  const body = new THREE.Mesh(nodeBodyGeo, mat(spec.color, .45, .45));
-  body.castShadow = true;
-  grp.add(body);
-
-  const edge = new THREE.Mesh(nodeEdgeGeo, mat(0x11151c, .55, .55));
-  edge.position.set(0, 0, 0.22);
-  grp.add(edge);
-
-  // LED indicator on top
-  const ledMat = new THREE.MeshStandardMaterial({
-    color: 0x22ff88, emissive: new THREE.Color(0x22ff88),
-    emissiveIntensity: 0.9, roughness: .4
-  });
-  const led = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.05, 10), ledMat);
-  led.position.set(0, 0.26, 0);
-  grp.add(led);
-
   root.add(grp);
+  BUILD[spec.id](grp, spec);
   spec.mesh = grp;
-  spec.body = body;
-  spec.led = led;
-  spec.ledMat = ledMat;
+  spec.side = side;
   return grp;
 }
+/* harness trays under each column */
+[-1, 1].forEach((sd) => BOX(0.9, 0.05, 4.1, mat(0x161b24, .5, .6), sd * 3.0, NODE_Y - 0.36, 0));
 
-INPUTS.forEach(n => {
+INPUTS.forEach((n) => {
   makeNode(n, -1);
-  n.link = makeLink(
-    new THREE.Vector3(-2.75, NODE_Y, n.z),
-    new THREE.Vector3(-1.56, ECU_Y, n.z * 0.45),
-    0x38bdf8
-  );
+  n.link = makeLink(new THREE.Vector3(-2.65, NODE_Y, n.z), new THREE.Vector3(-1.56, ECU_Y, n.z * 0.45), 0x38bdf8);
 });
-OUTPUTS.forEach(n => {
+OUTPUTS.forEach((n) => {
   makeNode(n, 1);
-  n.link = makeLink(
-    new THREE.Vector3(1.56, ECU_Y, n.z * 0.45),
-    new THREE.Vector3(2.75, NODE_Y, n.z),
-    0xffb020
-  );
+  n.link = makeLink(new THREE.Vector3(1.56, ECU_Y, n.z * 0.45), new THREE.Vector3(2.65, NODE_Y, n.z), 0xffb020);
 });
 
 /* ═══════════════════════════════════════════════════════════════════════
    CAN BUS / OBD-II DIAGNOSTIC PORT
    ═══════════════════════════════════════════════════════════════════════ */
 const OBD_POS = new THREE.Vector3(2.4, -0.55, 1.9);
-const obdBody = new THREE.Mesh(
-  new THREE.BoxGeometry(0.46, 0.30, 0.28),
-  mat(0x1a1e26, .55, .55)
-);
-obdBody.position.copy(OBD_POS);
-obdBody.castShadow = true;
-root.add(obdBody);
-
-// D-shaped face
-const obdFace = new THREE.Mesh(
-  new THREE.BoxGeometry(0.36, 0.20, 0.03),
-  mat(0x0d1015, .35, .70)
-);
-obdFace.position.set(OBD_POS.x, OBD_POS.y, OBD_POS.z + 0.16);
-root.add(obdFace);
-
-// 16 pins (2 rows of 8)
-for (let r = 0; r < 2; r++) {
-  for (let c = 0; c < 8; c++) {
-    const pin = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.008, 0.008, 0.05, 6),
-      MAT.pin
-    );
-    pin.position.set(
-      OBD_POS.x - 0.14 + c * 0.040,
-      OBD_POS.y + (r === 0 ? 0.04 : -0.04),
-      OBD_POS.z + 0.18
-    );
-    pin.rotation.x = Math.PI / 2;
-    root.add(pin);
-  }
+BOX(0.46, 0.30, 0.28, mat(0x1a1e26, .55, .55), OBD_POS.x, OBD_POS.y, OBD_POS.z);
+BOX(0.36, 0.20, 0.03, mat(0x0d1015, .35, .70), OBD_POS.x, OBD_POS.y, OBD_POS.z + 0.16);
+const obdPinGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.05, 6);
+for (let r = 0; r < 2; r++) for (let c = 0; c < 8; c++) {
+  const p = addMesh(obdPinGeo, MAT.pin, OBD_POS.x - 0.14 + c * 0.040, OBD_POS.y + (r === 0 ? 0.04 : -0.04), OBD_POS.z + 0.18);
+  p.rotation.x = Math.PI / 2;
 }
-
-// CAN-H and CAN-L as two parallel tubes
-const canH = makeLink(
-  new THREE.Vector3(1.56, ECU_Y - 0.14, 0.90),
-  new THREE.Vector3(OBD_POS.x - 0.06, OBD_POS.y + 0.05, OBD_POS.z + 0.10),
-  0xa855f7
-);
-const canL = makeLink(
-  new THREE.Vector3(1.56, ECU_Y - 0.20, 0.90),
-  new THREE.Vector3(OBD_POS.x - 0.06, OBD_POS.y - 0.05, OBD_POS.z + 0.10),
-  0x8b5cf6
-);
-canH.dead = false;
-canL.dead = false;
+const canH = makeLink(new THREE.Vector3(1.56, ECU_Y - 0.14, 0.90), new THREE.Vector3(OBD_POS.x - 0.06, OBD_POS.y + 0.05, OBD_POS.z + 0.10), 0xa855f7);
+const canL = makeLink(new THREE.Vector3(1.56, ECU_Y - 0.20, 0.90), new THREE.Vector3(OBD_POS.x - 0.06, OBD_POS.y - 0.05, OBD_POS.z + 0.10), 0x8b5cf6);
 
 /* ═══════════════════════════════════════════════════════════════════════
    LABELS
    ═══════════════════════════════════════════════════════════════════════ */
 const labels = Base.createLabelSystem();
 labels.add('ecu', 'ECU');
+labels.add('map', 'Map (fuel / spark)');
 labels.add('obd', 'OBD-II (CAN)');
-INPUTS.forEach(n => labels.add('in-' + n.id, n.text));
-OUTPUTS.forEach(n => labels.add('out-' + n.id, n.text));
+INPUTS.forEach((n) => labels.add('in-' + n.id, n.text));
+OUTPUTS.forEach((n) => labels.add('out-' + n.id, n.text));
 
 /* ═══════════════════════════════════════════════════════════════════════
    UI TABS
@@ -453,55 +623,75 @@ const TABS = {
     <div class="al-sec">
       <h4>What it does</h4>
       <p>The engine control unit is the computer that runs the engine. It reads sensors,
-      compares them with <b>maps</b> held in flash memory, and drives the actuators that meter
-      fuel, fire the coils and set the throttle — hundreds of times per second.</p>
+      looks up <b>maps</b> held in flash memory, and drives the actuators that meter
+      fuel, fire the coils and set the throttle - hundreds of times per second.</p>
     </div>
     <div class="al-sec">
-      <h4>Signal chain</h4>
+      <h4>Maps and interpolation</h4>
+      <p>The floating bar chart above the ECU is the calibration. Engine speed and manifold pressure
+      pick a point on the surface; the ECU blends the four nearest cells (the bright bars) and
+      reads the answer. Switch between the <b>Fuel</b> map (volumetric efficiency, which sets how much air
+      the cylinders hold) and the <b>Spark</b> map (advance in degrees before TDC).</p>
+    </div>
+    <div class="al-sec">
+      <h4>From air to injection pulse</h4>
       <ul>
-        <li><b>Inputs</b> — MAF/MAP, crank &amp; cam position, throttle, coolant, upstream O₂, knock.</li>
-        <li><b>Processing</b> — 10–100 µs task scheduler; fuel and spark maps indexed by engine speed and load.</li>
-        <li><b>Outputs</b> — injectors, ignition coils, electronic throttle, EGR and purge valves.</li>
+        <li><b>Air</b> - the MAF sensor measures it directly; without it the ECU estimates it from MAP, rpm and the fuel map.</li>
+        <li><b>Fuel</b> - air per cylinder &divide; 14.7 &divide; target &lambda; gives the fuel mass; the injector flow rate turns that into a <b>pulse width</b>, plus a small opening dead time.</li>
+        <li><b>Target &lambda;</b> - 1.0 for cruise, richer at full load (cooling the charge) and richer when the engine is cold.</li>
       </ul>
     </div>
     <div class="al-sec">
-      <h4>Closed loop</h4>
-      <p>At λ = 1 the upstream O₂ sensor swings between roughly 0.1 V and 0.9 V. The ECU moves the
-      <b>short-term fuel trim</b> until those swings average out; the long-term trim stores the
-      correction for the next drive cycle. Typical authority is ±25 %.</p>
+      <h4>Closed loop and learning</h4>
+      <p>The upstream O&#8322; sensor flips between about 0.1 V (lean) and 0.9 V (rich) at &lambda; = 1.
+      The ECU nudges the <b>short-term trim</b> up or down each time it flips, so the signal switches back and forth
+      around stoichiometric. The injectors here deliver 6 % less than commanded; the <b>long-term trim</b> slowly learns
+      that error so the short-term trim can return to zero. Use <b>Reset trims</b> to watch it learn again.</p>
     </div>
     <div class="al-sec">
-      <h4>Limp home</h4>
-      <p>When a sensor fails a plausibility check the ECU substitutes a fixed default, lights the
-      MIL and limits load so the car can still reach a workshop.</p>
+      <h4>Warm-up, knock and limp home</h4>
+      <p>Below about 55 &deg;C the ECU runs <b>open loop</b> and adds enrichment; press <b>Cold start</b> to see it.
+      If the spark advance exceeds the knock limit the ECU retards timing in steps and creeps back when the knocking stops.
+      When a sensor fails a plausibility check it substitutes a default, lights the MIL and limits load so the car
+      can still reach a workshop.</p>
     </div>
     <div class="al-sec">
       <h4>Try the faults</h4>
-      <p>Use the <b>fault buttons</b> below to open-circuit the O₂ sensor (open loop),
-      the MAF (speed-density fallback), the crank sensor (no-start) or inject a knock event
-      (ignition retard). Watch how the trims, advance and MIL respond.</p>
+      <p>Pick one from <b>Injected fault</b>: open-circuit the O&#8322; sensor (open loop), the MAF (speed-density fallback, watch the trims
+      soak up the estimate error), the crank sensor (no start), the throttle position sensor (limp home) or inject a knock event
+      (raise the load to see the retard).</p>
     </div>`,
   faults: () => `
     <div class="al-sec"><h4>Common faults</h4></div>
     <div class="al-fault">
       <div class="t">Sensor open or short circuit</div>
-      <div class="s">MIL on, rich running, poor economy, P0100-series code stored.</div>
+      <div class="s">MIL on, rich or lean running, poor economy, a P0100-series code stored.</div>
       <div class="c">Check: 5 V reference at the plug, sensor resistance, continuity back to the ECU.</div>
     </div>
     <div class="al-fault">
       <div class="t">Crank sensor no signal</div>
-      <div class="s">Cranks but will not start — no spark, no injection pulse.</div>
-      <div class="c">Check: air gap (typical 0.5–1.5 mm), coil resistance (typical 500–1500 Ω), tach signal while cranking.</div>
+      <div class="s">Cranks but will not start - no spark, no injection pulse.</div>
+      <div class="c">Check: air gap (typical 0.5-1.5 mm), coil resistance (typical 500-1500 &Omega;), tach signal while cranking.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Throttle position sensor fault</div>
+      <div class="s">Limp home: the throttle springs to a fixed small opening, power and rpm are capped, MIL on.</div>
+      <div class="c">Check: both sensor tracks track each other, 5 V reference and ground, wiring chafe near the throttle body.</div>
+    </div>
+    <div class="al-fault">
+      <div class="t">Knock sensor or low-octane fuel</div>
+      <div class="s">Timing retarded under load, flat power and higher consumption, sometimes a pinging sound.</div>
+      <div class="c">Check: fuel grade, intake temperature, carbon in the chamber, knock sensor torque and wiring.</div>
     </div>
     <div class="al-fault">
       <div class="t">CAN bus fault</div>
       <div class="s">U-codes, several modules offline at once, instrument pack dead.</div>
-      <div class="c">Check: 60 Ω across the bus with the ignition off, 2.5 V and 2.5 V on CAN-H / CAN-L.</div>
+      <div class="c">Check: 60 &Omega; across the bus with the ignition off, 2.5 V on CAN-H and CAN-L.</div>
     </div>
     <div class="al-fault">
       <div class="t">Failed ECU (rare)</div>
       <div class="s">No communication, no injector pulse, water in the connector.</div>
-      <div class="c">Check: powers, grounds and 5 V rails first — replace only after ruling out wiring.</div>
+      <div class="c">Check: power, grounds and 5 V rails first - replace only after ruling out the wiring.</div>
     </div>`,
   quiz: () => `
     <div class="al-q" data-a="1">
@@ -509,13 +699,13 @@ const TABS = {
       <button class="al-opt">Crankshaft position sensor</button>
       <button class="al-opt">Upstream heated oxygen sensor</button>
       <button class="al-opt">Knock sensor</button>
-      <div class="al-exp">The upstream (pre-catalyst) O₂ sensor measures oxygen in the exhaust; the ECU trims fuel until it averages λ = 1.</div>
+      <div class="al-exp">The upstream (pre-catalyst) O&#8322; sensor measures oxygen in the exhaust; the ECU trims fuel until it averages &lambda; = 1.</div>
     </div>
     <div class="al-q" data-a="2">
       <div class="q">2. What is a fuel map?</div>
       <button class="al-opt">A wiring diagram for the injectors</button>
       <button class="al-opt">A list of stored fault codes</button>
-      <button class="al-opt">A lookup table of injection quantity against engine speed and load</button>
+      <button class="al-opt">A lookup table indexed by engine speed and load</button>
       <div class="al-exp">Maps are calibrated tables indexed by speed and load; the ECU interpolates between the nearest cells.</div>
     </div>
     <div class="al-q" data-a="0">
@@ -526,17 +716,32 @@ const TABS = {
       <div class="al-exp">Defaults keep the car driveable; the MIL stays on until the fault is repaired and codes are cleared.</div>
     </div>
     <div class="al-q" data-a="1">
-      <div class="q">4. A knocked sensor signal (MAF) causes the ECU to…</div>
+      <div class="q">4. A failed MAF signal makes the ECU...</div>
       <button class="al-opt">Shut the engine down instantly</button>
-      <button class="al-opt">Fall back to speed-density (MAP + TPS + RPM) fuelling</button>
+      <button class="al-opt">Fall back to speed-density (MAP + rpm + table) fuelling</button>
       <button class="al-opt">Ignore fuelling entirely</button>
-      <div class="al-exp">A MAF fault forces speed-density fuelling using MAP, throttle position and RPM, with reduced accuracy.</div>
+      <div class="al-exp">A MAF fault forces speed-density fuelling, with reduced accuracy. The O&#8322; trims then absorb the estimate error.</div>
+    </div>
+    <div class="al-q" data-a="0">
+      <div class="q">5. The short-term trim sits at +6 % for a long time. The long-term trim will...</div>
+      <button class="al-opt">Learn the correction so the short-term trim returns toward zero</button>
+      <button class="al-opt">Switch the engine to open loop</button>
+      <button class="al-opt">Erase the fuel map</button>
+      <div class="al-exp">The long-term trim integrates the short-term trim, storing the correction for the next drive.</div>
+    </div>
+    <div class="al-q" data-a="2">
+      <div class="q">6. When knock is detected the ECU...</div>
+      <button class="al-opt">Adds more spark advance</button>
+      <button class="al-opt">Stops injecting fuel</button>
+      <button class="al-opt">Retards the spark, then creeps back toward the map value</button>
+      <div class="al-exp">Retarding the spark lowers cylinder pressure and temperature; the ECU recovers advance slowly while the engine stays quiet.</div>
     </div>`
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
    UI
    ═══════════════════════════════════════════════════════════════════════ */
+let mapMode = 'fuel';
 const ui = Base.UI.create({
   moduleId: CFG.moduleId,
   panel: {
@@ -551,8 +756,8 @@ const ui = Base.UI.create({
     badge: { text: 'Closed loop', color: CFG.accent }
   },
   monitor: {
-    config: { label: 'Engine', value: { label: 'Engine', unit: ' rpm', max: 100, bar: true }, rows: [['load', 'Load'], ['adv', 'Advance'], ['pw', 'Injection pulse'], ['kr', 'Knock retard'], ['stft', 'Short-term trim'], ['ltft', 'Long-term trim'], ['loop', 'Fuel control'], ['mil', 'Malfunction lamp']], status: { text: 'Running' } },
-    initial: { value: { text: '—', unit: ' rpm' }, rows: { load: '—', adv: '—', pw: '—', kr: '—', stft: '—', ltft: '—', loop: '—', mil: '—' }, status: ['Running', false] }
+    config: { label: 'Engine', value: { label: 'Engine', unit: ' rpm', max: 100, bar: true }, rows: [['adv', 'Spark advance'], ['pw', 'Injection pulse'], ['kr', 'Knock retard'], ['lam', 'Air-fuel ratio'], ['air', 'Air mass flow'], ['o2', 'O\u2082 sensor'], ['stft', 'Short-term trim'], ['ltft', 'Long-term trim'], ['ect', 'Coolant'], ['loop', 'Fuel control'], ['dtc', 'Stored code'], ['mil', 'Malfunction lamp']], status: { text: 'Running' } },
+    initial: { value: { text: '\u2014', unit: ' rpm' }, rows: { adv: '\u2014', pw: '\u2014', kr: '\u2014', lam: '\u2014', air: '\u2014', o2: '\u2014', stft: '\u2014', ltft: '\u2014', ect: '\u2014', loop: '\u2014', dtc: '\u2014', mil: '\u2014' }, status: ['Running', false] }
   },
   toolbar: {
     play: true,
@@ -560,14 +765,24 @@ const ui = Base.UI.create({
     speed: { label: 'Sim speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
     labels: true
   },
-  axes: [{ id: 'load', preset: 'load', def: 35, label: 'Engine load', side: 'left', onChange: () => updateReadouts() }],
+  axes: [
+    { id: 'load', preset: 'load', def: 35, label: 'Engine load', side: 'left', onChange: () => refreshNow() },
+    { id: 'rpm', preset: 'rpm', def: 2200, max: RPM_MAX, label: 'Engine speed', side: 'right', onChange: () => refreshNow() }
+  ],
 
-  /* Phase 6: the injected fault is a controls.js choice in the dock options row (replaces the panel buttons + toolbar extra) */
+  /* The injected fault, the map shown and two actions live in the dock options row */
   options: [
     { id: 'fault', type: 'choice', layout: 'select', label: 'Injected fault', ariaLabel: 'Injected fault',
       options: [{ id: 'none', label: 'None' }, { id: 'o2', label: 'O\u2082 open' }, { id: 'maf', label: 'MAF open' },
-                { id: 'ckp', label: 'Crank no-signal', tone: 'crit' }, { id: 'knock', label: 'Knock event', tone: 'crit' }],
-      onChange: (id) => { if (id !== state.fault) setFault(id); } }
+                { id: 'ckp', label: 'Crank no-signal', tone: 'crit' }, { id: 'tps', label: 'Throttle sensor', tone: 'crit' }, { id: 'knock', label: 'Knock event', tone: 'crit' }],
+      onChange: (id) => { if (id !== state.fault) setFault(id); } },
+    { id: 'map', type: 'choice', layout: 'segmented', label: 'Map shown', ariaLabel: 'Map shown above the ECU',
+      options: [{ id: 'fuel', label: 'Fuel' }, { id: 'spark', label: 'Spark' }], def: 'fuel',
+      onChange: (id) => { mapMode = id; refreshNow(); } },
+    { id: 'coldstart', type: 'action', label: 'Cold start', ariaLabel: 'Restart with a cold engine',
+      onAction: () => { ECU.ect = ECT_COLD; refreshNow(); } },
+    { id: 'relearn', type: 'action', label: 'Reset trims', ariaLabel: 'Erase the learned fuel trims',
+      onAction: () => { ECU.stft = 0; ECU.ltft = 0; refreshNow(); } }
   ]
 });
 
@@ -576,12 +791,10 @@ const tabHost = document.createElement('div');
 tabHost.id = 'al-tabs';
 tabHost.className = 'al-tabs';
 ui.panel.body.appendChild(tabHost);
-Widgets.wireQuiz(tabHost);
+Widgets.wireQuiz(tabHost);            /* one click handler; the tab content is swapped underneath it */
 
 function renderTab(id) {
   tabHost.innerHTML = (TABS[id] || TABS.overview)();
-  Widgets.wireQuiz(tabHost);
-  queueMicrotask(updateReadouts);
 }
 renderTab('overview');
 
@@ -590,172 +803,103 @@ function setFault(f) {
   state.fault = f;
   ui.controls.setValue('fault', f);                       /* keep the dock choice in step (no-op when it already matches) */
   applyFaultVisuals();
-  updateReadouts();
+  refreshNow();
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
    FAULT VISUALS
    ═══════════════════════════════════════════════════════════════════════ */
 function setBadge(text, colour) {
-  // Try multiple known kit conventions so this works on any kit version.
   const badge = document.getElementById('stroke-badge') || document.querySelector('.al-badge');
   if (badge) {
     badge.style.background = `color-mix(in oklch, ${colour} 18%, transparent)`;
     badge.style.color = colour;
   }
-  const label = document.getElementById('badge-text') || badge?.querySelector('.al-badge-text');
+  const label = document.getElementById('badge-text') || (badge && badge.querySelector('.al-badge-text'));
   if (label) label.textContent = text;
   else if (badge) badge.textContent = text;
 }
 
+function markDead(n) {
+  n.dead = true;
+  n.link.dead = true;
+  n.link.mat.color.setHex(0xb03030);
+  n.tints.forEach((t) => t.m.color.setHex(0x8a2222));
+  n.ledMat.color.setHex(0xff3333);
+  n.ledMat.emissive.setHex(0xff3333);
+}
 function applyFaultVisuals() {
   const f = state.fault;
-
-  // Reset node visual states
-  [...INPUTS, ...OUTPUTS].forEach(n => {
-    if (!n.link) return;
+  [...INPUTS, ...OUTPUTS].forEach((n) => {
+    n.dead = false;
     n.link.dead = false;
     n.link.mat.color.setHex(0x556074);
-    n.body.material.color.setHex(parseInt(n.color.toString(16), 16) || n.color);
+    n.tints.forEach((t) => t.m.color.copy(t.base));
     n.ledMat.color.setHex(0x22ff88);
     n.ledMat.emissive.setHex(0x22ff88);
   });
-
-  if (f === 'o2') {
-    const n = INPUTS.find(x => x.id === 'o2');
-    n.link.dead = true;
-    n.link.mat.color.setHex(0xb03030);
-    n.body.material.color.setHex(0x8a2222);
-    n.ledMat.color.setHex(0xff3333);
-    n.ledMat.emissive.setHex(0xff3333);
-  } else if (f === 'maf') {
-    const n = INPUTS.find(x => x.id === 'maf');
-    n.link.dead = true;
-    n.link.mat.color.setHex(0xb03030);
-    n.body.material.color.setHex(0x8a2222);
-    n.ledMat.color.setHex(0xff3333);
-    n.ledMat.emissive.setHex(0xff3333);
-  } else if (f === 'ckp') {
-    const n = INPUTS.find(x => x.id === 'ckp');
-    n.link.dead = true;
-    n.link.mat.color.setHex(0xb03030);
-    n.body.material.color.setHex(0x8a2222);
-    n.ledMat.color.setHex(0xff3333);
-    n.ledMat.emissive.setHex(0xff3333);
-    // Dead outputs too
-    OUTPUTS.forEach(o => {
-      o.link.dead = true;
-      o.link.mat.color.setHex(0xb03030);
-      o.ledMat.color.setHex(0xff3333);
-      o.ledMat.emissive.setHex(0xff3333);
-    });
-  } else if (f === 'knock') {
-    const n = INPUTS.find(x => x.id === 'ckp'); // repurposed visual
-    // Just tint the ignition output path red
-    const ig = OUTPUTS.find(x => x.id === 'ign');
-    ig.body.material.color.setHex(0xff8844);
+  const node = (id) => [...INPUTS, ...OUTPUTS].find((x) => x.id === id);
+  if (f === 'o2') markDead(node('o2'));
+  else if (f === 'maf') markDead(node('maf'));
+  else if (f === 'ckp') { markDead(node('ckp')); OUTPUTS.forEach(markDead); }
+  else if (f === 'tps') { markDead(node('tps')); markDead(node('thr')); }
+  else if (f === 'knock') {
+    const ig = node('ign');
+    ig.tints.forEach((t) => t.m.color.setHex(0xff8844));
     ig.ledMat.color.setHex(0xffcc22);
     ig.ledMat.emissive.setHex(0xffcc22);
   }
 
-  // Badge text
-  const txt = f === 'none'   ? 'Closed loop'
-            : f === 'o2'     ? 'Open loop · default'
-            : f === 'maf'    ? 'Speed-density fallback'
-            : f === 'ckp'    ? 'No start · cranking'
-            : f === 'knock'  ? 'Knock retard active'
+  const txt = f === 'none'  ? 'Closed loop'
+            : f === 'o2'    ? 'Open loop \u00B7 default'
+            : f === 'maf'   ? 'Speed-density fallback'
+            : f === 'ckp'   ? 'No start \u00B7 cranking'
+            : f === 'tps'   ? 'Limp home'
+            : f === 'knock' ? 'Knock retard active'
             : 'Fault';
-  const colour = f === 'none' ? CFG.accent : '#ef4444';
-  setBadge(txt, colour);
+  setBadge(txt, f === 'none' ? CFG.accent : '#ef4444');
 }
 applyFaultVisuals();
 
 /* ═══════════════════════════════════════════════════════════════════════
-   READOUTS
+   READOUTS - one Monitor update per call
    ═══════════════════════════════════════════════════════════════════════ */
-/* 7b3: the old panel grid is Monitor rows (engine speed, load and advance repeated the big value / rows and are dropped) */
-const ro = Base.monitorRows(ui, ['pw', 'kr', 'stft', 'ltft', 'loop', 'mil'], ['rpm', 'load', 'adv']);
-
-let ltft = 0;   // long-term trim accumulated over time
-
-function updateReadouts() {
-  const load = ui.controls.value('load') / 100;
-  const f = state.fault;
-  const dead = f === 'o2' || f === 'maf';
-  const noStart = f === 'ckp';
-  const knocking = f === 'knock';
-
-  const rpm = noStart ? 220 : Math.round(800 + load * 6200);
-
-  // Base injection pulse from load
-  let pw = 1.6 + load * 11.5;
-
-  // Fuel trim feedback
-  const stftBase = dead ? 0 : Math.sin(performance.now() * 0.0011) * 3.2;
-  let stft = stftBase;
-  if (f === 'o2') stft = 0;               // no feedback in open loop
-  if (f === 'maf') stft = 0;
-  if (f === 'knock') stft = stftBase * 0.4;
-
-  // Open-loop enrichment penalty
-  if (dead) pw *= 1.10;
-
-  // Speed-density fallback runs slightly richer
-  if (f === 'maf') pw *= 1.05;
-
-  // Knock retard pulls timing
-  const baseAdv = 28 - load * 20;
-  const knockRetard = knocking ? 6 + Math.abs(Math.sin(performance.now() * 0.004)) * 4 : 0;
-  const adv = baseAdv - knockRetard - (dead ? 2 : 0);
-
-  // Accumulate LTFT when STFT is biased
-  if (!dead && !noStart) {
-    ltft = THREE.MathUtils.lerp(ltft, stft * 0.35, 0.004);
-  }
-
-  // No-start: everything dead
-  if (noStart) {
-    pw = 0;
-  }
-
-  if (ro.rpm)  ro.rpm.textContent  = noStart ? '— rpm' : rpm + ' rpm';
-  if (ro.load) ro.load.textContent = ui.controls.value('load') + ' %';
-  if (ro.pw)   ro.pw.textContent   = noStart ? '—' : pw.toFixed(2) + ' ms';
-  if (ro.adv)  ro.adv.textContent  = noStart ? '—' : adv.toFixed(1) + '° BTDC';
-  if (ro.kr) {
-    ro.kr.textContent = knocking ? '−' + knockRetard.toFixed(1) + '°' : '0.0°';
-    ro.kr.className = 'v ' + (knocking ? 'crit' : '');
-  }
-  if (ro.stft) {
-    ro.stft.textContent = (stft >= 0 ? '+' : '') + stft.toFixed(1) + ' %';
-    ro.stft.className = 'v ' + (dead ? 'crit' : 'ok');
-  }
-  if (ro.ltft) {
-    ro.ltft.textContent = (ltft >= 0 ? '+' : '') + ltft.toFixed(1) + ' %';
-    ro.ltft.className = 'v ' + (Math.abs(ltft) > 10 ? 'warn' : 'ok');
-  }
-  if (ro.loop) {
-    ro.loop.textContent =
-      f === 'o2'    ? 'Open loop (default)' :
-      f === 'maf'   ? 'Speed-density'       :
-      f === 'ckp'   ? 'No start'            :
-                      'Closed loop';
-    ro.loop.className = 'v ' + (dead || noStart ? 'crit' : 'ok');
-  }
-  if (ro.mil) {
-    ro.mil.textContent = (f === 'none') ? 'OFF' : 'ON';
-    ro.mil.className = 'v ' + (f === 'none' ? '' : 'warn');
-  }
-
+const sgn = (v) => (v >= 0 ? '+' : '\u2212') + Math.abs(v).toFixed(1);
+function pushReadouts(R) {
+  const f = R.f, ns = R.noStart;
+  const dev = Math.abs(R.lam - R.lamTgt) / R.lamTgt;
+  const status = ns ? ['No start', false]
+    : R.limp ? ['Limp home', false]
+    : f === 'o2' ? ['Open loop', false]
+    : f === 'maf' ? ['Fallback', false]
+    : R.knocking || R.knockRet > 0.2 ? ['Knock retard', false]
+    : !R.closed && R.ect <= ECT_CLOSED ? ['Warm-up', false]
+    : ['Running', true];
   ui.monitor.update({
-    value: { text: String(noStart ? '—' : rpm), unit: ' rpm', bar: ui.controls.value('load'), barColor: (dead || noStart) ? 'var(--crit)' : 'var(--al-accent)' },
-    rows: { load: ui.controls.value('load') + ' %', adv: noStart ? '—' : adv.toFixed(1) + '°' },
-    status: [noStart ? 'No start' :
-    f === 'o2' ? 'Limp home' :
-    f === 'maf' ? 'Fallback' :
-    f === 'knock' ? 'Knock' :
-    'Running', !(dead || noStart)]
+    value: { text: ns ? '\u2014' : String(Math.round(R.rpm)), unit: ' rpm', bar: clampN(R.rpm / RPM_MAX * 100, 0, 100),
+      barColor: (ns || R.limp || f === 'o2') ? 'var(--crit)' : 'var(--al-accent)' },
+    rows: {
+      adv:  ns ? '\u2014' : R.adv.toFixed(1) + '\u00B0 BTDC',
+      pw:   ns ? '\u2014' : R.pw.toFixed(2) + ' ms',
+      kr:   [R.knockRet > 0.05 ? '\u2212' + R.knockRet.toFixed(1) + '\u00B0' : '0.0\u00B0', R.knocking ? 'crit' : (R.knockRet > 0.05 ? 'warn' : 'ok')],
+      lam:  ns ? '\u2014' : [R.lam.toFixed(3), dev < 0.04 ? 'ok' : (dev < 0.12 ? 'warn' : 'crit')],
+      air:  ns ? '\u2014' : (f === 'maf' ? R.airEst.toFixed(1) + ' g/s (est.)' : R.airTrue.toFixed(1) + ' g/s'),
+      o2:   f === 'o2' ? ['0.45 V (fixed)', 'crit'] : R.o2v.toFixed(2) + ' V',
+      stft: [sgn(R.stft * 100) + ' %', (f === 'o2' || ns) ? 'crit' : 'ok'],
+      ltft: [sgn(R.ltft * 100) + ' %', Math.abs(R.ltft) > 0.10 ? 'warn' : 'ok'],
+      ect:  [R.ect.toFixed(0) + ' \u00B0C', R.ect < ECT_CLOSED ? 'warn' : 'ok'],
+      loop: [R.loopTxt, (f === 'o2' || ns || R.limp) ? 'crit' : (R.closed ? 'ok' : 'warn')],
+      dtc:  [R.dtc, f === 'none' ? 'ok' : 'warn'],
+      mil:  [R.mil ? 'ON' : 'OFF', R.mil ? 'warn' : '']
+    },
+    status
   });
+}
+
+function readInputs() { return [ui.controls.value('load') / 100, ui.controls.value('rpm')]; }
+function refreshNow() {                               /* re-evaluate without advancing time (slider, fault or map changes) */
+  const [L, rpm] = readInputs();
+  pushReadouts(stepModel(0, L, rpm, state.fault, mapMode));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -767,8 +911,8 @@ const bridge = ui.wireBridge({
   onCommand: (d) => {
     if (d.action === 'reset') {
       ui.controls.resetAll();
-      state.fault = 'none';
-      ltft = 0;
+      resetModel();
+      mapMode = 'fuel';
       setFault('none');
     }
   }
@@ -786,14 +930,40 @@ let roClock = 0;
 
 const tmp = new THREE.Vector3();
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const DEG = Math.PI / 180;
 
-/* cached LED colours to avoid re-allocating each frame */
 const C_OK    = new THREE.Color(0x22ff88);
 const C_WARN  = new THREE.Color(0xffcc22);
 const C_FAULT = new THREE.Color(0xff3333);
-const C_SIG_I = new THREE.Color(0x38bdf8);
-const C_SIG_O = new THREE.Color(0xffb020);
-const C_DIM   = new THREE.Color(0x4a5260);
+const MAP_COL = { fuel: [new THREE.Color(0x1e3a8a), new THREE.Color(0xc084fc)], spark: [new THREE.Color(0x0e7490), new THREE.Color(0xfbbf24)] };
+const tmpCol = new THREE.Color();
+
+function updateMapSurface(R, dt) {
+  const tab = mapMode === 'spark' ? ADV_TAB : VE_TAB;
+  const rng = mapMode === 'spark' ? ADV_RANGE : VE_RANGE;
+  const [c0, c1] = MAP_COL[mapMode];
+  const i0 = Math.min(Math.floor(R.fi), RPM_AX.length - 2), j0 = Math.min(Math.floor(R.fj), MAP_AX.length - 2);
+  const a = R.fi - i0, b = R.fj - j0;
+  const k = Math.min(1, dt * 8 + 0.02);
+  for (let i = 0; i < RPM_AX.length; i++) for (let j = 0; j < MAP_AX.length; j++) {
+    const bar = bars[i][j];
+    const n = clampN((tab[i][j] - rng[0]) / (rng[1] - rng[0]), 0, 1);
+    const target = BAR_MIN + BAR_RANGE * n;
+    bar.h += (target - bar.h) * k;
+    bar.mesh.scale.y = bar.h;
+    bar.mesh.position.y = bar.h / 2;
+    bar.mat.color.copy(c0).lerp(c1, n);
+    const wi = i === i0 ? 1 - a : (i === i0 + 1 ? a : 0), wj = j === j0 ? 1 - b : (j === j0 + 1 ? b : 0);
+    bar.mat.emissive.copy(bar.mat.color);
+    bar.mat.emissiveIntensity = R.noStart ? 0 : 0.75 * wi * wj;
+  }
+  const hh = lerpN(lerpN(bars[i0][j0].h, bars[i0 + 1][j0].h, a), lerpN(bars[i0][j0 + 1].h, bars[i0 + 1][j0 + 1].h, a), b);
+  const px = (R.fi - 3) * BAR_DX, pz = (R.fj - 2) * BAR_DZ;
+  probe.position.set(px, hh + 0.09, pz);
+  probeLine.position.set(px, (hh + 0.09) / 2, pz);
+  probeLine.scale.y = hh + 0.09;
+  probe.visible = probeLine.visible = !R.noStart;
+}
 
 function frame(now) {
   raf = requestAnimationFrame(frame);
@@ -801,48 +971,49 @@ function frame(now) {
   last = now;
 
   const sp = state.playing ? state.speedMul : 0;
-  t += dt * sp;
+  const dtp = dt * sp;
+  t += dtp;
+
+  /* ── engine + ECU model ── */
+  const [L, rpmReq] = readInputs();
+  const R = stepModel(dtp, L, rpmReq, state.fault, mapMode);
+  ECU.cyc += dtp * (R.noStart ? 0.25 : 0.30 + 1.1 * R.rN) * 360;     /* visual crank: slowed so strokes can be followed */
+  const ctx = { cyc: ECU.cyc, crank: ECU.cyc * DEG, throttle: R.limp ? 0.12 : 0.05 + 0.95 * R.L };
 
   /* ── ECU chip activity glow ── */
-  const activity = 0.35 + 0.55 * Math.abs(Math.sin(t * 6.5)) * (0.5 + ui.controls.value('load') / 200);
+  const activity = 0.35 + 0.55 * Math.abs(Math.sin(t * 6.5)) * (0.5 + L / 2);
   chipTop.material.emissiveIntensity = activity * (state.fault === 'none' ? 1.0 : 0.35);
+  flashGlow.material.emissiveIntensity = 0.3 + 0.9 * Math.abs(Math.sin(t * 9)) * (R.noStart ? 0.2 : 1);
 
   /* ── PCB LEDs ── */
   ledPWR.mat.emissiveIntensity = 0.9;
   ledCAN.mat.emissiveIntensity = 0.35 + 0.55 * Math.abs(Math.sin(t * 3.1));
-  ledMIL.mat.emissiveIntensity = state.fault === 'none'
-    ? 0.10
-    : 0.9 + 0.6 * Math.abs(Math.sin(t * 5.0));
+  ledMIL.mat.emissiveIntensity = state.fault === 'none' ? 0.10 : 0.9 + 0.6 * Math.abs(Math.sin(t * 5.0));
   ledACT.mat.emissiveIntensity = 0.30 + 0.80 * Math.abs(Math.sin(t * 11.0));
 
-  /* ── Node LEDs ── */
-  INPUTS.forEach(n => {
-    if (!n.ledMat) return;
-    const target = n.link.dead ? C_FAULT : C_OK;
-    n.ledMat.emissive.lerp(target, 0.15);
-    n.ledMat.color.copy(n.ledMat.emissive);
-  });
-  OUTPUTS.forEach(n => {
-    if (!n.ledMat) return;
-    const target = n.link.dead ? C_FAULT : (state.fault === 'knock' && n.id === 'ign' ? C_WARN : C_OK);
+  /* ── sensor / actuator assemblies and their LEDs ── */
+  [...INPUTS, ...OUTPUTS].forEach((n) => {
+    if (n.anim) n.anim(R, ctx);
+    const target = n.dead ? C_FAULT : (state.fault === 'knock' && n.id === 'ign' ? C_WARN : C_OK);
     n.ledMat.emissive.lerp(target, 0.15);
     n.ledMat.color.copy(n.ledMat.emissive);
   });
 
+  /* ── map surface and probe ── */
+  updateMapSurface(R, dt);
+
   /* ── flowing signal particles ── */
-  const baseHz = CFG.flowHz * (0.6 + ui.controls.value('load') / 90);
-  for (const L of lines) {
-    const n = L.parts.length;
+  const baseHz = CFG.flowHz * (0.6 + R.rN * 1.4);
+  for (const Lk of lines) {
+    const n = Lk.parts.length;
     for (let i = 0; i < n; i++) {
-      const p = L.parts[i];
-      if (L.dead) { p.visible = false; continue; }
+      const p = Lk.parts[i];
+      if (Lk.dead) { p.visible = false; continue; }
       p.visible = true;
       let u = (t * baseHz + i / n) % 1;
       if (u < 0) u += 1;
-      p.position.lerpVectors(L.a, L.b, u);
-      const s = 0.45 + 0.85 * Math.sin(Math.PI * u);
-      p.scale.setScalar(s);
-      // Brighten toward the middle
+      p.position.lerpVectors(Lk.a, Lk.b, u);
+      p.scale.setScalar(0.45 + 0.85 * Math.sin(Math.PI * u));
       p.material.opacity = 0.35 + 0.65 * Math.sin(Math.PI * u);
     }
   }
@@ -850,27 +1021,22 @@ function frame(now) {
   /* ── labels ── */
   labels.hideAll();
   if (state.showLabels) {
-    labels.project('ecu', tmp.set(0, ECU_Y + ECU_H / 2 + 0.55, 0), camera, wrap);
+    labels.project('ecu', tmp.set(-0.9, ECU_Y - 0.1, ECU_D / 2 + 0.25), camera, wrap);
+    labels.project('map', tmp.set(0.15, MAP_Y + 0.85, 0), camera, wrap);
     labels.project('obd', tmp.set(OBD_POS.x, OBD_POS.y + 0.35, OBD_POS.z), camera, wrap);
-    for (const n of INPUTS) {
-      labels.project('in-' + n.id,
-        tmp.set(n.mesh.position.x, n.mesh.position.y + 0.55, n.mesh.position.z), camera, wrap);
-    }
-    for (const n of OUTPUTS) {
-      labels.project('out-' + n.id,
-        tmp.set(n.mesh.position.x, n.mesh.position.y + 0.55, n.mesh.position.z), camera, wrap);
-    }
+    for (const n of INPUTS) labels.project('in-' + n.id, tmp.set(n.mesh.position.x, n.mesh.position.y + 0.85, n.mesh.position.z), camera, wrap);
+    for (const n of OUTPUTS) labels.project('out-' + n.id, tmp.set(n.mesh.position.x, n.mesh.position.y + 0.85, n.mesh.position.z), camera, wrap);
   }
 
   controls.update();
   renderer.render(scene, camera);
 
   roClock += dt;
-  if (roClock > 0.12) { roClock = 0; updateReadouts(); }
+  if (roClock > 0.12) { roClock = 0; pushReadouts(R); }
 }
 
 if (reduced) {
-  setInterval(() => renderer.render(scene, camera), 120);
+  setInterval(() => { refreshNow(); renderer.render(scene, camera); }, 120);
 } else {
   raf = requestAnimationFrame(frame);
 }
@@ -886,7 +1052,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* first paint */
-updateReadouts();
+refreshNow();
 </script>
 </body>
 </html>
