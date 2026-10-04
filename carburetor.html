@@ -12,23 +12,6 @@
      Carburetor module — widget interiors + small panel extras.
      ═══════════════════════════════════════════════════════════════════ */
 
-  .carb-mix-ratio {
-    font-family: var(--font-mono);
-    font-size: 11px; font-weight: 700;
-    letter-spacing: .02em;
-    margin-left: 8px;
-    opacity: .78;
-  }
-
-  .carb-readout {
-    display: flex; gap: 14px;
-    margin: 10px 0 4px;
-    color: var(--text-mute);
-    font-size: 10.5px;
-    font-family: var(--font-mono);
-  }
-  .carb-readout b { color: var(--text); font-weight: 800; }
-
   .carb-note {
     margin-top: 12px;
     padding-top: 10px;
@@ -920,12 +903,6 @@
       kicker: 'Fuel',
       title:  'Carburetor & Fuel Delivery',
       badge:  { text: mixturePhases[0].name, color: mixturePhases[0].color },
-      readout: `
-        <div class="carb-readout">
-          <span>Throttle <b data-throttle>0%</b></span>
-          <span>Air : Fuel <b data-afr>12.4 : 1</b></span>
-        </div>
-      `,
       desc: CONFIG_DEFS[0].desc,
       hint: ''
     },
@@ -948,10 +925,6 @@
   });
 
   /* ── Mixture ratio chip ── */
-  const mixRatioEl = document.createElement('span');
-  mixRatioEl.className = 'carb-mix-ratio';
-  mixRatioEl.textContent = '12.4 : 1';
-  document.getElementById('stroke-badge').appendChild(mixRatioEl);
 
   /* ── Mixture phase note ── */
   const panelBody = ui.panel.body;
@@ -988,16 +961,10 @@
      ═══════════════════════════════════════════════════════════════════ */
   const badgeEl     = document.getElementById('stroke-badge');
   const badgeTextEl = document.getElementById('badge-text');
-  const throttleEls = panelBody.querySelectorAll('[data-throttle]');
-  const afrEls      = panelBody.querySelectorAll('[data-afr]');
 
   function setMixtureUI(t, ratio) {
     const pct = Math.round(t * 100);
     const ratioStr = ratio.toFixed(1);
-
-    throttleEls.forEach(el => { el.textContent = pct + '%'; });
-    afrEls.forEach(el => { el.textContent = ratioStr + ' : 1'; });
-    mixRatioEl.textContent = ratioStr + ' : 1';
 
     ui.monitor.update({ value: { text: String(ratioStr), unit: ' : 1' }, rows: { thr: pct + '%' } });
 

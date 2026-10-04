@@ -31,6 +31,26 @@ function ensureControlsCss() {
 }
 
 export { THREE, OrbitControls, LABEL_KINDS, DENSITY_INFO };
+/* Phase 7b3: row sinks. A page whose update code writes `ro.x.textContent = '…'` and `ro.x.className = 'v warn'` (the old panel
+   readout grid) gets the same two properties as Monitor rows instead: `const ro = monitorRows(ui, ['fl', 'fr'], ['speed'])`.
+   `ids` are rows declared in the Monitor config; `drop` names are old readouts that repeated a row or the big value:
+   writes to them are ignored. The tone comes from the className word (ok | warn | crit; anything else is neutral). */
+export function monitorRows(ui, ids, drop = []) {
+  const make = (id, live) => {
+    let text = '—', tone = '';
+    const push = () => { if (live) ui.monitor.update({ rows: { [id]: tone ? [text, tone] : text } }); };
+    return {
+      set textContent(v) { text = String(v); push(); },
+      get textContent() { return text; },
+      set className(c) { const m = /\b(ok|warn|crit)\b/.exec(String(c)); tone = m ? m[1] : ''; push(); },
+      get className() { return tone; },
+    };
+  };
+  const out = {};
+  ids.forEach((id) => { out[id] = make(id, true); });
+  drop.forEach((id) => { out[id] = make(id, false); });
+  return out;
+}
 export const DEG = Math.PI / 180;
 export const TAU = Math.PI * 2;
 
@@ -1029,7 +1049,7 @@ class UIKit {
 
   /* Phase 7a: the Monitor API. set(config) rebuilds the channels; update(patch) writes values (text ≤ 9 Hz, traces ≤ 30 Hz).
        set({ value:{label,unit,max}, rows:[[id,label]], traces:[{id,series:[…]}], gauge, status:true, footer })
-       update({ label, value, rows:{id:text|[text,tone]}, rowLabels:{id:text}, traces:{id:[v…]|null}, gauge, status:[text,on,tone?] })  — see monitor-core.js */
+       update({ label, value, rows:{id:text|[text,tone]}, rowLabels:{id:text}, footer:html, traces:{id:[v…]|null}, gauge, status:[text,on,tone?] })  — see monitor-core.js */
   get monitor() {
     const self = this, M = () => self._monitor;
     return {

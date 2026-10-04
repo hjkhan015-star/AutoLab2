@@ -8,20 +8,7 @@
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  /* ═══════════════════════════════════════════════════════════
-     PANEL READOUT INTERIOR — configuration toggle (2W / 4W)
-     ═══════════════════════════════════════════════════════════ */
-  #trans-readout {
-    display: flex; flex-direction: column; gap: 8px;
-    margin-top: 8px;
-  }
-  #trans-readout .extra-label {
-    font-size:10.5px; font-weight:700; letter-spacing:.04em;
-    text-transform:uppercase;
-    color: var(--text-dim, #8b96a5);
-    margin-bottom: 2px;
-  }
-  html.light-theme
+  /* ═══ Panel text ═══ */
   #trans-desc-title {
     display: block;
     color: var(--text, #e5e7eb);
@@ -750,10 +737,6 @@
       kicker: 'Drivetrain',
       title:  'Transmission System',
       badge:  { text: 'Power Flow', color: '#3b82f6' },
-      readout: `
-        <div id="trans-readout">
-        </div>
-      `,
       desc: `<strong id="trans-desc-title">4-Wheeler Drive (Propeller Shaft)</strong>
              <div id="trans-desc-body">
                Engine power flows from the <strong>flywheel</strong> into the <strong>gearbox</strong>. A <strong>universal joint</strong>

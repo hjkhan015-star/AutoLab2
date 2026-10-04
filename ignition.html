@@ -8,77 +8,6 @@
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  /* ═══════════════════════════════════════════════════════════
-     PANEL READOUT INTERIOR — firing order, 720° cycle bar, wire legend
-     ═══════════════════════════════════════════════════════════ */
-  #ign-readout { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-  #ign-readout .ig-rows {
-    display: flex; flex-direction: column; gap: 5px;
-    font-size: 11.5px; color: var(--text-dim, #94a3b8);
-  }
-  #ign-readout .ig-row {
-    display: flex; justify-content: space-between; gap: 10px;
-    font-family: var(--font-mono);
-  }
-  #ign-readout .ig-row > span:first-child {
-    font-family: var(--font-sans);
-    font-weight: 500;
-  }
-  #ign-readout .ig-row b {
-    color: var(--text, #e5e7eb); font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-  html.light-theme #ign-readout .ig-row b { color: #0a0d13; }
-
-  #cycle-bar {
-    position: relative; height: 12px;
-    margin-top: 8px;
-    background: rgba(0,0,0,.32);
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    border-radius: 8px; overflow: visible;
-  }
-  #cycle-progress {
-    position: absolute; left: 0; top: 0; bottom: 0;
-    background: linear-gradient(90deg, #38bdf8, #f59e0b);
-    border-radius: 8px; width: 0%;
-    transition: width .06s linear;
-    box-shadow: 0 0 12px rgba(245,158,11,.55);
-  }
-  .cyc-marker {
-    position: absolute; top: -6px; bottom: -6px;
-    width: 2px; background: #f59e0b;
-    box-shadow: 0 0 8px rgba(245,158,11,.85);
-    pointer-events: none; transition: box-shadow .08s, background .08s;
-  }
-  .cyc-marker > span {
-    position: absolute; top: -15px; left: 50%;
-    transform: translateX(-50%);
-    font-size: 10px; font-weight: 800;
-    color: #cbd5e1;
-    font-family: var(--font-mono);
-    transition: color .08s;
-  }
-  .cyc-marker.firing { background: #ffd166; box-shadow: 0 0 18px rgba(255,209,102,1); }
-  .cyc-marker.firing > span { color: #ffd166; }
-  #cycle-labels {
-    display: flex; justify-content: space-between;
-    margin-top: 8px;
-    font-size: 10px; color: #64748b;
-    font-family: var(--font-mono);
-    letter-spacing: .05em;
-  }
-  html.light-theme #cycle-labels { color: #94a3b8; }
-
-  .ig-legend {
-    display: flex; flex-wrap: wrap; gap: 6px 12px;
-    margin-top: 10px;
-    font-size: 10px; color: var(--text-dim, #9aa3b2);
-  }
-  .ig-legend span { display: inline-flex; align-items: center; gap: 5px; }
-  .ig-legend i {
-    width: 8px; height: 8px; border-radius: 50%;
-    display: inline-block; flex: 0 0 auto;
-  }
 </style>
 </head>
 <body>
@@ -1223,29 +1152,6 @@
       kicker: 'Electrical',
       title:  'Ignition System & Spark Timing',
       badge:  { text: 'Ignition', color: '#f59e0b' },
-      readout: `
-        <div id="ign-readout">
-          <div class="ig-rows">
-            <div class="ig-row"><span>Firing order</span><b>1–3–4–2</b></div>
-          </div>
-          <div id="cycle-bar">
-            <div id="cycle-progress"></div>
-            <div class="cyc-marker" data-marker="0" style="left:0%"><span>1</span></div>
-            <div class="cyc-marker" data-marker="1" style="left:25%"><span>3</span></div>
-            <div class="cyc-marker" data-marker="2" style="left:50%"><span>4</span></div>
-            <div class="cyc-marker" data-marker="3" style="left:75%"><span>2</span></div>
-          </div>
-          <div id="cycle-labels">
-            <span>0°</span><span>180°</span><span>360°</span><span>540°</span><span>720°</span>
-          </div>
-          <div class="ig-legend">
-            <span><i style="background:#e0303c;box-shadow:0 0 6px #e0303c88"></i>Battery +</span>
-            <span><i style="background:#3a7fe0;box-shadow:0 0 6px #3a7fe088"></i>High voltage</span>
-            <span><i style="background:#1ac078;box-shadow:0 0 6px #1ac07888"></i>ECU signal</span>
-            <span><i style="background:#14171d;box-shadow:0 0 6px #14171d88;border:1px solid #555"></i>Ground</span>
-          </div>
-        </div>
-      `,
       desc: `<strong>Ignition.</strong> The ignition coil is a transformer — 12 V from the battery flows through its
              primary winding, building a magnetic field. When the ECU breaks that circuit, the field collapses and
              induces 20,000–40,000 V in the secondary winding. That high voltage jumps the spark plug gap, igniting
@@ -1258,8 +1164,10 @@
     },
 
     monitor: {
-      config: { label: 'Live firing', value: { label: 'Live firing', unit: '', max: 100, bar: true }, rows: [['adv', 'Advance'], ['dwell', 'Coil dwell'], ['rpm', 'Engine speed']], status: { text: 'Ready' } },
-      initial: { value: { text: 'Idle', unit: '' }, rows: { adv: '10° BTDC', dwell: '3.2 ms', rpm: '800 rpm' }, status: ['Ready', false] }
+      config: { label: 'Live firing', value: { label: 'Live firing', unit: '', max: 100, bar: true }, rows: [['adv', 'Advance'], ['dwell', 'Coil dwell'], ['order', 'Firing order'], ['rpm', 'Engine speed']],
+      footer: '<div class="mon-legend"><span><i style="background:#e0303c"></i>Battery +</span><span><i style="background:#3a7fe0"></i>High voltage</span><span><i style="background:#1ac078"></i>ECU signal</span><span><i style="background:#14171d;border:1px solid #555"></i>Ground</span></div>',
+      status: { text: 'Ready' } },
+      initial: { value: { text: 'Idle', unit: '' }, rows: { adv: '10° BTDC', dwell: '3.2 ms', order: '1–3–4–2', rpm: '800 rpm' }, status: ['Ready', false] }
     },
 
     toolbar: {
@@ -1279,7 +1187,6 @@
 
   /* Panel readout refs */
   const panelBody = ui.panel.body;
-  const cycleProgEl = panelBody ? panelBody.querySelector('#cycle-progress') : null;
   /* Spark-advance curve: a picture, not a time series, so it is a stage canvas (bottom-left over the 3D view). */
   const advCanvas = ui.stage.canvas({ id: 'advance', label: 'Spark advance · ° BTDC vs rpm', width: 360, height: 92, corner: 'bl' });
   const advCtx    = advCanvas ? advCanvas.getContext('2d') : null;
@@ -1296,8 +1203,7 @@
   }
   if (advCanvas && window.ResizeObserver) new ResizeObserver(sizeAdvCanvas).observe(advCanvas);
   sizeAdvCanvas();
-  ui.panel.remeasure();                       /* the panel lost its curve canvas (now a stage canvas) and three rows (now Monitor rows) */
-  const markerEls = panelBody ? Array.from(panelBody.querySelectorAll('.cyc-marker')) : [];
+  ui.panel.remeasure();                       /* the panel lost its curve canvas (now a stage canvas) and its rows (now Monitor rows) */
   const strokeDescEl = document.getElementById('stroke-desc');
 
   /* ═══════════════════════════════════════════════════════════
@@ -1381,11 +1287,6 @@
 
   crankAngle = START_CRANK;
   prevCrankAngle = START_CRANK;
-
-  const markerForCyl = [null, null, null, null];
-  if (markerEls.length === 4) {
-    ORDER.forEach((cyl, k) => { markerForCyl[cyl] = markerEls[k]; });
-  }
 
   /* Flame kernel inside each bore */
   const flameMeshes = PLUG_XS.map(x => {
@@ -1550,7 +1451,6 @@
     wirePulseShared = 0;
     coilFlash = 0; rotorFlash = 0; ecuBlink = 0;
     lastFireCyl = -1; lastFireAt = -1e9; chargeLevel = 0;
-    if (markerEls.length) markerEls.forEach(el => el.classList.remove('firing'));
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -1784,14 +1684,6 @@
 
     updateSparkBurst(simDt);
     updateArcs(simDt);
-
-    /* 720° cycle bar */
-    if (cycleProgEl) cycleProgEl.style.width = (crankAngle / 7.2).toFixed(2) + '%';
-    for (let i = 0; i < 4; i++) {
-      const el = markerForCyl[i];
-      if (!el) continue;
-      el.classList.toggle('firing', markerPulse[i] > 0.3);
-    }
 
     /* HUD at 10 Hz */
     uiAcc += dt;

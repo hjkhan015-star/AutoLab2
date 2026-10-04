@@ -132,48 +132,11 @@
     display: none;
   }
 
-  /* ── Legend ── */
-  #legend {
-    position: fixed;
-    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-    left: calc(14px + env(safe-area-inset-left, 0px));
-    z-index: 8;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    padding: 10px 12px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: var(--shadow-sm);
-    font-size: 10.5px;
-    color: var(--text-dim);
-    pointer-events: none;
-  }
-  .legend-row {
-    display: flex; align-items: center; gap: 7px;
-  }
-  .legend-row .sw {
-    width: 10px; height: 10px;
-    border-radius: 3px;
-    flex: 0 0 auto;
-  }
-  body.embedded #legend {
-    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-    left: 12px;
-  }
-  @media (max-width: 700px) {
-    body.embedded #legend { display: none; }
-  }
-
   
   .callout { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     border-color: color-mix(in oklch, var(--c, currentColor) 42%, var(--border)); }
   .callout::before { content:''; display:inline-block; width:6px; height:6px; border-radius:50%;
     background: var(--c, currentColor); box-shadow: 0 0 6px var(--c, currentColor); margin-right:6px; vertical-align:1px; }
-  #legend { min-width: 172px; }
   .legend-grad { height:5px; border-radius:3px; margin-top:3px; background: linear-gradient(90deg,#3aa8f0,#ffc24d,#ff3f1c); }
   .legend-ends { display:flex; justify-content:space-between; font-size:9.5px; opacity:.8; }
     @keyframes finWarn {
@@ -188,8 +151,6 @@
 
 <div id="overheat-overlay"></div>
 <div id="alert-chip">⚠ OVERHEATING — REFIT THE FINS</div>
-
-<div id="legend"></div>
 
 <script src="guard.js"></script>
   <script type="importmap">
@@ -1015,10 +976,11 @@ const LEG = {
   radiator: [['#ff5a32', 'Hot coolant from engine'], ['#3aa8f0', 'Cooled coolant returning'],
              ['linear-gradient(90deg,#3aa8f0,#34d399)', 'Thermostat ring: closed → open'], ['#cfe6f6', 'Air pulled through core']]
 };
+/* the legend follows the mode, so it is sent as the Monitor footer (update({ footer })), not as a dock widget or a fixed card */
 function renderLegend() {
-  document.getElementById('legend').innerHTML = LEG[state.mode].map(([c, t]) =>
-    `<div class="legend-row"><span class="sw" style="background:${c}"></span>${t}</div>`).join('') +
-    '<div class="legend-grad"></div><div class="legend-ends"><span>Cool</span><span>Hot</span></div>';
+  ui.monitor.update({ footer: '<div class="mon-legend">' + LEG[state.mode].map(([c, t]) =>
+    `<span><i style="background:${c}"></i>${t}</span>`).join('') + '</div>' +
+    '<div class="legend-grad"></div><div class="legend-ends"><span>Cool</span><span>Hot</span></div>' });
 }
 
 let _thSt = '';

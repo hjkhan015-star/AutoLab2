@@ -537,20 +537,6 @@ const TABS = {
 /* ═══════════════════════════════════════════════════════════════════════
    UI
    ═══════════════════════════════════════════════════════════════════════ */
-function readoutHTML() {
-  return `<div class="al-read">
-    <span class="k">Engine speed</span><span class="v hi" id="ro-rpm">—</span>
-    <span class="k">Engine load</span><span class="v" id="ro-load">—</span>
-    <span class="k">Injection pulse</span><span class="v" id="ro-pw">—</span>
-    <span class="k">Ignition advance</span><span class="v" id="ro-adv">—</span>
-    <span class="k">Knock retard</span><span class="v" id="ro-kr">—</span>
-    <span class="k">Short-term trim</span><span class="v" id="ro-stft">—</span>
-    <span class="k">Long-term trim</span><span class="v" id="ro-ltft">—</span>
-    <span class="k">Fuel control</span><span class="v" id="ro-loop">—</span>
-    <span class="k">Malfunction lamp</span><span class="v" id="ro-mil">—</span>
-  </div>`;
-}
-
 const ui = Base.UI.create({
   moduleId: CFG.moduleId,
   panel: {
@@ -562,12 +548,11 @@ const ui = Base.UI.create({
       { id: 'quiz',     label: 'Self-check' }
     ],
     onTab: renderTab,
-    badge: { text: 'Closed loop', color: CFG.accent },
-    readout: readoutHTML()
+    badge: { text: 'Closed loop', color: CFG.accent }
   },
   monitor: {
-    config: { label: 'Engine', value: { label: 'Engine', unit: ' rpm', max: 100, bar: true }, rows: [['load', 'Load'], ['adv', 'Advance']], status: { text: 'Running' } },
-    initial: { value: { text: '—', unit: ' rpm' }, rows: { load: '—', adv: '—' }, status: ['Running', false] }
+    config: { label: 'Engine', value: { label: 'Engine', unit: ' rpm', max: 100, bar: true }, rows: [['load', 'Load'], ['adv', 'Advance'], ['pw', 'Injection pulse'], ['kr', 'Knock retard'], ['stft', 'Short-term trim'], ['ltft', 'Long-term trim'], ['loop', 'Fuel control'], ['mil', 'Malfunction lamp']], status: { text: 'Running' } },
+    initial: { value: { text: '—', unit: ' rpm' }, rows: { load: '—', adv: '—', pw: '—', kr: '—', stft: '—', ltft: '—', loop: '—', mil: '—' }, status: ['Running', false] }
   },
   toolbar: {
     play: true,
@@ -688,17 +673,8 @@ applyFaultVisuals();
 /* ═══════════════════════════════════════════════════════════════════════
    READOUTS
    ═══════════════════════════════════════════════════════════════════════ */
-const ro = {
-  rpm:  document.getElementById('ro-rpm'),
-  load: document.getElementById('ro-load'),
-  pw:   document.getElementById('ro-pw'),
-  adv:  document.getElementById('ro-adv'),
-  kr:   document.getElementById('ro-kr'),
-  stft: document.getElementById('ro-stft'),
-  ltft: document.getElementById('ro-ltft'),
-  loop: document.getElementById('ro-loop'),
-  mil:  document.getElementById('ro-mil')
-};
+/* 7b3: the old panel grid is Monitor rows (engine speed, load and advance repeated the big value / rows and are dropped) */
+const ro = Base.monitorRows(ui, ['pw', 'kr', 'stft', 'ltft', 'loop', 'mil'], ['rpm', 'load', 'adv']);
 
 let ltft = 0;   // long-term trim accumulated over time
 

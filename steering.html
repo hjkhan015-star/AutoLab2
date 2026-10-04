@@ -7,27 +7,6 @@
 <title>Steering System — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
-<style>
-  /* ═══════════════════════════════════════════════════════════
-     PANEL READOUT INTERIOR — live steering values
-     ═══════════════════════════════════════════════════════════ */
-  #steer-readout { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
-  #steer-readout .steer-row {
-    display: flex; justify-content: space-between; gap: 10px;
-    font-size: 11.5px; color: var(--text-dim, #94a3b8);
-  }
-  #steer-readout .steer-row b {
-    color: var(--text, #e5e7eb); font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-  html.light-theme #steer-readout .steer-row b { color: #0a0d13; }
-
-  /* ═══════════════════════════════════════════════════════════
-     TOOLBAR EXTRAS — steering-system switcher (prev / label / next)
-     ═══════════════════════════════════════════════════════════ */
-  html.light-theme  html.light-theme  html.light-theme  @media (max-width: 600px) {
-  }
-</style>
 </head>
 <body>
   <div id="canvas-wrap"></div>
@@ -1217,13 +1196,6 @@
       kicker: 'Steering',
       title:  'Rack-and-Pinion Steering System',
       badge:  { text: 'Steering', color: '#a855f7' },
-      readout: `
-        <div id="steer-readout">
-          <div class="steer-row"><span data-steer-lbl="wheel">Wheel angle</span><b data-steer="wheel">0°</b></div>
-          <div class="steer-row"><span data-steer-lbl="rack">Rack travel</span><b data-steer="rack">0.000</b></div>
-          <div class="steer-row"><span data-steer-lbl="road">Road wheel</span><b data-steer="road">0.0°</b></div>
-        </div>
-      `,
       desc: `<strong>Rack-and-pinion steering.</strong> Turning the <strong>steering wheel</strong>
              rotates the <strong>steering column</strong>, which turns the <strong>pinion gear</strong>.
              The pinion teeth mesh with the <strong>rack</strong> — a flat bar with teeth cut along it —
@@ -1258,11 +1230,6 @@
 
   /* Panel readout refs */
   const panelBody      = ui.panel.body;
-  const elWheelAngle   = panelBody ? panelBody.querySelector('[data-steer="wheel"]') : null;
-  const elRackTravel   = panelBody ? panelBody.querySelector('[data-steer="rack"]') : null;
-  const elRoadAngle    = panelBody ? panelBody.querySelector('[data-steer="road"]') : null;
-  const elRackLabel    = panelBody ? panelBody.querySelector('[data-steer-lbl="rack"]') : null;
-  const elRoadLabel    = panelBody ? panelBody.querySelector('[data-steer-lbl="road"]') : null;
 
   const strokeDescEl   = document.getElementById('stroke-desc');
   const badgeEl        = document.getElementById('stroke-badge');
@@ -1330,10 +1297,7 @@
     }
 
     const rowLabels = CONFIG_SUBTITLE_ROWS[id];
-    if (elRackLabel) elRackLabel.textContent = rowLabels.rack;
-    if (elRoadLabel) elRoadLabel.textContent = rowLabels.road;
-
-    ui.monitor.update({ rowLabels: { asst: ASSIST_LABEL[id] } });
+    ui.monitor.update({ rowLabels: { rack: rowLabels.rack, road: rowLabels.road, asst: ASSIST_LABEL[id] } });   /* the row names follow the configuration */
     ui.controls.set('wheel', 0);
     labels.hideAll();
   }
@@ -1431,10 +1395,6 @@
     const wDeg = Math.round(steerAngle / DEG);
     const rOff = rackOffset.toFixed(3);
     const rDeg = (roadAngle / DEG).toFixed(1);
-
-    if (elWheelAngle) elWheelAngle.textContent = wDeg + '°';
-    if (elRackTravel) elRackTravel.textContent = rOff;
-    if (elRoadAngle)  elRoadAngle.textContent  = rDeg + '°';
 
     const isActive = Math.abs(steerAngle) > 0.01;
     ui.monitor.update({

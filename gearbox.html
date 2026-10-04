@@ -21,8 +21,6 @@
   }
 
 
-  html.light-theme  html.light-theme  html.light-theme  @media (max-width: 600px) {
-  }
 </style>
 </head>
 <body>
@@ -743,22 +741,6 @@
       kicker: 'Transmission',
       title:  'Manual Gearbox · Working Principle',
       badge:  { text: 'Gearbox', color: '#22c55e' },
-      readout: `
-        <div id="gb-readout" style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
-          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-dim,#94a3b8)">
-            <span>Input</span><b style="color:var(--text,#e5e7eb);font-variant-numeric:tabular-nums"><span id="gb-rpm-in">1000</span> rpm</b>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-dim,#94a3b8)">
-            <span>Output</span><b style="color:var(--text,#e5e7eb);font-variant-numeric:tabular-nums"><span id="gb-rpm-out">0</span> rpm</b>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-dim,#94a3b8)">
-            <span>Ratio</span><b id="gb-ratio" style="color:var(--text,#e5e7eb);font-variant-numeric:tabular-nums">—</b>
-          </div>
-          <div style="margin-top:8px;font-size:11.5px;color:var(--text-dim,#94a3b8)">
-            Selected: <b id="gb-current-gear" style="color:var(--accent,#22c55e)">Neutral</b>
-          </div>
-        </div>
-      `,
       desc: `<strong>Gearbox.</strong> The input shaft drives the countershaft through a single gear pair.
              Fixed gears on the countershaft always spin at the same rate. Each output gear is free on
              the output shaft until its synchro hub locks it — the selected gear then forces the output
@@ -767,8 +749,8 @@
     },
 
     monitor: {
-      config: { label: 'Selected gear', value: { label: 'Selected gear', unit: '', max: 100, bar: true }, rows: [['in', 'Input'], ['out', 'Output']], status: { text: 'Neutral' } },
-      initial: { value: { text: 'N', unit: '' }, rows: { in: '1000 rpm', out: '0 rpm' }, status: ['Neutral', false] }
+      config: { label: 'Selected gear', value: { label: 'Selected gear', unit: '', max: 100, bar: true }, rows: [['in', 'Input'], ['out', 'Output'], ['ratio', 'Ratio']], status: { text: 'Neutral' } },
+      initial: { value: { text: 'N', unit: '' }, rows: { in: '1000 rpm', out: '0 rpm', ratio: '—' }, status: ['Neutral', false] }
     },
 
     toolbar: {
@@ -813,10 +795,6 @@
 
   /* Panel body refs (for readout labels that change per config) */
   const panelBody      = ui.panel.body;
-  const elRpmIn        = panelBody ? panelBody.querySelector('#gb-rpm-in')       : null;
-  const elRpmOut       = panelBody ? panelBody.querySelector('#gb-rpm-out')      : null;
-  const elRatio        = panelBody ? panelBody.querySelector('#gb-ratio')        : null;
-  const elCurrentGear  = panelBody ? panelBody.querySelector('#gb-current-gear') : null;
 
   const strokeDescEl  = document.getElementById('stroke-desc');
   const badgeEl       = document.getElementById('stroke-badge');
@@ -929,16 +907,11 @@
     }
     const rpmOut = Math.round(speedRatio * rpmIn);
 
-    if (elRpmIn)  elRpmIn.textContent  = rpmIn;
-    if (elRpmOut) elRpmOut.textContent = rpmOut;
-    if (elRatio)  elRatio.textContent  = displayRatio;
-    if (elCurrentGear) elCurrentGear.textContent = GEAR_NAMES[gbCurrentGear];
-
 
     /* Chip */
     ui.monitor.update({
       value: { text: String(GEAR_SHORT[gbCurrentGear]), unit: '', color: (['#22c55e', '#38bdf8', '#22c55e', '#f59e0b', '#a855f7', '#ef4444'][gbCurrentGear] || '#22c55e') || '' },
-      rows: { in: rpmIn  + ' rpm', out: rpmOut + ' rpm' },
+      rows: { in: rpmIn  + ' rpm', out: rpmOut + ' rpm', ratio: displayRatio },
       status: [GEAR_NAMES[gbCurrentGear], gbCurrentGear !== 0]
     });
   }

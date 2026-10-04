@@ -8,73 +8,6 @@
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  /* ══════════════════════════════════════════════════════════════
-     PANEL READOUT — badge, live rows, description, trim graph
-     ══════════════════════════════════════════════════════════════ */
-  #mp-readout { display: flex; flex-direction: column; gap: 0; }
-
-  #mp-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 10px; font-weight: 700;
-    letter-spacing: .08em; text-transform: uppercase;
-    padding: 4px 9px; border-radius: 999px;
-    margin-bottom: 10px; align-self: flex-start;
-    background: rgba(34,197,94,.18); color: #22c55e;
-    transition: background .25s, color .25s;
-  }
-  #mp-badge .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    display: inline-block; background: currentColor;
-    box-shadow: 0 0 6px currentColor;
-  }
-  #mp-badge.warn { background: rgba(239,68,68,.18); color: #ef4444; }
-  #mp-badge.cold { background: rgba(56,189,248,.18); color: #38bdf8; }
-
-  .mp-rows {
-    display: flex; flex-direction: column; gap: 5px;
-    font-size: 11.5px; color: var(--text-dim, #94a3b8);
-  }
-  .mp-rows .mp-row {
-    display: flex; justify-content: space-between; gap: 10px;
-    font-family: var(--font-mono);
-  }
-  .mp-rows .mp-row > span:first-child {
-    font-family: var(--font-sans);
-    font-weight: 500; letter-spacing: .01em;
-  }
-  .mp-rows .mp-row b {
-    color: var(--text, #e5e7eb); font-weight: 700;
-    font-variant-numeric: tabular-nums; letter-spacing: .01em;
-  }
-
-  /* ── Per-cylinder trim bars ── */
-  #mp-trims {
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(148,163,184,.14);
-  }
-  #mp-trims .title {
-    font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
-    color: #94a3b8; margin-bottom: 8px;
-  }
-  #mp-trims .trim-bar {
-    display: grid; grid-template-columns: 42px 1fr 54px;
-    align-items: center; gap: 8px;
-    font-size: 10.5px; font-family: var(--font-mono);
-    color: var(--text-dim, #94a3b8);
-    margin-bottom: 4px;
-  }
-  #mp-trims .trim-bar .bar {
-    height: 6px; border-radius: 3px;
-    background: rgba(148,163,184,.15);
-    position: relative; overflow: hidden;
-  }
-  #mp-trims .trim-bar .bar .fill {
-    position: absolute; top: 0; bottom: 0;
-    background: #22c55e;
-    transition: width .25s, background .25s;
-  }
-  #mp-trims .trim-bar .v { text-align: right; font-weight: 700; color: var(--text, #e5e7eb); }
 
   #mp-desc {
     margin-top: 12px;
@@ -83,9 +16,6 @@
   }
   #mp-desc strong { color: var(--text, #e5e7eb); font-weight: 700; }
   #mp-desc em { color: #f59e0b; font-style: normal; font-weight: 700; }
-
-
-  html.light-theme .mp-rows .mp-row b { color: #0a0d13; }
   html.light-theme #mp-desc { color: #475569; }
   html.light-theme #mp-desc strong { color: #0a0d13; }
 </style>
@@ -1626,59 +1556,15 @@
       ],
       onTab: (id) => applyModeSwitch(id),
       readout: `
-        <div id="mp-readout">
-          <div id="mp-badge">
-            <span class="dot"></span><span data-mp="badge-text">Port Fuel Injection</span>
-          </div>
-
-          <div class="mp-rows">
-            <div class="mp-row"><span>Engine speed</span><b data-mp="rpm">800 rpm</b></div>
-            <div class="mp-row"><span data-mp="afr-lbl">Air : Fuel</span><b data-mp="afr">14.7 : 1</b></div>
-            <div class="mp-row"><span data-mp="pw-lbl">Injector pulse</span><b data-mp="pw">2.4 ms</b></div>
-            <div class="mp-row"><span data-mp="pres-lbl">Rail pressure</span><b data-mp="pres">3.5 bar</b></div>
-            <div class="mp-row"><span data-mp="maf-lbl">MAF</span><b data-mp="maf">12.4 g/s</b></div>
-            <div class="mp-row"><span data-mp="map-lbl">MAP</span><b data-mp="map">42 kPa</b></div>
-            <div class="mp-row"><span data-mp="iat-lbl">Intake air</span><b data-mp="iat">34 °C</b></div>
-            <div class="mp-row"><span data-mp="knock-lbl">Knock retard</span><b data-mp="knock">0.0°</b></div>
-            <div class="mp-row"><span data-mp="egr-lbl">EGR</span><b data-mp="egr">Closed</b></div>
-            <div class="mp-row"><span data-mp="sensor-lbl">O₂ sensor</span><b data-mp="o2">0.45 V</b></div>
-          </div>
-
-          <div id="mp-trims">
-            <div class="title">Per-cylinder fuel trim</div>
-            <div class="trim-bar">
-              <span>Cyl 1</span>
-              <div class="bar"><div class="fill" data-trim="0" style="width: 50%"></div></div>
-              <span class="v" data-trimval="0">0.0 %</span>
-            </div>
-            <div class="trim-bar">
-              <span>Cyl 2</span>
-              <div class="bar"><div class="fill" data-trim="1" style="width: 50%"></div></div>
-              <span class="v" data-trimval="1">0.0 %</span>
-            </div>
-            <div class="trim-bar">
-              <span>Cyl 3</span>
-              <div class="bar"><div class="fill" data-trim="2" style="width: 50%"></div></div>
-              <span class="v" data-trimval="2">0.0 %</span>
-            </div>
-            <div class="trim-bar">
-              <span>Cyl 4</span>
-              <div class="bar"><div class="fill" data-trim="3" style="width: 50%"></div></div>
-              <span class="v" data-trimval="3">0.0 %</span>
-            </div>
-          </div>
-
-          <div id="mp-desc"></div>
-
-        </div>
+        <div id="mp-desc"></div>
       `
     },
     monitor: {
-      config: { label: 'Live mixture', value: { label: 'Live mixture', unit: ':1', max: 100, bar: true }, rows: [['afr', 'AFR'], ['pw', 'Pulse'], ['trim', 'Fuel trim'], ['rpm', 'Engine speed']],
+      config: { label: 'Live mixture', value: { label: 'Live mixture', unit: ':1', max: 100, bar: true }, rows: [['pw', 'Injector pulse'], ['pres', 'Rail pressure'], ['maf', 'MAF'], ['map', 'MAP'], ['iat', 'Intake air'], ['knock', 'Knock retard'], ['o2', 'O₂ sensor'], ['egr', 'MIL status'], ['trim', 'Fuel trim'], ['cyl', 'Cyl 1–4 trim'], ['rpm', 'Engine speed']],
         traces: [{ id: 'trimhist', label: 'Fuel trim history (%)', min: -20, max: 20, length: 80,
                    series: [{ id: 'stft', label: 'STFT', color: 'var(--accent)' }, { id: 'ltft', label: 'LTFT', color: 'var(--accent-2)' }] }],
         status: { text: 'Balanced · Stoich' } },
-      initial: { value: { text: '14.7', unit: ':1' }, rows: { afr: '14.7 : 1', pw: '2.4 ms', trim: 'Balanced', rpm: '—' }, status: ['Balanced · Stoich', false] }
+      initial: { value: { text: '14.7', unit: ':1' }, rows: { pw: '2.4 ms', pres: '3.5 bar', maf: '12.4 g/s', map: '42 kPa', iat: '34 °C', knock: '−0.0°', o2: '0.45 V', egr: 'OFF', trim: 'Balanced', cyl: '+0.0 / +0.0 / +0.0 / +0.0 %', rpm: '—' }, status: ['Balanced · Stoich', false] }
     },
     toolbar: {
       play: true,
@@ -1698,33 +1584,8 @@
 
   /* ─── Resolve panel DOM refs ─────────────────────────────────── */
   const panelBody   = ui.panel.body;
-  const elBadge     = panelBody.querySelector('#mp-badge');
-  const elBadgeText = panelBody.querySelector('[data-mp="badge-text"]');
-  const elRpmEl     = panelBody.querySelector('[data-mp="rpm"]');
-  const elAfrEl     = panelBody.querySelector('[data-mp="afr"]');
-  const elPwEl      = panelBody.querySelector('[data-mp="pw"]');
-  const elPresEl    = panelBody.querySelector('[data-mp="pres"]');
-  const elMafEl     = panelBody.querySelector('[data-mp="maf"]');
-  const elMapEl     = panelBody.querySelector('[data-mp="map"]');
-  const elIatEl     = panelBody.querySelector('[data-mp="iat"]');
-  const elKnockEl   = panelBody.querySelector('[data-mp="knock"]');
-  const elEgrEl     = panelBody.querySelector('[data-mp="egr"]');
-  const elO2El      = panelBody.querySelector('[data-mp="o2"]');
-  const elAfrLbl    = panelBody.querySelector('[data-mp="afr-lbl"]');
-  const elPwLbl     = panelBody.querySelector('[data-mp="pw-lbl"]');
-  const elPresLbl   = panelBody.querySelector('[data-mp="pres-lbl"]');
-  const elMafLbl    = panelBody.querySelector('[data-mp="maf-lbl"]');
-  const elMapLbl    = panelBody.querySelector('[data-mp="map-lbl"]');
-  const elIatLbl    = panelBody.querySelector('[data-mp="iat-lbl"]');
-  const elKnockLbl  = panelBody.querySelector('[data-mp="knock-lbl"]');
-  const elEgrLbl    = panelBody.querySelector('[data-mp="egr-lbl"]');
-  const elSensorLbl = panelBody.querySelector('[data-mp="sensor-lbl"]');
   const elDesc      = panelBody.querySelector('#mp-desc');
   ui.panel.remeasure();                       /* the panel lost its graph block (now the Monitor trace 'trimhist' + row 'trim') */
-
-  /* Per-cylinder trim bar fills and value labels. */
-  const trimFills  = [0, 1, 2, 3].map(i => panelBody.querySelector(`[data-trim="${i}"]`));
-  const trimLabels = [0, 1, 2, 3].map(i => panelBody.querySelector(`[data-trimval="${i}"]`));
 
   /* ══════════════════════════════════════════════════════════════
      MODE SWITCHING — swap visible geometry + readout labels
@@ -1792,29 +1653,20 @@
     /* Combustion glow only in CRDI */
     combustionGlow.visible = isCRDI;
 
-    /* Badge */
-    if (elBadge) {
-      elBadge.classList.remove('warn', 'cold');
-      elBadge.style.background = isCRDI ? 'rgba(59,130,246,.18)' : 'rgba(34,197,94,.18)';
-      elBadge.style.color      = isCRDI ? '#3b82f6' : '#22c55e';
-    }
-    if (elBadgeText) elBadgeText.textContent = isCRDI
-      ? 'High-Pressure Direct Injection'
-      : 'Port Fuel Injection';
-
     /* Description */
     if (elDesc) elDesc.innerHTML = isCRDI ? DESC_CRDI : DESC_MPFI;
 
-    /* Labels per mode */
-    if (elSensorLbl) elSensorLbl.textContent = isCRDI ? 'Lambda (λ)'      : 'O₂ sensor';
-    if (elAfrLbl)    elAfrLbl.textContent    = isCRDI ? 'Air : Fuel (lean)': 'Air : Fuel';
-    if (elPwLbl)     elPwLbl.textContent     = isCRDI ? 'Injection duration': 'Injector pulse';
-    if (elPresLbl)   elPresLbl.textContent   = 'Rail pressure';
-    if (elMafLbl)    elMafLbl.textContent    = isCRDI ? 'Turbo boost'      : 'MAF';
-    if (elMapLbl)    elMapLbl.textContent    = isCRDI ? 'Boost pressure'   : 'MAP';
-    if (elIatLbl)    elIatLbl.textContent    = isCRDI ? 'Charge air temp'  : 'Intake air';
-    if (elKnockLbl)  elKnockLbl.textContent  = isCRDI ? 'Injection advance': 'Knock retard';
-    if (elEgrLbl)    elEgrLbl.textContent    = isCRDI ? 'EGR position'     : 'MIL status';
+    /* Row names per mode (the Monitor rows follow the system) */
+    ui.monitor.update({ rowLabels: {
+      o2:    isCRDI ? 'Lambda (λ)'        : 'O₂ sensor',
+      pw:    isCRDI ? 'Injection duration': 'Injector pulse',
+      pres:  'Rail pressure',
+      maf:   isCRDI ? 'Turbo boost'       : 'MAF',
+      map:   isCRDI ? 'Boost pressure'    : 'MAP',
+      iat:   isCRDI ? 'Charge air temp'   : 'Intake air',
+      knock: isCRDI ? 'Injection advance' : 'Knock retard',
+      egr:   isCRDI ? 'EGR position'      : 'MIL status'
+    } });
 
     /* Fuel colour in the tank */
     viewManager.setMeshMaterial(fuelMesh,    isCRDI ? M.diesel    : M.fuel);
@@ -1893,50 +1745,20 @@
   function updateLiveUI(rpm, afr, pw, pressure, extras) {
     const isCRDI = sysMode === 'crdi';
 
-    /* ── Row values ── */
-    if (elRpmEl)  elRpmEl.textContent  = Math.round(rpm) + ' rpm';
-    if (elAfrEl)  elAfrEl.textContent  = isCRDI ? afr.toFixed(0) + ' : 1' : afr.toFixed(1) + ' : 1';
-    if (elPwEl)   elPwEl.textContent   = pw.toFixed(2) + ' ms';
-    if (elPresEl) elPresEl.textContent = isCRDI
-      ? Math.round(pressure) + ' bar'
-      : pressure.toFixed(1) + ' bar';
-
-    if (elMafEl) elMafEl.textContent = isCRDI
-      ? extras.boost.toFixed(2) + ' bar'
-      : extras.maf.toFixed(1) + ' g/s';
-    if (elMapEl) elMapEl.textContent = isCRDI
-      ? Math.round(extras.map * 100) + ' kPa'
-      : Math.round(extras.map) + ' kPa';
-    if (elIatEl) elIatEl.textContent = Math.round(extras.iat) + ' °C';
-
-    if (elKnockEl) {
-      if (isCRDI) {
-        elKnockEl.textContent = '+' + extras.injAdvance.toFixed(1) + '°';
-      } else {
-        elKnockEl.textContent = '−' + extras.knock.toFixed(1) + '°';
-      }
-    }
-
-    if (elEgrEl) {
-      if (isCRDI) {
-        elEgrEl.textContent = Math.round(egrPosition * 100) + ' %';
-      } else {
-        elEgrEl.textContent = 'OFF';
-      }
-    }
-
-    if (elO2El) {
-      if (isCRDI) {
-        elO2El.textContent = (afr / 14.5).toFixed(2) + ' λ';
-      } else {
-        elO2El.textContent = o2Voltage.toFixed(2) + ' V';
-      }
-    }
-
     /* ── Chip ── */
     ui.monitor.update({
       value: { text: String(isCRDI ? afr.toFixed(0) : afr.toFixed(1)), unit: ':1' },
-      rows: { afr: isCRDI ? afr.toFixed(0) + ' : 1' : afr.toFixed(1) + ' : 1', pw: pw.toFixed(2) + ' ms' }
+      rows: {
+        pw: pw.toFixed(2) + ' ms',
+        pres: isCRDI ? Math.round(pressure) + ' bar' : pressure.toFixed(1) + ' bar',
+        maf: isCRDI ? extras.boost.toFixed(2) + ' bar' : extras.maf.toFixed(1) + ' g/s',
+        map: isCRDI ? Math.round(extras.map * 100) + ' kPa' : Math.round(extras.map) + ' kPa',
+        iat: Math.round(extras.iat) + ' °C',
+        knock: isCRDI ? '+' + extras.injAdvance.toFixed(1) + '°' : '−' + extras.knock.toFixed(1) + '°',
+        egr: isCRDI ? Math.round(egrPosition * 100) + ' %' : 'OFF',
+        o2: isCRDI ? (afr / 14.5).toFixed(2) + ' λ' : o2Voltage.toFixed(2) + ' V',
+        cyl: cylTrims.map((t) => (t >= 0 ? '+' : '') + t.toFixed(1)).join(' / ') + ' %'
+      }
     });
 
     let name, color;
@@ -1955,31 +1777,6 @@
       value: { color: color || '', bar: Math.min(100, Math.abs(afr - (isCRDI ? 30 : 14.7)) * 40 + 20), barColor: color },
       status: [name, !!(name.includes('Stoich') || name.includes('Efficient'))]
     });
-
-    /* ── Badge override for cold start or rich condition ── */
-    if (elBadge) {
-      elBadge.classList.remove('warn', 'cold');
-      if (coldStartT > 0) {
-        elBadge.classList.add('cold');
-      } else if (!isCRDI && (afr < 12 || afr > 16)) {
-        elBadge.classList.add('warn');
-      }
-    }
-
-    /* ── Per-cylinder trim bars ── */
-    for (let i = 0; i < 4; i++) {
-      const t = cylTrims[i];
-      const pct = 50 + t * 2;    // −15 % → 20 %, +15 % → 80 %
-      if (trimFills[i]) {
-        trimFills[i].style.width = Math.max(4, Math.min(96, pct)) + '%';
-        trimFills[i].style.background = t >= 0 ? '#22c55e' : '#ef4444';
-        trimFills[i].style.left = t < 0 ? '50%' : 'auto';
-        trimFills[i].style.right = t < 0 ? '50%' : 'auto';
-      }
-      if (trimLabels[i]) {
-        trimLabels[i].textContent = (t >= 0 ? '+' : '') + t.toFixed(1) + ' %';
-      }
-    }
 
     /* ── Trim state word ── */
     ui.monitor.update({ rows: { trim: coldStartT > 0 ? 'Cold enrich' : Math.abs(ecuTrim) > 8 ? 'Correcting' : Math.abs(ecuTrim) > 3 ? 'Trimming' : 'Balanced' } });

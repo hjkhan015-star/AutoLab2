@@ -10,7 +10,7 @@
    createGeoKit(ctx)      Standard 3D helpers: mat, glass, glow, box, cyl, cylX,
                           cylZ, sph, tor, pipe, stream, V3, clamp, lerp, lc, put.
    Widgets                HTML builders for the side-panel tabs (overview, faults,
-                          quiz), readout grid and legend + quiz click handling.
+                          quiz), the Monitor-footer legend + quiz click handling.
    runGuidedModule(CFG, build)
                           Complete "guided module" runtime (scene, panel, tabs,
                           slider, chip, labels, animation loop). A module is only
@@ -137,9 +137,8 @@ export const Widgets = {
     `<div class="al-fault"><div class="t">${f[0]}</div><div class="s">${f[1]}</div><div class="c">Check: ${f[2]}</div></div>`).join(''),
   quiz: (cfg) => cfg.quiz.map((q, n) => `<div class="al-q" data-a="${q[2]}"><div class="q">${n + 1}. ${q[0]}</div>` +
     q[1].map(o => `<button class="al-opt">${o}</button>`).join('') + `<div class="al-exp">${q[3]}</div></div>`).join(''),
-  readout: (cfg) => '<div class="al-read">' + cfg.ro.map(r =>
-    `<span class="k">${r[1]}</span><span class="v${r[2] ? ' ' + r[2] : ''}" id="ro-${r[0]}"></span>`).join('') + '</div>',
-  legend: (cfg) => '<div class="al-legend">' + cfg.legend.map(l => `<span><i style="background:${l[0]}"></i>${l[1]}</span>`).join('') + '</div>',
+  /* 7b3: the module legend is the Monitor footer (shown once, in the Monitor card) */
+  legend: (cfg) => '<div class="mon-legend">' + cfg.legend.map(l => `<span><i style="background:${l[0]}"></i>${l[1]}</span>`).join('') + '</div>',
   /* one click handler for every .al-q self-check question inside `host` */
   wireQuiz(host) {
     host.addEventListener('click', (e) => {
@@ -208,15 +207,12 @@ const ui = Base.UI.create({
     badge: { text: CFG.badge, color: CFG.accent }
   },
   monitor: {
-    config: { label: CFG.chipLabel, value: { label: CFG.chipLabel, unit: '', max: 100, bar: true }, rows: MON_ROWS, traces: CFG.traces || [], status: { text: 'Running' } },
+    config: { label: CFG.chipLabel, value: { label: CFG.chipLabel, unit: '', max: 100, bar: true }, rows: MON_ROWS, traces: CFG.traces || [], footer: CFG.legend && CFG.legend.length ? Widgets.legend(CFG) : '', status: { text: 'Running' } },
     initial: { value: { text: '', unit: '', barColor: 'var(--al-accent)' }, status: ['Running', false] }
   },
   toolbar: { play: true, reset: true, speed: { label: 'Sim speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 }, labels: true },
   axes: CTLS.map((c, i) => Object.assign({ side: i % 2 ? 'right' : 'left' }, c)),
-  options: CFG.options || [],                      /* Phase 6: choice / toggle / action (dock options row) */
-  widgets: {
-    br: { html: Widgets.legend(CFG), caption: 'Legend' }
-  }
+  options: CFG.options || []                       /* Phase 6: choice / toggle / action (dock options row) */
 });
 const tabHost = document.createElement('div');
 tabHost.className = 'al-tabs';

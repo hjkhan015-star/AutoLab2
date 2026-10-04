@@ -2,8 +2,8 @@
    components.css — Auto Lab shared component styles (v2.0)
 
    Styles for the shared side-panel widgets built by components.js:
-   readout grid, overview sections, fault cards, self-check quiz,
-   slider control and legend.
+   overview sections, fault cards, self-check quiz and the slider
+   control (the legend is the Monitor footer, the readout grid is Monitor rows).
 
    Link it AFTER app.css in any module:
      <link rel="stylesheet" href="app.css">
@@ -11,13 +11,6 @@
    Each module only needs its own accent colour:
      :root { --al-accent: #f97316; }
    ═══════════════════════════════════════════════════════════════════════ */
-#panel-readout .al-read{display:grid;grid-template-columns:1fr auto;gap:3px 12px;font:500 11px/1.45 var(--font-mono);}
-.al-read .k{color:var(--text-dim);}
-.al-read .v{color:var(--text);text-align:right;font-weight:700;}
-.al-read .v.hi{color:var(--al-accent);}
-.al-read .v.ok{color:var(--ok);}
-.al-read .v.warn{color:var(--warn);}
-.al-read .v.crit{color:var(--crit);}
 .al-tabs{margin-top:10px;}
 .al-sec{margin-top:12px;}
 .al-sec:first-child{margin-top:2px;}
@@ -39,6 +32,3 @@
 .al-opt.no{border-color:var(--crit);color:var(--crit);}
 .al-exp{display:none;font-size:11px;line-height:1.45;color:var(--text-mute);margin-top:4px;}
 .al-q.done .al-exp{display:block;}
-.al-legend{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text-dim);}
-.al-legend span{display:flex;align-items:center;gap:7px;}
-.al-legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}

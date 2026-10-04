@@ -512,90 +512,6 @@
     color: var(--text-mute);
   }
 
-  /* ---- Readout chip (top-right) ---- */
-  .ui-chip {
-    min-width: 176px;
-    padding: var(--s-3) var(--s-3);
-    font-family: var(--font-mono);
-    pointer-events: none;
-  }
-  .ui-chip-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .11em;
-    text-transform: uppercase;
-    color: var(--text-mute);
-    font-family: var(--font-sans);
-    margin-bottom: 3px;
-  }
-  .ui-chip-value {
-    font-size: 22px;
-    font-weight: 800;
-    line-height: 1;
-    color: var(--accent);
-    font-variant-numeric: tabular-nums;
-    transition: color var(--dur-base) var(--ease-out);
-  }
-  .ui-chip-value span {
-    font-size: 11px;
-    font-weight: 700;
-    opacity: .65;
-    margin-left: 3px;
-  }
-  .ui-chip-bar {
-    height: 5px;
-    margin-top: 8px;
-    background: var(--surface-3);
-    border-radius: var(--r-pill);
-    overflow: hidden;
-  }
-  .ui-chip-fill {
-    height: 100%; width: 0%;
-    background: var(--accent);
-    border-radius: var(--r-pill);
-    transition: width var(--dur-fast) linear,
-                background var(--dur-base) var(--ease-out);
-  }
-  .ui-chip-row {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--s-3);
-    margin-top: 5px;
-    font-size: 11px;
-    color: var(--text-dim);
-  }
-  .ui-chip-row b {
-    color: var(--text);
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-  }
-  .ui-chip-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    margin-top: var(--s-2);
-    padding: 2px 8px;
-    border-radius: var(--r-pill);
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .07em;
-    text-transform: uppercase;
-    color: var(--text-mute);
-    background: var(--surface-2);
-    font-family: var(--font-sans);
-    transition: color var(--dur-base) var(--ease-out),
-                background var(--dur-base) var(--ease-out);
-  }
-  .ui-chip-status i {
-    width: 5px; height: 5px; border-radius: 50%;
-    background: currentColor;
-    box-shadow: 0 0 8px currentColor;
-  }
-  .ui-chip-status.on {
-    color: var(--ok);
-    background: color-mix(in oklch, var(--ok) 16%, transparent);
-  }
-
   /* ---- Toolbar (bottom-center) ---- */
   .ui-toolbar {
     display: flex;
@@ -871,7 +787,7 @@
 /* ── Consistency additions ── */
 a.ui-tb-btn { text-decoration: none; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
-  .ui-card, .ui-tb-btn, .ui-panel, .ui-panel-body, .label3d, .ui-chip-fill {
+  .ui-card,.ui-tb-btn,.ui-panel,.ui-panel-body,.label3d{
     transition: none !important; animation: none !important;
   }
 }

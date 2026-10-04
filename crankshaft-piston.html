@@ -591,27 +591,8 @@ const TABS = {
     </div>`
 };
 
-function readoutHTML() {
-  const row = (k, id, cls = '', kid = '') => `<span class="k"${kid ? ` id="${kid}"` : ''}>${k}</span><span class="v${cls ? ' ' + cls : ''}" id="ro-${id}">—</span>`;
-  return `<div class="al-read">
-    ${row('Engine speed', 'rpm', 'hi')}
-    ${row('Slow motion', 'slow')}
-    ${row('Cycle angle', 'cyc')}
-    ${row('Cyl 1 stroke', 's1')}
-    ${row('Cyl 3 stroke', 's3')}
-    ${row('Cyl 4 stroke', 's4')}
-    ${row('Cyl 2 stroke', 's2')}
-    ${row('Cyl 1 piston', 'pos', '', 'ro-lbl')}
-    ${row('Piston speed', 'vel')}
-    ${row('Acceleration', 'acc')}
-    ${row('Gas pressure', 'press')}
-    ${row('Side thrust', 'side')}
-    ${row('Torque now', 'tq')}
-    ${row('Mean torque', 'tqm')}
-    ${row('Mean power', 'pw')}
-    ${row('Mean piston speed', 'mps')}
-  </div>`;
-}
+/* 7b3: the module legend is the Monitor footer */
+const LEGEND = '<div class="mon-legend"><span><i style="background:#38bdf8"></i>Intake</span><span><i style="background:#818cf8"></i>Compression</span><span><i style="background:#ff8a1f"></i>Power</span><span><i style="background:#94a3b8"></i>Exhaust</span><span><i style="background:#ffb020"></i>Cyl 1 &amp; 4 pins</span><span><i style="background:#38bdf8"></i>Cyl 2 &amp; 3 pins</span></div>';
 
 const ui = Base.UI.create({
   moduleId: CFG.moduleId,
@@ -625,12 +606,11 @@ const ui = Base.UI.create({
       { id: 'quiz',     label: 'Self-check' }
     ],
     onTab: renderTab,
-    badge: { text: 'Inline-4 · 1-3-4-2', color: CFG.accent },
-    readout: readoutHTML()
+    badge: { text: 'Inline-4 · 1-3-4-2', color: CFG.accent }
   },
   monitor: {
-    config: { label: 'Engine', value: { label: 'Engine', unit: ' rpm', max: 100, bar: true }, rows: [['rpm', 'Speed'], ['fire', 'Firing']], status: { text: 'Running' } },
-    initial: { value: { text: '—', unit: ' rpm' }, rows: { rpm: '—', fire: '—' }, status: ['Running', false] }
+    config: { label: 'Engine', value: { label: 'Engine', unit: ' rpm', max: 100, bar: true }, rows: [['rpm', 'Speed'], ['fire', 'Firing'], ['slow', 'Slow motion'], ['cyc', 'Cycle angle'], ['s1', 'Cyl 1 stroke'], ['s3', 'Cyl 3 stroke'], ['s4', 'Cyl 4 stroke'], ['s2', 'Cyl 2 stroke'], ['pos', 'Cyl 1 piston'], ['vel', 'Piston speed'], ['acc', 'Acceleration'], ['press', 'Gas pressure'], ['side', 'Side thrust'], ['tq', 'Torque now'], ['tqm', 'Mean torque'], ['pw', 'Mean power'], ['mps', 'Mean piston speed']], footer: LEGEND, status: { text: 'Running' } },
+    initial: { value: { text: '—', unit: ' rpm' }, rows: { rpm: '—', fire: '—', slow: '—', cyc: '—', s1: '—', s3: '—', s4: '—', s2: '—', pos: '—', vel: '—', acc: '—', press: '—', side: '—', tq: '—', tqm: '—', pw: '—', mps: '—' }, status: ['Running', false] }
   },
   toolbar: {
     play: true,
@@ -654,19 +634,6 @@ const ui = Base.UI.create({
       options: [{ id: 'pos', label: 'Position' }, { id: 'vel', label: 'Speed' }, { id: 'acc', label: 'Accel' }, { id: 'press', label: 'Pressure' }, { id: 'torque', label: 'Torque' }], def: 'press',
       onChange: (id) => { graphMode = id; drawGraph(); } }
   ],
-  widgets: {
-    br: {
-      html: `<div class="al-legend">
-        <span><i style="background:#38bdf8"></i>Intake</span>
-        <span><i style="background:#818cf8"></i>Compression</span>
-        <span><i style="background:#ff8a1f"></i>Power</span>
-        <span><i style="background:#94a3b8"></i>Exhaust</span>
-        <span><i style="background:#ffb020"></i>Cyl 1 &amp; 4 pins</span>
-        <span><i style="background:#38bdf8"></i>Cyl 2 &amp; 3 pins</span>
-      </div>`,
-      caption: 'Legend'
-    }
-  }
 });
 
 /* 7b2: the motion graph (a curve over the 720° cycle with stroke bands and a now-marker) is a picture, not a time series → a stage canvas */
@@ -687,8 +654,7 @@ renderTab('overview');
 
 function setFocusButton() {
   ui.controls.set('cyl', focus);                           /* keep the dock choice in step */
-  const l = document.getElementById('ro-lbl');
-  if (l) l.textContent = 'Cyl ' + CYLINDERS[focus].id + ' piston';
+  ui.monitor.update({ rowLabels: { pos: 'Cyl ' + CYLINDERS[focus].id + ' piston' } });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -770,11 +736,9 @@ function drawGraph() {
 /* ═══════════════════════════════════════════════════════════════════════
    READOUTS
    ═══════════════════════════════════════════════════════════════════════ */
-const $ = id => document.getElementById(id);
-const ro = {};
-['rpm','slow','cyc','s1','s2','s3','s4','pos','vel','acc','press','side','tq','tqm','pw','mps']
-  .forEach(k => { ro[k] = $('ro-' + k); });
-const setRo = (k, text, cls) => { const el = ro[k]; if (!el) return; el.textContent = text; if (cls !== undefined) el.className = 'v' + (cls ? ' ' + cls : ''); };
+/* 7b3: the old panel grid is Monitor rows; the engine speed repeated the Speed row and the big value, so its writes are ignored */
+const ro = Base.monitorRows(ui, ['slow', 'cyc', 's1', 's2', 's3', 's4', 'pos', 'vel', 'acc', 'press', 'side', 'tq', 'tqm', 'pw', 'mps'], ['rpm']);
+const setRo = (k, text, cls) => { const el = ro[k]; if (!el) return; el.textContent = text; if (cls !== undefined) el.className = cls ? 'v ' + cls : 'v'; };
 
 const cycleDeg = () => mod(thetaTotal / DEG, 720);
 const stageOf = phi => Math.floor(phi / 180);

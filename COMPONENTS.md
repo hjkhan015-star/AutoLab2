@@ -98,6 +98,14 @@ In `runGuidedModule`, keep returning `{ big, unit, bar, rows, ro, status, ctl }`
 **Speed rows:** a module prints engine / vehicle speed as a Monitor row (`ui.monitor.update({ rows: { rpm: text } })`), never through `ui.toolbar.setRpmLabel`.
 
 
+### Monitor, final API (Phase 7 complete)
+- The Monitor is the ONE readout surface: big value + bar, status lamp, rows, traces, one gauge, footer. The info panel is text (overview, faults, quiz); it never holds a number, a bar, a badge or a canvas. Nothing may append DOM into `ui.monitor.root`.
+- `monitor: { config: { label, value:{label,unit,max,bar}, rows:[[id,name]…], traces:[…], gauge:{id,label,min,max,unit}, footer:'<html>', status:{text} }, initial: {…} }`; `ui.monitor.update({ value, rows:{id:text|[text,tone]}, rowLabels:{id:name}, traces:{id:[v…]|null}, gauge:[pct,text], status:[text,on,tone?] })` (one call per frame; adjacent calls are a test failure); `ui.monitor.set(config)` swaps the whole set (mode-specific rows).
+- Mode-dependent rows: either one config per mode (`const monConfig = (mode) => ({…})`, `ui.monitor.set(monConfig(mode))` then `updateLivePanel(); ui.monitor.flush()`), or fixed row ids renamed with `rowLabels`.
+- Legends: put the HTML in the config `footer` using `<div class="mon-legend"><span><i style="background:#…"></i>Name</span>…</div>`. Never a dock widget. Guided modules: `CFG.legend` is turned into the footer by components.js.
+- Old-style update code (`ro.x.textContent = …; ro.x.className = 'v warn'`): `const ro = monitorRows(ui, ['x', 'y'], ['droppedRepeat'])` (exported by kit.js) writes Monitor rows with the tone.
+- Row styling hook for module CSS: `[data-row="<id>"]`; never new selectors on Monitor internals.
+
 ### Monitor, Phase 7b2 additions
 - A canvas that shows a **time series** becomes a Monitor trace: `monitor: { config: { traces:[{ id, label, min, max, length, series:[{ id, label, color:'var(--accent)' }] }] } }`, then `ui.monitor.update({ traces:{ id:[v…] } })` from the existing update path (one sample per call; no second history buffer) and `traces:{ id:null }` on Reset. Keep real units and the old fixed `min` / `max`; put the unit in the trace `label`. Trace, row and gauge ids share one namespace (a trace may not reuse a row id).
 - A number is a **row**; a bounded single quantity may be a **gauge**. `ui.monitor.update({ rowLabels:{ id:'New name' } })` renames a row when the module's mode changes (cooling: Surface area ↔ Thermostat status).

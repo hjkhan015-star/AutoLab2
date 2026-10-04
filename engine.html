@@ -14,17 +14,6 @@
      provided by app.css. Only the interiors of custom pieces live here.
      ═══════════════════════════════════════════════════════════════════ */
 
-  /* ── Panel body: live mechanism readout ── */
-  .mechanism-readout {
-    display: flex; gap: 14px;
-    margin: 10px 0 4px;
-    color: var(--text-mute);
-    font-size: 10.5px;
-    font-family: var(--font-mono);
-  }
-  .mechanism-readout b { color: var(--text); font-weight: 800; }
-  #cam-deg { color: var(--warn) !important; }
-
   /* ── Simplified / Advanced toggle ── */
 
   /* ── Timeline (4 stroke buttons) ── */
@@ -1079,10 +1068,6 @@ function createRadial5() {
       title:  '4-Stroke Engine · Working Principle',
       badge:  { text: strokes[0].name, color: strokes[0].color },
       readout: `
-        <div class="mechanism-readout">
-          <span id="cam-readout">Cam <b id="cam-deg">0°</b></span>
-        </div>
-
         <div class="cycle-bar" id="cycle-bar" title="Click to jump to a crank angle">
           <div id="cycle-fill"></div>
           <div class="tick" style="left:25%"></div>
@@ -1137,8 +1122,6 @@ function createRadial5() {
   const panelBody = ui.panel.body;
   const cycleBarEl  = panelBody.querySelector('#cycle-bar');
   const cycleFillEl = panelBody.querySelector('#cycle-fill');
-  const camDegEl       = panelBody.querySelector('#cam-deg');
-  const camReadoutEl   = panelBody.querySelector('#cam-readout');
   const strokeDescEl   = document.getElementById('stroke-desc');
   const badgeEl        = document.getElementById('stroke-badge');
   const badgeTextEl    = document.getElementById('badge-text');
@@ -1166,7 +1149,6 @@ function createRadial5() {
     const v = !!state.showMech;
     mechParts.forEach(m => { m.visible = v; });
     ui.controls.set('view', v ? 1 : 0);
-    if (camReadoutEl) camReadoutEl.style.display = v ? '' : 'none';
   }
   function setMechView(v) {
     state.showMech = v;
@@ -1463,8 +1445,6 @@ function createRadial5() {
 
     /* Mirror the simulation angle into the dial (the ONE place the crank angle is shown) */
     if (crankDial) crankDial.set(theta / TAU2);
-
-    if (camDegEl)       camDegEl.textContent       = camDegText;
 
     /* Update the chip rows */
     if (frame % 4 === 0) {

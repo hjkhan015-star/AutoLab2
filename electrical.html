@@ -9,21 +9,9 @@
 <link rel="stylesheet" href="controls.css">
 <style>
   /* ═══════════════════════════════════════════════════════════
-     PANEL READOUT INTERIOR — badge, description, chemistry equation
+     PANEL TEXT — mode description, chemistry equation
      ═══════════════════════════════════════════════════════════ */
-  #electrical-readout { margin-top: 4px; }
-
-  .el-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 10px; font-weight: 700;
-    letter-spacing: .08em; text-transform: uppercase;
-    padding: 4px 9px; border-radius: 999px;
-    margin-bottom: 10px;
-  }
-  .el-badge .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    display: inline-block;
-  }
+  #electrical-notes { margin-top: 4px; }
 
   #mode-desc {
     font-size: 12.5px; line-height: 1.55;
@@ -43,29 +31,6 @@
   }
   html.light-theme #chem-eq { background: rgba(34,197,94,.10); color: #15803d; }
   #chem-eq .arrow { color: #f59e0b; padding: 0 6px; }
-
-  .el-rows {
-    margin-top: 10px; padding-top: 10px;
-    border-top: 1px solid var(--border, rgba(255,255,255,.08));
-    display: flex; flex-direction: column; gap: 5px;
-    font-size: 11.5px;
-    color: var(--text-dim, #94a3b8);
-  }
-  .el-rows .row {
-    display: flex; justify-content: space-between; align-items: center;
-    gap: 10px;
-    font-family: var(--font-mono);
-  }
-  .el-rows .row > span:first-child {
-    font-family: var(--font-sans);
-    font-weight: 500; letter-spacing: .01em;
-  }
-  .el-rows .val {
-    color: var(--text, #e5e7eb);
-    font-weight: 700; font-variant-numeric: tabular-nums;
-    letter-spacing: .01em;
-  }
-  html.light-theme .el-rows .val { color: #0a0d13; }
 
   /* ═══════════════════════════════════════════════════════════
      WIDGET INTERIOR — direction toggle (battery mode)
@@ -899,14 +864,19 @@ import { Parts } from './components.js';
      Same shape and range as the old canvas: 3 cycles across the window, y = ±1.5625 amplitudes (the old ±H/2 at 0.32·H amplitude).
      ============================================================ */
   const WF_LEN = 240, WF_CYCLES = 3, WF_STEP = WF_CYCLES * TAU / (WF_LEN - 1);
-  const MON_BASE = {
-    label: 'Electrical', value: { label: 'Electrical', unit: '% SOC', max: 100, bar: true },
-    rows: [['eng', 'Engine'], ['net', 'Load']], status: { text: 'Ready' }
+  /* 7b3: each mode has its own Monitor row set (the panel's three readout rows moved here; the repeats of the engine rpm,
+     the alternator output and the battery state word are gone). `ui.monitor.set(monConfig(mode))` runs on a mode change. */
+  const MON_ROWS = {
+    battery:    [['eng', 'Engine'], ['net', 'Current'], ['v', 'Voltage'], ['cells', 'Cells']],
+    alternator: [['eng', 'Rotor speed'], ['hz', 'AC frequency'], ['vdc', 'DC output']],
+    charging:   [['eng', 'Engine'], ['net', 'Load draw'], ['alt', 'Alt output']]
   };
-  const MON_ALT = Object.assign({}, MON_BASE, {
-    traces: [{ id: 'wave', label: '3-phase AC → rectified DC', min: -1.5625, max: 1.5625, length: WF_LEN,
-      series: [{ id: 'a', label: 'Phase A', color: 'var(--crit)' }, { id: 'b', label: 'Phase B', color: 'var(--ok)' },
-               { id: 'c', label: 'Phase C', color: 'var(--accent)' }, { id: 'dc', label: 'DC out', color: 'var(--warn)' }] }]
+  const WAVE_TRACE = { id: 'wave', label: '3-phase AC → rectified DC', min: -1.5625, max: 1.5625, length: WF_LEN,
+    series: [{ id: 'a', label: 'Phase A', color: 'var(--crit)' }, { id: 'b', label: 'Phase B', color: 'var(--ok)' },
+             { id: 'c', label: 'Phase C', color: 'var(--accent)' }, { id: 'dc', label: 'DC out', color: 'var(--warn)' }] };
+  const monConfig = (m) => ({
+    label: 'Electrical', value: { label: 'Electrical', unit: '% SOC', max: 100, bar: true },
+    rows: MON_ROWS[m], traces: m === 'alternator' ? [WAVE_TRACE] : [], status: { text: 'Ready' }
   });
 
   /* ============================================================
@@ -940,17 +910,9 @@ import { Parts } from './components.js';
       ],
       onTab: (id) => applyMode(id),
       readout: `
-        <div id="electrical-readout">
-          <div id="mode-badge" class="el-badge">
-            <span class="dot"></span><span data-el="badge-text">Lead-Acid Battery</span>
-          </div>
+        <div id="electrical-notes">
           <div id="mode-desc"></div>
           <div id="chem-eq">Pb + PbO₂ + 2H₂SO₄ <span class="arrow" data-el="chem-arrow">→</span> 2PbSO₄ + 2H₂O</div>
-          <div class="el-rows">
-            <div class="row"><span data-el="r1-label">Voltage</span><span class="val" data-el="r1">12.6 V</span></div>
-            <div class="row"><span data-el="r2-label">Current</span><span class="val" data-el="r2">0 A</span></div>
-            <div class="row"><span data-el="r3-label">Cells</span><span class="val" data-el="r3">6 × 2.1 V</span></div>
-          </div>
         </div>
       `,
       desc: `<strong>Electrical system.</strong> Three sub-systems work together: the battery stores
@@ -959,8 +921,8 @@ import { Parts } from './components.js';
     },
 
     monitor: {
-      config: MON_BASE,
-      initial: { value: { text: '85', unit: '% SOC' }, rows: { eng: '~900 rpm', net: '0 A' }, status: ['Ready', false] }
+      config: monConfig('battery'),
+      initial: { value: { text: '85', unit: '% SOC' }, rows: { eng: '~900 rpm', net: '0 A', v: '12.60 V', cells: '6 × 2.1 V' }, status: ['Ready', false] }
     },
 
     toolbar: {
@@ -985,21 +947,13 @@ import { Parts } from './components.js';
 
   /* ── panel readout refs ── */
   const panelBody    = ui.panel.body;
-  const elModeBadge  = panelBody ? panelBody.querySelector('#mode-badge') : null;
-  const elBadgeText  = panelBody ? panelBody.querySelector('[data-el="badge-text"]') : null;
   const elModeDesc   = panelBody ? panelBody.querySelector('#mode-desc') : null;
   const elChemEq     = panelBody ? panelBody.querySelector('#chem-eq') : null;
   const elChemArrow  = panelBody ? panelBody.querySelector('[data-el="chem-arrow"]') : null;
-  const elR1Label    = panelBody ? panelBody.querySelector('[data-el="r1-label"]') : null;
-  const elR2Label    = panelBody ? panelBody.querySelector('[data-el="r2-label"]') : null;
-  const elR3Label    = panelBody ? panelBody.querySelector('[data-el="r3-label"]') : null;
-  const elR1         = panelBody ? panelBody.querySelector('[data-el="r1"]') : null;
-  const elR2         = panelBody ? panelBody.querySelector('[data-el="r2"]') : null;
-  const elR3         = panelBody ? panelBody.querySelector('[data-el="r3"]') : null;
 
   let wavePhase = 0;     /* advances with time (1.6 rad/s) */
   let wfPhase = 0;       /* phase of the last sample pushed to the trace */
-  let monAlt = false;    /* which Monitor config is active */
+  let monMode = 'battery';   /* which Monitor config is active */
 
   /* ============================================================
      MODE SWITCHING
@@ -1009,38 +963,16 @@ import { Parts } from './components.js';
 
     const info = MODE_INFO[m];
 
-    if (elModeBadge) {
-      elModeBadge.style.background = info.badgeBg;
-      elModeBadge.style.color = info.badgeColor;
-      const dot = elModeBadge.querySelector('.dot');
-      if (dot) dot.style.background = info.badgeColor;
-    }
-    if (elBadgeText) elBadgeText.textContent = info.badge;
     if (elModeDesc)  elModeDesc.innerHTML = info.desc;
 
     if (elChemEq) elChemEq.style.display = m === 'battery' ? 'block' : 'none';
 
-    if (m === 'battery') {
-      if (elR1Label) elR1Label.textContent = 'Voltage';
-      if (elR2Label) elR2Label.textContent = 'Current';
-      if (elR3Label) elR3Label.textContent = 'Cells';
-      if (elR3)      elR3.textContent      = '6 × 2.1 V';
-    } else if (m === 'alternator') {
-      if (elR1Label) elR1Label.textContent = 'Rotor speed';
-      if (elR2Label) elR2Label.textContent = 'AC frequency';
-      if (elR3Label) elR3Label.textContent = 'DC output';
-    } else {
-      if (elR1Label) elR1Label.textContent = 'Load draw';
-      if (elR2Label) elR2Label.textContent = 'Alt output';
-      if (elR3Label) elR3Label.textContent = 'Battery';
-    }
-
     ui.controls.setHidden('direction', m !== 'battery');
     ui.controls.setHidden('key', m !== 'charging');
-    if ((m === 'alternator') !== monAlt) {         /* the waveform trace exists only in alternator mode */
-      monAlt = !monAlt;
-      ui.monitor.set(monAlt ? MON_ALT : MON_BASE);
-      if (monAlt) primeWave();
+    if (m !== monMode) {                           /* new row set per mode; the waveform trace exists only in alternator mode */
+      monMode = m;
+      ui.monitor.set(monConfig(m));
+      if (m === 'alternator') primeWave();
       updateReadouts();
       ui.monitor.flush();
     }
@@ -1235,39 +1167,30 @@ import { Parts } from './components.js';
 
     if (mode === 'battery') {
       const col = socPct > 60 ? '#22c55e' : socPct > 25 ? '#f59e0b' : '#ef4444';
-      ui.monitor.update({ value: { text: String(socPct), unit: '% SOC', color: col || '', bar: socPct, barColor: col } });
-      if (elR1) elR1.textContent = batteryVoltage.toFixed(2) + ' V';
-      if (elR2) elR2.textContent = batteryCurrent.toFixed(1) + ' A';
       ui.monitor.update({
-        rows: { eng: Math.round(engineRPM) + ' rpm', net: batteryCurrent.toFixed(1) + ' A' },
+        value: { text: String(socPct), unit: '% SOC', color: col || '', bar: socPct, barColor: col },
+        rows: { eng: Math.round(engineRPM) + ' rpm', net: batteryCurrent.toFixed(1) + ' A', v: batteryVoltage.toFixed(2) + ' V', cells: '6 × 2.1 V' },
         status: [direction === 'charge' ? 'Charging' : 'Discharging', direction === 'charge']
       });
     } else if (mode === 'alternator') {
       const outA = Math.round(alternatorOutput);
       const col = outA > 60 ? '#22c55e' : outA > 30 ? '#38bdf8' : '#f59e0b';
-      ui.monitor.update({ value: { text: String(outA), unit: 'A out', color: col || '', bar: Math.min(100, (outA / 90) * 100), barColor: col } });
-      if (elR1) elR1.textContent = Math.round(engineRPM) + ' rpm';
-      if (elR2) elR2.textContent = Math.round(engineRPM / 60 * 6) + ' Hz';
-      if (elR3) elR3.textContent = (13.8 + alternatorOutput / 90 * 0.9).toFixed(2) + ' V';
-      ui.monitor.update({ rows: { eng: Math.round(engineRPM) + ' rpm', net: outA + ' A' }, status: ['Generating', true] });
+      ui.monitor.update({
+        value: { text: String(outA), unit: 'A out', color: col || '', bar: Math.min(100, (outA / 90) * 100), barColor: col },
+        rows: { eng: Math.round(engineRPM) + ' rpm', hz: Math.round(engineRPM / 60 * 6) + ' Hz', vdc: (13.8 + alternatorOutput / 90 * 0.9).toFixed(2) + ' V' },
+        status: ['Generating', true]
+      });
     } else {
       const netA = batteryCurrent;
       const col = netA > 2 ? '#22c55e' : netA > -2 ? '#38bdf8' : '#f59e0b';
+      const status = keyState === 'off' ? ['Off', false] : keyState === 'acc' ? ['ACC', false] : keyState === 'start' ? ['Cranking', false]
+                   : netA > 2 ? ['Charging', true] : netA < -2 ? ['Discharging', false] : ['Float', true];
       ui.monitor.update({
-        value: { text: String((netA >= 0 ? '+' : '') + Math.round(netA)), unit: 'A', color: col || '', bar: socPct, barColor: socPct > 60 ? '#22c55e' : socPct > 25 ? '#f59e0b' : '#ef4444' }
+        value: { text: String((netA >= 0 ? '+' : '') + Math.round(netA)), unit: 'A', color: col || '', bar: socPct, barColor: socPct > 60 ? '#22c55e' : socPct > 25 ? '#f59e0b' : '#ef4444' },
+        rows: { eng: Math.round(engineRPM) + ' rpm', net: Math.round(loadAmps) + ' A', alt: Math.round(alternatorOutput) + ' A' },
+        status
       });
-      if (elR1) elR1.textContent = Math.round(loadAmps) + ' A';
-      if (elR2) elR2.textContent = Math.round(alternatorOutput) + ' A';
-      if (elR3) elR3.textContent = (netA > 0 ? 'charging ' : netA < 0 ? 'discharging ' : 'float ') + socPct + '%';
-      ui.monitor.update({ rows: { eng: Math.round(engineRPM) + ' rpm', net: Math.round(loadAmps) + ' A' } });
-      if (keyState === 'off')       ui.monitor.update({ status: ['Off', false] });
-      else if (keyState === 'acc')  ui.monitor.update({ status: ['ACC', false] });
-      else if (keyState === 'start') ui.monitor.update({ status: ['Cranking', false] });
-      else if (netA > 2)             ui.monitor.update({ status: ['Charging', true] });
-      else if (netA < -2)            ui.monitor.update({ status: ['Discharging', false] });
-      else                           ui.monitor.update({ status: ['Float', true] });
     }
-
   }
 
   /* ============================================================
@@ -1284,7 +1207,7 @@ import { Parts } from './components.js';
     wfPhase = wavePhase;
   }
   function pushWave() {
-    if (!monAlt) { wfPhase = wavePhase; return; }
+    if (monMode !== 'alternator') { wfPhase = wavePhase; return; }
     let n = 0;
     while (wfPhase + WF_STEP <= wavePhase && n++ < WF_LEN) {
       wfPhase += WF_STEP;

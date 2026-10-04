@@ -8,55 +8,6 @@
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  /* ═══════ PANEL READOUT INTERIOR — shock bars + danger meter ═══════ */
-  #susp-readout { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
-
-  .susp-shock-grid { display: flex; gap: 10px; }
-  .susp-shock-col { flex: 1; min-width: 0; }
-  .susp-shock-head {
-    display: flex; justify-content: space-between;
-    font-size: 10.5px; color: var(--text-dim, #9aa7b9); font-weight: 700;
-    letter-spacing: .03em; text-transform: uppercase;
-  }
-  .susp-shock-head b {
-    font-family: var(--font-mono);
-    color: var(--text, #e5e7eb); font-weight: 800;
-  }
-  .susp-shock-bar {
-    height: 8px; border-radius: 6px;
-    background: rgba(255,255,255,.08); margin-top: 5px; overflow: hidden;
-  }
-  .susp-shock-fill {
-    height: 100%; width: 0%; background: #22c55e; border-radius: 6px;
-    transition: width .12s linear, background .25s;
-  }
-
-  #susp-danger { opacity:.4; transition:opacity .3s; }
-  #susp-danger.active { opacity:1; }
-  .susp-dm-head {
-    display: flex; justify-content: space-between;
-    font-size: 10.5px; color: var(--text-dim, #9aa7b9); font-weight: 600;
-  }
-  #susp-danger-pct {
-    font-family: var(--font-mono);
-    color: var(--text, #e5e7eb); font-weight: 800;
-  }
-  #susp-danger-bar {
-    height: 8px; border-radius: 6px; background: rgba(255,255,255,.08);
-    margin-top: 5px; overflow: hidden;
-  }
-  #susp-danger-fill {
-    height: 100%; width: 0%; background: #22c55e; border-radius: 6px;
-    transition: width .12s linear, background .25s;
-  }
-  #susp-danger-verdict {
-    font-size: 10px; color: var(--text-dim, #7f8da0); margin-top: 4px;
-  }
-  #susp-danger.critical #susp-danger-fill { animation: suspDpulse .45s ease-in-out infinite alternate; }
-  @keyframes suspDpulse { from { opacity: .55; } to { opacity: 1; } }
-  html.light-theme .susp-shock-head b,
-  html.light-theme #susp-danger-pct { color: #0a0d13; }
-
   /* ═══════ Road status bar (overlay) ═══════ */
   #road-info {
     position: fixed;
@@ -810,31 +761,13 @@ import { Parts } from './components.js';
       kicker: 'Suspension',
       title:  'Suspension · Real Uneven Road',
       badge:  { text: 'With Suspension', color: '#a855f7' },
-      readout: `
-        <div id="susp-readout">
-          <div class="susp-shock-grid">
-            <div class="susp-shock-col">
-              <div class="susp-shock-head"><span>Front</span><b data-susp="front-pct">0%</b></div>
-              <div class="susp-shock-bar"><div class="susp-shock-fill" data-susp="front-fill"></div></div>
-            </div>
-            <div class="susp-shock-col">
-              <div class="susp-shock-head"><span>Rear</span><b data-susp="rear-pct">0%</b></div>
-              <div class="susp-shock-bar"><div class="susp-shock-fill" data-susp="rear-fill"></div></div>
-            </div>
-          </div>
-          <div id="susp-danger">
-            <div class="susp-dm-head"><span>⚠ Chassis stress</span><b id="susp-danger-pct">0%</b></div>
-            <div id="susp-danger-bar"><div id="susp-danger-fill"></div></div>
-            <div id="susp-danger-verdict">Chassis coping fine</div>
-          </div>
-        </div>
-      `,
       desc: `<strong>With suspension.</strong> Coil springs, leaf springs and dampers absorb every bump. The chassis stays nearly level — passengers feel only a gentle float. Watch the leaf spring flatten through potholes and the shackle swing as it stretches.`
     },
 
     monitor: {
-      config: { label: 'Mode', value: { label: 'Mode', unit: ' susp', max: 100, bar: true }, rows: [['speed', 'Speed'], ['road', 'Road']], status: { text: 'Suspended' } },
-      initial: { value: { text: 'With', unit: ' susp' }, rows: { speed: '~38 km/h', road: 'Flat' }, status: ['Suspended', true] }
+      config: { label: 'Mode', value: { label: 'Mode', unit: ' susp', max: 100, bar: true }, rows: [['speed', 'Speed'], ['road', 'Road'], ['shockF', 'Front shock'], ['shockR', 'Rear shock'], ['chassis', 'Chassis']],
+        gauge: { id: 'stress', label: 'Chassis stress', min: 0, max: 100, unit: '%' }, status: { text: 'Suspended' } },
+      initial: { value: { text: 'With', unit: ' susp' }, rows: { speed: '~38 km/h', road: 'Flat', shockF: '0%', shockR: '0%', chassis: ['Chassis coping fine', 'ok'] }, gauge: [0, '0%'], status: ['Suspended', true] }
     },
 
     toolbar: {
@@ -854,14 +787,6 @@ import { Parts } from './components.js';
   });
 
   const panelBody = ui.panel.body;
-  const elFrontPct  = panelBody ? panelBody.querySelector('[data-susp="front-pct"]')  : null;
-  const elRearPct   = panelBody ? panelBody.querySelector('[data-susp="rear-pct"]')   : null;
-  const elFrontFill = panelBody ? panelBody.querySelector('[data-susp="front-fill"]') : null;
-  const elRearFill  = panelBody ? panelBody.querySelector('[data-susp="rear-fill"]')  : null;
-  const elDanger    = panelBody ? panelBody.querySelector('#susp-danger') : null;
-  const elDangerPct = panelBody ? panelBody.querySelector('#susp-danger-pct') : null;
-  const elDangerFill= panelBody ? panelBody.querySelector('#susp-danger-fill') : null;
-  const elDangerVerdict = panelBody ? panelBody.querySelector('#susp-danger-verdict') : null;
 
   const badgeEl       = document.getElementById('stroke-badge');
   const badgeTextEl   = document.getElementById('badge-text');
@@ -1217,19 +1142,7 @@ import { Parts } from './components.js';
     shockFrontSmooth += (frontImpact - shockFrontSmooth) * Math.min(1, dt * 5);
     shockRearSmooth  += (rearImpact  - shockRearSmooth)  * Math.min(1, dt * 5);
 
-    if (elFrontPct) elFrontPct.textContent = Math.round(shockFrontSmooth * 100) + '%';
-    if (elRearPct)  elRearPct.textContent  = Math.round(shockRearSmooth  * 100) + '%';
-
-    const colF = shockFrontSmooth < 0.28 ? '#22c55e' : shockFrontSmooth < 0.62 ? '#f59e0b' : '#ef4444';
-    const colR = shockRearSmooth  < 0.28 ? '#22c55e' : shockRearSmooth  < 0.62 ? '#f59e0b' : '#ef4444';
-    if (elFrontFill) {
-      elFrontFill.style.width = (shockFrontSmooth * 100).toFixed(0) + '%';
-      elFrontFill.style.background = colF;
-    }
-    if (elRearFill) {
-      elRearFill.style.width = (shockRearSmooth * 100).toFixed(0) + '%';
-      elRearFill.style.background = colR;
-    }
+    ui.monitor.update({ rows: { shockF: Math.round(shockFrontSmooth * 100) + '%', shockR: Math.round(shockRearSmooth * 100) + '%' } });
 
     const maxShock = Math.max(shockFrontSmooth, shockRearSmooth);
     arrow.scale.y = 0.25 + 1.55 * maxShock;
@@ -1248,20 +1161,13 @@ import { Parts } from './components.js';
     }
     danger = clamp(danger, 0, 1);
     const pct = Math.round(danger * 100);
-    if (elDangerPct) elDangerPct.textContent = pct + '%';
-    if (elDangerFill) elDangerFill.style.width = pct + '%';
 
-    let band = '#22c55e';
+    let tone = 'ok';
     let verdict = 'Chassis coping fine';
-    if (danger > 0.90) { band = '#dc2626'; verdict = '⚠ ACCIDENT IMMINENT — slow down or re-enable suspension'; }
-    else if (danger > 0.70) { band = '#ef4444'; verdict = 'Severe impacts — structural risk'; }
-    else if (danger > 0.40) { band = '#f59e0b'; verdict = 'Ride deteriorating — re-enable suspension'; }
-    if (elDangerFill) elDangerFill.style.background = band;
-    if (elDangerVerdict) elDangerVerdict.textContent = verdict;
-    if (elDanger) {
-      elDanger.classList.toggle('active', !withSusp);
-      elDanger.classList.toggle('critical', danger > 0.90);
-    }
+    if (danger > 0.90) { tone = 'crit'; verdict = '⚠ ACCIDENT IMMINENT — slow down or re-enable suspension'; }
+    else if (danger > 0.70) { tone = 'crit'; verdict = 'Severe impacts — structural risk'; }
+    else if (danger > 0.40) { tone = 'warn'; verdict = 'Ride deteriorating — re-enable suspension'; }
+    ui.monitor.update({ gauge: [pct, pct + '%'], rows: { chassis: [verdict, tone] } });
   }
 
   let roadInfoTimer = 0;

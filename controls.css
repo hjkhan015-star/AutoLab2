@@ -446,19 +446,6 @@ body.al-sheet-open .al-sheet-scrim { display: block; }
     right: calc(var(--safe-r, 0px) + var(--dock-rail) + var(--s-2, 8px));
     z-index: var(--z-monitor);
   }
-  .ui-chip {
-    display: flex; align-items: center; gap: var(--s-3, 12px);
-    width: 100%; min-width: 0;
-    height: var(--monitor-strip-h);
-    padding: 0 var(--s-3, 12px);
-    border-radius: var(--r-pill, 999px);
-    white-space: nowrap; overflow: hidden;
-  }
-  .ui-chip-label { margin: 0; flex: 0 0 auto; }
-  .ui-chip-value { font-size: 14px; flex: 0 0 auto; }
-  .ui-chip-bar { display: none; }
-  .ui-chip-row { margin: 0; gap: var(--s-1, 4px); flex: 0 0 auto; }
-  .ui-chip-status { margin: 0 0 0 auto; flex: 0 0 auto; }
   .ui-orb-toggle, .ui-orb-icon { display: none; }
 }
 
@@ -871,7 +858,7 @@ body.al-sheet-open .al-sheet-scrim { display: block; }
 /* ═══════════════════════════════════════════════════════════════════════
    Monitor (Phase 7a) — monitor.js. Tokens only. ONE readout surface: value · rows · gauge · traces · status.
    Desktop: a card. Phone (same breakpoint as the dock): one-line strip (--monitor-strip-h) + card that slides down
-   (max --monitor-max). The old .ui-chip rules above stay until 7b deletes the chip wrappers.
+   (max --monitor-max).
    ═══════════════════════════════════════════════════════════════════════ */
 .ui-monitor {
   position: relative; min-width: 176px; max-width: 280px;
@@ -925,6 +912,9 @@ body.al-sheet-open .al-sheet-scrim { display: block; }
 .ui-monitor .mon-status[data-tone] { align-items: flex-start; border-radius: var(--r-sm, 12px); padding: 4px 9px; }
 .ui-monitor .mon-status[data-tone] .mon-status-text { text-transform: none; letter-spacing: 0; font-weight: 600; }
 .ui-monitor .mon-footer { margin-top: var(--s-2); font-size: 11px; color: var(--text-mute); }
+.ui-monitor .mon-legend { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); }
+.ui-monitor .mon-legend span { display: inline-flex; align-items: center; gap: var(--s-1); }
+.ui-monitor .mon-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
 
 @media (max-width: 720px), (max-height: 540px) {
   .ui-monitor { width: 100%; min-width: 0; max-width: none; height: var(--monitor-strip-h); padding: 0; border-radius: var(--r-pill); overflow: visible; }
