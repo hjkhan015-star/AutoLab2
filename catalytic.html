@@ -56,6 +56,10 @@ const CFG = {
     ["hc", "HC → CO2+H2O"],
     ["nox", "NOx → N2"],
     ["lam", "Lambda"],
+    ["raw", "Engine-out (ppm)"],
+    ["tail", "Tailpipe (ppm)"],
+    ["byp", "By-products (ppm)"],
+    ["insp", "Fast-idle inspection"],
     ["osc", "Ceria O2 storage"],
     ["rxn", "Dominant reaction"],
     ["bp", "Back pressure"],
@@ -63,20 +67,26 @@ const CFG = {
     ["state", "State"]
   ],
   "legend": [
-    ["#ef4444", "Raw exhaust (HC, CO, NOx)"],
-    ["#38bdf8", "Cleaned gas (H2O, CO2, N2)"],
+    ["#ef4444", "Raw exhaust: CO, HC, NOx"],
+    ["#38bdf8", "Cleaned gas: H2O, CO2, N2"],
+    ["#ffffff", "Reaction flash at a metal site"],
+    ["#e6d28a", "Ceria loaded with O2 (Ce⁴⁺)"],
     ["#d9c9a3", "Ceria-ceramic honeycomb"],
     ["#a8b0bb", "Stainless shell + head shield"],
     ["#22d3ee", "Post-cat O2 sensor"],
     ["#fb923c", "Hot / light-off glow"]
   ],
-  "overview": "<div class=\"al-sec\"><h4>Two bricks, two jobs<\/h4><p>Gas first meets the <b>reduction catalyst</b> (rhodium) which strips oxygen from NOx, then the <b>oxidation catalyst</b> (platinum / palladium) which burns off the remaining CO and HC. A cerium-oxide (ceria) wash-coat stores oxygen when the mixture is lean and releases it when rich, widening the lambda window.<\/p><\/div><div class=\"al-sec\"><h4>Reactions<\/h4><ul><li>CO + &frac12;O&#8322; &rarr; CO&#8322;<\/li><li>2&nbsp;C&#8322;H&#8326; + 7O&#8322; &rarr; 4CO&#8322; + 6H&#8322;O (HC oxidation)<\/li><li>2CO + 2NO &rarr; 2CO&#8322; + N&#8322;<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Three jobs at once<\/h4><ul><li>Oxidise carbon monoxide: CO &rarr; CO&#8322;<\/li><li>Oxidise unburnt hydrocarbons: HC &rarr; CO&#8322; + H&#8322;O<\/li><li>Reduce nitrogen oxides: NOx &rarr; N&#8322;<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Light-off<\/h4><p>Platinum, palladium and rhodium on a ceramic honeycomb only work above about 250&ndash;300&nbsp;&deg;C. The catalyst starts <b>cold</b> in this simulation &mdash; watch the conversion climb as the exhaust heats the brick through the light-off S-curve.<\/p><\/div><div class=\"al-sec\"><h4>Lambda window<\/h4><p>The ECU keeps the mixture near &lambda;&nbsp;=&nbsp;1. CO and HC prefer it just lean of stoichiometric, NOx prefers it just rich. Push the &lambda; slider to either extreme and the conversion of one group collapses while the other improves &mdash; the classic three-way conflict.<\/p><\/div><div class=\"al-sec\"><h4>Misfire &amp; melt-down<\/h4><p>Raw fuel that reaches the catalyst burns on the precious-metal surface. A long enough misfire pushes the bed above 950&nbsp;&deg;C, the ceramic substrate melts, back pressure rises and conversion drops &mdash; and the damage is permanent until Reset.<\/p><\/div><div class=\"al-sec\"><h4>Ageing &amp; dither<\/h4><p>An <b>aged</b> catalyst lights off hotter and stores less oxygen, so it clears emissions later and its post-cat sensor starts to swing with the pre-cat sensor &mdash; that is how the ECU spots a worn brick. Turn <b>ECU lambda dither</b> on to watch the ceria buffer absorb the ±1&nbsp;% mixture wobble.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Select the <b>post-cat O2 sensor</b> fault, then hold high load with 100&nbsp;% misfire. The brick glows red, melts, and conversion collapses &mdash; yet the ECU never sets P0420 because it is blind. Now switch back to <b>None<\/b> and repeat: with a live sensor, P0420 latches within seconds.<\/p>",
+  "overview": "<div class=\"al-sec\"><h4>Two bricks, two jobs<\/h4><p>Gas first meets the <b>reduction catalyst</b> (rhodium) which strips oxygen from NOx, then the <b>oxidation catalyst</b> (platinum / palladium) which burns off the remaining CO and HC. A cerium-oxide (ceria) wash-coat stores oxygen when the mixture is lean and releases it when rich, widening the lambda window.<\/p><\/div><div class=\"al-sec\"><h4>Reactions<\/h4><ul><li>CO + &frac12;O&#8322; &rarr; CO&#8322;<\/li><li>2&nbsp;C&#8322;H&#8326; + 7O&#8322; &rarr; 4CO&#8322; + 6H&#8322;O (HC oxidation)<\/li><li>2CO + 2NO &rarr; 2CO&#8322; + N&#8322;<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Three jobs at once<\/h4><ul><li>Oxidise carbon monoxide: CO &rarr; CO&#8322;<\/li><li>Oxidise unburnt hydrocarbons: HC &rarr; CO&#8322; + H&#8322;O<\/li><li>Reduce nitrogen oxides: NOx &rarr; N&#8322;<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Light-off<\/h4><p>Platinum, palladium and rhodium on a ceramic honeycomb only work above about 250&ndash;300&nbsp;&deg;C. The catalyst starts <b>cold</b> in this simulation &mdash; watch the conversion climb as the exhaust heats the brick through the light-off S-curve.<\/p><\/div><div class=\"al-sec\"><h4>Lambda window<\/h4><p>The ECU keeps the mixture near &lambda;&nbsp;=&nbsp;1. CO and HC prefer it just lean of stoichiometric, NOx prefers it just rich. Push the &lambda; slider to either extreme and the conversion of one group collapses while the other improves &mdash; the classic three-way conflict.<\/p><\/div><div class=\"al-sec\"><h4>Misfire &amp; melt-down<\/h4><p>Raw fuel that reaches the catalyst burns on the precious-metal surface. A long enough misfire pushes the bed above 950&nbsp;&deg;C, the ceramic substrate melts, back pressure rises and conversion drops &mdash; and the damage is permanent until Reset.<\/p><\/div><div class=\"al-sec\"><h4>Chemistry beyond the three reactions<\/h4><p><b>Rich and hot:<\/b> NOx is over-reduced to ammonia (NH&#8323;), and the water-gas shift (CO + H&#8322;O &rarr; CO&#8322; + H&#8322;) supplies the hydrogen. <b>Around 300&ndash;400&nbsp;&deg;C:<\/b> some NOx stops at nitrous oxide (N&#8322;O), a strong greenhouse gas. Stored sulfur is released as rotten-egg H&#8322;S when the mixture goes rich. Every CO and HC molecule burnt also releases heat, so a rich mixture makes the brick hotter.<\/p><\/div><div class=\"al-sec\"><h4>Light-off front<\/h4><p>The brick is shown in three slices per stage. On a cold start the slice nearest the inlet heats first and the glow moves downstream. Each species lights off at its own temperature: CO first, then NOx, then HC.<\/p><\/div><div class=\"al-sec\"><h4>Fast-idle inspection<\/h4><p>The readout applies typical test limits (CO 0.3&nbsp;%, HC 200&nbsp;ppm, &lambda; 0.97&ndash;1.03) to the tailpipe values once the catalyst is warm.<\/p><\/div><div class=\"al-sec\"><h4>Ageing &amp; dither<\/h4><p>An <b>aged</b> catalyst lights off hotter and stores less oxygen, so it clears emissions later and its post-cat sensor starts to swing with the pre-cat sensor &mdash; that is how the ECU spots a worn brick. Turn <b>ECU lambda dither</b> on to watch the ceria buffer absorb the ±1&nbsp;% mixture wobble.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Select the <b>post-cat O2 sensor</b> fault, then hold high load with 100&nbsp;% misfire. The brick glows red, melts, and conversion collapses &mdash; yet the ECU never sets P0420 because it is blind. Now switch back to <b>None<\/b> and repeat: with a live sensor, P0420 latches within seconds.<\/p>",
   "faults": [
     ["Poisoned (lead, silicone, oil)", "P0420 - catalyst efficiency below threshold. The precious-metal sites are blocked, so even a hot brick cannot convert. Often caused by a coolant or oil leak into the exhaust.", "Compare pre- and post-cat O2 waveforms; check for coolant or oil consumption."],
     ["Melted substrate", "P0420 plus a rise in back pressure and a rattle. Caused by a sustained misfire or a rich-running engine dumping raw fuel onto the brick. The monolith distorts and partly blocks the exhaust.", "Back-pressure test; drop the down-pipe and inspect the honeycomb for distortion."],
+    ["Rich-running engine", "P0172 - system too rich. CO and HC burn on the brick and overheat it; the excess reduction forms ammonia and released sulfur gives a rotten-egg smell. The catalyst is a victim, not the cause.", "Check fuel trims, injector leak-down, coolant temperature sensor and fuel pressure before replacing the catalyst."],
     ["Post-cat O2 sensor failed", "P0136/P0141 or P0420 hidden. The sensor sticks at a healthy-looking voltage, so the ECU cannot see the real degradation and never sets an efficiency code.", "Read the downstream O2 sensor live; compare with a known-good sensor or a scope."]
   ],
   "quiz": [
+    ["Which by-product forms mostly while the catalyst is still lighting off (300-400 °C)?", ["Nitrous oxide (N2O)", "Ammonia (NH3)", "Ozone"], 0, "N2O forms when NOx reduction is only partial at low temperature; it is a potent greenhouse gas."],
+    ["A rich mixture makes the catalyst run hotter because…", ["More CO and HC burn on it", "Less air cools it", "NOx is exothermic"], 0, "Every CO and HC molecule oxidised on the brick releases heat, so more raw fuel in the exhaust means more heat in the brick."],
+    ["Where does the brick light off first on a cold start?", ["Inlet end", "Outlet end", "Everywhere at once"], 0, "The hot gas reaches the inlet slices first, so the light-off front starts there and moves downstream."],
     ["Which metal does the reduction stage (NOx → N2) rely on?", ["Rhodium", "Platinum", "Aluminium"], 0, "Rhodium is the best NOx-reducing metal; Pt and Pd handle the oxidation of CO and HC in the rear brick."],
     ["What does the cerium oxide in the wash-coat do?", ["Stores and releases oxygen", "Filters soot", "Cools the exhaust"], 0, "CeO2 swaps between Ce⁴⁺ and Ce³⁺ so it soaks up O2 on lean swings and gives it back on rich swings, keeping the mixture effectively near λ = 1 inside the brick."],
     ["Catalyst light-off temperature is about…", ["100 °C", "250-300 °C", "700 °C"], 1, "Below ~250 °C the precious-metal reactions are too slow to clean the exhaust."],
@@ -101,6 +111,7 @@ function clampN(x, a, b) {
   return x < a ? a : (x > b ? b : x);
 }
 const num = (x, d) => (Number.isFinite(x) ? x : d);
+const fmtPpm = (v) => { v = Math.max(0, num(v, 0)); return v >= 10000 ? (v / 10000).toFixed(1) + '%' : (v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v.toFixed(0)); };   /* ppm, or % above 1 % */
 
 /* ── named constants ─────────────────────────────────────────────── */
 const LIGHT_OFF     = 275;    /* °C, 50 % conversion (light-off midpoint)   */
@@ -116,7 +127,14 @@ const REAR_EXO      = 85;     /* °C, heat the rear brick gains from burning wha
 const P0420_LIMIT   = 0.70;   /* measured efficiency below this = P0420     */
 const P0420_DELAY   = 8;      /* s sustained above the limit before latching */
 const MONITOR_MIN_T = 300;    /* °C, catalyst monitor only runs above this  */
-const COLD_START_T  = 30;     /* °C, initial bed temperature on a cold start */
+const COLD_START_T  = 30;
+const N_CELLS       = 6;      /* axial slices: 0-2 = reduction brick, 3-5 = oxidation brick */
+const TAU_CELL      = 4.5;    /* s, per-slice thermal lag (a chain of three ≈ the old 12 s brick) */
+const TAU_CELL_REAR = 6;      /* s, rear slices */
+const EXO_CO        = 60;     /* °C of adiabatic rise per 1 % CO burnt on the brick */
+const EXO_HC        = 30;     /* °C of adiabatic rise per 1 % HC (as C1) burnt */
+/* species-specific light-off midpoints (°C): CO lights first, HC last */
+const T50 = { co: 262, nox: 272, hc: 285 };     /* °C, initial bed temperature on a cold start */
 const OSC_RATE      = 14;     /* ceria fill per second per unit of lambda error */
 const OSC_BUFFER    = 0.80;   /* share of a lambda swing a healthy ceria bed absorbs */
 const DITHER_AMP    = 0.012;  /* ECU closed-loop lambda wobble (± 1.2 %)    */
@@ -131,8 +149,9 @@ const AGE = {
 
 /* Light-off S-curve: near-zero below ~200 °C, ~0.5 at 275 °C, ~1 by
    400 °C. Direction: hotter bed -> more conversion; ageing shifts it hotter. */
-function lightOff(T, shift) {
-  const x = (num(T, 0) - LIGHT_OFF - num(shift, 0)) / LIGHT_OFF_W;
+function lightOff(T, shift, kind) {
+  const t50 = (kind && T50[kind]) ? T50[kind] : LIGHT_OFF;
+  const x = (num(T, 0) - t50 - num(shift, 0)) / LIGHT_OFF_W;
   return 1 / (1 + Math.exp(-x));
 }
 
@@ -171,7 +190,7 @@ function misfireHeat(misfire, load) {
    bed, λ near the species' window and a clean, undamaged brick -> higher. */
 function conversion(kind, T, lambda, poison, damage, age) {
   const a = AGE[age] || AGE.new;
-  const lo = lightOff(T, a.shift);
+  const lo = lightOff(T, a.shift, kind);
   const lw = lambdaWindow(lambda, kind);
   let ceiling = (kind === 'nox') ? NOX_CEILING : MAX_CONV;
   ceiling *= a.ceil;
@@ -187,8 +206,8 @@ function inSeries(c1, c2) {
 
 /* Instantaneous mixture the ECU is commanding: the slider value plus the
    closed-loop wobble when dither is on. */
-function lambdaNow(lambda, phase, dither) {
-  return num(lambda, 1) + (dither ? DITHER_AMP * Math.sin(phase) : 0);
+function lambdaNow(lambda, phase, dither, bias) {
+  return num(lambda, 1) + num(bias, 0) + (dither ? DITHER_AMP * Math.sin(phase) : 0);
 }
 
 /* Oxygen-storage capacity left (0..1): ageing, poisoning and melt damage
@@ -213,6 +232,52 @@ function effectiveLambda(lam, osc, cap, hotGate) {
   const room = dev >= 0 ? (1 - osc) : osc;
   const absorb = OSC_BUFFER * clampN(cap, 0, 1) * clampN(room, 0, 1) * clampN(hotGate, 0, 1);
   return 1 + dev * (1 - absorb);
+}
+
+/* Raw (engine-out) emissions in ppm. CO and HC climb as the mixture goes rich
+   and with misfire (raw fuel); NOx peaks a little lean of stoichiometric where
+   the flame is hot and oxygen is plentiful, and falls with misfire because the
+   charge never burns. Direction: rich -> CO/HC up; load up -> NOx up. */
+function engineOut(lambda, load, rpm, misfire) {
+  const lam = clampN(num(lambda, 1), 0.7, 1.3);
+  const L = clampN(load, 0, 1), M = clampN(misfire, 0, 1);
+  const N = clampN((num(rpm, 1800) - 800) / 4200, 0, 1);
+  const rich = Math.max(0, 1 - lam), lean = Math.max(0, lam - 1);
+  const co  = 1800 + 500000 * rich + 2500 * L + 12000 * M * (0.4 + 0.6 * L);
+  const hc  =  700 + 14000 * rich + 4000 * lean * lean * 100 * L + 25000 * M * (0.4 + 0.6 * L);
+  const x = (lam - 1.06) / 0.08;
+  const bell = 0.1 + 0.9 * Math.exp(-x * x);
+  const nox = (400 + 4500 * L * (0.7 + 0.3 * N)) * bell * (1 - 0.7 * M);
+  return { co, hc, nox };
+}
+
+/* Heat released on a brick by the CO and HC it burns (°C of adiabatic rise).
+   ppm in, conversion fraction -> °C. Direction: richer exhaust -> hotter cat. */
+function exoHeat(coPpm, hcPpm, coConv, hcConv) {
+  return EXO_CO * (coPpm / 10000) * clampN(coConv, 0, 1) + EXO_HC * (hcPpm / 10000) * clampN(hcConv, 0, 1);
+}
+
+/* By-products of imperfect chemistry (ppm). Rich + hot: NOx is over-reduced
+   all the way to ammonia (NH3). Around 300-400 °C light-off: nitrous oxide
+   (N2O, a strong greenhouse gas) is formed. Direction: NH3 up with richness,
+   N2O peaks mid light-off. */
+function byProducts(noxInPpm, noxConv, lambda, T) {
+  const reduced = Math.max(0, noxInPpm) * clampN(noxConv, 0, 1);
+  const nh3 = reduced * 0.35 * clampN((0.985 - num(lambda, 1)) / 0.05, 0, 1) * clampN((num(T, 0) - 250) / 150, 0, 1);
+  const y = (num(T, 0) - 340) / 70;
+  const n2o = Math.max(0, noxInPpm) * 0.10 * Math.exp(-y * y) * clampN(noxConv * 3, 0, 1);
+  return { nh3, n2o };
+}
+
+/* Annual-inspection style fast-idle check (typical limits: CO 0.3 %, HC 200 ppm,
+   lambda 0.97-1.03). Returns the first failure or PASS. */
+function inspectionVerdict(coPct, hcPpm, lambdaAvg, ready) {
+  if (!ready) return { txt: 'Not ready (cold)', tone: 'warn' };
+  const fails = [];
+  if (coPct > 0.3) fails.push('CO');
+  if (hcPpm > 200) fails.push('HC');
+  if (lambdaAvg < 0.97 || lambdaAvg > 1.03) fails.push('λ');
+  return fails.length ? { txt: 'FAIL: ' + fails.join(' + '), tone: 'crit' } : { txt: 'PASS', tone: 'ok' };
 }
 
 /* Back pressure across the brick (kPa). Rises with the square-ish of
@@ -244,12 +309,14 @@ function dominantReaction(Tf, Tr, lam, shift) {
   return 'All three, balanced';
 }
 
-const FAULT_POISON = { none: 0,    poisoned: 0.85, melted: 0.10, sensor: 0    };
-const FAULT_DAMAGE = { none: 0,    poisoned: 0,    melted: 0.75, sensor: 0    };
+const FAULT_POISON = { none: 0,    poisoned: 0.85, melted: 0.10, sensor: 0,    rich: 0 };
+const FAULT_DAMAGE = { none: 0,    poisoned: 0,    melted: 0.75, sensor: 0,    rich: 0 };
+const FAULT_LAMBDA = { rich: -0.07 };   /* mixture bias a fault adds (leaking injector / bad ECT sensor) */
 const FAULT_INFO = {
   none:     { label: 'None (healthy)',                          warn: '' },
   poisoned: { label: 'Poisoned (oil / lead / silicone, P0420)', warn: 'P0420 - catalyst efficiency below threshold. The precious-metal sites are blocked by oil, lead or silicone contamination, so even a hot brick cannot convert. Check for coolant or oil leaking into the exhaust.' },
   melted:   { label: 'Melted substrate (P0420 + high back pressure)', warn: 'P0420 + high back pressure. The ceramic substrate has partially melted and distorted, blocking gas flow. Usually caused by a sustained misfire dumping raw fuel onto the brick.' },
+  rich:     { label: 'Rich-running engine (P0172, leaking injector)', warn: 'P0172 - system too rich. Raw CO and HC pour onto the brick and burn there, so the catalyst overheats; excess reduction makes ammonia and sulfur is released as rotten-egg H2S. Fix the injector / sensor first or the catalyst will be destroyed.' },
   sensor:   { label: 'Post-cat O2 sensor failed (P0420 hidden)', warn: 'P0136 / P0141 - downstream O2 sensor circuit. The sensor is stuck at a healthy-looking voltage, so the ECU cannot detect catalyst degradation and never sets P0420.' }
 };
 
@@ -272,8 +339,10 @@ const S = {
 let traceSample = null, traceClear = false, warnText = '';
 const traceN = (v, lo, hi) => Math.round(clampN((v - lo) / (hi - lo), 0, 1) * 1000) / 10;
 const sim = {
-  Tbed: COLD_START_T,       /* front (reduction) brick */
-  Trear: COLD_START_T,      /* rear (oxidation) brick  */
+  cells: new Array(N_CELLS).fill(COLD_START_T),   /* axial slice temperatures, inlet -> outlet */
+  Tbed: COLD_START_T,       /* front (reduction) brick = mean of cells 0-2 */
+  Trear: COLD_START_T,      /* rear (oxidation) brick  = mean of cells 3-5 */
+  disp: null,               /* smoothed ppm readouts */
   osc: 0.5,
   phase: 0,
   poison: 0,
@@ -284,9 +353,13 @@ const sim = {
   lastSample: 0
 };
 
+function coldCells() {
+  for (let i = 0; i < N_CELLS; i++) sim.cells[i] = COLD_START_T;
+  sim.Tbed = COLD_START_T; sim.Trear = COLD_START_T;
+}
 function resetModel() {
-  sim.Tbed = COLD_START_T;
-  sim.Trear = COLD_START_T;
+  coldCells();
+  sim.disp = null;
   sim.osc = 0.5;
   sim.phase = 0;
   sim.poison = 0;
@@ -370,10 +443,13 @@ function build(H){
  /* ── two ceramic monoliths with insulating mat ─────────────────── */
  const BR = {x0:-1.45,x1:-.35, y0:-.05,y1:1.45};
  const mkMono=()=>new THREE.MeshStandardMaterial({color:0xd9c9a3,roughness:.9,metalness:0,emissive:new THREE.Color(0x3a1000),emissiveIntensity:0});
- const mono1=mkMono(), mono2=mkMono();
+ const monos=[0,1,2,3,4,5].map(mkMono);
  const len1=BR.x1-BR.x0, len2=BR.y1-BR.y0, c1=(BR.x0+BR.x1)/2, c2=(BR.y0+BR.y1)/2;
- oval(cylX(.86,.86,len1,mono1,c1,0,0,null,SEG));
- oval(cylX(.86,.86,len2,mono2,c2,0,0,null,SEG));
+ /* three axial slices per brick so the light-off front can be seen travelling through it */
+ for(let i=0;i<3;i++){
+   oval(cylX(.86,.86,len1/3,monos[i],BR.x0+len1*(i+.5)/3,0,0,null,SEG));
+   oval(cylX(.86,.86,len2/3,monos[3+i],BR.y0+len2*(i+.5)/3,0,0,null,SEG));
+ }
  const matM = new THREE.MeshStandardMaterial({color:0x8a8068,roughness:1,metalness:0,side:THREE.DoubleSide});
  oval(cylX(.905,.905,len1,matM,c1,0,0,null,SEG,true));
  oval(cylX(.905,.905,len2,matM,c2,0,0,null,SEG,true));
@@ -416,7 +492,7 @@ function build(H){
 
  /* ── magnified channel cut-away (lower-right, in front of the outlet) ── */
  const CX=2.8, CY=-.95, CZ=1.9, CL=1.7, CW=.62;
- const ceramicM=mat(0xd9c9a3,0,.9), washM=mat(0xe6d28a,0,.8);
+ const ceramicM=mat(0xd9c9a3,0,.9), washM=mat(0xe6d28a,0,.8);   /* wash-coat colour follows Ce4+/Ce3+ */
  const t=.07, w=.025;
  box(CL,t,CW,ceramicM,CX,CY+CW/2,CZ);                 /* roof */
  box(CL,t,CW,ceramicM,CX,CY-CW/2,CZ);                 /* floor */
@@ -425,6 +501,7 @@ function build(H){
  box(CL,w,CW-t,washM,CX,CY-CW/2+t/2+w/2,CZ);
  box(CL,CW-t,w,washM,CX,CY,CZ-CW/2+t/2+w/2);
  /* precious-metal sites: Pt (white), Pd (blue-grey), Rh (amber) */
+ const sites=[];
  const metals=[[0xf8fafc,0],[0x94a3b8,1],[0xf59e0b,2]];
  const rnd=(i)=>{const x=Math.sin(i*91.7)*43758.5453; return x-Math.floor(x);};
  for(let i=0;i<(lowEnd?14:26);i++){
@@ -435,7 +512,9 @@ function build(H){
    if(face===0) p=[CX+u,CY-CW/2+t/2+w+r,CZ+v];            /* floor */
    else if(face===1) p=[CX+u,CY+CW/2-t/2-w-r,CZ+v];        /* roof  */
    else p=[CX+u,CY+v,CZ-CW/2+t/2+w+r];                     /* back  */
-   sph(r,mat(m[0],.9,.3,{emissive:m[0],emissiveIntensity:.25}),p[0],p[1],p[2]);
+   const sm=mat(m[0],.9,.3,{emissive:m[0],emissiveIntensity:.25});
+   sites.push(sm);
+   sph(r,sm,p[0],p[1],p[2]);
  }
  /* dashed leader from the brick to the close-up */
  const leadM=new THREE.LineBasicMaterial({color:0xfb923c,transparent:true,opacity:.5});
@@ -454,11 +533,17 @@ function build(H){
  const s2 = [.38,0,-.38].map(y=>stream([[BR.y0+.02,y,0],[BR.y1-.02,y,0]], nMid, 0xc084fc, .09));
  const cleanOut = stream([[1.5,-.14,0],[4.7,-.14,0]], nOut, BLUE, .12);
  const dirtyOut = stream([[1.5, .14,0],[4.7, .14,0]], nOut, RED, .12);
- /* close-up: reactants in, products out */
- const cIn1 = stream([[CX-CL/2,CY+.12,CZ],[CX,CY+.12,CZ]], lowEnd?5:8, RED, .08);
- const cIn2 = stream([[CX-CL/2,CY-.12,CZ],[CX,CY-.12,CZ]], lowEnd?5:8, RED, .08);
- const cOutC= stream([[CX,CY+.0,CZ],[CX+CL/2,CY+.0,CZ]], lowEnd?5:8, BLUE, .08);
- const cOutR= stream([[CX,CY+.15,CZ],[CX+CL/2,CY+.15,CZ]], lowEnd?4:6, RED, .08);
+ /* close-up: individual molecules. Reactants (CO, NO, HC) drift along the channel, stop at a
+    metal site, react (white flash) and leave as products (CO2, N2, H2O) - or slip past unconverted. */
+ const MOL_N = lowEnd ? 9 : 15;
+ const molGeo = new THREE.SphereGeometry(.036,10,8);
+ const REACT = [0xef4444,0xfb923c,0xa16207], PROD = [0x67e8f9,0x38bdf8,0xbfdbfe];
+ const mols = [];
+ for(let i=0;i<MOL_N;i++){
+   const mm=new THREE.MeshStandardMaterial({color:REACT[i%3],emissive:REACT[i%3],emissiveIntensity:.6,roughness:.4});
+   const mesh=new THREE.Mesh(molGeo,mm); root.add(mesh); mols.push({mesh,mm,st:-1});
+ }
+ const siteY = CY-CW/2+t/2+w+.045;
 
  let lastDom = 0;
 
@@ -475,7 +560,7 @@ function build(H){
     ['Post-cat O2 sensor',[2.7,1.05,0]],
     ['Cleaned exhaust (H2O, CO2, N2)',[3.8,.78,0]],
     ['Ceria O2 store',[gx,gy-.5,0]],
-    ['Cell close-up: wash-coat + Pt/Pd/Rh',[CX,CY+.5,CZ]]
+    ['Cell close-up: CO, NO, HC react at Pt/Pd/Rh',[CX,CY+.5,CZ]]
   ],
   update(c){
    /* ── 1. inputs ─────────────────────────────────────────────── */
@@ -493,25 +578,44 @@ function build(H){
 
    /* ECU closed-loop dither: advance the wobble phase with sim time */
    if (dt > 0) sim.phase = (sim.phase + dt * DITHER_HZ * 2 * Math.PI) % (2 * Math.PI * 1000);
-   const lambda = lambdaNow(S.lambda, sim.phase, S.dither);
+   const lamBias = FAULT_LAMBDA[fault] || 0;
+   const lamAvg = clampN(num(S.lambda, 1) + lamBias, 0.7, 1.3);
+   const lambda = lambdaNow(S.lambda, sim.phase, S.dither, lamBias);
 
-   /* ── 2. exhaust gas temperature and misfire heat ───────────── */
+   /* ── 2. engine-out chemistry, exhaust gas temperature, misfire heat ── */
+   const raw     = engineOut(lambda, L, rpm, misfire);
    const egt     = exhaustGasTemp(L, rpm, 20);
    const heatGate = lightOff(sim.Tbed, ageShift);
    const mHeat   = misfireHeat(misfire, L) * heatGate;
 
-   /* ── 3. brick temperatures: first-order thermal lag ────────── */
-   const target1 = egt + mHeat;
-   /* the rear brick gets what the front one passes on, plus extra heat from burning the CO/HC the front missed */
-   const missed = 1 - 0.45 * conversion('co', sim.Tbed, lambda, sim.poison, sim.damage, age);
-   const target2 = Math.max(num(sim.Tbed, 0) - 25, 0) + REAR_EXO * missed * lightOff(sim.Trear, ageShift) * (0.4 + 0.6 * L) + 0.35 * mHeat;
+   /* ── 3. brick temperatures: a chain of axial slices ─────────── */
+   /* Each slice relaxes toward (upstream slice + the step in its own steady-state profile), so
+      during warm-up the inlet end heats first and a light-off front travels downstream. The
+      steady state adds the heat released by the CO/HC burnt on each brick (richer = hotter). */
+   const nowCo = conversion('co', sim.Tbed, lambda, sim.poison, sim.damage, age);
+   const nowHc = conversion('hc', sim.Tbed, lambda, sim.poison, sim.damage, age);
+   const coF = 0.45 * nowCo, hcF = 0.35 * nowHc;
+   const coR = conversion('co', sim.Trear, lambda, sim.poison, sim.damage, age) * (1 - coF);
+   const hcR = conversion('hc', sim.Trear, lambda, sim.poison, sim.damage, age) * (1 - hcF);
+   const exoF = exoHeat(raw.co, raw.hc, coF, hcF);
+   const exoR = exoHeat(raw.co, raw.hc, coR, hcR);
+   const tin  = egt + mHeat;
+   const tgt = [];
+   for (let i = 0; i < 3; i++) tgt[i] = tin + exoF * (i + 1) / 3;
+   for (let i = 3; i < N_CELLS; i++) tgt[i] = tin + exoF - 25 + exoR * (i - 2) / 3 + 0.35 * mHeat * (i - 2) / 3;
    if (dt > 0) {
-     sim.Tbed  += (target1 - sim.Tbed)  * (1 - Math.exp(-dt / TAU_CAT));
-     sim.Trear += (target2 - sim.Trear) * (1 - Math.exp(-dt / TAU_REAR));
+     let prevT = tin, prevTgt = tin;
+     for (let i = 0; i < N_CELLS; i++) {
+       const tau = i < 3 ? TAU_CELL : TAU_CELL_REAR;
+       const drive = prevT + (tgt[i] - prevTgt);
+       sim.cells[i] += (drive - sim.cells[i]) * (1 - Math.exp(-dt / tau));
+       sim.cells[i] = clampN(sim.cells[i], -20, 1400);
+       prevT = sim.cells[i]; prevTgt = tgt[i];
+     }
    }
-   sim.Tbed  = clampN(sim.Tbed,  -20, 1400);
-   sim.Trear = clampN(sim.Trear, -20, 1400);
-   const Thot = Math.max(sim.Tbed, sim.Trear);
+   sim.Tbed  = (sim.cells[0] + sim.cells[1] + sim.cells[2]) / 3;
+   sim.Trear = (sim.cells[3] + sim.cells[4] + sim.cells[5]) / 3;
+   const Thot = Math.max.apply(null, sim.cells);
 
    /* ── 4. poison (reversible), damage (permanent) ────────────── */
    if (dt > 0) {
@@ -537,8 +641,8 @@ function build(H){
 
    /* stage 1 (Rh): reduces NOx, also takes some CO/HC with it */
    const nox1 = conversion('nox', sim.Tbed, lambda, sim.poison, sim.damage, age);
-   const co1  = 0.45 * conversion('co', sim.Tbed, lambda, sim.poison, sim.damage, age);
-   const hc1  = 0.35 * conversion('hc', sim.Tbed, lambda, sim.poison, sim.damage, age);
+   const co1  = coF;
+   const hc1  = hcF;
    /* stage 2 (Pt/Pd): burns the CO/HC left over, using stored O2 */
    const co2  = conversion('co', sim.Trear, lamOx, sim.poison, sim.damage, age);
    const hc2  = conversion('hc', sim.Trear, lamOx, sim.poison, sim.damage, age);
@@ -546,6 +650,14 @@ function build(H){
    const hc  = inSeries(hc1, hc2);
    const nox = nox1;
    const stage1 = (co1 / 0.45 + nox1) / 2;       /* 0..1 how hard the front brick is working */
+
+   /* tailpipe ppm and by-products, smoothed so the readouts do not flicker with the dither */
+   const bp2 = byProducts(raw.nox, nox, lambda, sim.Tbed);
+   const cur = { rco: raw.co, rhc: raw.hc, rnox: raw.nox, tco: raw.co * (1 - co), thc: raw.hc * (1 - hc), tnox: raw.nox * (1 - nox), nh3: bp2.nh3, n2o: bp2.n2o };
+   if (!sim.disp) sim.disp = Object.assign({}, cur);
+   else if (dt > 0) { const k = 1 - Math.exp(-dt / 1.5); for (const key in cur) sim.disp[key] += (cur[key] - sim.disp[key]) * k; }
+   const D = sim.disp;
+   const insp = inspectionVerdict(D.tco / 10000, D.thc, lamAvg, sim.Trear > MONITOR_MIN_T);
 
    /* ── 6. exhaust flow proxy (0..1.2) and back pressure ──────── */
    const flowNorm = clampN(0.10 + 0.85 * (0.45 * L + 0.55 * clampN((rpm - 800) / 4200, 0, 1)), 0.05, 1.2);
@@ -577,16 +689,44 @@ function build(H){
    if (sim.p0420)                  stateTxt += ' | P0420';
 
    /* ── 9. 3D visuals ─────────────────────────────────────────── */
-   const hot1 = clampN((sim.Tbed  - 250) / 600, 0, 1);
-   const hot2 = clampN((sim.Trear - 250) / 600, 0, 1);
-   mono1.emissive.copy(lc(0x3a1000, 0xff5a1f, hot1));
-   mono1.emissiveIntensity = 0.04 + 1.65 * hot1;
-   mono2.emissive.copy(lc(0x3a1000, 0xff5a1f, hot2));
-   mono2.emissiveIntensity = 0.04 + 1.65 * hot2;
-   mono1.color.copy(lc(0xd9c9a3, 0x5a4a35, sim.poison));
-   mono2.color.copy(lc(0xd9c9a3, 0x5a4a35, sim.poison));
-   faceMats[0].color.copy(lc(0xffffff, 0xff9a60, hot1)); faceMats[1].color.copy(lc(0xffffff, 0xff9a60, hot1));
-   faceMats[2].color.copy(lc(0xffffff, 0xff9a60, hot2)); faceMats[3].color.copy(lc(0xffffff, 0xff9a60, hot2));
+   const cellHot = sim.cells.map(T => clampN((T - 250) / 600, 0, 1));
+   monos.forEach((m, i) => {
+     m.emissive.copy(lc(0x3a1000, 0xff5a1f, cellHot[i]));
+     m.emissiveIntensity = 0.04 + 1.65 * cellHot[i];
+     m.color.copy(lc(0xd9c9a3, 0x5a4a35, sim.poison));
+   });
+   [[0,0],[1,2],[2,3],[3,5]].forEach(p => faceMats[p[0]].color.copy(lc(0xffffff, 0xff9a60, cellHot[p[1]])));
+   /* the shell and head shield warm up with the bed */
+   const shellHot = clampN((Thot - 300) / 600, 0, 1);
+   shieldM.color.copy(lc(0xd5dbe3, 0xff8a4a, shellHot * 0.8));
+   shieldM.opacity = 0.34 + 0.25 * shellHot;
+   /* ceria wash-coat colour: pale yellow (Ce4+, loaded with O2) <-> grey-blue (Ce3+, depleted) */
+   washM.color.copy(lc(0x8fa3b8, 0xe6d28a, sim.osc));
+   /* precious-metal sites glow while they work */
+   const work = clampN((co + nox + hc) / 3, 0, 1);
+   sites.forEach((sm, i) => { sm.emissiveIntensity = 0.2 + 0.9 * work * (0.5 + 0.5 * Math.sin(c.t * 5 + i * 1.7)); });
+   /* molecules in the close-up */
+   const mvel = (0.05 + 0.32 * flowNorm) * 2.5;
+   mols.forEach((o, i) => {
+     const type = i % 3;
+     const p = i / MOL_N + c.t * mvel, k = Math.floor(p), u = p - k;
+     const conv = type === 0 ? co : (type === 1 ? nox : hc);
+     const reacts = rnd(i * 7.13 + k * 3.7) < conv;
+     const after = reacts && u > 0.5;
+     const w0 = Math.exp(-Math.pow((u - 0.5) / 0.07, 2));
+     const flash = reacts && Math.abs(u - 0.5) < 0.045;
+     const st = flash ? 2 : (after ? 1 : 0);
+     if (st !== o.st) {
+       o.st = st;
+       const col = st === 2 ? 0xffffff : (st === 1 ? PROD[type] : REACT[type]);
+       o.mm.color.setHex(col); o.mm.emissive.setHex(col);
+     }
+     const lane = ((i * 5) % 7 - 3) * 0.065;
+     const y0 = CY + lane + Math.sin(c.t * 6 + i) * 0.012;
+     o.mesh.position.set(CX - CL / 2 + 0.06 + u * (CL - 0.12), y0 + (siteY - y0) * w0 * 0.9, CZ + ((i * 3) % 5 - 2) * 0.05);
+     const sc = 1 + (reacts ? 1.1 * w0 : 0) + (st === 1 && type === 0 ? 0.25 : 0);
+     o.mesh.scale.set(sc, sc, sc);
+   });
    damageM.opacity = 0.05 + 0.62 * sim.damage;
 
    /* ceria gauge: height = fill, colour = empty (blue) -> full (amber) */
@@ -615,10 +755,6 @@ function build(H){
    s2.forEach(s => { s.mat.color.copy(lc(0xef4444, 0x38bdf8, midMix)); s.update(c.t, spd, dens * (0.6 + 0.4 * midMix)); });
    cleanOut.update(c.t, spd, dens * midMix);
    dirtyOut.update(c.t, spd, dens * (1 - midMix));
-   cIn1.update(c.t, spd * 1.6, dens);
-   cIn2.update(c.t, spd * 1.6, dens);
-   cOutC.update(c.t, spd * 1.6, dens * midMix);
-   cOutR.update(c.t, spd * 1.6, dens * (1 - midMix));
 
    /* ── 10. throttled DOM work (graph + warning banner) ───────── */
    const now = performance.now();
@@ -637,6 +773,8 @@ function build(H){
          warn = 'Substrate damage ' + (sim.damage * 100).toFixed(0) + ' % - back pressure is rising and conversion has fallen.';
        } else if (sim.poison > 0.35) {
          warn = 'Catalyst contamination ' + (sim.poison * 100).toFixed(0) + ' % - the precious-metal sites are being blocked.';
+       } else if (lambda < 0.93 && Thot > 700) {
+         warn = 'Rich mixture is burning on the catalyst and heating it to ' + Thot.toFixed(0) + ' °C. Expect ammonia and a rotten-egg smell.';
        } else if (age === 'worn') {
          warn = 'Worn catalyst - light-off is late and oxygen storage is low. Expect P0420 soon.';
        } else if (hotGate > 0.5 && cap > 0.3 && (sim.osc > 0.92 || sim.osc < 0.08)) {
@@ -677,6 +815,10 @@ function build(H){
        hc:    [(hc  * 100).toFixed(0) + ' %', hcState],
        nox:   [(nox * 100).toFixed(0) + ' %', nxState],
        lam:   [lambda.toFixed(2), Math.abs(lambda - 1.0) > 0.05 ? 'warn' : 'ok'],
+       raw:   ['CO ' + fmtPpm(D.rco) + ' · HC ' + fmtPpm(D.rhc) + ' · NOx ' + fmtPpm(D.rnox), ''],
+       tail:  ['CO ' + fmtPpm(D.tco) + ' · HC ' + fmtPpm(D.thc) + ' · NOx ' + fmtPpm(D.tnox), (D.tco > 3000 || D.thc > 200 || D.tnox > 400) ? 'warn' : 'ok'],
+       byp:   ['NH3 ' + fmtPpm(D.nh3) + ' · N2O ' + fmtPpm(D.n2o), (D.nh3 > 100 || D.n2o > 60) ? 'warn' : ''],
+       insp:  [insp.txt, insp.tone],
        osc:   [(sim.osc * 100).toFixed(0) + ' % of ' + (cap * 100).toFixed(0) + ' %', oscState],
        rxn:   [dominantReaction(sim.Tbed, sim.Trear, lambda, ageShift), ''],
        bp:    [bp.toFixed(1) + ' kPa', bpState],
@@ -703,7 +845,7 @@ CFG.options = [
   { id: 'timeScale', type: 'choice', layout: 'segmented', label: 'Time scale', options: [{ id: '1', label: '1×' }, { id: '5', label: '5×' }, { id: '20', label: '20×' }], def: '1',
     onChange: (id) => { S.speed = Number(id) || 1; } },
   { id: "cold", type: 'action', label: "Cold start",
-    onAction: () => { sim.Tbed = COLD_START_T; sim.Trear = COLD_START_T; sim.osc = 0.5; } }
+    onAction: () => { coldCells(); sim.osc = 0.5; } }
 ];
 CFG.onReset = resetAll;      /* the dock Reset runs the module reset (model + every control) */
 /* Phase 7a: the old history canvas is a Monitor trace. All series are drawn as 0..100 % of their old axis ranges. */
