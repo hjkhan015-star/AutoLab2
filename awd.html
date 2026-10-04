@@ -60,6 +60,7 @@ const CFG = {
     ["axload",   "Axle load F / R"],
     ["speed",    "Vehicle speed"],
     ["thrust",   "Tractive force"],
+    ["gain",     "Gain vs best 2WD"],
     ["clutch",   "Centre transfer"],
     ["ctemp",    "Coupling temp"],
     ["ftemp",    "Transfer fluid"],
@@ -594,6 +595,10 @@ function build(H){
    const R = solveDrivetrain({ kind, low: mode.low, load, rpm: S.rpm, mu: surfaceMu, split: S.split, axlock: S.axlock,
                                fault, couplingTemp: sim.couplingTemp, accel: sim.accel });
    if (dt > 0) sim.accel += (R.accelRaw - sim.accel) * (1 - Math.exp(-dt / TAU_ACCEL));
+   /* the same conditions with each 2WD layout: how much traction does driving more axles actually buy? */
+   const cmp = { low: mode.low, load, rpm: S.rpm, mu: surfaceMu, split: S.split, axlock: S.axlock, fault, couplingTemp: sim.couplingTemp, accel: sim.accel };
+   const best2wd = Math.max(solveDrivetrain({ ...cmp, kind: 'fwd' }).thrust, solveDrivetrain({ ...cmp, kind: 'rwd' }).thrust, 1);
+   const gain = R.thrust / best2wd;
    const fDriven = R.wheels[0].driven, rDriven = R.wheels[2].driven;
    const muAvg = (R.muL + R.muR) / 2;
    const anySlip = Math.max(R.fSlip, R.rSlip);
@@ -819,6 +824,7 @@ function build(H){
        axload:   [(R.fLoad / loadTot * 100).toFixed(0) + ' / ' + (R.rLoad / loadTot * 100).toFixed(0) + ' %', ''],
        speed:    [(R.vMs * 3.6).toFixed(0) + ' km/h', ''],
        thrust:   [(R.thrust / 1000).toFixed(1) + ' kN', ''],
+       gain:     [(kind === 'fwd' || kind === 'rwd') ? (gain >= 0.995 ? '1.00\u00D7 (2WD)' : gain.toFixed(2) + '\u00D7 (2WD)') : gain.toFixed(2) + '\u00D7', gain > 1.05 ? 'ok' : ''],
        clutch:   [R.transfer.toFixed(0) + ' Nm', ''],
        ctemp:    [sim.couplingTemp.toFixed(0) + ' \u00B0C', cState],
        ftemp:    [sim.fluidTemp.toFixed(0) + ' \u00B0C', fState],
