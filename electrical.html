@@ -69,7 +69,6 @@ import { Parts } from './components.js';
   const cores    = navigator.hardwareConcurrency || 4;
   const mem      = navigator.deviceMemory || 4;
   const isLowEnd = cores <= 4 || mem <= 2;
-  const isMidEnd = !isLowEnd && (cores <= 6 || isCoarse);
 
   const { scene, camera, renderer, controls, wrap, viewManager } = Base.buildScene({
     fov: 42,

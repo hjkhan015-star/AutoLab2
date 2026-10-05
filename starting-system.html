@@ -868,18 +868,13 @@ import { Parts } from './components.js';
   });
 
   /* Panel readout refs */
-  const panelBody = ui.panel.body;
 
   const badgeEl       = document.getElementById('stroke-badge');
   const badgeTextEl   = document.getElementById('badge-text');
   const moduleTitleEl = document.getElementById('module-title');
-  const moduleKickerEl= document.getElementById('module-kicker');
   const strokeDescEl  = document.getElementById('stroke-desc');
 
   const CONFIG_ORDER = ['circuit', 'starter', 'mesh', 'crank'];
-  const CONFIG_LABELS = {
-    circuit: 'Circuit', starter: 'Starter', mesh: 'Mesh', crank: 'Crank'
-  };
 
   const MODE_INFO = {
     circuit: {

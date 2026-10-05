@@ -1,4 +1,4 @@
-# QA matrix — Auto Lab v8.9
+# QA matrix — Auto Lab v8.9.1
 
 42 module pages (the registry in `modules.js`; the repo also has `index.html` and `404.html`, 44 pages in all) × 4 viewports × 2 modes.
 

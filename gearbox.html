@@ -8,17 +8,6 @@
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  .ratio-badge {
-    display: inline-block;
-    background: color-mix(in oklch, var(--c-cyan) 14%, transparent);
-    color: var(--c-cyan);
-    border-radius: 4px;
-    padding: 1px 5px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    margin-left: 4px;
-  }
 
 
 </style>
@@ -47,7 +36,6 @@
   const cores    = navigator.hardwareConcurrency || 4;
   const mem      = navigator.deviceMemory || 4;
   const isLowEnd = cores <= 4 || mem <= 2;
-  const isMidEnd = !isLowEnd && (cores <= 6 || isCoarse);
 
   const CYL_SEGS = isLowEnd ? 20 : 32;
   const TORUS_SEGS = isLowEnd ? 6 : 10;
@@ -241,7 +229,6 @@
   }
   const gbHub12 = addHub(HUB12_X, G1_X, G2_X);
   const gbHub34 = addHub(HUB34_X, G3_X, G4_X);
-  const gbHubs = [gbHub12, gbHub34];
 
   [-0.10, 0.50].forEach(z => {
     const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,3.0,CYL_SEGS), gbMats.shaft);
@@ -776,12 +763,6 @@
      CONFIG SWITCHER in toolbar extras
      ═══════════════════════════════════════════════════════════ */
   const CONFIG_ORDER  = ['manual', 'automatic', 'dct', 'cvt'];
-  const CONFIG_LABELS = {
-    manual:    'Manual',
-    automatic: 'Automatic',
-    dct:       'Dual-Clutch',
-    cvt:       'CVT'
-  };
   const MANUAL_INFO = {
     title:  'Manual Gearbox · Working Principle',
     kicker: 'Transmission',
@@ -794,7 +775,6 @@
   };
 
   /* Panel body refs (for readout labels that change per config) */
-  const panelBody      = ui.panel.body;
 
   const strokeDescEl  = document.getElementById('stroke-desc');
   const badgeEl       = document.getElementById('stroke-badge');

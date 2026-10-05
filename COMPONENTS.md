@@ -1,4 +1,4 @@
-# Auto Lab v8.9 — Components and Control Reference
+# Auto Lab v8.9.1 — Components and Control Reference
 
 The building blocks. How to put them together: `GUIDE.md`.
 
@@ -6,7 +6,7 @@ The building blocks. How to put them together: `GUIDE.md`.
 
 | File | Public API |
 |---|---|
-| `kit.js` | `buildScene`, `attachResize`, `createUIState`, `UI.create(cfg)`, `createBridge`, `monitorRows`, `createMaterials`, geometry helpers (`halfCylShell`, `makeHelixSpring`, `tubeBetween`, `makeFlange`, `makeCog`, …), `createParticleTexture`, `createLabelSystem`, `getLabelDensity`, `setLabelDensity`, `THREE`, `OrbitControls`, `controls`, `DEG`, `TAU`. |
+| `kit.js` | `buildScene`, `attachResize`, `createUIState`, `UI.create(cfg)`, `monitorRows`, `createMaterials`, geometry helpers (`halfCylShell`, `makeHelixSpring`, `tubeBetween`, `makeFlange`, `makeCog`, …), `createParticleTexture`, `createLabelSystem`, `getLabelDensity`, `setLabelDensity`, `THREE`, `OrbitControls`, `controls`, `DEG`, `TAU`. |
 | `chrome.js` | `createHeader`, `createMenu({ hide })`, `chromeButton(doc, { cls, id, label, html, type, attrs })`, `nextDensity`, `isPhone`, `clampSpeed`. |
 | `controls.js` | `controls` (registry API), `createAxis`, `createMomentary`, `createDial`, `createChoice`, `createToggle`, `createAction`, `quizOptionHTML`. |
 | `dock.js` | `createDock`, `DOCK` constants, pure layout helpers. |
@@ -26,7 +26,7 @@ The building blocks. How to put them together: `GUIDE.md`.
 | `options` | list of choice / toggle / action specs; the dock's options row, or the primary zone with `primary: true`. |
 | `widgets` | `{ bl, br }` compatibility slots, `{ html, caption, onMount }`; mounted in the dock's primary zone. |
 
-Returns `ui` with `ui.controls`, `ui.axis(id)`, `ui.addOptions(list)`, `ui.panel`, `ui.monitor`, `ui.stage`, `ui.toolbar` (`.dock`), and `ui.wireBridge({ viewManager, state, onCommand, menuHide })`. `menuHide` removes ⋯ menu rows a 2D page cannot use (`'density'`, `'wireframe'`, `'xray'`).
+Returns `ui` with `ui.controls`, `ui.axis(id)`, `ui.addOptions(list)`, `ui.panel`, `ui.monitor`, `ui.stage`, `ui.toolbar` (`.dock`), and `ui.wireBridge({ viewManager, state, onCommand, menuHide })`. `menuHide` hides the ⋯ menu rows a 2D page cannot use (`'density'`, `'wireframe'`, `'xray'`); inside the shell it is sent in the module's `ready` message and `createMenu(...).setHidden(list)` applies it.
 
 ## 3. Controls (specs)
 

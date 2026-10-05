@@ -292,7 +292,7 @@ function build(H){
  cbRing.position.set(-1.4, 0, 0);
  cbRing.rotation.y = Math.PI / 2;
  assembly.add(cbRing);
- const cbBracket = box(0.35, 0.55, 0.35, cbMat, -1.4, -0.50, 0, assembly);
+ box(0.35, 0.55, 0.35, cbMat, -1.4, -0.50, 0, assembly);
 
  /* ── visible imbalance weight (hidden by default) ─────────────── */
  const imbalW = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, 0.24), or);

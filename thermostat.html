@@ -29,737 +29,667 @@ html.light-theme { --al-accent: color-mix(in oklch, #f59e0b 68%, black); }
 <script type="module">
 import { runGuidedModule } from './components.js';
 
-/* Written by the dock controls; build() installs EXT.pick. */
-const EXT = { clear: false, pick: null };
-const pick = (key) => (id) => { if (EXT.pick) EXT.pick(key, id); };
+/* ═══ THERMOSTAT MODEL (pure maths, no DOM / three.js; tests/thermostat.test.mjs runs this block) ═══ */
+/*MODEL-START*/
+/* ═══════════════════════════════════════════════════════════════════════
+   Thermostat model — wax-pellet thermostat inside a cooling loop.
 
+   Pure functions, no DOM, no three.js (tests/thermostat.test.mjs runs this block).
+   Simplified physical trends, not a bench lookup table.
+
+   THE MECHANISM (what is modelled)
+   ────────────────────────────────
+   1. The wax pellet sits in the hot engine-outlet coolant. Its temperature Tw
+      chases the coolant temperature with a lag (wax + copper cup have mass).
+   2. Wax melts over a temperature band: "start to open" at the stamped rating,
+      fully melted about 13 K later. Melting expands the wax ~10-20 %.
+   3. The piston is fixed to the frame, so the expanding wax pushes the CUP
+      (and the main valve disc attached to it) away from the seat, against the
+      return spring. Lift 0..9 mm.
+   4. A second disc on the other end of the cup closes the bypass port as the
+      main valve opens — a see-saw. Radiator share = lift, bypass = 1 - lift.
+   5. Wax freezes at a slightly lower temperature than it melts (hysteresis,
+      HYST kelvin) — modelled as a rate-independent "play" operator.
+   6. Engine and radiator are two thermal masses; the thermostat sits between
+      them, so it regulates (and can "hunt") rather than just switch.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── named constants ─────────────────────────────────────────────────── */
+const K = Object.freeze({
+  C_ENGINE: 30,     /* kJ/K  block + water jacket coolant                    */
+  C_RAD: 20,        /* kJ/K  radiator core + hoses coolant                   */
+  CP: 4.18,         /* kJ/kg/K coolant                                       */
+  HEAT_IDLE: 3.5,   /* kW    heat to coolant at idle, zero load              */
+  HEAT_LOAD: 46,    /* kW    extra at full load and redline                  */
+  UA_RAD: 1.4,      /* kW/K  radiator conductance (air side, clean core)     */
+  AIR_STILL: 0.10,  /* kW/K  air heat capacity rate, car standing, fan off   */
+  AIR_RAM: 2.8,     /* kW/K  extra at 130 km/h                               */
+  AIR_FAN: 1.1,     /* kW/K  extra with the electric fan running             */
+  FAN_ON: 98,       /* °C    ECU switches the fan on                         */
+  FAN_OFF: 93,      /* °C    ... and off again (hysteresis)                  */
+  SPAN: 13,         /* K     start-to-open -> fully open                     */
+  HYST: 3,          /* K     wax freezes this much below where it melts      */
+  LIFT_MM: 9,       /* mm    full stroke                                     */
+  LIFT_TAU: 0.6,    /* s     mechanical lag of the valve                     */
+  CAP_BAR: 1.2,     /* bar   pressure cap                                    */
+  BOIL_BASE: 100,   /* °C    boiling point at zero cap pressure              */
+  BOIL_PER_BAR: 18, /* °C    ... per bar                                     */
+  SPRING_PRE: 18,   /* N     return spring load, valve closed                */
+  SPRING_RATE: 2.0  /* N/mm                                                  */
+});
+
+const clamp = (x, a, b) => (!Number.isFinite(x) ? a : x < a ? a : x > b ? b : x);
+const smooth = (x) => { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t); };
+
+/* Failure modes. shift: start-to-open moves up (K). span: melt band width (K).
+   max: largest lift fraction. tau: wax thermal lag multiplier. bias: sensed temp error (K). */
+const FAULTS = Object.freeze({
+  none:   { label: 'Healthy',                   shift: 0, span: K.SPAN, max: 1,   tau: 1, bias: 0,  jam: null },
+  closed: { label: 'Stuck closed (jammed)',     shift: 0, span: K.SPAN, max: 1,   tau: 1, bias: 0,  jam: 0 },
+  open:   { label: 'Stuck open (jammed)',       shift: 0, span: K.SPAN, max: 1,   tau: 1, bias: 0,  jam: 1 },
+  lazy:   { label: 'Sluggish (aged wax)',       shift: 7, span: 22,     max: 0.8, tau: 3, bias: 0,  jam: null },
+  air:    { label: 'Air pocket at the pellet',  shift: 0, span: K.SPAN, max: 1,   tau: 5, bias: -7, jam: null }
+});
+const F = (id) => FAULTS[id] || FAULTS.none;
+
+/* ── pure helpers ────────────────────────────────────────────────────── */
+
+/* Wax melt fraction 0..1 on the HEATING branch. Direction: hotter wax -> more melted. */
+function meltOpen(Tw, rating, fault) {
+  const f = F(fault);
+  return smooth((Tw - (rating + f.shift)) / f.span);
+}
+/* ... on the COOLING branch (shifted left by HYST: it stays melted a few kelvin longer). */
+function meltClose(Tw, rating, fault) {
+  return meltOpen(Tw + K.HYST, rating, fault);
+}
+/* Valve lift fraction produced by a given melt fraction and fault. */
+function liftFromMelt(melt, fault) {
+  const f = F(fault);
+  if (f.jam !== null) return f.jam;
+  return clamp(melt, 0, 1) * f.max;
+}
+
+/* Heat the engine dumps into the coolant (kW). More load / rpm -> more heat. */
+function engineHeat(load, rpm) {
+  const L = clamp(load, 0, 1);
+  const N = clamp((rpm - 800) / 4200, 0, 1);
+  return K.HEAT_IDLE + K.HEAT_LOAD * L * (0.55 + 0.45 * N);
+}
+/* Water-pump mass flow (kg/s ~ L/s). Belt-driven: proportional to rpm. */
+function pumpFlow(rpm) { return clamp(0.15 + 0.55 * (rpm / 1000), 0.3, 3.2); }
+/* Air-side heat capacity rate (kW/K): ram air from road speed + fan. */
+function airCapacity(speedKmh, fanOn) {
+  return K.AIR_STILL + K.AIR_RAM * clamp(speedKmh / 130, 0, 1) + (fanOn ? K.AIR_FAN : 0);
+}
+/* Heat the radiator gives to the air (kW). Effectiveness-NTU with one stream dominant. */
+function radiatorHeat(Tr, Tamb, Ca) {
+  const c = Math.max(0.02, Ca);
+  return c * (1 - Math.exp(-K.UA_RAD / c)) * (Tr - Tamb);
+}
+function boilingPoint(capBar = K.CAP_BAR) { return K.BOIL_BASE + K.BOIL_PER_BAR * clamp(capBar, 0, 2.5); }
+/* Return spring load (N) at a lift fraction. */
+function springLoad(lift) { return K.SPRING_PRE + K.SPRING_RATE * K.LIFT_MM * clamp(lift, 0, 1); }
+
+/* ── state ───────────────────────────────────────────────────────────── */
+function makeState(Tamb = 20) {
+  return { Te: Tamb, Tr: Tamb, Tw: Tamb, melt: 0, lift: 0, fan: false, clock: 0, warmClock: 0, warmDone: false };
+}
+/* Cold start: everything soaked to ambient, wax solid, valve shut. */
+function coldStart(s, Tamb = 20) { Object.assign(s, makeState(Tamb)); return s; }
+
+/* Advance the model by dt model-seconds (sub-stepped for stability) and return derived values.
+   dt = 0 only computes the derived values. */
+function step(s, inp, dt) {
+  const rating = inp.rating, fault = inp.fault || 'none', Tamb = inp.Tamb;
+  const f = F(fault);
+  const m = pumpFlow(inp.rpm);
+  const Qin = engineHeat(inp.load, inp.rpm);
+  const Tboil = boilingPoint();
+
+  let n = dt > 0 ? Math.max(1, Math.ceil(dt / 0.2)) : 0;
+  const h = n ? dt / n : 0;
+  for (let i = 0; i < n; i++) {
+    /* fan logic (ECU) with hysteresis */
+    if (inp.fanMode === 'on') s.fan = true;
+    else if (inp.fanMode === 'off') s.fan = false;
+    else if (s.Te > K.FAN_ON) s.fan = true;
+    else if (s.Te < K.FAN_OFF) s.fan = false;
+
+    /* pellet temperature chases the (possibly mis-sensed) coolant temperature */
+    const tauW = (3 + 5 / (0.3 + m / 3.2)) * f.tau;
+    const Ts = s.Te + f.bias;
+    s.Tw += (Ts - s.Tw) * (1 - Math.exp(-h / tauW));
+
+    /* wax melt fraction: play operator between heating and cooling branches (hysteresis) */
+    const lo = meltOpen(s.Tw, rating, fault), hi = meltClose(s.Tw, rating, fault);
+    s.melt = clamp(s.melt, lo, hi);
+
+    /* valve lift follows the wax with a small mechanical lag */
+    const target = liftFromMelt(s.melt, fault);
+    s.lift += (target - s.lift) * (1 - Math.exp(-h / K.LIFT_TAU));
+
+    /* flow split: see-saw valve. Radiator share = lift, bypass share = 1 - lift. */
+    const r = clamp(s.lift, 0, 1);
+    const Ca = airCapacity(inp.speed, s.fan);
+    const Qrad = radiatorHeat(s.Tr, Tamb, Ca);
+    const carried = m * K.CP * r * (s.Te - s.Tr);           /* engine -> radiator loop, kW */
+    const steam = s.Te > Tboil ? 5 * (s.Te - Tboil) : 0;    /* vented steam carries heat away */
+
+    s.Te += ((Qin - carried - steam) / K.C_ENGINE) * h;
+    s.Tr += ((carried - Qrad) / K.C_RAD) * h;
+    s.Te = clamp(s.Te, Tamb - 15, 160);
+    s.Tr = clamp(s.Tr, Tamb - 15, 160);
+
+    s.clock += h;
+    if (!s.warmDone) { s.warmClock += h; if (s.Te >= rating) s.warmDone = true; }
+  }
+
+  const r = clamp(s.lift, 0, 1);
+  const Ca = airCapacity(inp.speed, s.fan);
+  const Qrad = radiatorHeat(s.Tr, Tamb, Ca);
+  const Tin = r * s.Tr + (1 - r) * s.Te;                       /* mixed coolant entering the engine */
+  return {
+    m, Qin, Qrad, Ca, Tboil, Tin,
+    r, byp: 1 - r,
+    mm: r * K.LIFT_MM,
+    melt: s.melt,
+    spring: springLoad(r),
+    boiling: s.Te > Tboil,
+    flowRad: m * r, flowByp: m * (1 - r),
+    heater: clamp((s.Te - 40) / 45, 0, 1)
+  };
+}
+/*MODEL-END*/
+const Model = { K, clamp, smooth, FAULTS, meltOpen, meltClose, liftFromMelt, engineHeat, pumpFlow, airCapacity, radiatorHeat, boilingPoint, springLoad, makeState, coldStart, step };
+
+/* ── module content ──────────────────────────────────────────────── */
 const CFG = {
-  "moduleId": "thermostat",
-  "title": "Thermostat",
-  "kicker": "Cooling",
-  "accent": "#f59e0b",
-  "badge": "Wax-pellet valve",
-  "camPos": [5.6, 3.6, 7.2],
-  "target": [0.2, 0.7, 0],
-  "floorY": -2.0,
-  "ctl": { "label": "Coolant setpoint", "val": 55, "caption": "Engine temp" },
-  "chipLabel": "Coolant temp",
-  "rows": [["open", "Valve lift"], ["rad", "To radiator"]],
-  "ro": [
-    ["temp",  "Coolant temp"],
-    ["open",  "Valve lift"],
-    ["rad",   "To radiator"],
-    ["byp",   "Bypass flow"],
-    ["mode",  "Mode"],
-    ["wax",   "Wax expansion"],
-    ["warm",  "Warm-up time"],
-    ["fan",   "Radiator fan"]
+  moduleId: 'thermostat',
+  title: 'Thermostat',
+  kicker: 'Cooling',
+  accent: '#f59e0b',
+  badge: 'Wax element · bypass type',
+  camPos: [5.2, 3.4, 7.4],
+  target: [0.1, 0.8, 0],
+  floorY: -2.0,
+  ctls: [
+    { id: 'ctl', label: 'Engine load', caption: 'Engine load', preset: 'percent', def: 30 },
+    { id: 'rpm', preset: 'rpm', def: 1800, label: 'Engine speed', onChange: (v) => { S.rpm = v; } },
+    { id: 'kph', preset: 'vehicle-speed', def: 30, label: 'Vehicle speed', onChange: (v) => { S.speed = v; } },
+    { id: 'ambient', preset: 'ambient', def: 20, label: 'Ambient', onChange: (v) => { S.ambient = v; if (!sim.warmDone && sim.clock < 2) Model.coldStart(sim, v); } }
   ],
-  "traces": [{ "id": "temp", "label": "Coolant °C", "min": 40, "max": 130, "length": 200, "series": [{ "id": "t", "label": "Temp", "color": "var(--c-orange)" }, { "id": "open", "label": "Opens at", "color": "var(--c-amber)" }] }],
-  "legend": [
-    ["var(--c-cyan)", "Cold coolant"],
-    ["var(--c-orange)", "Hot coolant"],
-    ["var(--c-orange)", "Wax capsule"],
-    ["var(--c-red)", "Overheat"]
+  chipLabel: 'Coolant temp',
+  rows: [['open', 'Valve lift'], ['rad', 'To radiator']],
+  ro: [
+    ['open', 'Valve lift'],
+    ['wax',  'Wax melted'],
+    ['rad',  'To radiator'],
+    ['byp',  'Via bypass'],
+    ['tout', 'Radiator out'],
+    ['qout', 'Heat rejected'],
+    ['fan',  'Radiator fan'],
+    ['heat', 'Cabin heater'],
+    ['mode', 'Phase'],
+    ['warm', 'Warm-up']
   ],
-  "overview": "<div class=\"al-sec\"><h4>Temperature-controlled valve<\/h4><p>A sealed capsule filled with wax sits in the coolant. As temperature rises the wax melts and expands, pushing a rod that opens the valve. Typical opening begins near 82–88 °C.<\/p><p>Drag the floating panel to move it. Toggle <b>Cutaway<\/b> to slice the housing and see the wax capsule, piston rod, valve disc and return spring. Pick a <b>thermostat rating<\/b> (82/88/91&nbsp;°C), try the <b>failure modes<\/b>, or press <b>Reset to cold<\/b> and watch the engine warm up on the strip chart.<\/p><\/div><div class=\"al-sec\"><h4>Why it matters<\/h4><ul><li>Cold start – valve closed, coolant recirculates through the bypass so the engine warms quickly.<\/li><li>Warm – valve modulates to hold about 90–95 °C.<\/li><li>Hot – fully open, all coolant goes through the radiator and the fan spins up.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Efficiency<\/h4><p>Running too cool wastes fuel and increases wear; too hot risks detonation and head damage. A stuck-closed thermostat is one of the fastest ways to destroy an engine.<\/p><\/div>",
-  "faults": [
-    ["Stuck closed", "Rapid overheating, top hose cold while engine hot.", "Feel the hoses at warm-up; test the thermostat in hot water."],
-    ["Stuck open", "Slow warm-up, weak heater, engine never reaches temp.", "Check the temperature gauge and the ECU coolant PID."],
-    ["Sluggish opening", "Temperature swings.", "Compare opening temperature to the stamped rating."],
-    ["Air lock in the housing", "Local hot spots, poor heater performance.", "Bleed the cooling system at the highest point."]
+  legend: [
+    ['var(--c-cyan)', 'Cold coolant'],
+    ['var(--c-orange)', 'Hot coolant'],
+    ['var(--c-amber)', 'Solid wax'],
+    ['var(--c-orange)', 'Molten wax'],
+    ['var(--c-orange)', 'Copper cup'],
+    ['var(--c-red)', 'Overheat']
   ],
-  "quiz": [
-    ["What makes the thermostat open?", ["A motor", "Wax expanding as it heats", "Oil pressure"], 1, "The wax pellet melts and expands, pushing the valve rod."],
-    ["Stuck-closed thermostat causes…", ["Overheating", "Fast warm-up", "Cold cabin only"], 0, "No coolant reaches the radiator, so the engine overheats."],
-    ["During warm-up coolant goes…", ["Through the radiator", "Through the bypass", "Nowhere"], 1, "The closed valve sends coolant through the bypass to warm up faster."],
-    ["Hysteresis means…", ["The valve opens at a lower temp than it closes", "The valve opens at a higher temp than it closes", "The valve never closes"], 0, "A real thermostat opens above its rated temperature and re-closes below it."]
+  overview: `
+<div class="al-sec"><h4>What it does</h4>
+<p>The thermostat is a valve that opens by itself when the engine is hot. No motor, no electronics — just a sealed copper cup of <b>wax</b>. It holds coolant back while the engine is cold (fast warm-up) and then lets it flow through the radiator, so the engine settles near one temperature.</p></div>
+
+<div class="al-sec"><h4>How the wax opens the valve</h4>
+<ul>
+<li><b>1 · Cold.</b> The wax is solid. The <b>return spring</b> keeps the main disc on its seat. The lower <b>bypass disc</b> is open, so coolant just circles engine → bypass → pump and warms up fast.</li>
+<li><b>2 · Heat.</b> Hot coolant from the engine surrounds the cup. At the stamped temperature (82 / 88 / 91 °C) the wax starts to melt — from the cup wall inward.</li>
+<li><b>3 · Expansion.</b> Melting wax expands (≈10–20 %) and cannot be squeezed. The <b>piston</b> is fixed to the frame, so the wax pushes the <b>cup</b> the other way. The main disc is fixed to the cup, so it slides off its seat, compressing the spring.</li>
+<li><b>4 · See-saw.</b> The bypass disc is on the other end of the same cup. As the main valve opens, the bypass closes. Flow moves from bypass to radiator.</li>
+<li><b>5 · Regulating.</b> The valve opens gradually (fully open ≈13 °C above start). It settles where the radiator removes exactly the heat the engine makes.</li>
+<li><b>6 · Cooling down.</b> Wax freezes and shrinks; the spring pushes the cup back and the valve closes — a few degrees <i>lower</i> than it opened (hysteresis).</li>
+</ul></div>
+
+<div class="al-sec"><h4>Read the screen</h4>
+<ul>
+<li><b>Cutaway:</b> pale wax is solid, orange is molten. Watch the cup slide down while the piston stays still.</li>
+<li><b>Opening-curve graph:</b> valve lift against temperature. Solid line = heating, dashed = cooling; the dot is the pellet right now.</li>
+<li><b>Particles:</b> orange = hot coolant leaving the engine, blue = cooled by the radiator. How many go each way is the flow split.</li>
+</ul></div>
+
+<div class="al-sec"><h4>Other parts</h4>
+<ul>
+<li><b>Frame:</b> holds the piston tip and the spring seat; clamped between the two housing halves.</li>
+<li><b>Jiggle valve:</b> a tiny loose pin that lets trapped air rise past the closed valve when you fill the system.</li>
+<li><b>Bypass:</b> keeps coolant moving through the engine while the valve is shut, so the pump is never blocked and there are no hot spots.</li>
+</ul></div>
+
+<div class="al-sec"><h4>Try this</h4>
+<ul>
+<li>Press <b>Cold start</b> and watch all four phases, then see the cooling curve loop.</li>
+<li>Pick <b>Stuck open</b>: the engine never warms up. Pick <b>Stuck closed</b> with load: it boils.</li>
+<li>Stop the car (speed 0) with the fan on <b>Off</b> and watch the temperature climb past the valve's full-open point.</li>
+<li>Change the rating: a hotter-rated thermostat runs the engine hotter.</li>
+</ul></div>`,
+  faults: [
+    ['Stuck closed', 'Rapid overheating, top hose stays cold while the engine is hot, steam and boil-over. The fan runs but cannot help — no coolant reaches the radiator.', 'Feel both hoses during warm-up; test the thermostat in a pan of hot water with a thermometer.'],
+    ['Stuck open', 'Very slow warm-up, weak cabin heater, gauge stays low, poor economy; the ECU may set a "coolant below regulating temperature" code (P0128).', 'Check the gauge and the ECU coolant PID after 10 minutes of driving.'],
+    ['Sluggish (aged wax)', 'Opens late and not fully; temperature swings up and down.', 'Compare the opening temperature in hot water with the number stamped on the flange.'],
+    ['Air pocket at the pellet', 'The pellet senses air or steam instead of coolant, so it opens late. Hot spots and a poor heater result.', 'Bleed the system at its highest point; check that the jiggle valve rattles and sits at the top.'],
+    ['Wrong rating', 'A cooler rating over-cools the engine; a hotter one raises thermal load and detonation risk.', 'Match the part number and the stamped temperature to the service manual.'],
+    ['Fitted backwards', 'Late opening or overheating — the pellet must sit on the engine side.', 'Pellet faces the engine; the jiggle valve goes at the top.']
+  ],
+  quiz: [
+    ['What physically opens the valve?', ['A motor driven by the ECU', 'Wax melting and expanding', 'Oil pressure'], 1, 'The wax pellet melts and expands. Nothing else is needed — it is a purely thermal-mechanical valve.'],
+    ['Which part is fixed to the frame?', ['The wax cup', 'The piston', 'The main valve disc'], 1, 'The piston is anchored to the frame. The expanding wax pushes the cup (and the disc attached to it) away from the seat.'],
+    ['While the engine is cold, where does the coolant go?', ['Through the radiator', 'Through the bypass, back to the pump', 'It stops moving'], 1, 'The closed valve sends all flow through the bypass, so the engine warms up quickly.'],
+    ['Why does a bypass disc close as the main valve opens?', ['Both discs ride on the same cup (a see-saw)', 'The ECU commands it', 'Coolant pressure'], 0, 'They are on opposite ends of one cup: radiator flow rises exactly as bypass flow falls.'],
+    ['Why does the valve close at a lower temperature than it opens?', ['Hysteresis of the wax and spring', 'A faulty sensor', 'The fan'], 0, 'Wax freezes at a slightly lower temperature than it melts, so the opening and closing curves are not the same.'],
+    ['A stuck-open thermostat causes…', ['Overheating', 'Slow warm-up and a weak heater', 'Coolant boiling'], 1, 'Coolant keeps going through the radiator, so the engine runs too cold.'],
+    ['Thermostat fully open, hot day, stuck in traffic, engine still too hot. The limit is…', ['The thermostat rating', 'Airflow through the radiator (fan)', 'The spring'], 1, 'A fully open thermostat cannot do more. After that, only more air (fan / speed) removes more heat.']
   ]
 };
 
+/* ── module state (module level so Reset and the options can reach it) ── */
+const S = { rpm: 1800, speed: 30, ambient: 20, rating: 88, fault: 'none', fan: 'auto', timeScale: 5, cut: true };
+const sim = Model.makeState(S.ambient);
+let traceSample = null, traceClear = false, sampleClock = 0;
+
+const FAULT_WARN = {
+  closed: 'Valve jammed shut: no flow to the radiator. Expect overheating.',
+  open: 'Valve jammed open: bypass closed, engine runs too cold.',
+  lazy: 'Aged wax: opens late and only partly. Temperature swings.',
+  air: 'Air at the pellet: it senses a cooler temperature, so it opens late.'
+};
+
+function resetAll() {
+  S.rpm = 1800; S.speed = 30; S.ambient = 20; S.rating = 88; S.fault = 'none'; S.fan = 'auto'; S.timeScale = 5; S.cut = true;
+  Model.coldStart(sim, 20);
+  traceClear = true; sampleClock = 0;
+}
+CFG.onReset = resetAll;     /* dock Reset: model + (the runtime then resets every control) */
+
 CFG.options = [
-  { id: 'view', type: 'choice', layout: 'segmented', label: 'View', def: 'full', onChange: pick('view'), options: [{ id: 'full', label: 'Full' }, { id: 'cut', label: 'Cutaway' }] },
-  { id: 'rating', type: 'choice', layout: 'segmented', label: 'Rating', def: '82', onChange: pick('rating'), options: [{ id: '82', label: '82 °C' }, { id: '88', label: '88 °C' }, { id: '91', label: '91 °C' }] },
-  { id: 'failure', type: 'choice', layout: 'segmented', label: 'Failure', def: 'normal', onChange: pick('failure'),
-    options: [{ id: 'normal', label: 'Normal' }, { id: 'sluggish', label: 'Sluggish' }, { id: 'stuck-open', label: 'Open' }, { id: 'stuck-closed', label: 'Closed', tone: 'crit' }] },
-  { id: 'flow', type: 'choice', layout: 'segmented', label: 'Flow', def: 'on', onChange: pick('flow'), options: [{ id: 'on', label: 'Animated' }, { id: 'off', label: 'Static' }] },
-  { id: 'cold', type: 'action', label: 'Reset to cold', onAction: () => { if (EXT.pick) EXT.pick('cold'); } }
+  { id: 'rating', type: 'choice', layout: 'segmented', label: 'Rating', options: [{ id: '82', label: '82 °C' }, { id: '88', label: '88 °C' }, { id: '91', label: '91 °C' }], def: '88',
+    onChange: (id) => { S.rating = Number(id) || 88; } },
+  { id: 'fault', type: 'choice', layout: 'select', label: 'Failure mode', options: Object.keys(Model.FAULTS).map((id) => ({ id, label: Model.FAULTS[id].label })), def: 'none',
+    onChange: (id) => { S.fault = id; } },
+  { id: 'fan', type: 'choice', layout: 'segmented', label: 'Cooling fan', options: [{ id: 'auto', label: 'Auto' }, { id: 'on', label: 'On' }, { id: 'off', label: 'Off' }], def: 'auto',
+    onChange: (id) => { S.fan = id; } },
+  { id: 'timeScale', type: 'choice', layout: 'segmented', label: 'Time scale', options: [{ id: '1', label: '1×' }, { id: '5', label: '5×' }, { id: '20', label: '20×' }], def: '5',
+    onChange: (id) => { S.timeScale = Number(id) || 1; } },
+  { id: 'cutaway', type: 'toggle', label: 'Cutaway', def: true, onChange: (on) => { S.cut = !!on; } },
+  { id: 'cold', type: 'action', label: 'Cold start', onAction: () => { Model.coldStart(sim, S.ambient); traceClear = true; sampleClock = 0; } }
 ];
-CFG.onReset = () => { EXT.clear = true; };
 
-/* ══════════════════════════════════════════════════════════════════ */
+CFG.traces = [{ id: 'hist', label: 'Coolant °C (20–130) · radiator out °C · valve lift %', min: 0, max: 100, length: 150,
+  series: [
+    { id: 'a', label: 'Coolant', color: 'var(--accent)' },
+    { id: 'b', label: 'Radiator out', color: 'var(--ok)' },
+    { id: 'c', label: 'Valve lift', color: 'var(--warn)' }
+  ] }];
+
+/* ═══════════════════════════════════════════════════════════════════
+   3D SCENE
+   ═══════════════════════════════════════════════════════════════════ */
 function build(H) {
-  const THREE = H.THREE;
-  const root  = H.root;
-  const clamp = H.clamp || ((v, a, b) => Math.max(a, Math.min(b, v)));
-  const lerp  = H.lerp  || ((a, b, t) => a + (b - a) * t);
-
-  /* ── materials ── */
-  const std = (color, metal, rough) => new THREE.MeshStandardMaterial({
-    color, metalness: metal, roughness: rough, side: THREE.DoubleSide
-  });
-
+  const { THREE, root, mat, stream, pipe, clamp, lerp, lc, Parts, lowEnd } = H;
+  const DS = THREE.DoubleSide;
+  const PI = Math.PI;
+  const sm = (c, m, r, o) => mat(c, m, r, Object.assign({ side: DS }, o || {}));
   const M = {
-    steel:      std(0x9aa3b2, 0.88, 0.28),
-    steelDark:  std(0x5a6370, 0.80, 0.42),
-    brass:      std(0xd4a34a, 0.75, 0.32),      // used ONLY by full housing wax
-    cutBrass:   std(0xa87a30, 0.32, 0.68),      // used ONLY by cutaway housing wax
-    block:      std(0x4a5060, 0.65, 0.55),
-    blockHead:  std(0x5a6370, 0.70, 0.48),
-    rad:        std(0x7a8290, 0.72, 0.42),
-    radFrame:   std(0x353b48, 0.55, 0.55),
-    fan:        std(0x2b3038, 0.55, 0.65),
-    fanHub:     std(0x1a1e24, 0.80, 0.35),
-    hose:       std(0x1a1a1a, 0.05, 0.95),
-    hoseClamp:  std(0x8890a0, 0.85, 0.28),
-    seat:       std(0xb8c0cc, 0.90, 0.25),
-    rod:        std(0xd0d6e0, 0.95, 0.18),
-    spring:     std(0xa0a8b4, 0.92, 0.25),
-    cutSteel:   std(0x6f7886, 0.28, 0.68),
-    cutBlock:   std(0x3a4050, 0.25, 0.72),
-    gaugeFace:  std(0x111827, 0.20, 0.85),
-    gaugeRim:   std(0xb0b8c4, 0.92, 0.22)
+    steel: sm(0x9aa3b2, 0.85, 0.3), cast: sm(0x6b7482, 0.6, 0.5), flange: sm(0xb8c0cc, 0.9, 0.25),
+    bright: sm(0xd0d6e0, 0.92, 0.2), copper: sm(0xc77d4a, 0.8, 0.3), brass: sm(0xd4a34a, 0.75, 0.32),
+    rubber: sm(0x14161a, 0.05, 0.9), hose: sm(0x1a1a1a, 0.05, 0.95), spring: sm(0xc3cad6, 0.9, 0.25),
+    frame: sm(0x4a5160, 0.7, 0.45), block: sm(0x4a5060, 0.65, 0.55), head: sm(0x5a6370, 0.7, 0.48),
+    fin: sm(0x8f9aa5, 0.85, 0.4), tank: sm(0x353b48, 0.55, 0.55), fan: sm(0x2b3038, 0.55, 0.65),
+    hub: sm(0x1a1e24, 0.8, 0.35, { emissive: 0x06b6d4, emissiveIntensity: 0 }), dark: sm(0x1a1e24, 0.8, 0.35), pump: sm(0x6b7482, 0.7, 0.4)
   };
+  const waxSolid = new THREE.Color(0xf3e6b8), waxMolten = new THREE.Color(0xff8a1f), waxHot = new THREE.Color(0xffb347);
+  const COLD = new THREE.Color(0x38bdf8), HOT = new THREE.Color(0xf97316);
+  const tcol = (T) => new THREE.Color().copy(COLD).lerp(HOT, clamp((T - 30) / 75, 0, 1));
 
-  const COLD = new THREE.Color(0x38bdf8);
-  const HOT  = new THREE.Color(0xf97316);
-  const BRASS_COLD = new THREE.Color(0xd4a34a);
-  const BRASS_HOT  = new THREE.Color(0xffd070);
+  /* layout */
+  const TH_Y = 1.0;                             /* seat plane of the thermostat in world y */
+  const ENG = new THREE.Vector3(-3.7, 0.2, 0);
+  const RAD = new THREE.Vector3(3.6, 0.9, 0);
+  const R = 0.85;                               /* housing inner radius */
+  const LIFT_U = 0.225;                         /* full lift in scene units (9 mm)          */
+  const SPR_BOT = -0.775, SPR_L0 = 0.715;       /* spring: fixed seat -> disc underside      */
 
-  /* ── layout constants ── */
-  const THERMO_POS   = new THREE.Vector3(0, 1.1, 0);
-  const ENGINE_POS   = new THREE.Vector3(-3.4, 0.2, 0);
-  const RAD_POS      = new THREE.Vector3(3.4, 0.9, 0);
-  const HOUSING_R    = 0.82;
-  const HOUSING_H    = 1.5;
-  const FLOOR_Y      = -2.0;
+  const TH = new THREE.Group(); TH.position.set(0, TH_Y, 0); root.add(TH);
 
-  /* ══════════════════════════════════════════════════════════
-     ENGINE
-     ══════════════════════════════════════════════════════════ */
-  const engineGroup = new THREE.Group();
-  engineGroup.position.copy(ENGINE_POS);
-  root.add(engineGroup);
-
-  const engBlock = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 1.3), M.block);
-  engineGroup.add(engBlock);
-
-  const engHead = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.42, 1.3), M.blockHead);
-  engHead.position.y = 0.82;
-  engineGroup.add(engHead);
-
-  const engCover = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.30, 1.1), M.block);
-  engCover.position.y = 1.15;
-  engineGroup.add(engCover);
-
-  for (let i = 0; i < 5; i++) {
-    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 1.32), M.blockHead);
-    rib.position.set(-0.85 + i * 0.425, 0, 0);
-    engineGroup.add(rib);
-  }
-
-  const engOutlet = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.55, 16), M.steelDark);
-  engOutlet.position.set(1.05, 1.05, 0);
-  engineGroup.add(engOutlet);
-
-  const engInlet = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.55, 16), M.steelDark);
-  engInlet.position.set(0.5, -0.75, 0);
-  engineGroup.add(engInlet);
-
-  const engGlowMat = new THREE.MeshBasicMaterial({
-    color: 0xff6822, transparent: true, opacity: 0,
-    blending: THREE.AdditiveBlending, depthWrite: false
-  });
-  const engGlow = new THREE.Mesh(new THREE.SphereGeometry(1.55, 16, 12), engGlowMat);
-  engGlow.position.set(-0.1, 0.3, 0);
-  engineGroup.add(engGlow);
-
-  /* ══════════════════════════════════════════════════════════
-     RADIATOR + FAN
-     ══════════════════════════════════════════════════════════ */
-  const radGroup = new THREE.Group();
-  radGroup.position.copy(RAD_POS);
-  root.add(radGroup);
-
-  const radTopTank = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.20, 1.35, 20), M.radFrame);
-  radTopTank.rotation.z = Math.PI / 2;
-  radTopTank.position.y = 1.05;
-  radGroup.add(radTopTank);
-
-  const radBotTank = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.20, 1.35, 20), M.radFrame);
-  radBotTank.rotation.z = Math.PI / 2;
-  radBotTank.position.y = -1.05;
-  radGroup.add(radBotTank);
-
-  const radFrame = new THREE.Mesh(new THREE.BoxGeometry(1.35, 2.10, 0.10), M.radFrame);
-  radGroup.add(radFrame);
-
-  for (let i = 0; i < 22; i++) {
-    const fin = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.030, 0.22), M.rad);
-    fin.position.y = -0.95 + i * 0.090;
-    radGroup.add(fin);
-  }
-  for (let i = 0; i < 13; i++) {
-    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 2.00, 8), M.rad);
-    tube.position.x = -0.60 + i * 0.10;
-    radGroup.add(tube);
-  }
-
-  const radGlowMat = new THREE.MeshBasicMaterial({
-    color: 0xff8c3a, transparent: true, opacity: 0,
-    blending: THREE.AdditiveBlending, depthWrite: false
-  });
-  const radGlow = new THREE.Mesh(new THREE.BoxGeometry(1.45, 2.20, 0.30), radGlowMat);
-  radGroup.add(radGlow);
-
-  // Fan behind the radiator
-  const fanGroup = new THREE.Group();
-  fanGroup.position.set(0, 0, -0.28);
-  radGroup.add(fanGroup);
-
-  const fanHub = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.20, 0.14, 16), M.fanHub);
-  fanHub.rotation.x = Math.PI / 2;
-  fanGroup.add(fanHub);
-
-  const fanRing = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.045, 8, 24), M.fanHub);
-  fanGroup.add(fanRing);
-
-  for (let i = 0; i < 7; i++) {
-    const a = i / 7 * Math.PI * 2;
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.24, 0.020), M.fan);
-    blade.position.set(Math.cos(a) * 0.42, Math.sin(a) * 0.42, 0);
-    blade.rotation.z = a;
-    blade.rotation.x = 0.55;   // pitch
-    fanGroup.add(blade);
-  }
-
-  /* ══════════════════════════════════════════════════════════
-     THERMOSTAT HOUSING
-     ══════════════════════════════════════════════════════════ */
-  function buildHousing(cut) {
-    const g = new THREE.Group();
-    g.position.copy(THERMO_POS);
-
-    const thStart = cut ? Math.PI / 2 : 0;
-    const thLen   = cut ? Math.PI : Math.PI * 2;
-
-    const shell = new THREE.Mesh(
-      new THREE.CylinderGeometry(HOUSING_R, HOUSING_R, HOUSING_H, 40, 1, true, thStart, thLen),
-      cut ? M.cutSteel : M.steel
-    );
-    g.add(shell);
-
-    const flange = new THREE.Mesh(
-      new THREE.CylinderGeometry(HOUSING_R + 0.12, HOUSING_R + 0.12, 0.14, 40, 1, false, thStart, thLen),
-      cut ? M.cutSteel : M.steel
-    );
-    flange.position.y = -HOUSING_H / 2 + 0.07;
-    g.add(flange);
-
-    const top = new THREE.Mesh(
-      new THREE.CylinderGeometry(HOUSING_R * 0.82, HOUSING_R * 0.82, 0.20, 40, 1, false, thStart, thLen),
-      cut ? M.cutSteel : M.steel
-    );
-    top.position.y = HOUSING_H / 2 + 0.10;
-    g.add(top);
-
-    const inlet = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.24, 0.24, 0.55, 20, 1, false, thStart, thLen),
-      cut ? M.cutSteel : M.steel
-    );
-    inlet.position.set(-0.32, -HOUSING_H / 2 - 0.22, 0);
-    inlet.rotation.z = 0.25;
-    g.add(inlet);
-
-    const outlet = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.22, 0.22, 0.62, 20, 1, false, thStart, thLen),
-      cut ? M.cutSteel : M.steel
-    );
-    outlet.position.set(0.30, HOUSING_H / 2 + 0.28, 0);
-    outlet.rotation.z = -0.35;
-    g.add(outlet);
-
-    const byp = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.18, 0.18, 0.52, 18, 1, false, thStart, thLen),
-      cut ? M.cutSteel : M.steel
-    );
-    byp.position.set(HOUSING_R + 0.18, -0.15, 0);
-    byp.rotation.z = Math.PI / 2 + 0.30;
-    g.add(byp);
-
-    /* ── internals (all anchored so they can move) ── */
-
-    // Wax capsule — base fixed, scales upward
-    const WAX_BASE_Y = -0.55;
-    const WAX_HEIGHT = 0.55;
-    const waxGeo = new THREE.CylinderGeometry(0.22, 0.22, WAX_HEIGHT, 24);
-    const waxMat = cut ? M.cutBrass : M.brass;
-    const wax = new THREE.Mesh(waxGeo, waxMat);
-    wax.position.y = WAX_BASE_Y + WAX_HEIGHT / 2;    // centre; will be re-anchored in update
-    g.add(wax);
-
-    // Piston rod — length 0.30 nominal, will be re-scaled in update
-    const ROD_LEN = 0.30;
-    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, ROD_LEN, 12), M.rod);
-    rod.position.y = 0.15;
-    g.add(rod);
-
-    // Valve seat
-    const SEAT_Y = 0.20;
-    const seat = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.055, 10, 32), M.seat);
-    seat.position.y = SEAT_Y;
-    seat.rotation.x = Math.PI / 2;
-    g.add(seat);
-
-    // Valve disc
-    const DISC_H = 0.09;
-    const disc = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.58, 0.58, DISC_H, 32),
-      M.steel
-    );
-    disc.position.y = SEAT_Y + 0.06;   // resting on seat
-    g.add(disc);
-
-    // Return spring — will be rebuilt when lift changes
-    const SPRING_TOP = 0.62;
-    const springMat = M.spring;
-    const springMesh = new THREE.Mesh(new THREE.BufferGeometry(), springMat);
-    g.add(springMesh);
-
-    function buildSpringGeometry(botY) {
-      const pts = [];
-      const N = 70;
-      const turns = 6;
-      for (let i = 0; i <= N; i++) {
-        const f = i / N;
-        const a = f * turns * Math.PI * 2;
-        const y = lerp(botY, SPRING_TOP, f);
-        pts.push(new THREE.Vector3(Math.cos(a) * 0.30, y, Math.sin(a) * 0.30));
-      }
-      const curve = new THREE.CatmullRomCurve3(pts);
-      return new THREE.TubeGeometry(curve, 100, 0.022, 6, false);
-    }
-    springMesh.geometry = buildSpringGeometry(SEAT_Y + 0.10);
-
-    // Jiggle pin (air bleed)
-    const jiggle = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.024, 0.024, 0.12, 8),
-      M.brass
-    );
-    jiggle.position.set(0.55, SEAT_Y + 0.30, 0);
-    g.add(jiggle);
-
-    return {
-      group: g, isCut: cut,
-      wax, waxBaseY: WAX_BASE_Y, waxHeight: WAX_HEIGHT,
-      rod, rodLen: ROD_LEN,
-      seatY: SEAT_Y, discHalfH: DISC_H / 2, disc,
-      spring: springMesh, springTop: SPRING_TOP, buildSpringGeometry,
-      lastSpringBot: SEAT_Y + 0.10
+  /* ── housing (two variants: cut-away half, and closed) ───────────── */
+  function mkHousing(cut) {
+    const g = new THREE.Group(); TH.add(g);
+    const a0 = cut ? PI / 2 : 0, aL = cut ? PI : PI * 2;
+    const cyl = (rt, rb, h, x, y, rz, m) => {
+      const o = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 36, 1, true, a0, aL), m || M.cast);
+      o.position.set(x, y, 0); if (rz) o.rotation.z = rz; g.add(o); return o;
     };
-  }
-
-  const housingFull = buildHousing(false);
-  const housingCut  = buildHousing(true);
-  root.add(housingFull.group);
-  root.add(housingCut.group);
-  housingCut.group.visible = false;
-
-  /* ══════════════════════════════════════════════════════════
-     HOSES
-     ══════════════════════════════════════════════════════════ */
-  function makeHose(pointArrays, radius, mat) {
-    const curve = new THREE.CatmullRomCurve3(pointArrays.map(p => new THREE.Vector3(p[0], p[1], p[2])));
-    const geo = new THREE.TubeGeometry(curve, 64, radius, 12, false);
-    const mesh = new THREE.Mesh(geo, mat);
-    return { mesh, curve };
-  }
-
-  const upperHose = makeHose([
-    [ENGINE_POS.x + 1.05, ENGINE_POS.y + 1.05, 0],
-    [ENGINE_POS.x + 1.55, ENGINE_POS.y + 1.35, 0.10],
-    [-0.55, THERMO_POS.y - HOUSING_H / 2 - 0.10, 0.05],
-    [THERMO_POS.x - 0.32, THERMO_POS.y - HOUSING_H / 2 - 0.22, 0]
-  ], 0.115, M.hose);
-  root.add(upperHose.mesh);
-
-  const radHose = makeHose([
-    [THERMO_POS.x + 0.30, THERMO_POS.y + HOUSING_H / 2 + 0.28, 0],
-    [1.55, THERMO_POS.y + HOUSING_H / 2 + 0.50, 0.05],
-    [RAD_POS.x - 0.70, RAD_POS.y + 1.05, 0],
-    [RAD_POS.x - 0.10, RAD_POS.y + 1.05, 0]
-  ], 0.105, M.hose);
-  root.add(radHose.mesh);
-
-  const retHose = makeHose([
-    [RAD_POS.x - 0.10, RAD_POS.y - 1.05, 0],
-    [RAD_POS.x - 0.85, RAD_POS.y - 1.30, 0.10],
-    [0.0, FLOOR_Y + 0.20, 0.20],
-    [ENGINE_POS.x + 0.50, ENGINE_POS.y - 0.75, 0]
-  ], 0.105, M.hose);
-  root.add(retHose.mesh);
-
-  const bypHose = makeHose([
-    [THERMO_POS.x + HOUSING_R + 0.32, THERMO_POS.y - 0.20, 0],
-    [THERMO_POS.x + HOUSING_R + 0.62, THERMO_POS.y - 0.45, 0.10],
-    [(THERMO_POS.x + HOUSING_R + ENGINE_POS.x + 0.55) / 2 + 0.4, THERMO_POS.y - 1.05, 0.15],
-    [ENGINE_POS.x + 0.55, ENGINE_POS.y - 0.60, 0.05]
-  ], 0.075, M.hose);
-  root.add(bypHose.mesh);
-
-  /* ══════════════════════════════════════════════════════════
-     FLOW PARTICLES
-     ══════════════════════════════════════════════════════════ */
-  const FLOW_N = 14;
-  function makeFlow(curve, size) {
-    const arr = [];
-    for (let i = 0; i < FLOW_N; i++) {
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0xf97316, transparent: true, opacity: 0.9,
-        blending: THREE.AdditiveBlending, depthWrite: false
-      });
-      const sph = new THREE.Mesh(new THREE.SphereGeometry(size, 8, 6), mat);
-      root.add(sph);
-      arr.push({ mesh: sph, mat });
+    const ring = (ri, ro, y, m) => {
+      const o = new THREE.Mesh(new THREE.RingGeometry(ri, ro, 40, 1, 0, cut ? PI : PI * 2), m || M.cast);
+      o.rotation.x = -PI / 2; o.position.y = y; g.add(o); return o;
+    };
+    cyl(R, R, 1.3, 0, -0.65);                          /* lower body y -1.3 .. 0            */
+    ring(0.30, R, -1.25);                              /* bypass seat plate (hole r .30)    */
+    cyl(0.30, 0.30, 0.5, 0, -1.52);                    /* bypass outlet pipe (down)         */
+    cyl(0.25, 0.25, 0.75, -1.2, -0.62, PI / 2);        /* inlet port from the engine        */
+    ring(R, 1.1, -0.06);                               /* lower flange                      */
+    cyl(0.42, R, 0.8, 0, 0.46);                        /* upper cover (cone)                */
+    ring(R, 1.1, 0.06);                                /* upper flange                      */
+    const al = Math.atan2(0.4, 1.1);
+    cyl(0.28, 0.28, 1.17, 0.75, 1.05, -(PI / 2 - al)); /* outlet neck to the radiator       */
+    if (!cut) { const cap = new THREE.Mesh(new THREE.CircleGeometry(0.42, 24), M.cast); cap.rotation.x = -PI / 2; cap.position.y = 0.86; g.add(cap);
+                const rg = new THREE.Mesh(new THREE.RingGeometry(0.5, 1.0, 40), M.flange); rg.rotation.x = -PI / 2; g.add(rg); }
+    for (let i = 0; i < 6; i++) {                      /* flange bolts */
+      const a = i / 6 * PI * 2 + 0.3, x = Math.cos(a) * 0.98, z = Math.sin(a) * 0.98;
+      if (cut && z > 0.05) continue;
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.3, 6), M.bright); b.position.set(x, 0, z); g.add(b);
     }
-    return arr;
+    return g;
   }
+  const housingCut = mkHousing(true), housingFull = mkHousing(false);
 
-  const upperFlow = makeFlow(upperHose.curve, 0.058);
-  const radFlow   = makeFlow(radHose.curve,   0.052);
-  const retFlow   = makeFlow(retHose.curve,   0.052);
-  const bypFlow   = makeFlow(bypHose.curve,   0.045);
+  /* translucent coolant inside the cutaway (colour follows temperature) */
+  const fluidMatLow = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.20, depthWrite: false, side: DS });
+  const fluidMatUp = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.20, depthWrite: false, side: DS });
+  const fluidCut = new THREE.Group(); TH.add(fluidCut);
+  { const lo = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.02, R - 0.02, 1.25, 32, 1, true, PI / 2, PI), fluidMatLow); lo.position.y = -0.64; fluidCut.add(lo);
+    const lp = new THREE.Mesh(new THREE.PlaneGeometry(2 * R - 0.04, 1.25), fluidMatLow); lp.position.set(0, -0.64, 0.0); fluidCut.add(lp);
+    const up = new THREE.Mesh(new THREE.CylinderGeometry(0.42, R - 0.02, 0.78, 32, 1, true, PI / 2, PI), fluidMatUp); up.position.y = 0.45; fluidCut.add(up);
+    const sh = new THREE.Shape(); sh.moveTo(-(R - 0.02), 0.06); sh.lineTo(R - 0.02, 0.06); sh.lineTo(0.42, 0.84); sh.lineTo(-0.42, 0.84); sh.closePath();
+    fluidCut.add(new THREE.Mesh(new THREE.ShapeGeometry(sh), fluidMatUp)); }
 
-  /* ══════════════════════════════════════════════════════════
-     GAUGE  (fixed: needle now sweeps bottom-left → bottom-right)
-     ══════════════════════════════════════════════════════════ */
-  const gaugeGroup = new THREE.Group();
-  gaugeGroup.position.set(RAD_POS.x, RAD_POS.y + 2.10, 0);
-  root.add(gaugeGroup);
+  /* ── cartridge: the actual thermostat (frame, piston, cup, wax, discs, spring) ── */
+  const cart = new THREE.Group(); TH.add(cart);
+  const half = (rt, rb, h, x, y, m, parent) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 28, 1, true, PI / 2, PI), m); o.position.set(x, y, 0); (parent || cart).add(o); return o; };
+  const bx = (w, h, d, x, y, z, m, parent) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); (parent || cart).add(o); return o; };
 
-  const gaugeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.08, 32), M.gaugeFace);
-  gaugeBody.rotation.x = Math.PI / 2;
-  gaugeGroup.add(gaugeBody);
+  /* frame — fixed to the housing flange */
+  { const fl = new THREE.Mesh(new THREE.RingGeometry(0.5, 1.0, 40, 1, 0, PI), M.flange); fl.rotation.x = -PI / 2; cart.add(fl);
+    const dy = 0.31, ry = -0.4;
+    for (const sx of [-1, 1]) { bx(0.05, 0.62, 0.07, sx * 0.46, dy, 0, M.frame); bx(0.05, 0.80, 0.07, sx * 0.62, ry, 0, M.frame); }
+    bx(0.98, 0.06, 0.12, 0, 0.64, 0, M.frame);                      /* top bracket (holds the piston tip) */
+    const sp = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.70, 32, 1, 0, PI), M.frame); sp.rotation.x = -PI / 2; sp.position.y = SPR_BOT; cart.add(sp); /* spring seat */ }
 
-  const gaugeRim = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.030, 8, 32), M.gaugeRim);
-  gaugeGroup.add(gaugeRim);
+  /* piston (fixed): from the top bracket down to just inside the plug */
+  const piston = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.07, 14), M.bright); piston.position.y = 0.105; cart.add(piston);
 
-  // Arc from -3π/4 (bottom-left = cold) to -π/4 (bottom-right = hot)
-  const ARC_START = -Math.PI * 0.75;
-  const ARC_END   = -Math.PI * 0.25;
-  const arcPts = [];
-  for (let i = 0; i <= 40; i++) {
-    const f = i / 40;
-    const a = lerp(ARC_START, ARC_END, f);
-    arcPts.push(new THREE.Vector3(Math.cos(a) * 0.36, Math.sin(a) * 0.36, 0.05));
-  }
-  const arcGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(arcPts), 60, 0.016, 5, false);
-  const gaugeArc = new THREE.Mesh(arcGeo, new THREE.MeshBasicMaterial({ color: 0x64748b }));
-  gaugeGroup.add(gaugeArc);
+  /* jiggle (air-bleed) pin in the flange */
+  const jig = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.12, 8), M.brass); jig.position.set(0.76, 0.05, -0.02); cart.add(jig);
 
-  // Tick marks: cold (blue), warning (amber), hot (red)
-  function addTick(a, color) {
-    const t = new THREE.Mesh(
-      new THREE.BoxGeometry(0.055, 0.014, 0.020),
-      new THREE.MeshBasicMaterial({ color })
-    );
-    t.position.set(Math.cos(a) * 0.40, Math.sin(a) * 0.40, 0.05);
-    t.rotation.z = a;
-    gaugeGroup.add(t);
-  }
-  addTick(ARC_START, 0x38bdf8);
-  addTick(ARC_END,   0xef4444);
+  /* moving unit: main disc + cup + bypass disc — slides down by `lift` */
+  const valveG = new THREE.Group(); cart.add(valveG);
+  { const d = new THREE.Mesh(new THREE.CylinderGeometry(0.60, 0.60, 0.05, 40), M.steel); d.position.y = -0.03; valveG.add(d);
+    const dr = new THREE.Mesh(new THREE.TorusGeometry(0.60, 0.022, 8, 40), M.rubber); dr.rotation.x = PI / 2; dr.position.y = -0.005; valveG.add(dr);
+    const cup = half(0.20, 0.20, 0.91, 0, -0.515, M.copper, valveG);
+    const bot = new THREE.Mesh(new THREE.CircleGeometry(0.2, 24, 0, PI), M.copper); bot.rotation.x = -PI / 2; bot.position.y = -0.97; valveG.add(bot);
+    half(0.085, 0.085, 0.16, 0, 0.02, M.copper, valveG);              /* guide neck */
+    const bd = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.05, 32), M.steel); bd.position.y = -1.0; valveG.add(bd);
+    const br = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.02, 8, 32), M.rubber); br.rotation.x = PI / 2; br.position.y = -0.975; valveG.add(br); }
 
-  const needlePivot = new THREE.Group();
-  needlePivot.position.z = 0.06;
-  gaugeGroup.add(needlePivot);
+  /* return spring: bottom fixed on the seat, top follows the disc (scaled in y) */
+  const spring = Parts.coilSpring({ radius: 0.30, length: SPR_L0, turns: 9, wire: 0.022, mat: M.spring, axis: 'y', centered: false, samplesPerTurn: 14 });
+  spring.position.y = SPR_BOT; cart.add(spring);
 
-  const needle = new THREE.Mesh(
-    new THREE.BoxGeometry(0.30, 0.030, 0.020),
-    new THREE.MeshBasicMaterial({ color: 0xf59e0b })
-  );
-  needle.position.x = 0.15;
-  needlePivot.add(needle);
+  /* wax: top fixed (plug under the piston), bottom rides on the cup -> column grows by `lift` */
+  const WAX_TOP = -0.38, WAX_R = 0.17, WAX_BOT0 = -0.97;
+  const waxMatOut = new THREE.MeshStandardMaterial({ color: 0xf3e6b8, roughness: 0.55, metalness: 0.0, emissive: 0x000000, emissiveIntensity: 0, side: DS });
+  const waxMatCore = new THREE.MeshStandardMaterial({ color: 0xf3e6b8, roughness: 0.7, metalness: 0.0, side: DS });
+  const unitHalf = new THREE.CylinderGeometry(1, 1, 1, 28, 1, true, PI / 2, PI);
+  const waxOut = new THREE.Mesh(unitHalf, waxMatOut); cart.add(waxOut);
+  const waxCore = new THREE.Mesh(unitHalf, waxMatCore); cart.add(waxCore);
+  const unitPlane = new THREE.PlaneGeometry(1, 1);
+  const waxPlaneOut = new THREE.Mesh(unitPlane, waxMatOut); waxPlaneOut.position.z = 0.002; cart.add(waxPlaneOut);
+  const waxPlaneCore = new THREE.Mesh(unitPlane, waxMatCore); waxPlaneCore.position.z = 0.004; cart.add(waxPlaneCore);
+  const plug = new THREE.Mesh(new THREE.CylinderGeometry(WAX_R, WAX_R, 0.05, 20, 1, false, PI / 2, PI), M.rubber); plug.position.y = WAX_TOP + 0.025; cart.add(plug);
 
-  const needleHub = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.045, 0.045, 0.05, 12),
-    new THREE.MeshBasicMaterial({ color: 0x1f2937 })
-  );
-  needleHub.rotation.x = Math.PI / 2;
-  needleHub.position.z = 0.07;
-  needlePivot.add(needleHub);
+  /* ── engine, pump, radiator, fan, gauge ──────────────────────────── */
+  const engG = new THREE.Group(); engG.position.copy(ENG); root.add(engG);
+  { const b = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 1.3), M.block); engG.add(b);
+    const hd = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.42, 1.3), M.head); hd.position.y = 0.82; engG.add(hd);
+    const cv = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.3, 1.1), M.block); cv.position.y = 1.15; engG.add(cv);
+    for (let i = 0; i < 5; i++) { const rb = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 1.32), M.head); rb.position.x = -0.85 + i * 0.425; engG.add(rb); }
+    const o = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.4, 16), M.cast); o.position.set(1.05, 1.4, 0); engG.add(o); }
+  const engGlowMat = new THREE.MeshBasicMaterial({ color: 0xff6822, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const engGlow = new THREE.Mesh(new THREE.SphereGeometry(1.55, 16, 12), engGlowMat); engGlow.position.set(-0.1, 0.3, 0); engG.add(engGlow);
+  const PUMP = new THREE.Vector3(-2.35, -0.15, 0);
+  { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.5, 24), M.pump); p.rotation.x = PI / 2; p.position.copy(PUMP); root.add(p);
+    const pi = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.35, 12), M.cast); pi.position.set(PUMP.x + 0.1, PUMP.y - 0.4, 0); root.add(pi); }
 
-  /* ══════════════════════════════════════════════════════════
-     HEAT SHIMMER particles above the radiator
-     ══════════════════════════════════════════════════════════ */
-  const SHIMMER_N = 22;
-  const shimmers = [];
-  for (let i = 0; i < SHIMMER_N; i++) {
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0xffd0a0, transparent: true, opacity: 0,
-      blending: THREE.AdditiveBlending, depthWrite: false
-    });
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 5), mat);
-    root.add(mesh);
-    shimmers.push({ mesh, mat, life: 0, maxLife: 2.2, vx: 0, vy: 0.5, vz: 0 });
-  }
+  const radG = new THREE.Group(); radG.position.copy(RAD); root.add(radG);
+  for (const sy of [1.05, -1.05]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.35, 20), M.tank); t.rotation.z = PI / 2; t.position.y = sy; radG.add(t); }
+  radG.add(new THREE.Mesh(new THREE.BoxGeometry(1.35, 2.1, 0.1), M.tank));
+  for (let i = 0; i < 22; i++) { const f = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.03, 0.22), M.fin); f.position.y = -0.95 + i * 0.09; radG.add(f); }
+  const radGlowMat = new THREE.MeshBasicMaterial({ color: 0xff8c3a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  radG.add(new THREE.Mesh(new THREE.BoxGeometry(1.45, 2.2, 0.3), radGlowMat));
+  const fanG = new THREE.Group(); fanG.position.set(0, 0, -0.28); radG.add(fanG);
+  { const hb = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.14, 16), M.hub); hb.rotation.x = PI / 2; fanG.add(hb);
+    fanG.add(new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.045, 8, 24), M.dark));
+    for (let i = 0; i < 7; i++) { const a = i / 7 * PI * 2; const b = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.24, 0.02), M.fan); b.position.set(Math.cos(a) * 0.42, Math.sin(a) * 0.42, 0); b.rotation.z = a; b.rotation.x = 0.55; fanG.add(b); } }
 
-  /* ══════════════════════════════════════════════════════════
-     STATE
-     ══════════════════════════════════════════════════════════ */
-  const state = {
-    cut: false,
-    failure: 'normal',
-    flowPaused: false,
-    rating: 82,             // 82 / 88 / 91
-    simTemp: 70,
-    flowPhase: 0,
-    fanAngle: 0,
-    warmupStartT: null,
-    currentT: 0
+  const gaugeG = new THREE.Group(); gaugeG.position.set(RAD.x, RAD.y + 2.2, 0); root.add(gaugeG);
+  const ARC0 = -PI * 0.75, ARC1 = -PI * 0.25;
+  { const gb = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.08, 32), M.dark); gb.rotation.x = PI / 2; gaugeG.add(gb);
+    gaugeG.add(new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.03, 8, 32), M.bright));
+    const pts = []; for (let i = 0; i <= 40; i++) { const a = lerp(ARC0, ARC1, i / 40); pts.push(new THREE.Vector3(Math.cos(a) * 0.36, Math.sin(a) * 0.36, 0.05)); }
+    gaugeG.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, 0.016, 5, false), new THREE.MeshBasicMaterial({ color: 0x64748b }))); }
+  const needlePivot = new THREE.Group(); needlePivot.position.z = 0.06; gaugeG.add(needlePivot);
+  const needleMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+  { const nd = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.03, 0.02), needleMat); nd.position.x = 0.15; needlePivot.add(nd); }
+
+  /* ── hoses ───────────────────────────────────────────────────────── */
+  const HP = {
+    eng: [[-2.65, 1.7, 0], [-2.3, 1.95, 0.05], [-1.95, 1.2, 0], [-1.8, 0.45, 0], [-1.5, 0.38, 0]],
+    rad: [[1.2, 2.2, 0], [1.9, 2.5, 0.05], [2.5, 2.45, 0], [2.93, 1.97, 0]],
+    byp: [[0, -0.7, 0], [0, -1.2, 0.05], [-1.0, -1.45, 0.1], [-1.9, -1.05, 0.05], [-2.2, -0.55, 0]],
+    ret: [[2.93, -0.15, 0], [2.4, -0.9, 0.1], [1.5, -1.75, 0.2], [-0.8, -1.85, 0.2], [-1.9, -1.35, 0.1], [-2.2, -0.55, 0]]
   };
+  pipe(HP.eng, 0.115, M.hose); pipe(HP.rad, 0.105, M.hose); pipe(HP.byp, 0.1, M.hose); pipe(HP.ret, 0.105, M.hose);
 
-  /* Controls (View, Rating, Failure, Flow, Reset to cold) are dock options declared in CFG; EXT.pick applies them. */
-  let lastSampleT = -1;
-  EXT.pick = (key, v) => {
-    if (key === 'view') { state.cut = (v === 'cut'); housingFull.group.visible = !state.cut; housingCut.group.visible = state.cut; }
-    else if (key === 'rating') state.rating = parseInt(v, 10);
-    else if (key === 'failure') state.failure = v;
-    else if (key === 'flow') state.flowPaused = (v === 'off');
-    else if (key === 'cold') { state.simTemp = 20; state.warmupStartT = state.currentT; EXT.clear = true; }
+  /* ── coolant particle streams (colour = temperature, density = flow share) ── */
+  const n = lowEnd ? 10 : 16;
+  const sIn  = stream([[-2.65, 1.7, 0], [-2.3, 1.95, 0.05], [-1.95, 1.2, 0], [-1.8, 0.45, 0], [-1.2, 0.38, 0], [-0.6, 0.36, 0], [-0.2, 0.2, -0.05]], n, 0xf97316, 0.1);
+  const sUp  = stream([[-0.2, 0.2, -0.05], [0.45, 0.3, -0.05], [0.72, 0.6, -0.05], [0.66, 0.88, -0.05], [0.35, 0.92, -0.05], [0.2, 1.3, -0.05], [0.45, 1.8, -0.03], [1.2, 2.2, 0], [1.9, 2.5, 0.05], [2.5, 2.45, 0], [2.93, 1.97, 0]], n + 8, 0xf97316, 0.1);
+  const sByp = stream([[-0.2, 0.2, -0.05], [-0.52, -0.05, -0.05], [-0.35, -0.22, -0.05], [-0.1, -0.3, -0.05], [0, -0.55, 0], [0, -0.75, 0], [0, -1.2, 0.05], [-1.0, -1.45, 0.1], [-1.9, -1.05, 0.05], [-2.2, -0.55, 0]], n + 6, 0xf97316, 0.09);
+  const sRet = stream(HP.ret, n + 6, 0x38bdf8, 0.09);
+  const sCore = [-0.9, 0, 0.9].map((dx) => stream([[RAD.x + dx, RAD.y + 1.05, 0], [RAD.x + dx, RAD.y - 1.05, 0]], 8, 0xf97316, 0.09));
+  const sAir = [[-0.4, 0.5], [0.4, 0.5], [-0.4, -0.5], [0.4, -0.5]].map((p) => stream([[RAD.x + p[0], RAD.y + p[1], 2.4], [RAD.x + p[0], RAD.y + p[1], -1.2]], 8, 0x7dd3fc, 0.07));
+
+  /* ── 2D opening-curve canvas (stage overlay) ─────────────────────── */
+  let cv = null, ctx = null, lastDraw = 0;
+  function drawCurve(o) {
+    if (!ctx) return;
+    const Wd = cv.width, Hd = cv.height, L = 62, Rr = 14, T = 30, B = 46, pw = Wd - L - Rr, ph = Hd - T - B;
+    const T0 = 60, T1 = 125;
+    const X = (t) => L + (t - T0) / (T1 - T0) * pw, Y = (mm) => T + ph - (mm / Model.K.LIFT_MM) * ph;
+    const ink = getComputedStyle(cv).color || '#cbd5e1';
+    ctx.clearRect(0, 0, Wd, Hd);
+    ctx.font = '600 20px ui-sans-serif, system-ui, sans-serif'; ctx.textBaseline = 'middle';
+    ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.25;
+    for (const mm of [0, 4.5, 9]) { ctx.beginPath(); ctx.moveTo(L, Y(mm)); ctx.lineTo(L + pw, Y(mm)); ctx.stroke(); }
+    for (let t = 70; t <= 120; t += 10) { ctx.beginPath(); ctx.moveTo(X(t), T); ctx.lineTo(X(t), T + ph); ctx.stroke(); }
+    ctx.globalAlpha = 0.85; ctx.textAlign = 'right';
+    ctx.fillText('9', L - 8, Y(9)); ctx.fillText('0', L - 8, Y(0)); ctx.fillText('mm', L - 8, Y(4.5));
+    ctx.textAlign = 'center';
+    for (let t = 70; t <= 120; t += 10) ctx.fillText(String(t), X(t), T + ph + 18);
+    ctx.fillText('coolant temperature °C', L + pw / 2, T + ph + 38);
+    /* curves: heating (solid) and cooling (dashed) with the hysteresis band between */
+    const f = Model.FAULTS[S.fault] || Model.FAULTS.none;
+    const yo = (t) => Y(Model.liftFromMelt(Model.meltOpen(t, S.rating, S.fault), S.fault) * Model.K.LIFT_MM);
+    const yc = (t) => Y(Model.liftFromMelt(Model.meltClose(t, S.rating, S.fault), S.fault) * Model.K.LIFT_MM);
+    ctx.globalAlpha = 0.22; ctx.fillStyle = '#f59e0b'; ctx.beginPath();
+    for (let t = T0; t <= T1; t += 1) { if (t === T0) ctx.moveTo(X(t), yo(t)); else ctx.lineTo(X(t), yo(t)); }
+    for (let t = T1; t >= T0; t -= 1) ctx.lineTo(X(t), yc(t));
+    ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1; ctx.lineWidth = 3; ctx.strokeStyle = '#f59e0b'; ctx.beginPath();
+    for (let t = T0; t <= T1; t += 1) { if (t === T0) ctx.moveTo(X(t), yo(t)); else ctx.lineTo(X(t), yo(t)); }
+    ctx.stroke();
+    ctx.setLineDash([7, 6]); ctx.strokeStyle = '#38bdf8'; ctx.beginPath();
+    for (let t = T0; t <= T1; t += 1) { if (t === T0) ctx.moveTo(X(t), yc(t)); else ctx.lineTo(X(t), yc(t)); }
+    ctx.stroke(); ctx.setLineDash([]);
+    /* start-to-open / fully open marks */
+    if (f.jam === null) {
+      const t0 = S.rating + f.shift, t1 = t0 + f.span;
+      ctx.lineWidth = 1.5; ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.globalAlpha = 0.55; ctx.setLineDash([3, 5]);
+      for (const t of [t0, t1]) { ctx.beginPath(); ctx.moveTo(X(t), T); ctx.lineTo(X(t), T + ph); ctx.stroke(); }
+      ctx.setLineDash([]); ctx.globalAlpha = 0.9; ctx.font = '600 17px ui-sans-serif, system-ui, sans-serif';
+      ctx.textAlign = 'right'; ctx.fillText('start ' + t0 + '°', X(t0) - 5, T + 12);
+      const fl = 'full ' + t1 + '°';
+      if (X(t1) + 8 + ctx.measureText(fl).width < Wd - 2) { ctx.textAlign = 'left'; ctx.fillText(fl, X(t1) + 5, T + 12); }
+      else { ctx.textAlign = 'right'; ctx.fillText(fl, X(t1) - 5, T + 32); }
+    } else {
+      ctx.globalAlpha = 0.9; ctx.fillStyle = '#ef4444'; ctx.textAlign = 'center'; ctx.font = '700 19px ui-sans-serif, system-ui, sans-serif';
+      const cy0 = T + ph / 2 + (f.jam ? 24 : -24);
+      ctx.fillText('valve jammed ' + (f.jam ? 'open' : 'closed'), L + pw / 2, cy0);
+      ctx.font = '600 16px ui-sans-serif, system-ui, sans-serif'; ctx.fillText('ignores temperature', L + pw / 2, cy0 + 22);
+    }
+    /* live point: the pellet temperature and the valve lift right now */
+    const px = X(clamp(sim.Tw, T0, T1)), py = Y(o.mm);
+    ctx.globalAlpha = 1; ctx.strokeStyle = '#ef4444'; ctx.fillStyle = '#ef4444'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, T + ph); ctx.stroke();
+    ctx.beginPath(); ctx.arc(px, py, 8, 0, PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 8, 0, PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  /* ── per-frame ───────────────────────────────────────────────────── */
+  let fanAng = 0, fanSpd = 0;
+  const phase = (o) => {
+    if (S.fault === 'closed') return ['STUCK CLOSED · no radiator flow', 'crit'];
+    if (o.boiling) return ['BOILING · steam venting', 'crit'];
+    if (S.fault === 'open') return ['STUCK OPEN · runs cold', 'warn'];
+    const t0 = S.rating + (Model.FAULTS[S.fault] || Model.FAULTS.none).shift;
+    if (sim.lift < 0.02) return [sim.Tw < t0 - 4 ? 'Cold · valve shut · bypass loop' : 'Wax starting to melt', ''];
+    if (sim.lift < 0.97) return ['Opening · ' + (o.r * 100).toFixed(0) + ' % to radiator', 'ok'];
+    return [sim.fan ? 'Fully open · fan assisting' : 'Fully open · all flow to radiator', sim.Te > 108 ? 'crit' : 'ok'];
   };
-
-
-  /* ══════════════════════════════════════════════════════════
-     HELPERS
-     ══════════════════════════════════════════════════════════ */
-  /* ══════════════════════════════════════════════════════════
-     UPDATE
-     ══════════════════════════════════════════════════════════ */
-  let prevT = 0;
 
   return {
+    mount(ui) {
+      cv = ui.stage.canvas({ id: 'curve', label: 'Opening curve · lift vs temperature', width: 460, height: 270, corner: 'bl', size: 224 });
+      ctx = cv.getContext('2d');
+    },
     labels: [
-      ['From engine',    [ENGINE_POS.x + 1.05, ENGINE_POS.y + 1.05, 0.4]],
-      ['Wax capsule',    [THERMO_POS.x - 0.95, THERMO_POS.y - 0.45, 0.55]],
-      ['Valve disc',     [THERMO_POS.x + 0.90, THERMO_POS.y + 0.45, 0.45]],
-      ['Return spring',  [THERMO_POS.x + 0.80, THERMO_POS.y + 0.25, 0.55]],
-      ['To radiator',    [THERMO_POS.x + 1.35, THERMO_POS.y + 1.10, 0.3]],
-      ['Bypass',         [THERMO_POS.x + 1.60, THERMO_POS.y - 0.55, 0.3]],
-      ['Radiator fan',   [RAD_POS.x + 0.35, RAD_POS.y + 0.20, -0.55]],
-      ['Gauge',          [RAD_POS.x, RAD_POS.y + 2.70, 0.2]]
+      ['Engine outlet (hot)', [-2.5, 1.95, 0.3]],
+      ['Wax pellet in copper cup', [0, 0.32, 0.17]],
+      ['Piston (fixed to frame)', [0, 1.62, 0.12]],
+      ['Frame', [0.46, 1.3, 0.05]],
+      ['Main valve disc', [0.5, 0.97, 0.1]],
+      ['Return spring', [0.3, 0.45, 0.28]],
+      ['Bypass valve disc', [0.36, 0.0, 0.1]],
+      ['Bypass to pump', [0, -0.55, 0.2]],
+      ['To radiator', [1.25, 2.3, 0.2]],
+      ['Jiggle valve', [0.76, 1.08, 0.1]],
+      ['Water pump', [PUMP.x, PUMP.y + 0.45, 0.3]],
+      ['Radiator fan', [RAD.x + 0.4, RAD.y + 0.2, -0.6]],
+      ['Temp gauge', [RAD.x, RAD.y + 2.75, 0.2]]
     ],
 
     update(c) {
-      const t = (typeof c.t === 'number' ? c.t : 0);
-      const dt = Math.min(0.05, Math.max(0.001, t - prevT));
-      prevT = t;
-      state.currentT = t;
+      const dtReal = Math.max(0, c.dt || 0);
+      const dt = dtReal * S.timeScale;
+      const load = clamp(c.k, 0, 1);
+      const inp = { load, rpm: S.rpm, speed: S.speed, Tamb: S.ambient, rating: S.rating, fault: S.fault, fanMode: S.fan };
+      const o = Model.step(sim, inp, dt);
+      const t = c.t || 0, dtv = Math.min(0.05, dtReal);
+      const Te = sim.Te, Tr = sim.Tr, lift = sim.lift;
+      const L = lift * LIFT_U;
 
-      /* ── target temperature from framework slider ── */
-      const targetTemp = 40 + 90 * clamp(c.k, 0, 1);
+      /* views */
+      housingCut.visible = S.cut; fluidCut.visible = S.cut; cart.visible = S.cut; housingFull.visible = !S.cut;
 
-      /* ── thermal lag ── */
-      const lag = 2.5;
-      state.simTemp += (targetTemp - state.simTemp) * Math.min(1, dt / lag);
-      const T = state.simTemp;
-
-      /* ── thermostat rating & failure-mode opening ── */
-      const T_open = state.failure === 'sluggish' ? state.rating + 10 : state.rating;
-      const T_full = state.failure === 'sluggish' ? state.rating + 26 : state.rating + 13;
-
-      let openFrac;
-      if (state.failure === 'stuck-closed') openFrac = 0;
-      else if (state.failure === 'stuck-open') openFrac = 1;
-      else openFrac = clamp((T - T_open) / (T_full - T_open), 0, 1);
-
-      /* ── wax expansion (visual strain) ── */
-      const waxStrain = openFrac * 0.20;   // 20% visual expansion
-
-      /* ── valve lift (visual) ── */
-      const liftMm   = openFrac * 9.0;
-      const lift3d   = openFrac * 0.25;
-
-      /* ── flow split ── */
-      const toRad = openFrac;
-      const toByp = 1 - openFrac * 0.92;
-
-      /* ── update housings ── */
-      function updateHousing(hh, isCut) {
-        // Wax: anchor base, scale upward
-        const waxScale = 1 + waxStrain;
-        hh.wax.scale.set(1 + waxStrain * 0.35, waxScale, 1 + waxStrain * 0.35);
-        hh.wax.position.y = hh.waxBaseY + (hh.waxHeight * waxScale) / 2;
-
-        // Wax colour (brass cold → gold hot) — proper Color lerp
-        const target = M.brass === hh.wax.material ? M.brass : M.cutBrass;
-        // only mutate the correct material
-        const useMat = isCut ? M.cutBrass : M.brass;
-        if (hh.wax.material !== useMat) hh.wax.material = useMat;
-        hh.wax.material.color.copy(BRASS_COLD).lerp(BRASS_HOT, openFrac);
-
-        // Disc position
-        const discY = hh.seatY + 0.06 + lift3d;
-        hh.disc.position.y = discY;
-
-        // Rod: bottom sits just inside the wax top, top touches disc bottom
-        const waxTopY = hh.waxBaseY + hh.waxHeight * waxScale;
-        const rodBottomY = waxTopY - 0.03;
-        const rodTopY    = discY - hh.discHalfH;
-        const rodLen     = Math.max(0.05, rodTopY - rodBottomY);
-        hh.rod.position.y = (rodBottomY + rodTopY) / 2;
-        hh.rod.scale.y = rodLen / hh.rodLen;
-
-        // Spring: only rebuild when the bottom position changes meaningfully
-        const springBot = hh.seatY + 0.10 + lift3d;
-        if (Math.abs(springBot - hh.lastSpringBot) > 0.003) {
-          hh.lastSpringBot = springBot;
-          const newGeo = hh.buildSpringGeometry(springBot);
-          hh.spring.geometry.dispose();
-          hh.spring.geometry = newGeo;
-        }
+      /* mechanism: the piston & frame stay put; the cup, discs and spring top slide down */
+      valveG.position.y = -L;
+      spring.scale.y = (SPR_L0 - L) / SPR_L0;
+      const waxH = (WAX_TOP - (WAX_BOT0 - L)) , cy = (WAX_TOP + (WAX_BOT0 - L)) / 2;
+      const core = Math.pow(1 - sim.melt, 0.8);                    /* solid core shrinks as the wax melts */
+      const mc = lc(0xffc66b, 0xff7a1a, clamp((sim.Tw - 70) / 45, 0, 1));
+      waxMatOut.color.copy(waxSolid).lerp(mc, clamp(sim.melt * 3.0, 0, 1));
+      waxMatOut.emissive.copy(waxMolten); waxMatOut.emissiveIntensity = 0.55 * clamp(sim.melt * 1.5, 0, 1);
+      waxOut.scale.set(WAX_R, waxH, WAX_R); waxOut.position.y = cy;
+      waxPlaneOut.scale.set(WAX_R * 2, waxH, 1); waxPlaneOut.position.y = cy;
+      const showCore = core > 0.03;
+      waxCore.visible = waxPlaneCore.visible = showCore;
+      if (showCore) {
+        waxCore.scale.set(WAX_R * core, waxH - 0.03, WAX_R * core); waxCore.position.y = cy;
+        waxPlaneCore.scale.set(WAX_R * 2 * core, waxH - 0.03, 1); waxPlaneCore.position.y = cy;
       }
-      updateHousing(housingFull, false);
-      updateHousing(housingCut,  true);
+      jig.position.y = 0.05 + (sim.lift < 0.5 ? 0.012 * Math.sin(t * 29) * clamp(o.m / 2, 0.2, 1) : 0);
 
-      /* ── engine vibration (running) ── */
-      const vibX = 0.006 * Math.sin(t * 47) + 0.003 * Math.sin(t * 83);
-      const vibY = 0.004 * Math.sin(t * 67 + 0.5);
-      engineGroup.position.x = ENGINE_POS.x + vibX;
-      engineGroup.position.y = ENGINE_POS.y + vibY;
-      engineGroup.rotation.z = 0.0025 * Math.sin(t * 71);
+      /* coolant colours */
+      const upT = o.r * Te + (1 - o.r) * Tr;
+      fluidMatLow.color.copy(tcol(Te)); fluidMatUp.color.copy(tcol(upT));
 
-      /* ── engine glow ── */
-      const engHeat = clamp((T - 60) / 70, 0, 1);
-      engGlowMat.opacity = engHeat * 0.30;
-      engGlow.scale.setScalar(0.9 + engHeat * 0.35);
-      if (T > 110) {
-        // Pulse warning
-        engGlowMat.color.setHex(0xef4444);
-        engGlowMat.opacity = 0.35 + 0.15 * Math.sin(t * 12);
-      } else {
-        engGlowMat.color.setHex(0xff6822);
+      /* engine, radiator, fan, gauge */
+      engG.position.x = ENG.x + 0.006 * Math.sin(t * 47); engG.position.y = ENG.y + 0.004 * Math.sin(t * 67 + 0.5);
+      const eh = clamp((Te - 60) / 70, 0, 1);
+      engGlowMat.opacity = eh * 0.30; engGlowMat.color.setHex(Te > 108 ? 0xef4444 : 0xff6822);
+      if (Te > 108) engGlowMat.opacity = 0.35 + 0.15 * Math.sin(t * 12);
+      radGlowMat.opacity = clamp((Tr - 45) / 55, 0, 1) * 0.28;
+      const wantFan = sim.fan ? 7 : 0;
+      fanSpd += (wantFan - fanSpd) * Math.min(1, dtv * 3);
+      fanAng += fanSpd * dtv;
+      fanG.rotation.z = -fanAng; M.hub.emissiveIntensity = sim.fan ? 0.8 : 0;
+      needlePivot.rotation.z = lerp(ARC0, ARC1, clamp((Te - 40) / 90, 0, 1));
+      needleMat.color.setHex(Te > 108 ? 0xef4444 : 0xf59e0b);
+
+      /* particles */
+      const spd = 0.04 + 0.10 * (o.m / 3.2);
+      const hotC = tcol(Te), cooC = tcol(Tr);
+      sIn.update(t, spd, 1); sIn.mat.color.copy(hotC);
+      sUp.update(t, spd * 0.8, o.r > 0.02 ? clamp(0.25 + o.r * 0.9, 0, 1) : 0); sUp.mat.color.copy(hotC);
+      sByp.update(t, spd * 0.8, o.byp > 0.02 ? clamp(0.25 + o.byp * 0.9, 0, 1) : 0); sByp.mat.color.copy(hotC);
+      const midC = hotC.clone().lerp(cooC, 0.5);
+      sCore.forEach((s) => { s.update(t, spd * 1.3, o.r > 0.02 ? clamp(0.3 + o.r, 0, 1) : 0); s.mat.color.copy(midC); });
+      sRet.update(t, spd * 0.8, o.r > 0.02 ? clamp(0.25 + o.r * 0.9, 0, 1) : 0); sRet.mat.color.copy(cooC);
+      const airN = clamp(o.Ca / 3.0, 0, 1);
+      sAir.forEach((s) => s.update(t, 0.12 + 0.5 * airN, airN));
+
+      /* stage canvas (throttled) */
+      const now = performance.now();
+      if (now - lastDraw > 80) { lastDraw = now; drawCurve(o); }
+
+      /* monitor */
+      let tr;
+      if (traceClear) { traceClear = false; traceSample = null; tr = { hist: null }; }
+      else {
+        if (dtReal > 0) { sampleClock += dtReal; if (sampleClock >= 0.25) { sampleClock = 0; traceSample = [clamp((Te - 20) / 110 * 100, 0, 100), clamp((Tr - 20) / 110 * 100, 0, 100), lift * 100]; } }
+        if (traceSample) { tr = { hist: traceSample }; traceSample = null; }
       }
-
-      /* ── radiator glow ── */
-      const radHeat = clamp((T - 70) / 60, 0, 1) * toRad;
-      radGlowMat.opacity = radHeat * 0.22;
-
-      /* ── cooling fan (kicks in above 95 °C or when stuck-closed overheats) ── */
-      const fanOn = T > 95 || state.failure === 'stuck-closed' && T > 90;
-      const fanSpeed = fanOn ? clamp(2.0 + (T - 95) * 0.12, 2.0, 8.0) : 0;
-      state.fanAngle += fanSpeed * dt;
-      fanGroup.rotation.z = state.fanAngle;
-
-      /* ── coolant colour ── */
-      const coolantCol = new THREE.Color().copy(COLD).lerp(HOT, clamp((T - 40) / 70, 0, 1));
-
-      /* ── flow particles ── */
-      const speedScale = state.flowPaused ? 0 : 1;
-      state.flowPhase = (state.flowPhase + dt * 0.55 * speedScale) % 1;
-
-      const flowSpeed = 0.20 + toRad * 0.35;
-      const bypSpeed  = 0.20 + toByp * 0.35;
-
-      function updateFlow(arr, curve, col, phaseOffset, speed, active) {
-        for (let i = 0; i < arr.length; i++) {
-          const f = arr[i];
-          const u = ((i / arr.length) + state.flowPhase * speed * 4 + phaseOffset) % 1;
-          const p = curve.getPointAt(u);
-          f.mesh.position.copy(p);
-          const edge = Math.min(1, Math.min(u * 6, (1 - u) * 6));
-          const baseOp = active ? 0.85 : 0;
-          f.mat.opacity = baseOp * edge;
-          f.mat.color.copy(col);
-        }
-      }
-
-      updateFlow(upperFlow, upperHose.curve, coolantCol, 0.00, flowSpeed, true);
-      updateFlow(radFlow,   radHose.curve,   coolantCol, 0.15, flowSpeed, toRad > 0.05);
-      updateFlow(retFlow,   retHose.curve,   COLD.clone().lerp(coolantCol, 0.30), 0.30, flowSpeed * (0.6 + toRad * 0.4), true);
-      updateFlow(bypFlow,   bypHose.curve,   coolantCol, 0.45, bypSpeed, toByp > 0.10);
-
-      /* ── heat shimmer above the radiator ── */
-      shimmers.forEach(s => {
-        if (s.life > 0) {
-          s.life -= dt;
-          s.mesh.position.y += s.vy * dt;
-          s.mesh.position.x += s.vx * dt;
-          s.mesh.position.z += s.vz * dt;
-          const f = clamp(s.life / s.maxLife, 0, 1);
-          s.mat.opacity = Math.sin(f * Math.PI) * 0.30;
-          s.mesh.scale.setScalar(0.5 + (1 - f) * 1.4);
-        } else if (radHeat > 0.25 && Math.random() < 0.16) {
-          s.life = s.maxLife;
-          s.mesh.position.set(
-            RAD_POS.x + (Math.random() - 0.5) * 1.0,
-            RAD_POS.y + 1.15,
-            (Math.random() - 0.5) * 0.35
-          );
-          s.vx = (Math.random() - 0.5) * 0.18;
-          s.vy = 0.40 + Math.random() * 0.50;
-          s.vz = (Math.random() - 0.5) * 0.10;
-          s.mat.opacity = 0;
-        } else {
-          s.mat.opacity = 0;
-        }
-      });
-
-      /* ── gauge needle: bottom-left (cold) → bottom-right (hot) ── */
-      const gaugeFrac = clamp((T - 40) / 90, 0, 1);
-      needlePivot.rotation.z = lerp(ARC_START, ARC_END, gaugeFrac);
-      needle.material.color.setHex(T > 105 ? 0xef4444 : 0xf59e0b);
-
-      /* ── strip chart ── */
-      let sample;
-      if (EXT.clear) { EXT.clear = false; sample = null; lastSampleT = -1; }
-      else if (c.dt > 0 && t - lastSampleT > 0.10) { lastSampleT = t; sample = [T, T_open]; }
-
-      /* ── HUD ── */
-      const mode = state.failure === 'stuck-closed' ? 'STUCK CLOSED'
-                 : state.failure === 'stuck-open'   ? 'STUCK OPEN'
-                 : state.failure === 'sluggish'     ? 'SLUGGISH'
-                 : (T < T_open ? 'Warming up'
-                    : T < T_full ? 'Modulating'
-                    : 'Fully open');
-
-      const statusCls = T > 108 ? 'crit'
-                      : T < 60  ? 'warn'
-                      : T < T_open ? 'warn'
-                      : 'ok';
-
-      const waxPct = (waxStrain / 0.20 * 100).toFixed(0);
-
-      // Warm-up timer
-      let warmTxt = '—';
-      if (state.warmupStartT !== null) {
-        if (T >= T_open) state.warmupStartT = null;
-        else warmTxt = (t - state.warmupStartT).toFixed(1) + ' s';
-      }
-
-      const fanTxt = fanOn ? (fanSpeed.toFixed(1) + ' rad/s') : 'Off';
+      const [pt, ptone] = phase(o);
+      const warn = FAULT_WARN[S.fault] || (o.boiling ? 'Coolant boiling — stop the engine.' : (Te > 108 ? 'Coolant ' + Te.toFixed(0) + ' °C — overheating. Add load relief or airflow.' : ''));
+      const mm = o.mm.toFixed(1) + ' mm';
+      let warmTxt;
+      const wm = sim.warmClock, wf = (v) => (v >= 100 ? Math.floor(v / 60) + ':' + String(Math.floor(v % 60)).padStart(2, '0') : v.toFixed(0) + ' s');
+      if (sim.warmDone) warmTxt = wf(wm) + ' ✓'; else warmTxt = wf(wm) + (S.fault === 'open' && wm > 300 ? ' · never' : ' …');
+      const heatTxt = o.heater < 0.15 ? 'Cold' : o.heater < 0.6 ? 'Warming' : 'Hot';
 
       return {
-        big: T.toFixed(0),
-        unit: ' °C',
-        bar: clamp((T - 40) / 90 * 100, 0, 100),
-        rows: {
-          open: liftMm.toFixed(1) + ' mm',
-          rad:  (toRad * 100).toFixed(0) + ' %'
-        },
+        big: Te.toFixed(0), unit: ' °C', bar: clamp((Te - 20) / 110 * 100, 0, 100),
+        rows: { open: mm, rad: (o.r * 100).toFixed(0) + ' %' },
         ro: {
-          temp: [T.toFixed(0) + ' °C', T > 108 ? 'crit' : T < 60 ? 'warn' : 'hi'],
-          open: [liftMm.toFixed(1) + ' mm', ''],
-          rad:  [(toRad * 100).toFixed(0) + ' %', ''],
-          byp:  [(toByp * 100).toFixed(0) + ' %', ''],
-          mode: [mode, statusCls],
-          wax:  [waxPct + ' %', ''],
-          warm: [warmTxt, ''],
-          fan:  [fanTxt, fanOn ? 'hi' : '']
+          open: [mm, ''],
+          wax: [(sim.melt * 100).toFixed(0) + ' %', sim.melt > 0.02 ? 'hi' : ''],
+          rad: [(o.r * 100).toFixed(0) + ' %', ''],
+          byp: [(o.byp * 100).toFixed(0) + ' %', ''],
+          tout: [Tr.toFixed(0) + ' °C', Tr > 100 ? 'warn' : ''],
+          qout: [o.Qrad.toFixed(1) + ' kW', ''],
+          fan: [sim.fan ? 'On' : 'Off', sim.fan ? 'hi' : ''],
+          heat: [heatTxt, o.heater < 0.15 ? 'warn' : ''],
+          mode: [pt, ptone],
+          warm: [warmTxt, '']
         },
-        status: [mode, T > 108 || T < T_open],
-        ...(sample === undefined ? {} : { traces: { temp: sample } }),
-        ctl: T.toFixed(0) + ' °C'
+        status: [warn || pt, true, warn ? (ptone === 'crit' ? 'crit' : 'warn') : ptone === 'ok' ? '' : ptone],
+        traces: tr,
+        ctl: (load * 100).toFixed(0) + ' %'
       };
     }
   };
