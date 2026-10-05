@@ -153,6 +153,25 @@ t('menu: phone → bottom sheet, desktop → popover; open/close bookkeeping', (
   }
 });
 
+t('menu: rows a module cannot use are hidden, not removed; setHidden() changes them at run time and focus skips them', () => {
+  const { doc } = makeDoc();
+  const m = C.createMenu({ doc, host: doc.body, hide: ['density', 'wireframe', 'xray'] });
+  const sw = (k) => m.root.all((c) => c.getAttribute('data-key') === k)[0];
+  const dens = () => m.root.all((c) => c.getAttribute('role') === 'radiogroup')[0].parentElement;
+  assert.ok(sw('wireframe') && sw('xray') && dens(), 'rows exist so they can come back');
+  assert.equal(sw('wireframe').hidden, true); assert.equal(sw('xray').hidden, true); assert.equal(dens().hidden, true);
+  assert.equal(sw('theme').hidden, false, 'the theme row is always there');
+  assert.equal(m.isHidden('xray'), true); assert.equal(m.isHidden('theme'), false);
+  m.open();
+  m.root.fire('keydown', { key: 'Tab', shiftKey: true });                 /* from the first control to the last one that can take focus */
+  assert.equal(doc.activeElement, sw('theme'), 'the focus trap ends at the theme switch, not in a hidden row');
+  m.close();
+  m.setHidden([]);
+  assert.equal(sw('wireframe').hidden, false); assert.equal(sw('xray').hidden, false); assert.equal(dens().hidden, false);
+  m.setHidden(['xray']);
+  assert.equal(sw('xray').hidden, true); assert.equal(sw('wireframe').hidden, false);
+});
+
 t('menu is a single node: host receives exactly one backdrop + one dialog', () => {
   const { doc } = makeDoc();
   C.createMenu({ doc, host: doc.body });

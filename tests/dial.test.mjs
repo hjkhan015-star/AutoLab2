@@ -160,16 +160,14 @@ await t('acceptance grep: no steer-wheel / crank-wheel / steer-label / "Centre w
   for (const f of files) assert.ok(!/steer-wheel|crank-wheel|steer-label|Centre wheels/.test(rd(f)), `${f} still has an old steering / crank widget`);
 });
 
-await t('engine / steering / differential / awd each declare ONE dial and read it through ui.controls', () => {
+await t('engine / steering / awd each declare ONE dial and read it through ui.controls', () => {
   assert.match(rd('engine.html'), /id: 'crank', type: 'dial', look: 'crank'[\s\S]*?range: 720, wrap: true/);
   assert.match(rd('steering.html'), /id: 'wheel', type: 'dial', look: 'wheel'[\s\S]*?range: 360[\s\S]*?spring: 'return'/);
-  assert.match(rd('differential.html'), /id: 'wheel', type: 'dial', look: 'wheel'[\s\S]*?MAX_STEER_ANGLE[\s\S]*?spring: 'return'/);
   assert.match(rd('awd.html'), /id:'steer', type:'dial', look:'wheel'/);
   assert.match(rd('awd.html'), /S\.steering = Math\.abs\(n\)/, 'awd keeps S.steering = magnitude 0..1');
   assert.match(rd('steering.html'), /steerAngle = -ui\.controls\.get\('wheel'\) \* WHEEL_MAX_ANGLE/, 'steering: clockwise = right = steerAngle < 0');
-  assert.match(rd('differential.html'), /steerAngle = ui\.controls\.get\('wheel'\) \* MAX_STEER_ANGLE/, 'differential: clockwise = positive');
   assert.match(rd('engine.html'), /ui\.controls\.on\('crank'/);
-  for (const f of ['engine.html', 'steering.html', 'differential.html', 'awd.html']) {
+  for (const f of ['engine.html', 'steering.html', 'awd.html']) {
     const s = rd(f);
     assert.ok(!/setPointerCapture|pointerdown|'ArrowLeft'|'ArrowRight'/.test(s), `${f}: no hand-written rotary pointer / key handlers`);
     assert.ok(!/\.sw-(rim|spoke|hub|marker)|\.crank-(ring|spoke|hub|marker|handle)/.test(s), `${f}: old wheel / crank skin CSS is gone`);
@@ -184,14 +182,12 @@ await t('engine: the crank angle is shown ONCE (the dial) — not in the badge, 
   assert.match(s, /crankDial\.set\(theta \/ TAU2\)/, 'the sim mirrors theta into the dial');
 });
 
-await t('steering / differential: no centre button, no duplicate wheel markup, Reset goes through the dial', () => {
+await t('steering: no centre button, no duplicate wheel markup, Reset goes through the dial; differential is a guided module with a plain Steering axis', () => {
   const st = rd('steering.html'), df = rd('differential.html');
   assert.ok(!/steer-center|steer-reset-btn/.test(st));
   assert.match(st, /case 'reset': ui\.controls\.resetAll\(\)/);
-  assert.match(df, /ui\.controls\.resetAll\(\);\s*\/\* wheel back to centre/);
   assert.ok(!/steerDragging|steerWheelEl|steerRotorEl|clampSteer|STEER_RETURN_RATE/.test(df + st), 'old drag / spring state is gone');
-  assert.match(df, /onGrab: \(on\) => \{ if \(on\) disengageAutoDrive\(\); \}/, 'touching the wheel still disengages Auto Drive');
-  assert.match(df, /ui\.controls\.dragging\('wheel'\)/);
+  assert.ok(!/type: ?'dial'/.test(df) && /id: 'turn', label: 'Steering'/.test(df), 'differential steers with an axis, not a dial');
 });
 
 await t('controls.css dial: tokens only, 44 px minimum, ≤ 96 px on phones, focus ring', () => {
@@ -213,7 +209,7 @@ await t('controls.js: createDial uses the SHARED loop (still exactly one request
   assert.match(js, /role="slider"/); assert.match(js, /prefers-reduced-motion|reduced\(\)/);
   assert.match(rd('kit.js'), /spec\.type === 'dial' \? createDial\(spec\)/, 'UI.create({axes}) hosts dials');
   const dials = Object.fromEntries(pages.map((f) => [f, (rd(f).match(/type: ?'dial'/g) || []).length]).filter(([, c]) => c));
-  assert.deepEqual(dials, { 'awd.html': 1, 'differential.html': 1, 'engine.html': 1, 'steering.html': 1 }, 'exactly one dial per migrated module, none elsewhere');
+  assert.deepEqual(dials, { 'awd.html': 1, 'engine.html': 1, 'steering.html': 1 }, 'exactly one dial per migrated module, none elsewhere');
 });
 
 /* ── DOM (optional) ───────────────────────────────────────────────────── */
