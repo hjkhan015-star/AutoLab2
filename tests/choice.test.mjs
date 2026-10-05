@@ -165,7 +165,7 @@ await t('6.5: dead selectors stay deleted (.al-w, .al-sel in components.css; the
   const dead = /\.dt-btn|\.muf-btn|\.drive-btn|\.ms-btn|\.key-btn|\.at-gearsel-btn|\.al-fault-btn|#oil-switch-btn|\.awd-btns|\.cat-btns|\.al-fault-row|\.cfg-arrow/;
   for (const f of [...pages, 'components.css', 'controls.css', 'app.css']) assert.ok(!dead.test(rd(f)), `${f}: deleted selector is back`);
 });
-await t('6.5: sw.js cache is autolab-v8.6.x', () => assert.match(rd('sw.js'), /const VERSION = 'autolab-v8\.[6-9](\.\d+)?'/));
+await t('6.5: sw.js cache is autolab-v8.6.x', () => assert.match(rd('sw.js'), /const VERSION = 'autolab-v8\.([6-9]|10)(\.\d+)?'/));
 
 /* ── DOM (needs jsdom) ────────────────────────────────────────────────── */
 let JSDOM = null;

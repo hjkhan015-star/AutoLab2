@@ -110,4 +110,16 @@ t('8.9.1 shell ⋯ menu: the module reports the rows it cannot use, the shell hi
   assert.match(ix, /if \(!menu\.isHidden\('xray'\)\) setXRay/);
   assert.match(rd('sensors.html'), /menuHide:\['density','wireframe','xray'\]/);
 });
+t('8.10 wide screens: left control rail, Monitor right column, the stage insets by both, no bottom bar', () => {
+  const css = rd('controls.css');
+  assert.match(css, /\.al-dock\[data-mode="wide"\] \{[^}]*top: var\(--stage-top\); left: 0; bottom: 0;[^}]*width: var\(--dock-rail-l\)/);
+  assert.match(css, /\.al-dock\[data-mode="wide"\]\[data-state="slim"\] \.al-dock-slot,\s*\.al-dock\[data-mode="wide"\]\[data-state="slim"\] \.al-dock-options \{ display: none; \}/, 'folded = transport only');
+  assert.match(css, /html\[data-dock="wide"\] #ui-top-stack > #ui-slot-tr \{[^}]*position: fixed; top: var\(--stage-top\); right: 0; bottom: 0;[^}]*width: var\(--dock-rail-r\)/);
+  assert.match(css, /html\[data-dock="wide"\]:not\(\[data-monitor\]\) #ui-top-stack > #ui-slot-tr \{ display: none; \}/);
+  assert.match(css, /\.al-dock\[data-mode="wide"\] \.ui-widget:has\(\.ctl-axis\) \{ align-items: stretch; \}/, 'sliders use the whole rail');
+  const k = rd('kit.js');
+  assert.match(k, /dataset\.monitor = '1'/); assert.match(k, /layoutMode\(window\.innerWidth, window\.innerHeight\) === 'wide'\) orb\.set\(false\)/, 'the Monitor never sits folded in its column');
+  assert.ok(!/--dock-rail\b(?!-)/.test(css + rd('app.css') + rd('sensors.html')), 'the single --dock-rail is gone: --dock-rail-l / --dock-rail-r');
+  assert.match(rd('sensors.html'), /@media \(min-width: 721px\) and \(max-width: 1023px\) and \(min-height: 541px\) \{ body \{ padding-right: 232px; \} \}/, 'the 232 px gutter is only for the floating card');
+});
 console.log(`${n} phase 8 tests passed`);

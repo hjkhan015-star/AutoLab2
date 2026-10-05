@@ -63,7 +63,7 @@ await t('controls.js + controls-core.js precached; cache version bumped', () => 
   const sw = rd('sw.js');
   assert.match(sw, /'\.\/controls\.js'/);
   assert.match(sw, /'\.\/controls-core\.js'/);
-  assert.match(sw, /autolab-v8\.[3-9]/);
+  assert.match(sw, /autolab-v8\.([3-9]|10)/);
 });
 
 await t('controls.css: axis is 44 px, tokens only, focus ring + reduced motion', () => {

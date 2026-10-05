@@ -68,7 +68,10 @@ t('chrome: phone sheet <= 50vh, popover on desktop, reduced motion respected', (
 t('Phase 2: dock tokens (default 24vh, max 30vh) and the stage insets', () => {
   assert.equal(vh('--dock-default'), 24); assert.equal(vh('--dock-max'), 30);
   assert.ok(px('--dock-slim') === 56 && px('--dock-options') <= 44 && px('--dock-options') >= 40 && px('--dock-rail-w') === 140);
-  assert.match(css, /#canvas-wrap \{ inset: var\(--stage-top\) var\(--dock-rail\) var\(--dock-h\) var\(--dock-rail\); \}/);
+  assert.match(css, /#canvas-wrap \{ inset: var\(--stage-top\) var\(--dock-rail-r\) var\(--dock-h\) var\(--dock-rail-l\); \}/);
+  assert.match(css, /:root \{[^}]*--dock-wide-w: 280px;[^}]*--dock-wide-slim: 56px;/, 'wide rail tokens match dock.js (DOCK.wideRailPx, DOCK.slimPx)');
+  assert.match(css, /@media \(min-width: 1600px\) and \(min-height: 541px\) \{ :root \{ --dock-wide-w: 320px;/, 'TV width matches DOCK.wideRailTvPx');
+  assert.match(css, /@media \(min-width: 1024px\) and \(min-height: 541px\) \{ :root \{ --dock-h: 0px; --dock-rail-l: var\(--dock-wide-w\); --dock-rail-r: var\(--dock-wide-w\); \} \}/, 'first-paint fallback for the wide layout');
   assert.match(css, /body\.embedded \{ --stage-top: 0px; \}/, 'embedded: top inset is 0');
   assert.match(css, /--stage-top: calc\(var\(--hdr-h\) \+ var\(--safe-t, 0px\)\)/, 'standalone: top inset is --hdr-h');
 });
