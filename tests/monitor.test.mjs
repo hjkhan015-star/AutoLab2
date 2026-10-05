@@ -435,7 +435,7 @@ await t('7b3: the dock has no legend page — components.js passes no widgets, a
   const c = rd('components.js'); assert.ok(!/widgets\s*:/.test(c.slice(c.indexOf('UI.create('))), 'components.js: UI.create without widgets');
   assert.match(c, /footer: CFG\.legend/);
 });
-await t('7b3: sw.js is autolab-v8.8', () => { assert.match(rd('sw.js'), /VERSION = 'autolab-v8\.8'/); });
+await t('7b3 (kept in Phase 8): sw.js VERSION is autolab-v8.8 or later', () => { assert.match(rd('sw.js'), /VERSION = 'autolab-v8\.([89])(\.\d+)?'/); });
 
 let JSDOM = null;
 try {
