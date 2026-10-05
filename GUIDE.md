@@ -1,4 +1,4 @@
-# Auto Lab v8.9.1 — Build Guide
+# Auto Lab v8.9.3 — Build Guide
 
 How a module page is put together, how to add one, and the rules the tests enforce.
 Reference tables (every control spec, every Monitor channel) are in `COMPONENTS.md`.
@@ -97,8 +97,9 @@ Keys are ignored while typing in an input / select, with Ctrl / Meta / Alt held,
 
 - Header: one row, **32 px** (28 px on a landscape phone). Standalone only; embedded modules have no header of their own.
 - Dock: default **24 vh**, hard ceiling **30 vh**; slim state 56 px; options row 44 px; landscape phones use two 140 px side rails. Tap targets are at least `--ctl-tap` (44 px).
+- Wide screens (**1024 px and up**, not a phone): no bottom bar. Controls live in a **left rail** (280 px, 320 px from 1600 px, scrolls if long), the Monitor is the **right column**, and the model uses the middle at full height. The ‹ handle folds the rail to a 56 px strip (saved per module). 721 - 1023 px keeps the one-row bottom bar.
 - Info panel: a bottom sheet of at most 50 vh on phones (closed by default, opened by ⓘ); a side panel on desktop.
-- Monitor: a 28 px strip under the header on phones, a card at the top right on desktop. Keep the row list short enough to read at a glance (the longest today are crankshaft-piston with 17 and mpfi / lubrication with 11; QA.md tracks them).
+- Monitor: a 28 px strip under the header on phones, a card at the top right from 721 px, the right column from 1024 px (never folded to an orb there). Keep the row list short enough to read at a glance (the longest today are crankshaft-piston with 17 and mpfi / lubrication with 11; QA.md tracks them).
 - The model sits in the upper / middle of the stage (`--stage-top` to `--dock-h`). A stage canvas must not cover it.
 - Motion respects `prefers-reduced-motion`.
 - Offline: after the first visit everything (including three.js) is served from the cache.
@@ -120,7 +121,8 @@ Keys are ignored while typing in an input / select, with Ctrl / Meta / Alt held,
 |---|---|---|
 | Look of every control (size, radius, track, thumb, focus) | the `--ctl-*` tokens at the top of `controls.css`; per-control values (`--ctl-thumb-size`, `--ctl-pad-w`, `--ctl-dial-size`) sit in that control's block | Tokens only (R3). Landscape rails lower the axis floor with `--ctl-axis-min`. |
 | Colours, light theme | `app.css` tokens (`--c-*`, `--ink`, `--paper`) | One edit reaches every page and both themes. |
-| Dock layout per viewport (portrait pages, landscape rails, desktop bar) | `dock.js` (`dockLayout`, `dockHeightPx` are pure and tested) and the `.al-dock[data-mode=…]` blocks in `controls.css` | Add the test beside the change in `tests/dock.test.mjs`. |
+| Dock layout per viewport (portrait sheet, landscape rails, wide left rail, desktop bar) | `dock.js` (`layoutMode`, `dockLayout`, `wideRailPx` are pure and tested) and the `.al-dock[data-mode=…]` blocks in `controls.css` | Add the test beside the change in `tests/dock.test.mjs`. Widths of the wide rails: `--dock-wide-w` / `--dock-wide-slim` (keep them equal to `DOCK.wideRailPx` / `slimPx`; `layout.test.mjs` checks). |
+| Wide-screen look of the rail or Monitor column (more width, a different order, a second column on a TV) | the `data-mode="wide"` and `html[data-dock="wide"]` blocks in `controls.css` | Everything is tokens and the two inset variables `--dock-rail-l` / `--dock-rail-r`; the stage, labels and stage canvases already follow them. |
 | A new control kind | `controls-core.js` (logic) + `controls.js` (node) + its block in `controls.css` + a row in `COMPONENTS.md` section 3 | Modules only declare a spec. |
 | Monitor: a new row, trace or gauge look | `monitor.js` / `monitor-core.js` | Modules only declare channels in their config. |
 | A ⋯ menu row | `chrome.js` `createMenu` (rows in the `hideable` map can be hidden per module) | A new view option also needs a shell command in `index.html` and `kit.js` `dispatch`. |

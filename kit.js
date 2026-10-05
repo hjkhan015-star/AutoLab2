@@ -13,7 +13,7 @@
 import { createLabelSystem as _createLabelSystem, KINDS as LABEL_KINDS, DENSITY_INFO, getLabelDensity, setLabelDensity } from './labels.js';
 import { createKeyRouter, installKeys } from './keys.js';
 import { nextDensity, isPhone, createHeader, createMenu, clampSpeed, chromeButton } from './chrome.js';
-import { createDock, modelShiftPx } from './dock.js';
+import { createDock, modelShiftPx, classifyDevice, layoutMode } from './dock.js';
 import { controls, createAxis, createMomentary, createDial, createChoice, createToggle, createAction } from './controls.js';
 import { createMonitor } from './monitor.js';
 export { controls };
@@ -75,9 +75,10 @@ function detectQuality() {
   const cores    = navigator.hardwareConcurrency || 4;
   const mem      = navigator.deviceMemory || 4;
   const dpr      = window.devicePixelRatio || 1;
-  const isLowEnd = cores <= 4 || mem <= 2;
-  const isMidEnd = !isLowEnd && (cores <= 6 || mem <= 4 || (isCoarse && dpr >= 2.5));
-  const isHighEnd = !isLowEnd && !isMidEnd;
+  const tier = classifyDevice({ cores, mem, dpr, isCoarse });   /* one classification, shared with the dock (Phase 9a) */
+  const isLowEnd = tier === 'low';
+  const isMidEnd = tier === 'mid';
+  const isHighEnd = tier === 'high';
   const dprCap = isLowEnd ? 1.75 : isMidEnd ? 2 : 2.5;
   const look = isLowEnd
     ? { antialias: dpr < 2, shadows:false, shadowMapSize:0, rimLight:false,
@@ -305,7 +306,11 @@ export function buildScene(opts = {}) {
       last = t;
       if (n >= 60) {
         const avg = sum / n; sum = 0; n = 0;
-        if (avg > 34) { calm = 0; if (++slow >= 2 && ratio > minR) { ratio = Math.max(minR, ratio - 0.25); slow = 0; renderer.setPixelRatio(ratio); } }
+        if (avg > 34) {
+          calm = 0;
+          if (++slow >= 2 && ratio > minR) { ratio = Math.max(minR, ratio - 0.25); slow = 0; renderer.setPixelRatio(ratio); }
+          else if (slow >= 3 && ratio <= minR) { slow = 0; window.dispatchEvent(new Event('al-perf-slow')); }   /* resolution is at its floor: ask the dock to paint cheaper */
+        }
         else if (avg < 20) { slow = 0; if (++calm >= 2 && ratio < maxR) { ratio = Math.min(maxR, ratio + 0.25); calm = 0; renderer.setPixelRatio(ratio); } }
         else { slow = 0; calm = 0; }
       }
@@ -833,9 +838,17 @@ class UIKit {
     this._monitor = createMonitor({ mount: this._slots.tr, doc: document, moduleId: this.moduleId });
     this._monitor.set(config);
     if (initial) { this._monitor.update(initial); this._monitor.flush(); }
-    /* Phones show the readout as a strip (the card slides down on tap); the orb is a desktop nicety. */
-    if (!isPhone(window.innerWidth, window.innerHeight))
-      this._makeCollapsible(this._monitor.root, '<svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3zm4 0h2v-2H7zm4 0h2v-2h-2zm4 0h2v-2h-2zm4 0h2v-2h-2z"/></svg>');
+    /* Wide screens dock the Monitor as the right column (the stage is inset by it), so the page has a Monitor column. */
+    document.documentElement.dataset.monitor = '1';
+    this._dock.relayout();
+    /* Phones show the readout as a strip (the card slides down on tap); the orb is a card-on-stage nicety (721 - 1023 px).
+       In the wide column it never collapses: a card folded back to an orb would leave an empty column. */
+    if (!isPhone(window.innerWidth, window.innerHeight)) {
+      const orb = this._makeCollapsible(this._monitor.root, '<svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3zm4 0h2v-2H7zm4 0h2v-2h-2zm4 0h2v-2h-2zm4 0h2v-2h-2z"/></svg>');
+      const unfold = () => { if (layoutMode(window.innerWidth, window.innerHeight) === 'wide') orb.set(false); };
+      unfold();
+      window.addEventListener('resize', unfold);
+    }
     return this._monitor.root;
   }
 

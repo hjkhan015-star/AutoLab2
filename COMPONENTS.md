@@ -1,4 +1,4 @@
-# Auto Lab v8.9.1 — Components and Control Reference
+# Auto Lab v8.9.3 — Components and Control Reference
 
 The building blocks. How to put them together: `GUIDE.md`.
 
@@ -90,6 +90,13 @@ Choose a surface: **row** for a plain number, **trace** for a time series, **sta
 ## 7. Dock
 
 Built by `UI.create`. States: `slim` (56 px), `default` (24 vh), `options` (44 px row added); ceiling 30 vh. Primary zone: 1–3 controls in thumb zones, 4 or more as pages with dots. Landscape phones: two 140 px side rails. Desktop: one bar. Extra API on `ui.toolbar.dock`: `addOption(node)`, `addPrimary({ id, side, node })`, `refresh()`.
+
+### Options grid and "More" (Phase 9b)
+Phone portrait never scrolls the options sideways. `.al-dock-options` is a wrapping grid; every option is a **cell** (small label above, 44 px control below). Toggles / actions / Flow are compact chips side by side; the zone may scroll vertically, never horizontally.
+- **More rule:** more than 4 cells → the first 3 stay, a 44 px **More** chip (`aria-expanded`, `aria-haspopup="dialog"`) opens a glass sheet (`role="dialog"`, `aria-label="More options"`, `--z-menu`) with the rest in the same grid. Esc, the scrim and **Done** close it; focus is trapped and returns to the chip. `splitOptionCells(cells, max = 4)` in dock.js is the single rule.
+- **Choice with many items:** a segmented control with more than 4 segments wraps into rows of up to 4 (`segGrid(n)`; the last button fills its row); every item stays one tap away. A choice with 4+ segments, a `select` or a gate takes a full row; shorter ones share a row.
+- Landscape phone rails and the desktop bar keep their layout (no chip). The wide (≥ 1024 px) left rail uses the same cells without a chip: a choice takes a full row, chips sit side by side, the rail scrolls vertically. Layout and tap sizes never depend on `data-ui-tier`.
+- Spec authors change nothing: `options: [...]` and `addOptions` are as before.
 
 ## 8. Colour tokens
 

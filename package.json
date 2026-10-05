@@ -1,11 +1,11 @@
 {
   "name": "autolab2",
-  "version": "8.9.1",
+  "version": "8.9.3",
   "private": true,
   "description": "Interactive 3D automotive learning lab (static PWA)",
   "scripts": {
     "start": "python3 -m http.server 8080",
-    "test": "node tests/check.mjs && node tests/labels.test.mjs && node tests/controls.test.mjs && node tests/layout.test.mjs && node tests/keys.test.mjs && node tests/chrome.test.mjs && node tests/shell.test.mjs && node tests/dock.test.mjs && node tests/axis.test.mjs && node tests/dial.test.mjs && node tests/choice.test.mjs && node tests/monitor.test.mjs && node tests/phase8.test.mjs"
+    "test": "node tests/check.mjs && node tests/labels.test.mjs && node tests/controls.test.mjs && node tests/layout.test.mjs && node tests/keys.test.mjs && node tests/chrome.test.mjs && node tests/shell.test.mjs && node tests/dock.test.mjs && node tests/axis.test.mjs && node tests/dial.test.mjs && node tests/choice.test.mjs && node tests/monitor.test.mjs && node tests/phase8.test.mjs && node tests/glass.test.mjs && node tests/options.test.mjs"
   },
   "type": "module"
 }

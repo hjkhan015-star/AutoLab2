@@ -6,11 +6,14 @@
      handle      swipe up → options row · swipe down → slim 56 px bar
      transport   play / pause · reset                 (built once, R1)
      primary     1–3 slots · 2 = left/right thumb zones · 3+ = pages + dots
-     options     horizontal chips (Flow, module extras) 40–44 px
+     options     wrapping grid of cells, label above control, 44 px (Flow, module options);
+                 portrait: > 4 cells → first 3 + a "More" chip that opens a sheet. Never a sideways scroll.
 
    Phone portrait   bottom sheet, default 24 vh, hard ceiling 30 vh
    Phone landscape  two side rails, 140 px each
-   Desktop          one auto-height bar at the bottom
+   Wide (>= 1024)   controls in a left rail (280 px, 320 from 1600), the Monitor docked as a right column,
+                    the model between them; the handle folds the left rail to a 56 px strip
+   Desktop          one auto-height bar at the bottom (721 - 1023 px wide)
 
    The first half of this file is PURE (no DOM, no globals) and unit-tested
    in node (tests/dock.test.mjs). The DOM half is deliberately thin: it only
@@ -26,6 +29,10 @@ export const DOCK = Object.freeze({
   handlePx: 20,       /* grab handle                                           */
   optionsPx: 44,      /* options row (40–44 px chips)                          */
   railPx: 140,        /* landscape-phone side rails                            */
+  wideMinPx: 1024,    /* from this width (and not a phone) the dock is a left rail */
+  wideRailPx: 280,    /* wide: left control rail, and the Monitor column on the right */
+  wideRailTvPx: 320,  /* wide: from tvMinPx (TV / large desktop)               */
+  tvMinPx: 1600,
   kbdDeltaPx: 120,    /* visual viewport shrink that counts as "keyboard open" */
   swipePx: 24         /* minimum vertical travel that counts as a swipe        */
 });
@@ -34,10 +41,58 @@ export const DOCK = Object.freeze({
 export const STATES = Object.freeze(['slim', 'default', 'options']);
 export const isState = (s) => STATES.includes(s);
 
+/* ── pure: device tier (Phase 9a) ─────────────────────────────────────────
+   ONE classification for 3D quality (kit.js detectQuality) and for the dock's paint effects.
+   high = full glass · mid = lighter glass · low = solid fill. Layout and tap sizes never depend on the tier. */
+export const TIERS = Object.freeze(['low', 'mid', 'high']);
+export const isTier = (t) => TIERS.includes(t);
+/** { cores, mem, dpr, isCoarse } → 'low' | 'mid' | 'high' (the thresholds kit.js has always used). */
+export function classifyDevice({ cores = 4, mem = 4, dpr = 1, isCoarse = false } = {}) {
+  if (cores <= 4 || mem <= 2) return 'low';
+  if (cores <= 6 || mem <= 4 || (isCoarse && dpr >= 2.5)) return 'mid';
+  return 'high';
+}
+/** The tier the dock paints with. Priority: ?ui= override → reduced transparency (forces low) → the device. */
+export function uiTier({ device = 'mid', override = null, reduceTransparency = false } = {}) {
+  if (isTier(override)) return override;
+  if (reduceTransparency) return 'low';
+  return isTier(device) ? device : 'mid';
+}
+/** One step toward "cheaper" (used by the live frame-time governor). low stays low. */
+export function stepDownTier(t) {
+  const i = TIERS.indexOf(t);
+  return i <= 0 ? 'low' : TIERS[i - 1];
+}
+/** Reads `?ui=low|mid|high` from a query string; anything else → null. */
+export function tierOverride(search) {
+  const m = /[?&]ui=([a-z]+)/i.exec(String(search || ''));
+  const v = m && m[1].toLowerCase();
+  return isTier(v) ? v : null;
+}
+
+/* ── pure: options grid (Phase 9b) ────────────────────────────────────────
+   Phone portrait shows at most `max` option cells in the dock. Above that: the first max−1 stay, the rest go
+   behind a "More" chip (a sheet). Never loses or reorders a cell. */
+export function splitOptionCells(cells, max = 4) {
+  const list = Array.isArray(cells) ? cells.filter((c) => c != null) : [];
+  const cap = Math.max(2, Math.floor(+max) || 4);
+  if (list.length <= cap) return { shown: list, more: [] };
+  return { shown: list.slice(0, cap - 1), more: list.slice(cap - 1) };
+}
+/** Segmented control with many items → a grid of rows. { cols, span } = columns and how far the last button stretches. */
+export function segGrid(n, perRow = 4) {
+  const count = Math.max(0, Math.floor(+n) || 0);
+  if (count <= perRow) return { cols: Math.max(1, count), span: 1 };
+  const rows = Math.ceil(count / perRow);
+  const cols = Math.ceil(count / rows);
+  const rem = count % cols;
+  return { cols, span: rem ? cols - rem + 1 : 1 };
+}
+
 /* ── pure: layout mode ────────────────────────────────────────────────── */
-/** 'desktop' | 'portrait' | 'landscape'. Phone = max-width 720 OR max-height 540 (R2). */
+/** 'wide' | 'desktop' | 'portrait' | 'landscape'. Phone = max-width 720 OR max-height 540 (R2). */
 export function layoutMode(w, h) {
-  if (!isPhone(w, h)) return 'desktop';
+  if (!isPhone(w, h)) return w >= DOCK.wideMinPx ? 'wide' : 'desktop';
   return w > h ? 'landscape' : 'portrait';
 }
 
@@ -77,6 +132,7 @@ export function tapState(state, opts) {
  * Dock height in px for a state.
  *   portrait  : slim = 56 · default = 24 vh · options = min(default + 44, 30 vh)
  *   landscape : 0 (the dock is two side rails, so it takes no height)
+ *   wide      : 0 (a left rail, so no height either)
  *   desktop   : null (auto — the DOM measures the bar)
  * The safe-area inset is part of the dock (it pads the bottom), so the 30 vh ceiling includes it.
  * `vh` is the height of THIS document's viewport — inside the shell's iframe that is the
@@ -85,7 +141,7 @@ export function tapState(state, opts) {
 export function dockHeightPx(state, vh, { w = 0, safeB = 0 } = {}) {
   const mode = layoutMode(w, vh);          /* w omitted → treated as a narrow (portrait) phone */
   if (mode === 'desktop') return null;
-  if (mode === 'landscape') return 0;
+  if (mode === 'landscape' || mode === 'wide') return 0;
   const s = isState(state) ? state : 'default';
   const def = Math.round(vh * DOCK.defaultVh / 100);
   const max = Math.round(vh * DOCK.maxVh / 100);
@@ -93,13 +149,23 @@ export function dockHeightPx(state, vh, { w = 0, safeB = 0 } = {}) {
   return Math.min(max, s === 'options' ? def + DOCK.optionsPx : def);
 }
 
-/** Everything the CSS needs, as plain values: { mode, dockH, railW }. */
-export function dockLayout(state, w, h, { safeB = 0 } = {}) {
+/** Width of the wide left rail: 56 px strip when folded (state 'slim'), 280 px, 320 px from 1600. */
+export function wideRailPx(state, w) {
+  if (state === 'slim') return DOCK.slimPx;
+  return w >= DOCK.tvMinPx ? DOCK.wideRailTvPx : DOCK.wideRailPx;
+}
+/** Wide handle: fold the rail or open it again (the portrait swipe states do not apply). */
+export const wideToggle = (state) => (state === 'slim' ? 'default' : 'slim');
+
+/** Everything the CSS needs, as plain values: { mode, dockH, railL, railR }.
+ *  railL / railR are the stage insets left and right. `monitor: false` (a page without a Monitor) leaves the right side free. */
+export function dockLayout(state, w, h, { safeB = 0, monitor = true } = {}) {
   const mode = layoutMode(w, h);
   return {
     mode,
-    dockH: mode === 'portrait' ? dockHeightPx(state, h, { w, safeB }) : mode === 'landscape' ? 0 : null,
-    railW: mode === 'landscape' ? DOCK.railPx : 0
+    dockH: mode === 'portrait' ? dockHeightPx(state, h, { w, safeB }) : mode === 'desktop' ? null : 0,
+    railL: mode === 'landscape' ? DOCK.railPx : mode === 'wide' ? wideRailPx(state, w) : 0,
+    railR: mode === 'landscape' ? DOCK.railPx : mode === 'wide' && monitor ? wideRailPx('default', w) : 0
   };
 }
 
@@ -189,7 +255,22 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
   const options = h(doc, 'div', 'al-dock-options', { 'data-zone': 'options' });
   const flowHost = h(doc, 'div', 'al-dock-flow');
   const extras = h(doc, 'div', 'ui-tb-extras al-dock-extras', { id: 'toolbar-extras' });
-  options.append(flowHost, extras);
+  const moreBtn = h(doc, 'button', 'al-dock-more', { type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': 'al-more-sheet', hidden: '' });
+  moreBtn.innerHTML = '<span>More</span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 10l5 5 5-5z"/></svg>';
+  options.append(flowHost, extras, moreBtn);
+  /* the "More" sheet: scrim + dialog, same family as the info sheet. Cells beyond the budget live in its grid. */
+  const sheetRoot = h(doc, 'div', 'al-more', { hidden: '' });
+  const sheetScrim = h(doc, 'div', 'al-more-scrim');
+  const sheet = h(doc, 'div', 'al-sheet al-more-sheet', { id: 'al-more-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'More options' });
+  const sheetHead = h(doc, 'div', 'al-more-head');
+  const sheetTitle = h(doc, 'span', 'al-more-title');
+  sheetTitle.textContent = 'More options';
+  const sheetClose = h(doc, 'button', 'al-more-close', { type: 'button', 'aria-label': 'Close more options' });
+  sheetClose.textContent = 'Done';
+  const sheetGrid = h(doc, 'div', 'al-more-grid');
+  sheetHead.append(sheetTitle, sheetClose);
+  sheet.append(sheetHead, sheetGrid);
+  sheetRoot.append(sheetScrim, sheet);
   primary.append(pagesEl, dots);
   root.append(handle, transport, primary, options);
 
@@ -202,20 +283,91 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
   let wantPage = saved.page;      /* the page the user last chose; controls mount one by one, so `page` is derived from it */
   let kbdHidden = false;
 
-  const hasOptions = () => !!flowHost.childElementCount || !!extras.childElementCount;
+  const hasOptions = () => !!flowHost.childElementCount || !!extras.childElementCount || !!sheetGrid.childElementCount;
   const save = () => { try { store && store.setItem(key, serializeDock({ state, page })); } catch (_) {} };
+
+  /* ── options grid (Phase 9b) ── */
+  const cells = [];                 /* every option cell, in order */
+  const homeOf = new Map();         /* cell → flowHost | extras (where it is built) */
+  function syncCells() {
+    [flowHost, extras].forEach((host) => [...host.children].forEach((n) => {
+      if (!homeOf.has(n)) { homeOf.set(n, host); cells.push(n); }
+    }));
+  }
+  function tagCell(n) {
+    const cls = n.classList;
+    if (!cls || typeof n.querySelector !== 'function' || !n.dataset) return;   /* not a real element (unit-test doubles) */
+    n.dataset.cell = cls.contains('ctl-choice') ? 'choice' : cls.contains('ctl-action') ? 'action' : 'toggle';
+    const seg = n.querySelector('.ctl-seg');
+    const btns = seg ? seg.querySelectorAll('.ctl-seg-btn') : [];
+    const wide = btns.length >= 4 || !!n.querySelector('.ctl-select, .ctl-gate-pad');
+    if (n.dataset.cell === 'choice') n.dataset.span = wide ? 'full' : 'half'; else delete n.dataset.span;
+    if (seg) {                       /* many items: rows of ≤ 4, never a sideways strip */
+      const g = segGrid(btns.length);
+      if (btns.length > 4) {
+        seg.dataset.many = '1';
+        seg.style.gridTemplateColumns = 'repeat(' + g.cols + ', minmax(0, 1fr))';
+        btns.forEach((b, i) => { b.style.gridColumn = i === btns.length - 1 && g.span > 1 ? 'span ' + g.span : ''; });
+      } else { delete seg.dataset.many; seg.style.gridTemplateColumns = ''; btns.forEach((b) => { b.style.gridColumn = ''; }); }
+    }
+  }
+  function layoutOptions(portrait) {
+    syncCells();
+    const { shown, more } = portrait ? splitOptionCells(cells) : { shown: cells, more: [] };
+    shown.forEach((n) => { const home = homeOf.get(n); if (n.parentNode !== home) home.appendChild(n); });
+    more.forEach((n) => { if (n.parentNode !== sheetGrid) sheetGrid.appendChild(n); });
+    cells.forEach(tagCell);
+    moreBtn.hidden = !more.length;
+    root.dataset.more = String(more.length);
+    if (!more.length && !sheetRoot.hidden) closeSheet(false);
+  }
+  const sheetFocusables = () => [...sheet.querySelectorAll('button, select, input, [tabindex]')]
+    .filter((el) => el.tabIndex >= 0 && !el.disabled && !el.closest('[hidden]'));
+  function openSheet() {
+    if (!sheetRoot.hidden) return;
+    sheetRoot.hidden = false;
+    moreBtn.setAttribute('aria-expanded', 'true');
+    const f = sheetFocusables();
+    (f[0] || sheetClose).focus();
+  }
+  function closeSheet(restore = true) {
+    if (sheetRoot.hidden) return;
+    sheetRoot.hidden = true;
+    moreBtn.setAttribute('aria-expanded', 'false');
+    if (restore && !moreBtn.hidden) moreBtn.focus();
+  }
+  moreBtn.addEventListener('click', () => (sheetRoot.hidden ? openSheet() : closeSheet()));
+  sheetScrim.addEventListener('click', () => closeSheet());
+  sheetClose.addEventListener('click', () => closeSheet());
+  sheetRoot.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeSheet(); return; }
+    if (e.key !== 'Tab') return;
+    const f = sheetFocusables();
+    if (!f.length) { e.preventDefault(); return; }
+    const first = f[0], last = f[f.length - 1], a = doc.activeElement;
+    if (e.shiftKey && (a === first || !sheet.contains(a))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (a === last || !sheet.contains(a))) { e.preventDefault(); first.focus(); }
+  });
 
   function applyLayout() {
     const w = win.innerWidth, hgt = win.innerHeight;
     const safeB = parseFloat(win.getComputedStyle(doc.documentElement).getPropertyValue('--safe-b')) || 0;
-    const L = dockLayout(state, w, hgt, { safeB });
+    const L = dockLayout(state, w, hgt, { safeB, monitor: 'monitor' in doc.documentElement.dataset });
     root.dataset.mode = L.mode;
     root.dataset.state = state;
     root.dataset.pages = String(layout.pageCount);
+    layoutOptions(L.mode === 'portrait');
     root.dataset.hasOptions = String(hasOptions());
-    handle.setAttribute('aria-expanded', String(state === 'options'));
+    if (L.mode === 'wide') {
+      handle.setAttribute('aria-expanded', String(state !== 'slim'));
+      handle.setAttribute('aria-label', state === 'slim' ? 'Show controls' : 'Hide controls');
+    } else {
+      handle.setAttribute('aria-expanded', String(state === 'options'));
+      handle.setAttribute('aria-label', 'Resize controls');
+    }
     const st = doc.documentElement.style;
-    st.setProperty('--dock-rail', L.railW + 'px');
+    st.setProperty('--dock-rail-l', L.railL + 'px');
+    st.setProperty('--dock-rail-r', L.railR + 'px');
     if (L.dockH != null && !kbdHidden) st.setProperty('--dock-h', L.dockH + 'px');
     if (kbdHidden) st.setProperty('--dock-h', '0px');
     if (L.mode === 'desktop' && !kbdHidden) measure();
@@ -275,6 +427,7 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
     applyLayout();
     if (persist) save();
     if (onChange) onChange({ state, page });
+    if (root.dataset.mode === 'wide' && typeof win.dispatchEvent === 'function' && typeof win.Event === 'function') win.dispatchEvent(new win.Event('resize'));   /* the stage just changed width: renderer, labels */
   }
 
   /* handle: swipe (pointer events) + tap + arrow keys */
@@ -289,7 +442,7 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
   handle.addEventListener('pointercancel', () => { y0 = null; });
   handle.addEventListener('click', () => {
     if (handle.dataset.swiped) { delete handle.dataset.swiped; return; }
-    setState(tapState(state, { hasOptions: hasOptions() }));
+    setState(root.dataset.mode === 'wide' ? wideToggle(state) : tapState(state, { hasOptions: hasOptions() }));
   });
   handle.addEventListener('keydown', (e) => {
     const dir = e.key === 'ArrowUp' ? 'up' : e.key === 'ArrowDown' ? 'down' : null;
@@ -313,12 +466,39 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
   win.addEventListener('orientationchange', () => setTimeout(applyLayout, 220));
   if (typeof win.ResizeObserver === 'function') new win.ResizeObserver(measure).observe(root);
 
+  /* Phase 9a: paint tier on <html data-ui-tier>. Embedded pages also honour ?ui= on the shell URL. */
+  const tierState = { base: 'mid', now: 'mid', locked: false };
+  function detectTier() {
+    const mm = (q) => { try { return !!(win.matchMedia && win.matchMedia(q).matches); } catch (_) { return false; } };
+    const nav = win.navigator || {};
+    let override = tierOverride(win.location && win.location.search);
+    if (!override) { try { override = tierOverride(win.parent !== win && win.parent.location.search); } catch (_) { /* cross-origin parent */ } }
+    tierState.locked = !!override;
+    tierState.base = uiTier({
+      device: classifyDevice({ cores: nav.hardwareConcurrency || 4, mem: nav.deviceMemory || 4, dpr: win.devicePixelRatio || 1, isCoarse: mm('(pointer: coarse)') }),
+      override,
+      reduceTransparency: mm('(prefers-reduced-transparency: reduce)')
+    });
+    tierState.now = tierState.base;
+  }
+  function paintTier() { doc.documentElement.dataset.uiTier = tierState.now; }
+  detectTier();
+  paintTier();
+  /* kit.js fires this when the frame-time governor is already at its lowest resolution and frames are still slow */
+  win.addEventListener('al-perf-slow', () => {
+    if (tierState.locked) return;
+    const next = stepDownTier(tierState.now);
+    if (next !== tierState.now) { tierState.now = next; paintTier(); }
+  });
+
   (host || doc.body).appendChild(root);
+  (host || doc.body).appendChild(sheetRoot);
   renderPages();
   applyLayout();
 
   return {
-    root, handle, transport, options, extras, flow: flowHost, primary,
+    root, handle, transport, options, extras, flow: flowHost, primary, moreBtn, moreSheet: sheet,
+    openMore: openSheet, closeMore: () => closeSheet(), isMoreOpen: () => !sheetRoot.hidden,
     /* placement */
     addTransport(node) { transport.appendChild(node); },
     addOption(node) { flowHost.appendChild(node); applyLayout(); },
@@ -336,7 +516,9 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
     setState, getState: () => state,
     setPage, getPage: () => page,
     getLayout: () => layout,
-    hasOptions
+    hasOptions,
+    relayout: applyLayout,
+    getTier: () => tierState.now
   };
 }
 
