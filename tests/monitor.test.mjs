@@ -134,9 +134,9 @@ t('controls.css: Monitor styles use tokens only (no hard-coded colours) and a re
 
 /* ── Phase 7a part 2: graph canvases → traces, *-warn → status, setRpmLabel → rows ─────────────────────────── */
 const GRAPH10 = ['awd', 'catalytic', 'commonrail', 'dpf', 'driveshaft', 'egr', 'fuelpump', 'intercooler', 'oilpump', 'radiator'];
-const RPM13 = ['abs-esc', 'automatic', 'carburetor', 'clutch', 'cooling', 'differential', 'electrical', 'exhaustsystem', 'ignition', 'mpfi', 'starting-system', 'suspension', 'turbocharger'];
-t('7a-2 (a): the ten guided modules have no graph canvas, drawGraph, history buffer or warn element', () => {
-  for (const m of GRAPH10) {
+const RPM13 = ['abs-esc', 'automatic', 'carburetor', 'clutch', 'cooling', 'electrical', 'exhaustsystem', 'ignition', 'mpfi', 'starting-system', 'suspension', 'turbocharger'];
+t('7a-2 (a): the ten guided modules (and the guided differential) have no graph canvas, drawGraph, history buffer or warn element', () => {
+  for (const m of [...GRAPH10, 'differential']) {
     const s = rd(m + '.html');
     assert.ok(!/<canvas id="[a-z]+-graph"/.test(s), `${m}: graph canvas`);
     assert.ok(!/drawGraph|\bgctx\b|\bgcv\b|\belWarn\b|\bsim\.samples\b|GRAPH_N/.test(s), `${m}: old graph code`);
@@ -161,7 +161,7 @@ t('7a-2 (b)(d): no *.html calls setRpmLabel any more, and kit.js no longer defin
   assert.ok(!/setRpmLabel/.test(rd('kit.js')));
 });
 t('7a-2: the rpm / speed rows exist where setRpmLabel used to print a number (monitor config + a row update)', () => {
-  const rows = { automatic: 'speed', carburetor: 'rpm', clutch: 'rpm', cooling: 'rpm', differential: 'rpm', mpfi: 'rpm', 'starting-system': 'rpm', turbocharger: 'rpm' };
+  const rows = { automatic: 'speed', carburetor: 'rpm', clutch: 'rpm', cooling: 'rpm', mpfi: 'rpm', 'starting-system': 'rpm', turbocharger: 'rpm' };
   for (const m in rows) {
     const s = rd(m + '.html');
     assert.match(s, new RegExp(`\\['${rows[m]}', '[^']+'\\]`), `${m}: ${rows[m]} row in the monitor config`);
@@ -186,7 +186,7 @@ t('components.js: CFG.traces reach the Monitor and traces/status tone are forwar
 });
 
 /* ── Phase 7b1: chip → monitor ─────────────────────────────────────────────── */
-const CHIP23 = ['abs-esc', 'automatic', 'braking', 'carburetor', 'clutch', 'cooling', 'crankshaft-piston', 'differential', 'ecu', 'electrical', 'engine',
+const CHIP23 = ['abs-esc', 'automatic', 'braking', 'carburetor', 'clutch', 'cooling', 'crankshaft-piston', 'ecu', 'electrical', 'engine',
   'exhaustsystem', 'gearbox', 'ignition', 'lubrication', 'mpfi', 'obd2', 'starting-system', 'steering', 'suspension', 'transmission', 'turbocharger', 'valvetrain'];
 const stripJs = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 await t('7b1: no page calls ui.chip.* or declares a `chip:` config; no page reaches into the old chip DOM', () => {
@@ -349,7 +349,7 @@ await t('7b2: no file was added in 7b2 / 7b3 (CORE_ASSETS unchanged)', () => {
 const ALL_HTML = readdirSync(new URL('../', import.meta.url)).filter((f) => f.endsWith('.html'));
 const P7B3_ROWS = { braking: ['pedal', 'pres', 'ffront', 'frear', 'tq'], steering: [], suspension: ['shockF', 'shockR', 'chassis'], turbocharger: ['iat'], gearbox: ['ratio'],
   ignition: ['dwell', 'order'], lubrication: ['oil', 'brg', 'dmain', 'drod', 'dcyl', 'dcam', 'dring'], mpfi: ['pres', 'maf', 'map', 'iat', 'knock', 'o2', 'egr', 'cyl'],
-  differential: ['radius'], 'abs-esc': ['fl', 'fr', 'press', 'yaw', 'esc'], ecu: ['pw', 'kr', 'stft', 'ltft', 'loop', 'mil'], obd2: ['proto', 'mods', 'code', 'frpm', 'fcool'],
+  'abs-esc': ['fl', 'fr', 'press', 'yaw', 'esc'], ecu: ['pw', 'kr', 'stft', 'ltft', 'loop', 'mil'], obd2: ['proto', 'mods', 'code', 'frpm', 'fcool'],
   valvetrain: ['cam', 'adv', 'ev', 'ov', 've', 'eff'], 'crankshaft-piston': ['slow', 'cyc', 's1', 's2', 's3', 's4', 'pos', 'vel', 'acc', 'press', 'side', 'tq', 'tqm', 'pw', 'mps'] };
 await t('7b3: no bespoke panel readout grid is left — no .al-read, no ro-* ids, no kv / lr / ss / ig / mp / el / diff / steer / susp / ex readout rows', () => {
   const bad = /(?<![\w-])al-read\b|\bid="ro-|readoutHTML|Widgets\.readout|kv-row|lr-row|ss-row|ig-row|mp-row|el-rows|diff-row|steer-row|susp-shock|ex-row|data-ss=|data-ig=|data-mp=|data-el="(?:r[123]|badge)|data-diff=|data-steer|data-susp|carb-readout|mechanism-readout|br-readout|gb-readout/;
@@ -369,13 +369,13 @@ await t('7b3: every row the 14 migrated pages write exists in their Monitor conf
   }
   const modes = { electrical: ['battery', 'alternator', 'charging'], 'starting-system': ['circuit', 'starter', 'mesh', 'crank'], exhaustsystem: ['principle', 'compare', 'catalyst', 'full'] };
   for (const [m, list] of Object.entries(modes)) for (const mode of list) { const v = M.validateMonitorConfig(modeConfig(m, mode)); assert.ok(v.ok, `${m}/${mode}: ${v.errors.join('; ')}`); }
-  for (const m of ['braking', 'suspension', 'turbocharger', 'gearbox', 'ignition', 'lubrication', 'mpfi', 'differential', 'cooling']) {
+  for (const m of ['braking', 'suspension', 'turbocharger', 'gearbox', 'ignition', 'lubrication', 'mpfi', 'cooling']) {
     const v = M.validateMonitorConfig(anyConfig(m)); assert.ok(v.ok, `${m}: ${v.errors.join('; ')}`);
   }
 });
 await t('7b3: a value is printed once — no migrated page repeats a row in the big value or two rows with the same name', () => {
   const cfgs = [];
-  for (const m of ['braking', 'suspension', 'turbocharger', 'gearbox', 'ignition', 'lubrication', 'mpfi', 'differential', 'cooling']) cfgs.push([m, anyConfig(m)]);
+  for (const m of ['braking', 'suspension', 'turbocharger', 'gearbox', 'ignition', 'lubrication', 'mpfi', 'cooling']) cfgs.push([m, anyConfig(m)]);
   for (const [m, modes] of Object.entries({ electrical: ['battery', 'alternator', 'charging'], 'starting-system': ['circuit', 'starter', 'mesh', 'crank'], exhaustsystem: ['principle', 'compare', 'catalyst', 'full'] }))
     for (const mode of modes) cfgs.push([m + '/' + mode, modeConfig(m, mode)]);
   for (const [name, c] of cfgs) {
@@ -394,7 +394,7 @@ await t('7b3: every legend is the Monitor footer (components.js + 9 hand-built p
   assert.match(rd('controls.css'), /\.ui-monitor \.mon-legend/);
 });
 await t('7b3: the info panel keeps no readout number — braking / steering / suspension / turbocharger / transmission / gearbox / differential panels have no readout rows', () => {
-  for (const m of ['braking', 'steering', 'suspension', 'turbocharger', 'transmission', 'gearbox', 'differential', 'carburetor', 'engine']) {
+  for (const m of ['braking', 'steering', 'suspension', 'turbocharger', 'transmission', 'gearbox', 'carburetor', 'engine']) {
     const s = rd(m + '.html'); const mm = /\n\s*readout:\s*`/.exec(s);
     if (mm) { const body = s.slice(mm.index, s.indexOf('`', mm.index + mm[0].length)); assert.ok(!/\d+(\.\d+)?\s*(%|rpm|bar|N|Nm|kPa|°C|V|A|ms)\b/.test(body.replace(/<[^>]+>/g, ' ').replace(/A₁|A₂|F₁|F₂|ω/g, '')), `${m}: a number sits in the panel readout`); }
   }

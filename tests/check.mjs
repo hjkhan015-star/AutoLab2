@@ -112,5 +112,30 @@ for (const f of jsFiles) {
   for (const l of code.split('\n')) if (CONTROL_RE.test(l)) { fail(`${f}: builds its own control outside controls.js / chrome.js / dock.js / monitor.js: ${l.trim().slice(0, 80)}`); break; }
   if (/window\.__\w+/.test(code)) fail(`${f}: window.__* global`);
 }
+/* ── Phase 8.5: keep the tree clean ─────────────────────────────────────────────────────────────
+   (1) no stray files: only the allowlisted names may sit in the root, tests/ and icons/
+   (2) no console.log / debug / info and no debugger statement in shipped code (console.warn / error are real diagnostics)
+   (3) no dead code: a top-level function / const that is declared and never referenced again in its own script */
+const ROOT_FILES = new Set(['404.html', '_headers', 'robots.txt', 'manifest.webmanifest', 'package.json', 'sw.js', 'README.md', 'GUIDE.md', 'COMPONENTS.md', 'CHANGELOG.md', 'MONITOR-MAP.md', 'QA.md', 'POLISH.md']);
+for (const f of readdirSync(root, { withFileTypes: true })) {
+  if (f.name.startsWith('.') || f.name === 'node_modules') continue;
+  if (f.isDirectory()) { if (!['tests', 'icons'].includes(f.name)) fail(`stray directory: ${f.name}/`); continue; }
+  if (!/\.(html|js|css)$/.test(f.name) && !ROOT_FILES.has(f.name)) fail(`stray file in the root: ${f.name} (logs, scratch and process notes do not ship)`);
+}
+for (const f of readdirSync(root + 'tests')) if (!/\.(test\.)?mjs$/.test(f)) fail(`stray file in tests/: ${f}`);
+for (const f of readdirSync(root + 'icons')) if (!/\.(png|svg)$/.test(f)) fail(`stray file in icons/: ${f}`);
+const shipped = [...jsFiles.filter((f) => f !== 'sw.js').map((f) => [f, readFileSync(root + f, 'utf8')]),
+  ...html.map((f) => [f, [...readFileSync(root + f, 'utf8').matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).join('\n')])];
+for (const [f, src] of shipped) {
+  const code = stripComments(src);
+  if (/\bconsole\.(log|debug|info|trace|dir)\s*\(/.test(code)) fail(`${f}: console.log/debug/info left in shipped code`);
+  if (/\bdebugger\b\s*;?/.test(code)) fail(`${f}: debugger statement`);
+  const names = new Set();
+  for (const m of code.matchAll(/(?:^|[\s;{(])(?:function\s*\*?\s+([A-Za-z_$][\w$]*)\s*\(|(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=)/g)) names.add(m[1] || m[2]);
+  for (const n of names) {
+    const refs = code.match(new RegExp('(?<![\\w$])' + n.replace(/\$/g, '\\$') + '(?![\\w$])', 'g')) || [];
+    if (refs.length === 1 && !new RegExp('export\\s+(?:async\\s+)?(?:function|const|let)\\s+' + n.replace(/\$/g, '\\$') + '\\b').test(code)) fail(`${f}: dead code — \`${n}\` is declared and never used`);
+  }
+}
 console.log(fails ? `\n${fails} problem(s)` : `OK — ${html.length} pages, ${ids.length} modules checked`);
 process.exit(fails ? 1 : 0);

@@ -20,18 +20,21 @@ t('every page that calls Base.* imports Base from kit.js (oilpump bug)', () => {
     if (/(?<![\w.])Base\./.test(code)) assert.match(code, /import\s+\*\s+as\s+Base\s+from\s+['"]\.\/kit\.js['"]/, `${f}: uses Base without importing it`);
   }
 });
-t('THREE used outside build() is imported (wiring bug); inside build() it comes from H', () => {
+t('THREE used outside build() is imported (wiring bug); inside build() it comes from H, and a helper that takes THREE as a parameter owns its own', () => {
   for (const f of pages) {
-    const code = moduleCode(rd(f));
-    const span = bodyOf(code, 'function build(H)');
-    const outside = span ? code.slice(0, span[0]) + code.slice(span[1]) : code;
-    if (/(?<![\w.])THREE\./.test(outside.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')))
-      assert.match(code, /import\s+\*\s+as\s+THREE\s+from\s+['"]three['"]/, `${f}: THREE used outside build() without an import`);
+    let code = moduleCode(rd(f));
+    /* cut out every function whose parameter list names THREE (it shadows the import) plus build(H) */
+    for (const header of [...code.matchAll(/function\s+\w+\(\s*(?:\w+\s*,\s*)*THREE\b[^)]*\)/g)].map((m) => m[0]).concat(['function build(H)'])) {
+      const span = bodyOf(code, header);
+      if (span) code = code.slice(0, span[0]) + code.slice(span[1]);
+    }
+    if (/(?<![\w.])THREE\./.test(code.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')))
+      assert.match(moduleCode(rd(f)), /import\s+\*\s+as\s+THREE\s+from\s+['"]three['"]/, `${f}: THREE used outside build() without an import`);
   }
 });
 t('fuelpump declares its domLast throttle clock (typo bug)', () => {
   const code = moduleCode(rd('fuelpump.html'));
-  assert.match(code, /\blet\s+domLast\b/);
+  assert.match(code, /\blet\s+(?:[^;\n]*,\s*)?domLast\b/);
   assert.ok(/domLast\s*=\s*now/.test(code));
 });
 t('no page assigns or reads a free variable named like a throttle clock without declaring it', () => {
@@ -69,5 +72,42 @@ t('the four former WARN pages author no panel of their own', () => {
 t('createMenu hide option exists (2D pages drop wireframe / x-ray / density rows)', () => {
   assert.match(rd('chrome.js'), /opts\.hide/);
   assert.match(rd('kit.js'), /menuHide/);
+});
+t('clean tree: check.mjs fails on stray files, console.log / debugger and dead code; package.json is type=module (no Node warning on every run)', () => {
+  const chk = rd('tests/check.mjs');
+  assert.match(chk, /stray file in the root/); assert.match(chk, /console\\\.\(log\|debug\|info/); assert.match(chk, /dead code/);
+  assert.equal(JSON.parse(rd('package.json')).type, 'module');
+  assert.ok(!existsSync(new URL('DECISIONS-6.md', root)) && !existsSync(new URL('SELF-CHECK.md', root)), 'process notes do not ship in the tree');
+});
+t('guided differential / thermostat: no dial, no panel of their own; ignition keeps its readout in the Monitor (cycle bar not in the panel)', () => {
+  for (const f of ['differential.html', 'thermostat.html', 'ignition.html']) assert.ok(!/type: ?'dial'/.test(rd(f)), f);
+  assert.ok(!/id=\"cycle-bar\"|class=\"ig-row\"/.test(rd('ignition.html')));
+});
+t('8.9.1 landscape rail: the axis and select floors give way inside the 140 px rails, and a long axis name is cut with an ellipsis', () => {
+  const css = rd('controls.css');
+  assert.match(css, /\.ctl-axis \{[^}]*min-width: var\(--ctl-axis-min, 140px\)/);
+  assert.match(css, /\.al-dock\[data-mode="landscape"\] \{ --ctl-axis-min: 0px; \}/);
+  assert.match(css, /\.al-dock\[data-mode="landscape"\] \.ctl-sel \{ min-width: 0; \}/);
+  assert.match(css, /\.al-dock\[data-mode="landscape"\] \.ctl-axis \.ctl-name \{[^}]*text-overflow: ellipsis/);
+  assert.match(css, /\.al-dock\[data-mode="landscape"\] \.ui-widget \{ align-items: stretch; \}/);
+  assert.match(css, /\.al-dock\[data-mode="landscape"\] \.ui-widget-frame \{ min-width: 0; \}/);
+  assert.match(css, /\.al-menu-row\[hidden\] \{ display: none; \}/);
+});
+t('8.9.1 kit.js loads three.js only for a 3D page: data-no3d skips it, sensors has no importmap', () => {
+  const k = rd('kit.js');
+  assert.ok(!/^import[^\n]*from 'three/m.test(k), 'no static three import in kit.js');
+  assert.match(k, /hasAttribute\('data-no3d'\)/);
+  assert.match(k, /await Promise\.all\(\[\s*import\('three'\),\s*import\('three\/addons\/controls\/OrbitControls\.js'\)/);
+  assert.ok(!/importmap/.test(rd('sensors.html')), 'sensors needs no import map');
+  for (const f of pages.filter((p) => p !== 'sensors.html')) assert.match(rd(f), /type="importmap"/, `${f}: a 3D page keeps its import map`);
+});
+t('8.9.1 shell ⋯ menu: the module reports the rows it cannot use, the shell hides them per module and ignores W / X for them', () => {
+  assert.match(rd('kit.js'), /send\(\{ type: 'ready', menuHide: opts\.menuHide \|\| \[\] \}\)/);
+  const ix = rd('index.html');
+  assert.match(ix, /menuHidden\[d\.moduleId\] = Array\.isArray\(d\.menuHide\)/);
+  assert.match(ix, /menu\.setHidden\(menuHidden\[id\] \|\| \[\]\)/);
+  assert.match(ix, /if \(!menu\.isHidden\('wireframe'\)\) setWireframe/);
+  assert.match(ix, /if \(!menu\.isHidden\('xray'\)\) setXRay/);
+  assert.match(rd('sensors.html'), /menuHide:\['density','wireframe','xray'\]/);
 });
 console.log(`${n} phase 8 tests passed`);
