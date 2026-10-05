@@ -123,7 +123,7 @@ t('guided modules: no module reaches around the Monitor for a readout (no ro- id
   for (const f of guided) { const s = strip(rd(f)); assert.ok(!/ui\.chip\./.test(s), `${f}: ui.chip`); assert.ok(!/getElementById\(['"]ro-/.test(s), `${f}: ro-* element`); }
 });
 t('sw.js: monitor.js + monitor-core.js precached, cache bumped', () => {
-  assert.match(sw, /'\.\/monitor\.js'/); assert.match(sw, /'\.\/monitor-core\.js'/); assert.match(sw, /VERSION = 'autolab-v8\.[6-9](\.\d+)?'/);
+  assert.match(sw, /'\.\/monitor\.js'/); assert.match(sw, /'\.\/monitor-core\.js'/); assert.match(sw, /VERSION = 'autolab-v8\.([6-9]|10)(\.\d+)?'/);
 });
 t('controls.css: Monitor styles use tokens only (no hard-coded colours) and a reduced-motion block', () => {
   const block = css.slice(css.indexOf('Monitor (Phase 7a)'));
@@ -435,7 +435,7 @@ await t('7b3: the dock has no legend page — components.js passes no widgets, a
   const c = rd('components.js'); assert.ok(!/widgets\s*:/.test(c.slice(c.indexOf('UI.create('))), 'components.js: UI.create without widgets');
   assert.match(c, /footer: CFG\.legend/);
 });
-await t('7b3 (kept in Phase 8): sw.js VERSION is autolab-v8.8 or later', () => { assert.match(rd('sw.js'), /VERSION = 'autolab-v8\.([89])(\.\d+)?'/); });
+await t('7b3 (kept in Phase 8): sw.js VERSION is autolab-v8.8 or later', () => { assert.match(rd('sw.js'), /VERSION = 'autolab-v8\.([89]|10)(\.\d+)?'/); });
 
 let JSDOM = null;
 try {

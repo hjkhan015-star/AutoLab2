@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import {
-  DOCK, STATES, layoutMode, swipeDirection, nextState, tapState, dockHeightPx, dockLayout,
+  DOCK, STATES, layoutMode, wideRailPx, wideToggle, swipeDirection, nextState, tapState, dockHeightPx, dockLayout,
   assignSlots, clampPage, pageFromScroll, dockStorageKey, serializeDock, parseDock,
   keyboardOpen, modelShiftPx, createDock
 } from '../dock.js';
@@ -17,8 +17,10 @@ t('phone = max-width 720 OR max-height 540; landscape phone when wider than tall
   assert.equal(layoutMode(360, 640), 'portrait');
   assert.equal(layoutMode(720, 1000), 'portrait');
   assert.equal(layoutMode(721, 1000), 'desktop');
+  assert.equal(layoutMode(1023, 800), 'desktop', 'tablet / small window keeps the bottom bar');
   assert.equal(layoutMode(1280, 540), 'landscape');     /* short desktop window counts as a phone (R2) */
-  assert.equal(layoutMode(1280, 541), 'desktop');
+  assert.equal(layoutMode(1280, 541), 'wide');
+  assert.equal(layoutMode(1024, 768), 'wide'); assert.equal(layoutMode(3840, 2160), 'wide');
   assert.equal(layoutMode(844, 390), 'landscape');
   assert.equal(layoutMode(412, 915), 'portrait');
 });
@@ -69,10 +71,20 @@ t('dock height: the safe-area inset is part of the dock (slim = 56 + inset; othe
 });
 t('dock height: landscape phone takes no height (two 140 px rails); desktop is auto', () => {
   assert.equal(dockHeightPx('default', 390, { w: 844 }), 0);
-  assert.equal(dockHeightPx('default', 900, { w: 1280 }), null);
-  assert.deepEqual(dockLayout('default', 844, 390), { mode: 'landscape', dockH: 0, railW: DOCK.railPx });
-  assert.deepEqual(dockLayout('default', 1280, 800), { mode: 'desktop', dockH: null, railW: 0 });
+  assert.equal(dockHeightPx('default', 900, { w: 900 }), null);
+  assert.deepEqual(dockLayout('default', 844, 390), { mode: 'landscape', dockH: 0, railL: DOCK.railPx, railR: DOCK.railPx });
+  assert.deepEqual(dockLayout('default', 900, 800), { mode: 'desktop', dockH: null, railL: 0, railR: 0 });
   assert.equal(DOCK.railPx, 140);
+});
+t('wide screens: no bottom bar — a 280 px left rail (320 from 1600 px), the Monitor column on the right, a 56 px strip when folded', () => {
+  assert.equal(dockHeightPx('default', 800, { w: 1280 }), 0);
+  assert.deepEqual(dockLayout('default', 1280, 800), { mode: 'wide', dockH: 0, railL: 280, railR: 280 });
+  assert.deepEqual(dockLayout('default', 1920, 1080), { mode: 'wide', dockH: 0, railL: 320, railR: 320 });
+  assert.deepEqual(dockLayout('slim', 1280, 800), { mode: 'wide', dockH: 0, railL: 56, railR: 280 }, 'folding the controls never shrinks the Monitor column');
+  assert.deepEqual(dockLayout('default', 1280, 800, { monitor: false }), { mode: 'wide', dockH: 0, railL: 280, railR: 0 }, 'no Monitor, no right column');
+  assert.equal(wideRailPx('options', 1280), 280, 'a state saved on a phone counts as open');
+  assert.equal(wideToggle('default'), 'slim'); assert.equal(wideToggle('slim'), 'default'); assert.equal(wideToggle('options'), 'slim');
+  assert.equal(modelShiftPx(1000, 700, 1280, 800), 0);
 });
 t('the iframe subtlety: dock vh is measured from the iframe viewport (screen − 32 px header)', () => {
   const screen = 915, iframe = screen - 32;
@@ -244,11 +256,31 @@ t('dock DOM: landscape phone → rails (no bottom height), desktop → measured 
   const dl = createDock({ doc: l.doc, win: l.win, moduleId: 'l' });
   assert.equal(dl.root.dataset.mode, 'landscape');
   assert.equal(l.doc.documentElement.style.props['--dock-h'], '0px');
-  assert.equal(l.doc.documentElement.style.props['--dock-rail'], '140px');
-  const d = fakeEnv({ w: 1280, h: 800 });
+  assert.equal(l.doc.documentElement.style.props['--dock-rail-l'], '140px');
+  assert.equal(l.doc.documentElement.style.props['--dock-rail-r'], '140px');
+  const d = fakeEnv({ w: 900, h: 800 });
   const dd = createDock({ doc: d.doc, win: d.win, moduleId: 'd' });
   assert.equal(dd.root.dataset.mode, 'desktop');
   assert.equal(d.doc.documentElement.style.props['--dock-h'], '100px', 'auto height is measured, not computed');
+  assert.equal(d.doc.documentElement.style.props['--dock-rail-l'], '0px');
+});
+t('dock DOM: wide → left rail, no bottom height; the handle folds it to a strip and back (saved per module); a Monitor reserves the right column', () => {
+  const { doc, win, store } = fakeEnv({ w: 1280, h: 800 });
+  const dock = createDock({ doc, win, moduleId: 'w' });
+  const st = () => doc.documentElement.style.props;
+  assert.equal(dock.root.dataset.mode, 'wide');
+  assert.equal(st()['--dock-h'], '0px'); assert.equal(st()['--dock-rail-l'], '280px'); assert.equal(st()['--dock-rail-r'], '0px', 'no Monitor yet');
+  assert.equal(dock.handle.getAttribute('aria-label'), 'Hide controls'); assert.equal(dock.handle.getAttribute('aria-expanded'), 'true');
+  doc.documentElement.dataset.monitor = '1'; dock.relayout();
+  assert.equal(st()['--dock-rail-r'], '280px');
+  const resized = []; win.dispatchEvent = (e) => resized.push(e.type); win.Event = class { constructor(type) { this.type = type; } };
+  dock.handle.fire('click');
+  assert.equal(dock.getState(), 'slim'); assert.equal(st()['--dock-rail-l'], '56px'); assert.equal(st()['--dock-rail-r'], '280px');
+  assert.equal(dock.handle.getAttribute('aria-label'), 'Show controls'); assert.equal(dock.handle.getAttribute('aria-expanded'), 'false');
+  assert.deepEqual(resized, ['resize'], 'the stage is told its width changed');
+  assert.equal(JSON.parse(store['autolab.dock.w']).state, 'slim');
+  dock.handle.fire('click');
+  assert.equal(dock.getState(), 'default'); assert.equal(st()['--dock-rail-l'], '280px');
 });
 
 /* ═══ source / CSS guards ═══ */
@@ -278,8 +310,8 @@ t('stage: canvas-wrap inset is var(--stage-top): 0 when embedded, --hdr-h when s
   assert.match(ctl, /--stage-top: calc\(var\(--hdr-h\) \+ var\(--safe-t, 0px\)\)/);
   assert.match(ctl, /max-height: 540px\) \{ :root \{ --stage-top: calc\(var\(--hdr-h-land\)/);
   assert.match(ctl, /body\.embedded \{ --stage-top: 0px; \}/);
-  assert.match(ctl, /#canvas-wrap \{ inset: var\(--stage-top\) var\(--dock-rail\) var\(--dock-h\) var\(--dock-rail\); \}/);
-  assert.match(ctl, /#labels-root \{[^}]*inset: var\(--stage-top\) var\(--dock-rail\) var\(--dock-h\) var\(--dock-rail\);[^}]*overflow: hidden/, 'labels clipped to the stage');
+  assert.match(ctl, /#canvas-wrap \{ inset: var\(--stage-top\) var\(--dock-rail-r\) var\(--dock-h\) var\(--dock-rail-l\); \}/);
+  assert.match(ctl, /#labels-root \{[^}]*inset: var\(--stage-top\) var\(--dock-rail-r\) var\(--dock-h\) var\(--dock-rail-l\);[^}]*overflow: hidden/, 'labels clipped to the stage');
 });
 t('stage: tokens keep --dock-default 24vh / --dock-max 30vh; the dock never exceeds --dock-max', () => {
   assert.match(ctl, /--dock-default: 24vh;/); assert.match(ctl, /--dock-max: 30vh;/);
@@ -288,8 +320,8 @@ t('stage: tokens keep --dock-default 24vh / --dock-max 30vh; the dock never exce
 t('phone media queries all use max-width:720px / max-height:540px (R2)', () => {
   for (const m of ctl.matchAll(/@media\s*\(([^)]*)\)(?:\s*,\s*\(([^)]*)\))?/g)) {
     const q = m[0];
-    if (/prefers-reduced|min-width: 721px|min-aspect/.test(q) && !/max-/.test(q)) continue;
-    assert.ok(/max-width: 720px|max-height: 540px|min-width: 721px/.test(q), `unexpected breakpoint: ${q}`);
+    if (/prefers-reduced|min-width: 721px|min-width: 1024px|min-width: 1600px|min-aspect/.test(q) && !/max-/.test(q)) continue;
+    assert.ok(/max-width: 720px|max-height: 540px|min-width: 721px|min-width: 1024px|min-width: 1600px/.test(q), `unexpected breakpoint: ${q}`);
   }
 });
 t('info: bottom sheet <= 50 vh on phones, closed by default; desktop keeps the side panel', () => {
@@ -340,7 +372,7 @@ t('Phase 8: legacy.css is gone (no page, no sw.js entry), dock.js precached, sw.
   const users = readdirSync(new URL('../', import.meta.url)).filter((f) => (f.endsWith('.html') || f.endsWith('.js')) && /legacy\.css/.test(rd(f)));
   assert.deepEqual(users, []);
   assert.ok(!rd('sw.js').includes('legacy.css') && rd('sw.js').includes("'./dock.js'"));
-  assert.match(rd('sw.js'), /const VERSION = 'autolab-v8\.[6-9](\.\d+)?'/);
+  assert.match(rd('sw.js'), /const VERSION = 'autolab-v8\.([6-9]|10)(\.\d+)?'/);
 });
 t('100vh replaced by 100dvh in wiring.html and 404.html', () => {
   for (const f of ['wiring.html', '404.html']) { assert.ok(!/100vh/.test(rd(f)), f); assert.match(rd(f), /100dvh/); }
