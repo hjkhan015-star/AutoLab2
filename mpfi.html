@@ -12,12 +12,10 @@
   #mp-desc {
     margin-top: 12px;
     font-size: 12.5px; line-height: 1.55;
-    color: var(--text-dim, #94a3b8);
+    color: var(--text-dim);
   }
-  #mp-desc strong { color: var(--text, #e5e7eb); font-weight: 700; }
-  #mp-desc em { color: #f59e0b; font-style: normal; font-weight: 700; }
-  html.light-theme #mp-desc { color: #475569; }
-  html.light-theme #mp-desc strong { color: #0a0d13; }
+  #mp-desc strong { color: var(--text); font-weight: 700; }
+  #mp-desc em { color: var(--c-orange); font-style: normal; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -1544,13 +1542,13 @@
         {
           id: 'mpfi',
           label: 'MPFI (Petrol)',
-          color: '#22c55e',
+          color: 'var(--c-green)',
           icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2s-6 7-6 12a6 6 0 0 0 12 0c0-5-6-12-6-12z"/></svg>'
         },
         {
           id: 'crdi',
           label: 'CRDI (Diesel)',
-          color: '#3b82f6',
+          color: 'var(--c-sky)',
           icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="6" width="14" height="12" rx="2"/><line x1="9" y1="10" x2="9" y2="14"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="15" y1="10" x2="15" y2="14"/></svg>'
         }
       ],

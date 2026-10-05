@@ -11,120 +11,15 @@
 :root { --al-accent: #f43f5e; }
 html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
 
-#wh-ui {
-  position: fixed; top: 80px; right: 14px;
-  width: min(268px, calc(100vw - 28px));
-  max-height: min(78vh, 660px);
-  overflow-y: auto; overflow-x: hidden;
-  display: flex; flex-direction: column; gap: 9px;
-  padding: 10px 12px 12px; border-radius: 12px;
-  background: rgba(8,11,18,.85);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(148,163,184,.22);
-  color: #cbd5e1; user-select: none; -webkit-user-select: none;
-  z-index: 9999;
-  font: 600 11px/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  box-shadow: 0 10px 32px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.25);
-  scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.35) transparent;
-}
-#wh-ui::-webkit-scrollbar { width: 6px; }
-#wh-ui::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); border-radius: 999px; }
-#wh-ui.hidden { display: none; }
-#wh-ui.dragging { box-shadow: 0 18px 44px rgba(0,0,0,.55), 0 4px 10px rgba(0,0,0,.3); }
-
-#wh-ui .wh-header {
-  display: flex; align-items: center; gap: 7px;
-  margin: -4px -6px 2px -6px; padding: 5px 6px 5px 8px;
-  border-radius: 8px; cursor: grab;
-  background: rgba(148,163,184,.08);
-  touch-action: none; flex-shrink: 0;
-  position: sticky; top: -10px; z-index: 1;
-  backdrop-filter: blur(6px);
-}
-#wh-ui.dragging .wh-header { cursor: grabbing; background: rgba(244,63,94,.14); }
-#wh-ui .wh-grip { color: #64748b; font-size: 13px; line-height: 1; letter-spacing: 1px; }
-#wh-ui.dragging .wh-grip { color: var(--al-accent, #f43f5e); }
-#wh-ui .wh-title { flex: 1; font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: #94a3b8; }
-#wh-ui .wh-icon { cursor: pointer; background: transparent; border: 0; color: #94a3b8; font-size: 14px; padding: 1px 6px; border-radius: 6px; line-height: 1; transition: background .12s, color .12s; }
-#wh-ui .wh-icon:hover { background: rgba(148,163,184,.18); color: #e2e8f0; }
-#wh-ui .wh-body { display: flex; flex-direction: column; gap: 9px; }
-#wh-ui.wh-collapsed .wh-body { display: none; }
-#wh-ui.wh-collapsed { max-height: 40px; overflow: hidden; }
-
-#wh-ui button { font: inherit; }
-#wh-ui .wh-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
-#wh-ui .wh-lab { color: #94a3b8; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; min-width: 54px; }
-#wh-ui .wh-btn {
-  cursor: pointer; border: 1px solid rgba(148,163,184,.32);
-  background: rgba(15,23,42,.72); color: #e2e8f0;
-  border-radius: 999px; padding: 4px 9px; font-size: 10.5px;
-  transition: background .15s, border-color .15s, color .15s;
-}
-#wh-ui .wh-btn.on { background: var(--al-accent, #f43f5e); color: #fff; border-color: transparent; }
-#wh-ui .wh-btn.crit { border-color: rgba(239,68,68,.5); color: #fca5a5; }
-#wh-ui .wh-btn.crit.on { background: #ef4444; color: #fff; border-color: transparent; }
-#wh-ui .wh-btn.wide { width: 100%; padding: 7px; font-size: 11px; }
-#wh-ui .wh-btn.inspect {
-  background: linear-gradient(135deg, #f43f5e, #f97316);
-  color: #fff; border-color: transparent;
-  font-size: 11px; padding: 8px;
-}
-#wh-ui .wh-slider { display: flex; flex-direction: column; gap: 3px; }
-#wh-ui .wh-slider .wh-head {
-  display: flex; justify-content: space-between;
-  color: #94a3b8; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase;
-}
-#wh-ui .wh-slider .wh-val { color: #e2e8f0; }
-#wh-ui input[type=range] {
-  -webkit-appearance: none; appearance: none; width: 100%; height: 3px;
-  background: rgba(148,163,184,.28); border-radius: 999px; outline: none;
-}
-#wh-ui input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
-  background: var(--al-accent, #f43f5e); cursor: pointer; border: 0;
-  box-shadow: 0 1px 3px rgba(0,0,0,.4);
-}
-#wh-ui input[type=range]::-moz-range-thumb {
-  width: 13px; height: 13px; border-radius: 50%;
-  background: var(--al-accent, #f43f5e); cursor: pointer; border: 0;
-}
-#wh-ui .wh-stat {
-  display: flex; justify-content: space-between;
-  font-size: 10px; color: #94a3b8; letter-spacing: .04em; padding: 2px 0;
-}
-#wh-ui .wh-stat .v { color: #e2e8f0; }
-#wh-ui .wh-warn {
-  margin-top: 4px; padding: 6px 9px;
-  background: rgba(239,68,68,.12); border-left: 3px solid #ef4444;
-  border-radius: 4px; font-size: 10.5px; color: #fca5a5;
-  display: none;
-}
-#wh-ui .wh-warn.show { display: block; }
-
-#wh-ui-toggle {
-  position: fixed; right: 14px; bottom: calc(var(--dock-h, 24vh) + var(--s-3, 12px)); z-index: var(--z-monitor);
-  width: 42px; height: 42px; border-radius: 50%;
-  background: rgba(8,11,18,.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(148,163,184,.3);
-  color: var(--al-accent, #f43f5e);
-  font-size: 17px; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.4);
-  transition: transform .15s; touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-#wh-ui-toggle:active { transform: scale(.9); }
-#wh-ui-toggle.hidden { display: none; }
-
 /* ══ MODAL ══ */
 #fb-overlay {
   position: fixed; inset: 0; z-index: 100000;
   display: none; align-items: center; justify-content: center;
-  background: rgba(0,0,0,.75);
+  background: color-mix(in oklch, var(--ink) 75%, transparent);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   padding: 16px;
   font: 500 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #e2e8f0;
+  color: var(--text);
   animation: fbFadeIn .18s ease;
 }
 #fb-overlay.open { display: flex; }
@@ -133,10 +28,10 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
 #fb-modal {
   max-width: 960px; width: 100%;
   max-height: calc(100dvh - 32px);
-  background: #0d1017;
-  border: 1px solid rgba(148,163,184,.22);
+  background: var(--bg);
+  border: 1px solid color-mix(in oklch, var(--text) 22%, transparent);
   border-radius: 16px;
-  box-shadow: 0 24px 72px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.03);
+  box-shadow: 0 24px 72px color-mix(in oklch, var(--ink) 80%, transparent), 0 0 0 1px color-mix(in oklch, var(--text) 3%, transparent);
   display: flex; flex-direction: column; overflow: hidden;
   animation: fbSlideIn .22s cubic-bezier(.2,.9,.3,1);
 }
@@ -145,36 +40,36 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
 #fb-modal .fb-head {
   display: flex; align-items: center; gap: 12px;
   padding: 14px 18px;
-  border-bottom: 1px solid rgba(148,163,184,.14);
-  background: linear-gradient(180deg, rgba(244,63,94,.08), transparent);
+  border-bottom: 1px solid color-mix(in oklch, var(--text) 14%, transparent);
+  background: linear-gradient(180deg, color-mix(in oklch, var(--c-red) 8%, transparent), transparent);
   flex-shrink: 0;
 }
 #fb-modal .fb-head-icon {
   width: 38px; height: 38px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #f43f5e, #f97316);
+  background: linear-gradient(135deg, var(--c-red), var(--c-orange));
   font-size: 20px;
-  box-shadow: 0 4px 12px rgba(244,63,94,.35);
+  box-shadow: 0 4px 12px color-mix(in oklch, var(--c-red) 35%, transparent);
 }
 #fb-modal .fb-head-text { flex: 1; min-width: 0; }
 #fb-modal .fb-head-title { font-size: 15px; font-weight: 700; letter-spacing: .01em; }
-#fb-modal .fb-head-sub { font-size: 10px; color: #94a3b8; letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
+#fb-modal .fb-head-sub { font-size: 10px; color: var(--text-dim); letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
 #fb-modal .fb-close {
-  background: transparent; border: 1px solid rgba(148,163,184,.3);
-  color: #94a3b8; width: 32px; height: 32px; border-radius: 50%;
+  background: transparent; border: 1px solid color-mix(in oklch, var(--text) 30%, transparent);
+  color: var(--text-dim); width: 32px; height: 32px; border-radius: 50%;
   cursor: pointer; font-size: 20px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   transition: background .15s, color .15s, border-color .15s;
   flex-shrink: 0;
 }
-#fb-modal .fb-close:hover { background: rgba(148,163,184,.15); color: #e2e8f0; border-color: rgba(148,163,184,.5); }
+#fb-modal .fb-close:hover { background: color-mix(in oklch, var(--text) 15%, transparent); color: var(--text); border-color: color-mix(in oklch, var(--text) 50%, transparent); }
 
 #fb-modal .fb-body {
   display: flex; flex: 1; overflow: hidden; min-height: 0;
 }
 #fb-modal .fb-left {
   flex: 1.15; padding: 18px; overflow-y: auto; min-width: 0;
-  border-right: 1px solid rgba(148,163,184,.14);
+  border-right: 1px solid color-mix(in oklch, var(--text) 14%, transparent);
 }
 #fb-modal .fb-right {
   flex: 1; padding: 18px; overflow-y: auto; min-width: 0;
@@ -183,17 +78,17 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
 .fb-grid {
   display: flex; gap: 8px;
   padding: 14px;
-  background: #0f1218;
-  background-image: linear-gradient(180deg, #161a22, #0a0d12);
-  border: 2px solid #23272f;
+  background: var(--bg);
+  background-image: linear-gradient(180deg, var(--bg), var(--bg));
+  border: 2px solid var(--bg);
   border-radius: 10px;
-  box-shadow: inset 0 2px 8px rgba(0,0,0,.6), 0 2px 4px rgba(0,0,0,.5);
+  box-shadow: inset 0 2px 8px color-mix(in oklch, var(--ink) 60%, transparent), 0 2px 4px color-mix(in oklch, var(--ink) 50%, transparent);
   position: relative;
 }
 .fb-grid::before {
   content: '';
   position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
-  width: 40px; height: 3px; background: #4a5058; border-radius: 2px;
+  width: 40px; height: 3px; background: var(--surface-3); border-radius: 2px;
 }
 .fb-col {
   display: flex; flex-direction: column; gap: 5px;
@@ -205,10 +100,10 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
   display: flex; align-items: center; justify-content: center;
   font: 700 10.5px ui-sans-serif, system-ui, sans-serif;
   cursor: pointer;
-  border: 1px solid rgba(0,0,0,.5);
-  box-shadow: inset 0 -2px 3px rgba(0,0,0,.35),
-              inset 0 2px 2px rgba(255,255,255,.18),
-              0 1px 2px rgba(0,0,0,.3);
+  border: 1px solid color-mix(in oklch, var(--ink) 50%, transparent);
+  box-shadow: inset 0 -2px 3px color-mix(in oklch, var(--ink) 35%, transparent),
+              inset 0 2px 2px color-mix(in oklch, var(--text) 18%, transparent),
+              0 1px 2px color-mix(in oklch, var(--ink) 30%, transparent);
   position: relative;
   transition: transform .12s, box-shadow .12s;
   user-select: none;
@@ -216,22 +111,22 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
 }
 .fb-fuse:hover {
   transform: scale(1.06);
-  box-shadow: 0 0 0 2px rgba(250,204,21,.7),
-              inset 0 -2px 3px rgba(0,0,0,.35),
-              inset 0 2px 2px rgba(255,255,255,.18),
-              0 2px 8px rgba(250,204,21,.4);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--c-amber) 70%, transparent),
+              inset 0 -2px 3px color-mix(in oklch, var(--ink) 35%, transparent),
+              inset 0 2px 2px color-mix(in oklch, var(--text) 18%, transparent),
+              0 2px 8px color-mix(in oklch, var(--c-amber) 40%, transparent);
   z-index: 3;
 }
 .fb-fuse.selected {
-  box-shadow: 0 0 0 2px #facc15,
-              inset 0 -2px 3px rgba(0,0,0,.35),
-              0 0 16px rgba(250,204,21,.55);
+  box-shadow: 0 0 0 2px var(--c-amber),
+              inset 0 -2px 3px color-mix(in oklch, var(--ink) 35%, transparent),
+              0 0 16px color-mix(in oklch, var(--c-amber) 55%, transparent);
   z-index: 3;
 }
 .fb-fuse .cat-dot {
   position: absolute; top: 2px; right: 2px;
   width: 7px; height: 7px; border-radius: 50%;
-  box-shadow: 0 0 0 1.5px rgba(0,0,0,.55);
+  box-shadow: 0 0 0 1.5px color-mix(in oklch, var(--ink) 55%, transparent);
   pointer-events: none;
 }
 .fb-fuse .fb-amp {
@@ -254,74 +149,74 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
   align-items: center; justify-content: center;
   gap: 3px;
   cursor: pointer;
-  border: 1px solid rgba(0,0,0,.5);
-  box-shadow: inset 0 -3px 6px rgba(0,0,0,.4),
-              inset 0 2px 4px rgba(255,255,255,.15),
-              0 1px 3px rgba(0,0,0,.4);
+  border: 1px solid color-mix(in oklch, var(--ink) 50%, transparent);
+  box-shadow: inset 0 -3px 6px color-mix(in oklch, var(--ink) 40%, transparent),
+              inset 0 2px 4px color-mix(in oklch, var(--text) 15%, transparent),
+              0 1px 3px color-mix(in oklch, var(--ink) 40%, transparent);
   font: 700 9.5px ui-sans-serif, system-ui, sans-serif;
-  color: #fff;
+  color: var(--paper);
   transition: transform .12s, box-shadow .12s;
   user-select: none;
   position: relative;
 }
 .fb-relay:hover {
   transform: scale(1.05);
-  box-shadow: 0 0 0 2px rgba(250,204,21,.7),
-              inset 0 -3px 6px rgba(0,0,0,.4),
-              0 2px 8px rgba(250,204,21,.4);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--c-amber) 70%, transparent),
+              inset 0 -3px 6px color-mix(in oklch, var(--ink) 40%, transparent),
+              0 2px 8px color-mix(in oklch, var(--c-amber) 40%, transparent);
   z-index: 3;
 }
 .fb-relay.selected {
-  box-shadow: 0 0 0 2px #facc15,
-              inset 0 -3px 6px rgba(0,0,0,.4),
-              0 0 16px rgba(250,204,21,.55);
+  box-shadow: 0 0 0 2px var(--c-amber),
+              inset 0 -3px 6px color-mix(in oklch, var(--ink) 40%, transparent),
+              0 0 16px color-mix(in oklch, var(--c-amber) 55%, transparent);
   z-index: 3;
 }
 .fb-relay .fb-relay-icon { font-size: 18px; }
 .fb-relay .cat-dot {
   position: absolute; top: 3px; right: 3px;
   width: 7px; height: 7px; border-radius: 50%;
-  box-shadow: 0 0 0 1.5px rgba(0,0,0,.55);
+  box-shadow: 0 0 0 1.5px color-mix(in oklch, var(--ink) 55%, transparent);
 }
 .fb-large { height: 38px; font-size: 11px; }
 
 .fb-legend {
   margin-top: 14px;
   display: flex; flex-wrap: wrap; gap: 10px 16px;
-  font-size: 10.5px; color: #94a3b8;
+  font-size: 10.5px; color: var(--text-dim);
   letter-spacing: .04em;
 }
 .fb-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .fb-legend i {
   width: 12px; height: 12px; border-radius: 3px;
-  box-shadow: inset 0 -1px 2px rgba(0,0,0,.4), 0 0 0 1px rgba(0,0,0,.5);
+  box-shadow: inset 0 -1px 2px color-mix(in oklch, var(--ink) 40%, transparent), 0 0 0 1px color-mix(in oklch, var(--ink) 50%, transparent);
 }
 
-.fb-info h3 { font-size: 15px; font-weight: 700; margin: 0 0 10px 0; color: #f8fafc; letter-spacing: .01em; }
-.fb-info h4 { font-size: 11px; font-weight: 700; margin: 18px 0 8px 0; color: #facc15; letter-spacing: .1em; text-transform: uppercase; }
-.fb-info p { margin: 0 0 10px 0; color: #cbd5e1; font-size: 12.5px; line-height: 1.6; }
-.fb-info ul { margin: 0 0 10px 0; padding-left: 18px; color: #cbd5e1; font-size: 12.5px; line-height: 1.6; }
+.fb-info h3 { font-size: 15px; font-weight: 700; margin: 0 0 10px 0; color: var(--text); letter-spacing: .01em; }
+.fb-info h4 { font-size: 11px; font-weight: 700; margin: 18px 0 8px 0; color: var(--c-amber); letter-spacing: .1em; text-transform: uppercase; }
+.fb-info p { margin: 0 0 10px 0; color: var(--text); font-size: 12.5px; line-height: 1.6; }
+.fb-info ul { margin: 0 0 10px 0; padding-left: 18px; color: var(--text); font-size: 12.5px; line-height: 1.6; }
 .fb-info ul li { margin-bottom: 5px; }
-.fb-info ul li b { color: #f8fafc; }
+.fb-info ul li b { color: var(--text); }
 .fb-info .fb-color-row {
   display: flex; flex-wrap: wrap; gap: 8px;
   margin: 8px 0 12px 0;
   font-size: 10.5px;
-  color: #e2e8f0;
+  color: var(--text);
 }
 .fb-info .fb-color-row span { display: inline-flex; align-items: center; gap: 5px; }
 .fb-info .fb-color-row i {
   width: 14px; height: 14px; border-radius: 3px;
-  box-shadow: inset 0 -1px 2px rgba(0,0,0,.4), 0 0 0 1px rgba(0,0,0,.5);
+  box-shadow: inset 0 -1px 2px color-mix(in oklch, var(--ink) 40%, transparent), 0 0 0 1px color-mix(in oklch, var(--ink) 50%, transparent);
 }
 .fb-info .fb-hint {
   margin-top: 16px;
   padding: 10px 12px;
-  background: rgba(250,204,21,.08);
-  border-left: 3px solid #facc15;
+  background: color-mix(in oklch, var(--c-amber) 8%, transparent);
+  border-left: 3px solid var(--c-amber);
   border-radius: 4px;
   font-size: 11.5px;
-  color: #fef3c7;
+  color: var(--c-amber);
 }
 
 .fb-selected-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
@@ -329,69 +224,37 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
   width: 62px; height: 62px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   font: 800 18px ui-sans-serif, system-ui, sans-serif;
-  box-shadow: inset 0 -3px 6px rgba(0,0,0,.35), inset 0 3px 4px rgba(255,255,255,.2), 0 3px 8px rgba(0,0,0,.5);
+  box-shadow: inset 0 -3px 6px color-mix(in oklch, var(--ink) 35%, transparent), inset 0 3px 4px color-mix(in oklch, var(--text) 20%, transparent), 0 3px 8px color-mix(in oklch, var(--ink) 50%, transparent);
   flex-shrink: 0;
 }
-.fb-selected-meta h3 { margin: 0 0 2px 0; font-size: 16px; color: #f8fafc; }
-.fb-selected-meta .fb-selected-cat { font-size: 10.5px; color: #94a3b8; letter-spacing: .1em; text-transform: uppercase; }
+.fb-selected-meta h3 { margin: 0 0 2px 0; font-size: 16px; color: var(--text); }
+.fb-selected-meta .fb-selected-cat { font-size: 10.5px; color: var(--text-dim); letter-spacing: .1em; text-transform: uppercase; }
 .fb-fuse-facts {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 8px 14px; margin: 12px 0 16px 0; padding: 12px;
-  background: rgba(148,163,184,.06);
-  border: 1px solid rgba(148,163,184,.14);
+  background: color-mix(in oklch, var(--text) 6%, transparent);
+  border: 1px solid color-mix(in oklch, var(--text) 14%, transparent);
   border-radius: 8px; font-size: 11.5px;
 }
 .fb-fuse-facts > div { display: flex; flex-direction: column; gap: 2px; }
-.fb-fuse-facts span { color: #94a3b8; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
-.fb-fuse-facts b { color: #f8fafc; font-weight: 600; }
+.fb-fuse-facts span { color: var(--text-dim); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.fb-fuse-facts b { color: var(--text); font-weight: 600; }
 .fb-back {
   background: transparent;
-  border: 1px solid rgba(148,163,184,.35);
-  color: #cbd5e1; padding: 7px 14px; border-radius: 8px;
+  border: 1px solid color-mix(in oklch, var(--text) 35%, transparent);
+  color: var(--text); padding: 7px 14px; border-radius: 8px;
   cursor: pointer; font: inherit; font-size: 11.5px; margin-top: 12px;
   transition: background .15s, color .15s;
 }
-.fb-back:hover { background: rgba(148,163,184,.12); color: #f8fafc; }
-
-#fb-inspect-btn {
-  position: fixed; left: 14px; bottom: calc(var(--dock-h, 24vh) + var(--s-3, 12px));
-  z-index: 9998;
-  padding: 9px 14px; border-radius: 999px;
-  border: 1px solid rgba(244,63,94,.5);
-  background: linear-gradient(135deg, rgba(244,63,94,.95), rgba(249,115,22,.95));
-  color: #fff;
-  font: 700 11.5px ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: .04em; cursor: pointer;
-  box-shadow: 0 6px 20px rgba(244,63,94,.4), 0 0 0 1px rgba(255,255,255,.08);
-  transition: transform .15s, box-shadow .15s;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  display: flex; align-items: center; gap: 6px;
-}
-#fb-inspect-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(244,63,94,.55); }
-#fb-inspect-btn:active { transform: scale(.96); }
-#fb-inspect-btn .pulse {
-  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-  background: #fff; animation: fbPulse 1.6s ease-in-out infinite;
-  margin-left: 2px;
-}
-@keyframes fbPulse {
-  0%, 100% { opacity: .5; transform: scale(.85); }
-  50%      { opacity: 1;  transform: scale(1.2); }
-}
+.fb-back:hover { background: color-mix(in oklch, var(--text) 12%, transparent); color: var(--text); }
 
 @media (max-width: 768px) {
-  #wh-ui { top: 68px; right: 10px; width: min(258px, calc(100vw - 20px)); padding: 10px 12px 14px; max-height: 70vh; }
-  #wh-ui .wh-btn { padding: 6px 11px; font-size: 11.5px; }
-  #wh-ui .wh-header { padding: 7px 8px 7px 10px; }
-  #wh-ui .wh-grip { font-size: 15px; }
-  #wh-ui-toggle { bottom: 96px; width: 46px; height: 46px; font-size: 19px; }
 
   #fb-modal .fb-body { flex-direction: column; }
   #fb-modal .fb-left {
     flex: none !important;
     border-right: 0;
-    border-bottom: 1px solid rgba(148,163,184,.14);
+    border-bottom: 1px solid color-mix(in oklch, var(--text) 14%, transparent);
     max-height: 55vh;
   }
   #fb-modal .fb-right { flex: none !important; }
@@ -403,7 +266,6 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
   .fb-large { height: 32px; font-size: 10px; }
   .fb-fuse-facts { grid-template-columns: 1fr; }
 
-  #fb-inspect-btn { bottom: 96px; left: 10px; padding: 8px 12px; font-size: 11px; }
 }
 </style>
 </head>
@@ -422,7 +284,13 @@ html.light-theme { --al-accent: color-mix(in oklch, #f43f5e 68%, black); }
 </script>
 
 <script type="module">
+import * as THREE from 'three';
 import { runGuidedModule } from './components.js';
+import { chromeButton } from './chrome.js';
+
+/* Written by the dock controls; build() installs EXT.pick. */
+const EXT = { pick: null };
+const pick = (key) => (id) => { if (EXT.pick) EXT.pick(key, id); };
 
 const CFG = {
   "moduleId": "wiring",
@@ -443,13 +311,15 @@ const CFG = {
     ["vd",   "Voltage drop"],
     ["pwr",  "Power loss"],
     ["head", "Headroom"],
+    ["loop", "Loop resistance"],
+    ["amp", "Ampacity"],
     ["lamp", "Cluster"]
   ],
   "legend": [
-    ["#ef4444", "Live (+12 V)"],
-    ["#0a0a0a", "Ground"],
-    ["#fde047", "Current flow"],
-    ["#3b82f6", "Sensor signal"]
+    ["var(--c-red)", "Live (+12 V)"],
+    ["var(--surface-3)", "Ground"],
+    ["var(--c-amber)", "Current flow"],
+    ["var(--c-sky)", "Sensor signal"]
   ],
   "overview": "<div class=\"al-sec\"><h4>Complete circuit<\/h4><p>Current only flows when the loop is complete: battery (+) → fuse → ECU/load → ground → battery (−). Break it anywhere and the load stops. Every wire has resistance, so a thin wire or a bad crimp drops voltage and gets hot.<\/p><\/div><div class=\"al-sec\"><h4>The fuse box<\/h4><p>The <b>fuse box<\/b> is the central distribution point of the electrical system. Every circuit is protected by a fuse rated slightly above the normal current it draws. Click the fuse box in the 3D scene (or the <b>Inspect Fuse Box<\/b> button) to open an interactive fuse-by-fuse layout.<\/p><\/div><div class=\"al-sec\"><h4>Wire size<\/h4><p>Heat in a wire is I²R. Doubling the current quadruples the heat. Thin wire, long runs or bad crimps all raise resistance and drop voltage at the load. A wire's safe current limit is its <b>ampacity<\/b> — the current at which its insulation reaches its rated temperature.<\/p><\/div>",
   "faults": [
@@ -466,6 +336,18 @@ const CFG = {
     ["A short to ground on thin wire…", ["Blows the fuse slowly", "Limits current itself", "Doubles the current"], 1, "Thin wire has enough resistance to limit the current below what a thick wire would carry on the same short."]
   ]
 };
+
+CFG.options = [
+  { id: 'gauge', type: 'choice', layout: 'segmented', label: 'Wire gauge (AWG)', def: '16', onChange: pick('gauge'),
+    options: ['18', '16', '14', '12', '10'] },
+  { id: 'fuse', type: 'choice', layout: 'segmented', label: 'Fuse rating', def: '30', onChange: pick('fuse'),
+    options: [{ id: '5', label: '5 A' }, { id: '10', label: '10 A' }, { id: '15', label: '15 A' }, { id: '20', label: '20 A' }, { id: '30', label: '30 A' }] },
+  { id: 'fault', type: 'choice', layout: 'segmented', label: 'Circuit fault', def: 'none', onChange: pick('fault'),
+    options: [{ id: 'none', label: 'Normal' }, { id: 'open', label: 'Open' }, { id: 'resistive', label: 'High-R' }, { id: 'short', label: 'Short', tone: 'crit' }] },
+  { id: 'flow', type: 'choice', layout: 'segmented', label: 'Flow', def: 'on', onChange: pick('flow'), options: [{ id: 'on', label: 'Animated' }, { id: 'off', label: 'Static' }] },
+  { id: 'fusebox', type: 'action', label: 'Fuse box view', onAction: () => { if (EXT.pick) EXT.pick('fusebox'); } },
+  { id: 'replace', type: 'action', label: 'Replace fuse', onAction: () => { if (EXT.pick) EXT.pick('replace'); } }
+];
 
 /* ═══════════════════════════════════════════════════════════
    FUSE BOX DATA (unchanged)
@@ -1158,206 +1040,17 @@ function build(H) {
     phase: 0
   };
 
-  /* ═══════════════ FLOATING PANEL ═══════════════ */
-  let statWireR = null, statWireAmp = null, warnBox = null;
+  /* Controls (wire gauge, fuse rating, circuit fault, flow, fuse box view, replace fuse) are dock options declared in CFG;
+     EXT.pick applies them. The harness numbers and warnings are Monitor rows / the Monitor status. */
   let openFuseBoxModal = () => {};
-
-  try {
-    const panel = document.createElement('div');
-    panel.id = 'wh-ui';
-    document.body.appendChild(panel);
-
-    const header = document.createElement('div');
-    header.className = 'wh-header';
-    const grip = document.createElement('span');
-    grip.className = 'wh-grip'; grip.textContent = '⠿';
-    header.appendChild(grip);
-    const title = document.createElement('span');
-    title.className = 'wh-title'; title.textContent = 'Wiring Harness';
-    header.appendChild(title);
-    const collapseBtn = document.createElement('button');
-    collapseBtn.type = 'button';
-    collapseBtn.className = 'wh-icon';
-    collapseBtn.textContent = '—';
-    collapseBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      panel.classList.toggle('wh-collapsed');
-      collapseBtn.textContent = panel.classList.contains('wh-collapsed') ? '+' : '—';
-    });
-    header.appendChild(collapseBtn);
-    panel.appendChild(header);
-
-    const body = document.createElement('div');
-    body.className = 'wh-body';
-    panel.appendChild(body);
-
-    function makeRow(label, options, initial, onPick) {
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px';
-      const lab = document.createElement('div');
-      lab.className = 'wh-lab';
-      lab.textContent = label;
-      wrap.appendChild(lab);
-      const row = document.createElement('div');
-      row.className = 'wh-row';
-      const btns = {};
-      options.forEach(([key, text, crit]) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'wh-btn' + (crit ? ' crit' : '');
-        b.textContent = text;
-        b.addEventListener('click', e => {
-          e.stopPropagation();
-          onPick(key); select(key);
-        });
-        btns[key] = b;
-        row.appendChild(b);
-      });
-      function select(key) {
-        Object.keys(btns).forEach(k => btns[k].classList.toggle('on', k === key));
-      }
-      select(initial);
-      wrap.appendChild(row);
-      body.appendChild(wrap);
-      return select;
-    }
-
-    makeRow('Wire gauge',
-      [['18','18'],['16','16'],['14','14'],['12','12'],['10','10']],
-      '16', v => { state.gauge = parseInt(v, 10); });
-
-    makeRow('Fuse rating',
-      [['5','5 A'],['10','10 A'],['15','15 A'],['20','20 A'],['30','30 A']],
-      '30', v => {
-        state.fuseRating = parseInt(v, 10);
-        state.fuseProgress = 0;
-      });
-
-    makeRow('Circuit fault',
-      [['none','Normal'],['open','Open'],['resistive','High-R'],['short','Short', true]],
-      'none', v => { state.fault = v; });
-
-    const inspectBtn = document.createElement('button');
-    inspectBtn.type = 'button';
-    inspectBtn.className = 'wh-btn wide inspect';
-    inspectBtn.innerHTML = '⚡  Open Fuse Box View';
-    inspectBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      openFuseBoxModal();
-    });
-    body.appendChild(inspectBtn);
-
-    const rep = document.createElement('button');
-    rep.type = 'button';
-    rep.className = 'wh-btn wide';
-    rep.textContent = '⟲  Replace fuse';
-    rep.addEventListener('click', e => {
-      e.stopPropagation();
-      state.fuseBlown = false;
-      state.fuseProgress = 0;
-      state.wireTemp = 25;
-    });
-    body.appendChild(rep);
-
-    makeRow('Flow', [['on','Animated'],['off','Static']], 'on', v => {
-      state.flowPaused = (v === 'off');
-    });
-
-    const statWrap = document.createElement('div');
-    statWrap.style.cssText = 'border-top:1px solid rgba(148,163,184,.14);padding-top:6px;display:flex;flex-direction:column;gap:2px';
-    const statHead = document.createElement('div');
-    statHead.style.cssText = 'color:#94a3b8;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase';
-    statHead.textContent = 'Harness';
-    statWrap.appendChild(statHead);
-    statWireR = document.createElement('div');
-    statWireR.className = 'wh-stat';
-    statWireR.innerHTML = '<span>Loop resistance</span><span class="v">—</span>';
-    statWrap.appendChild(statWireR);
-    statWireAmp = document.createElement('div');
-    statWireAmp.className = 'wh-stat';
-    statWireAmp.innerHTML = '<span>Ampacity</span><span class="v">—</span>';
-    statWrap.appendChild(statWireAmp);
-    body.appendChild(statWrap);
-
-    warnBox = document.createElement('div');
-    warnBox.className = 'wh-warn';
-    body.appendChild(warnBox);
-
-    (function makeDraggable(el, handle) {
-      let dragging = false, pid = null, sx = 0, sy = 0, sl = 0, st = 0;
-      handle.addEventListener('pointerdown', e => {
-        if (e.target.closest('button, input, canvas, a, select, textarea')) return;
-        e.preventDefault(); e.stopPropagation();
-        dragging = true; pid = e.pointerId;
-        const r = el.getBoundingClientRect();
-        sl = r.left; st = r.top;
-        sx = e.clientX; sy = e.clientY;
-        el.style.right = 'auto';
-        el.style.left = sl + 'px';
-        el.style.top  = st + 'px';
-        el.classList.add('dragging');
-        try { handle.setPointerCapture(pid); } catch (_) {}
-      });
-      handle.addEventListener('pointermove', e => {
-        if (!dragging || e.pointerId !== pid) return;
-        e.preventDefault();
-        const dx = e.clientX - sx, dy = e.clientY - sy;
-        const w = el.offsetWidth, h = el.offsetHeight;
-        let nl = sl + dx, nt = st + dy;
-        const mv = 48;
-        nl = Math.max(-w + mv, Math.min(window.innerWidth - mv, nl));
-        nt = Math.max(0, Math.min(window.innerHeight - 32, nt));
-        el.style.left = nl + 'px';
-        el.style.top  = nt + 'px';
-      });
-      const end = () => {
-        if (!dragging) return;
-        dragging = false;
-        el.classList.remove('dragging');
-        try { handle.releasePointerCapture(pid); } catch (_) {}
-      };
-      handle.addEventListener('pointerup', end);
-      handle.addEventListener('pointercancel', end);
-      handle.addEventListener('lostpointercapture', end);
-    })(panel, header);
-
-    const fab = document.createElement('button');
-    fab.id = 'wh-ui-toggle';
-    fab.type = 'button';
-    fab.innerHTML = '×';
-    fab.title = 'Hide controls';
-    fab.addEventListener('click', () => {
-      const hidden = panel.classList.toggle('hidden');
-      fab.innerHTML = hidden ? '⚙' : '×';
-      fab.title = hidden ? 'Show controls' : 'Hide controls';
-    });
-    document.body.appendChild(fab);
-
-    window.addEventListener('resize', () => {
-      if (!panel.style.left) return;
-      const w = panel.offsetWidth, h = panel.offsetHeight;
-      let l = parseFloat(panel.style.left) || 0;
-      let t = parseFloat(panel.style.top)  || 0;
-      const mv = 48;
-      l = Math.max(-w + mv, Math.min(window.innerWidth - mv, l));
-      t = Math.max(0, Math.min(window.innerHeight - 32, t));
-      panel.style.left = l + 'px';
-      panel.style.top  = t + 'px';
-    });
-  } catch (e) { /* overlay optional */ }
-
-  /* ═══════════════ INSPECT BUTTON ═══════════════ */
-  try {
-    const fbInspectBtn = document.createElement('button');
-    fbInspectBtn.id = 'fb-inspect-btn';
-    fbInspectBtn.type = 'button';
-    fbInspectBtn.innerHTML = '⚡ Inspect Fuse Box<span class="pulse"></span>';
-    fbInspectBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      openFuseBoxModal();
-    });
-    document.body.appendChild(fbInspectBtn);
-  } catch (e) {}
+  EXT.pick = (key, v) => {
+    if (key === 'gauge') state.gauge = parseInt(v, 10);
+    else if (key === 'fuse') { state.fuseRating = parseInt(v, 10); state.fuseProgress = 0; }
+    else if (key === 'fault') state.fault = v;
+    else if (key === 'flow') state.flowPaused = (v === 'off');
+    else if (key === 'fusebox') openFuseBoxModal();
+    else if (key === 'replace') { state.fuseBlown = false; state.fuseProgress = 0; state.wireTemp = 25; }
+  };
 
   /* ═══════════════ MODAL ═══════════════ */
   (function buildFuseBoxModal() {
@@ -1376,11 +1069,7 @@ function build(H) {
         <div class="fb-head-sub">Distribution &amp; protection</div>
       </div>
     `;
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'fb-close';
-    closeBtn.type = 'button';
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.textContent = '×';
+    const closeBtn = chromeButton(document, { cls: 'fb-close', label: 'Close', html: '×' });
     closeBtn.addEventListener('click', close);
     head.appendChild(closeBtn);
     modal.appendChild(head);
@@ -1581,8 +1270,8 @@ function build(H) {
         <p>${cat.blow}. Always find the cause before replacing — a repeat blow means the fault is still present.</p>
         <h4>Never oversize</h4>
         <p>Fitting a higher-rated fuse "to stop it blowing" removes the protection. The wire becomes the fuse and can burn the harness. Always fit the rating stamped on the fuse box lid.</p>
-        <button class="fb-back" type="button">← Back to overview</button>
       `;
+      info.appendChild(chromeButton(document, { cls: 'fb-back', html: '← Back to overview' }));
       info.querySelector('.fb-back').addEventListener('click', () => {
         allClickables.forEach(el => el.classList.remove('selected'));
         showDefault();
@@ -1614,8 +1303,8 @@ function build(H) {
         <p>The switch that commands this circuit (ignition key, ECU output) can only handle a few hundred milliamps. The relay lets that small signal control a much larger current without burning the switch contacts.</p>
         <h4>Failure symptoms</h4>
         <p>${item.failure}</p>
-        <button class="fb-back" type="button">← Back to overview</button>
       `;
+      info.appendChild(chromeButton(document, { cls: 'fb-back', html: '← Back to overview' }));
       info.querySelector('.fb-back').addEventListener('click', () => {
         allClickables.forEach(el => el.classList.remove('selected'));
         showDefault();
@@ -1828,30 +1517,6 @@ function build(H) {
       flowIgn.update(t, flowSpeed, flowAlpha);
       flowHot.update(t, flowSpeed, flowAlpha);
 
-      /* ── panel readouts ── */
-      if (statWireR) statWireR.querySelector('.v').textContent = (Rtotal + extraR).toFixed(3) + ' Ω';
-      if (statWireAmp) statWireAmp.querySelector('.v').textContent = gauge.ampacity + ' A (' + state.gauge + ' AWG)';
-
-      /* ── warning box ── */
-      let warnMsg = '';
-      if (state.wireTemp > 105 && !state.fuseBlown) {
-        warnMsg = '⚠ Wire above insulation rating. Ampacity exceeded.';
-      }
-      if (state.wireTemp > 500) {
-        warnMsg = '🔥 Wire glowing — insulation will fail.';
-      }
-      if (state.fuseBlown) {
-        warnMsg = '✕ Fuse blown — circuit open. Find the fault before replacing.';
-      }
-      if (warnBox) {
-        if (warnMsg) {
-          warnBox.textContent = warnMsg;
-          warnBox.classList.add('show');
-        } else {
-          warnBox.classList.remove('show');
-        }
-      }
-
       /* ── HUD ── */
       const fuseStatus = state.fuseBlown ? 'BLOWN'
                        : state.fuseProgress > 0.55 ? 'About to blow'
@@ -1889,15 +1554,19 @@ function build(H) {
           vd:   [Vdrop.toFixed(2) + ' V', Vdrop > 0.8 ? 'warn' : ''],
           pwr:  [Pwire.toFixed(1) + ' W', Pwire > 20 ? 'warn' : ''],
           head: [headTxt, headCls],
-          lamp: [lampTxt, state.fuseBlown ? 'crit' : lampOn ? 'ok' : '']
+          lamp: [lampTxt, state.fuseBlown ? 'crit' : lampOn ? 'ok' : ''],
+          loop: [(Rtotal + extraR).toFixed(3) + ' Ω', ''],
+          amp:  [gauge.ampacity + ' A (' + state.gauge + ' AWG)', '']
         },
         status: [
           state.fuseBlown ? 'Fuse blown — circuit open'
             : state.fault === 'short' ? 'SHORT TO GROUND'
             : state.fault === 'open'  ? 'Open circuit'
+            : state.wireTemp > 500    ? 'Wire glowing — insulation will fail'
             : state.wireTemp > 200    ? 'Wire overheating'
+            : state.wireTemp > 105    ? 'Above insulation rating'
             : lampOn ? 'Circuit live' : 'No load',
-          !state.fuseBlown && state.fault !== 'short' && state.wireTemp < 200
+          !state.fuseBlown && state.fault !== 'short' && state.wireTemp < 105
         ],
         ctl: state.fuseBlown ? 'Fuse blown — replace' : I.toFixed(0) + ' A'
       };

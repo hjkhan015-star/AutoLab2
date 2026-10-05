@@ -57,7 +57,7 @@
     opacity: 0;
     transition: opacity .5s;
     background: radial-gradient(ellipse at center,
-      transparent 42%, rgba(239,68,68,.42) 100%);
+      transparent 42%, color-mix(in oklch, var(--c-red) 42%, transparent) 100%);
   }
   #overheat-overlay.on {
     opacity: 1;
@@ -72,15 +72,15 @@
     left: 50%;
     top: 22px;
     transform: translateX(-50%) translateY(-14px);
-    background: rgba(60,10,10,.95);
-    border: 1px solid rgba(239,68,68,.6);
-    color: #fca5a5;
+    background: color-mix(in oklch, var(--c-red) 95%, transparent);
+    border: 1px solid color-mix(in oklch, var(--c-red) 60%, transparent);
+    color: var(--c-red);
     padding: 11px 18px;
     border-radius: 12px;
     font-weight: 750;
     font-size: 13px;
     letter-spacing: .03em;
-    box-shadow: 0 10px 30px rgba(239,68,68,.35);
+    box-shadow: 0 10px 30px color-mix(in oklch, var(--c-red) 35%, transparent);
     opacity: 0;
     pointer-events: none;
     transition: opacity .35s, transform .35s;
@@ -137,7 +137,7 @@
     border-color: color-mix(in oklch, var(--c, currentColor) 42%, var(--border)); }
   .callout::before { content:''; display:inline-block; width:6px; height:6px; border-radius:50%;
     background: var(--c, currentColor); box-shadow: 0 0 6px var(--c, currentColor); margin-right:6px; vertical-align:1px; }
-  .legend-grad { height:5px; border-radius:3px; margin-top:3px; background: linear-gradient(90deg,#3aa8f0,#ffc24d,#ff3f1c); }
+  .legend-grad { height:5px; border-radius:3px; margin-top:3px; background: linear-gradient(90deg,var(--c-sky),var(--c-orange),var(--c-red)); }
   .legend-ends { display:flex; justify-content:space-between; font-size:9.5px; opacity:.8; }
     @keyframes finWarn {
     50% { box-shadow: 0 0 16px color-mix(in oklch, var(--crit) 45%, transparent); }
@@ -1423,7 +1423,7 @@ function projectLabels() {
   if (state.frame % 2 !== 0) return;
   for (const co of callouts) {
     _proj.copy(co.anchor).project(camera);
-    const _dens = window.__autolabDensity ?? 2;
+    const _dens = Base.getLabelDensity();
     const _tier = co.tier ?? (callouts.indexOf(co) < Math.ceil(callouts.length / 2) ? 1 : 2);
     const visible = state.showLabels && _dens >= _tier && co.modes.includes(state.mode) && _proj.z < 1;
     const d = visible ? 'block' : 'none';

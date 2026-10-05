@@ -553,46 +553,10 @@ const TABS = {
       <div class="s">Grinding when cranking, starter engages but the engine will not turn over.</div>
       <div class="c">Check: ring-gear teeth at the starter position; rotate the crank and inspect all around.</div>
     </div>`,
-  quiz: () => `
-    <div class="al-q" data-a="1">
-      <div class="q">1. What does the crank throw offset define?</div>
-      <button class="al-opt">Piston diameter</button>
-      <button class="al-opt">Half the piston stroke</button>
-      <button class="al-opt">Rod length</button>
-      <div class="al-exp">The throw offset equals half the stroke. From TDC to BDC the pin moves from +r to −r, so piston travel is 2r.</div>
-    </div>
-    <div class="al-q" data-a="2">
-      <div class="q">2. In an inline-4 with firing order 1-3-4-2, which pistons move together?</div>
-      <button class="al-opt">1 and 2</button>
-      <button class="al-opt">2 and 4</button>
-      <button class="al-opt">1 and 4, plus 2 and 3 half a revolution later</button>
-      <div class="al-exp">Throws are paired. Pistons 1 and 4 rise together while 2 and 3 fall, which gives an even 180° firing interval.</div>
-    </div>
-    <div class="al-q" data-a="0">
-      <div class="q">3. What is a longer rod (higher rod ratio) good for?</div>
-      <button class="al-opt">Lower side load on the piston skirt and smoother high-rpm behaviour</button>
-      <button class="al-opt">Higher compression ratio</button>
-      <button class="al-opt">More torque at idle only</button>
-      <div class="al-exp">A longer rod swings through a smaller angle, so it pushes the piston less sideways into the bore. The price is a taller block.</div>
-    </div>
-    <div class="al-q" data-a="1">
-      <div class="q">4. Where is piston acceleration greatest?</div>
-      <button class="al-opt">Mid-stroke</button>
-      <button class="al-opt">At TDC, where the piston reverses direction</button>
-      <button class="al-opt">It stays the same all the way</button>
-      <div class="al-exp">At TDC and BDC the piston has to stop and reverse. The force needed is mass × acceleration, and it rises with the square of rpm.</div>
-    </div>
-    <div class="al-q" data-a="2">
-      <div class="q">5. Why does the engine have a heavy flywheel?</div>
-      <button class="al-opt">To raise the compression ratio</button>
-      <button class="al-opt">To cool the crankshaft</button>
-      <button class="al-opt">To store energy from the power strokes and smooth the torque pulses</button>
-      <div class="al-exp">Torque comes in pulses. The flywheel's inertia carries the crank through the compression, exhaust and intake strokes.</div>
-    </div>`
-};
+  quiz: () => Widgets.quiz({ quiz: [["What does the crank throw offset define?", ["Piston diameter", "Half the piston stroke", "Rod length"], 1, "The throw offset equals half the stroke. From TDC to BDC the pin moves from +r to −r, so piston travel is 2r."], ["In an inline-4 with firing order 1-3-4-2, which pistons move together?", ["1 and 2", "2 and 4", "1 and 4, plus 2 and 3 half a revolution later"], 2, "Throws are paired. Pistons 1 and 4 rise together while 2 and 3 fall, which gives an even 180° firing interval."], ["What is a longer rod (higher rod ratio) good for?", ["Lower side load on the piston skirt and smoother high-rpm behaviour", "Higher compression ratio", "More torque at idle only"], 0, "A longer rod swings through a smaller angle, so it pushes the piston less sideways into the bore. The price is a taller block."], ["Where is piston acceleration greatest?", ["Mid-stroke", "At TDC, where the piston reverses direction", "It stays the same all the way"], 1, "At TDC and BDC the piston has to stop and reverse. The force needed is mass × acceleration, and it rises with the square of rpm."], ["Why does the engine have a heavy flywheel?", ["To raise the compression ratio", "To cool the crankshaft", "To store energy from the power strokes and smooth the torque pulses"], 2, "Torque comes in pulses. The flywheel's inertia carries the crank through the compression, exhaust and intake strokes."]] })};
 
 /* 7b3: the module legend is the Monitor footer */
-const LEGEND = '<div class="mon-legend"><span><i style="background:#38bdf8"></i>Intake</span><span><i style="background:#818cf8"></i>Compression</span><span><i style="background:#ff8a1f"></i>Power</span><span><i style="background:#94a3b8"></i>Exhaust</span><span><i style="background:#ffb020"></i>Cyl 1 &amp; 4 pins</span><span><i style="background:#38bdf8"></i>Cyl 2 &amp; 3 pins</span></div>';
+const LEGEND = '<div class="mon-legend"><span><i style="background:var(--c-cyan)"></i>Intake</span><span><i style="background:var(--c-blue)"></i>Compression</span><span><i style="background:var(--c-orange)"></i>Power</span><span><i style="background:var(--c-slate)"></i>Exhaust</span><span><i style="background:var(--c-orange)"></i>Cyl 1 &amp; 4 pins</span><span><i style="background:var(--c-cyan)"></i>Cyl 2 &amp; 3 pins</span></div>';
 
 const ui = Base.UI.create({
   moduleId: CFG.moduleId,

@@ -61,12 +61,12 @@ const CFG = {
     ["state", "State"]
   ],
   "legend": [
-    ["#ff6b35", "Hot compressed charge"],
-    ["#38bdf8", "Cooled charge air"],
-    ["#7dd3fc", "Ambient air through the core"],
-    ["#ff3a1a", "Heat-soaked core"],
-    ["#6b5238", "Oil-fouled fins"],
-    ["#1a1410", "Clogged / blocked fins"]
+    ["var(--c-orange)", "Hot compressed charge"],
+    ["var(--c-cyan)", "Cooled charge air"],
+    ["var(--c-cyan)", "Ambient air through the core"],
+    ["var(--c-red)", "Heat-soaked core"],
+    ["var(--c-orange)", "Oil-fouled fins"],
+    ["var(--surface-3)", "Clogged / blocked fins"]
   ],
   "overview": "<div class=\"al-sec\"><h4>Why cool the charge?<\/h4><p>Compressing air heats it &mdash; often to 120&ndash;160&nbsp;&deg;C. Hot air is less dense, holds less oxygen and raises knock risk. The intercooler removes that heat so more air (and power) fits in each cylinder.<\/p><\/div><div class=\"al-sec\"><h4>How it works<\/h4><ul><li>Hot charge air flows through flat internal tubes between two end tanks.<\/li><li>Ambient air passes across the outside fins at road speed.<\/li><li>Typical effectiveness is 70&ndash;80&nbsp;% at cruise; the outlet lands a little above ambient.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Heat soak<\/h4><p>Sitting in traffic after a hard drive is the worst case: with little air crossing the fins, the core soaks up heat from the charge air and effectiveness collapses. The brick only cools back down once you start moving again &mdash; that is why the temperature readout lags the load.<\/p><\/div><div class=\"al-sec\"><h4>Faults that matter<\/h4><p>A split coupler dumps boost (P0299). Blocked or oil-soaked fins and internal oil film kill effectiveness, so the ECU pulls timing and the car feels flat. The pressure-drop reading tells you whether a restriction is inside the charge air path or the pipework is leaking.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Set high boost and rpm with the car stopped and watch the core heat-soak (fins glow red, outlet temp rises). Then raise vehicle speed to 100&nbsp;km/h &mdash; ram air cools the core and effectiveness climbs back. Now try the <b>leaking coupler</b> fault and watch actual boost fall away from the target.<\/p><\/div>",
   "faults": [

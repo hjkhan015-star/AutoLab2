@@ -62,11 +62,11 @@ const CFG = {
     ["state",  "State"]
   ],
   "legend": [
-    ["#e2e8f0", "Input shaft"],
-    ["#38bdf8", "Output shaft"],
-    ["#f97316", "Reference marks"],
-    ["#ef4444", "Worn joint / imbalance"],
-    ["#a855f7", "CV joint (constant velocity)"]
+    ["var(--c-slate)", "Input shaft"],
+    ["var(--c-cyan)", "Output shaft"],
+    ["var(--c-orange)", "Reference marks"],
+    ["var(--c-red)", "Worn joint / imbalance"],
+    ["var(--c-violet)", "CV joint (constant velocity)"]
   ],
   "overview": "<div class=\"al-sec\"><h4>Transmitting power at an angle<\/h4><p>A cardan (universal) joint lets a shaft carry torque through an angle &mdash; for example from gearbox to rear axle as the suspension moves. On a rear-drive car the joint angle changes every time the car hits a bump.<\/p><\/div><div class=\"al-sec\"><h4>The catch<\/h4><p>A single U-joint at an angle makes the output speed fluctuate <b>twice per revolution<\/b>. The output speeds up to 1/cos&nbsp;&alpha; and slows to cos&nbsp;&alpha;, so the bigger the angle, the bigger the fluctuation. At 15&deg; the swing is about &plusmn;3.5&nbsp;%; at 30&deg; it is over &plusmn;14&nbsp;%, which shakes the whole drivetrain.<\/p><\/div><div class=\"al-sec\"><h4>Two cures<\/h4><ul><li><b>Two joints, in phase.<\/b> The second joint reverses the first joint&rsquo;s error, so a correctly phased pair transmits uniform speed. Get the yokes out of phase by 90&deg; and the errors add instead &mdash; the swing doubles.<\/li><li><b>Constant-velocity (CV) joints.<\/b> These transmit uniformly at any angle and are used on front-wheel-drive driveshafts. They are heavier and more expensive, so a U-joint pair still wins on a rear-drive propshaft.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Vibration and critical speed<\/h4><p>Every propshaft has a <b>critical speed<\/b> at which its own bending resonance is excited &mdash; roughly 3200&nbsp;rpm for a 1.5&nbsp;m shaft, less for a longer one. Imbalance, a worn cross or a sagging centre bearing all push vibration up; at the critical speed a small fault becomes a violent shake.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Hold the joint angle near zero and confirm the output is uniform. Now increase the working angle to 25&ndash;30&deg; and watch the speed-swing and vibration readouts climb. Then select the <b>out-of-phase yokes<\/b> fault and see the swing double &mdash; the same way a propshaft fitted one spline off shakes the car. Finally try <b>worn U-joint<\/b> or <b>imbalance<\/b> and watch the vibration build as rpm approaches the critical speed.<\/p><\/div>",
   "faults": [

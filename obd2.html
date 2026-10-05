@@ -337,32 +337,10 @@ const TABS = {
       <div class="s">No codes stored but the emissions test fails.</div>
       <div class="c">The ECU needs a specific drive cycle (cold start, cruise, decel) before the monitors complete.</div>
     </div>`,
-  quiz: () => `
-    <div class="al-q" data-a="1">
-      <div class="q">1. Which pins carry the CAN bus on a standard OBD-II socket?</div>
-      <button class="al-opt">Pins 2 and 10</button>
-      <button class="al-opt">Pins 6 and 14</button>
-      <button class="al-opt">Pins 4 and 5</button>
-      <div class="al-exp">CAN-H is pin 6, CAN-L is pin 14. Pins 4 and 5 are the two grounds.</div>
-    </div>
-    <div class="al-q" data-a="2">
-      <div class="q">2. What does a P1xxx code tell you?</div>
-      <button class="al-opt">It is a body code</button>
-      <button class="al-opt">It is a network code</button>
-      <button class="al-opt">It is a manufacturer-specific powertrain code</button>
-      <div class="al-exp">The letter gives the system (P = powertrain); the first digit 1 means the definition is set by the manufacturer rather than by the standard.</div>
-    </div>
-    <div class="al-q" data-a="0">
-      <div class="q">3. What is freeze-frame data?</div>
-      <button class="al-opt">A snapshot of sensor values captured when the fault was set</button>
-      <button class="al-opt">The ECU's permanent memory of the last service</button>
-      <button class="al-opt">A live stream of every sensor at once</button>
-      <div class="al-exp">Freeze frame records rpm, load, speed, temperature and fuel trim at the moment the DTC was stored — it is the single most useful diagnostic clue.</div>
-    </div>`
-};
+  quiz: () => Widgets.quiz({ quiz: [["Which pins carry the CAN bus on a standard OBD-II socket?", ["Pins 2 and 10", "Pins 6 and 14", "Pins 4 and 5"], 1, "CAN-H is pin 6, CAN-L is pin 14. Pins 4 and 5 are the two grounds."], ["What does a P1xxx code tell you?", ["It is a body code", "It is a network code", "It is a manufacturer-specific powertrain code"], 2, "The letter gives the system (P = powertrain); the first digit 1 means the definition is set by the manufacturer rather than by the standard."], ["What is freeze-frame data?", ["A snapshot of sensor values captured when the fault was set", "The ECU's permanent memory of the last service", "A live stream of every sensor at once"], 0, "Freeze frame records rpm, load, speed, temperature and fuel trim at the moment the DTC was stored — it is the single most useful diagnostic clue."]] })};
 
 /* 7b3: the module legend is the Monitor footer */
-const LEGEND = '<div class="mon-legend"><span><i style="background:#38bdf8"></i>Request frame</span><span><i style="background:#22d3ee"></i>Response frame</span><span><i style="background:#ffb020"></i>CAN-L</span><span><i style="background:#ef4444"></i>Battery +</span></div>';
+const LEGEND = '<div class="mon-legend"><span><i style="background:var(--c-cyan)"></i>Request frame</span><span><i style="background:var(--c-cyan)"></i>Response frame</span><span><i style="background:var(--c-orange)"></i>CAN-L</span><span><i style="background:var(--c-red)"></i>Battery +</span></div>';
 
 const ui = Base.UI.create({
   moduleId: CFG.moduleId,

@@ -143,3 +143,13 @@ The 7a table above now reads **7b done** in every Phase cell. Every number is pr
 | airfilter, oilfilter, coilplug | chip rows vs panel rows | one union row set (7a), checked again by the 7b3 duplicate-name test |
 
 Kept on purpose: driveshaft's `Joint angle` / `Input speed` rows (they carry a tone the slider does not; the slider shows the set value), the fuse-box key inside wiring's fuse popup (a diagram key, not a module legend), the labels colour legend in the ⋯ menu.
+
+## Phase 8 additions (the 7a table above stays at "7b done")
+| Module | Surface | Change |
+|---|---|---|
+| sensors | Monitor (MAP big value; rows TPS, CKP, ECT, O2) | new: the live panel readouts are Monitor rows; the scope stays a content canvas |
+| sparkplug | trace `kv` (secondary kV) | replaces the panel waveform canvas |
+| thermostat | trace `temp` (coolant, opening temperature) | replaces the panel strip chart |
+| wiring | rows `loop`, `amp`; status text | replace the panel "Harness" stat lines and the warning box |
+| tyres | none | the panel held only controls (now dock axes) |
+

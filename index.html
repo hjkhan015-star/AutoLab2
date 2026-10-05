@@ -45,12 +45,12 @@
   @keyframes pfill { from { transform: scaleX(0); } }
   .module-card.done { position: relative; }
   .module-card.done::after { content: "\2713"; position: absolute; top: 8px; right: 10px; width: 20px; height: 20px; display: grid; place-items: center;
-    border-radius: 50%; font-size: 12px; font-weight: 700; background: var(--c, var(--accent)); color: #0a0d13; }
+    border-radius: 50%; font-size: 12px; font-weight: 700; background: var(--c, var(--accent)); color: var(--ink); }
   .update-toast { position: fixed; left: 50%; bottom: calc(var(--safe-b, 0px) + 84px); transform: translateX(-50%); z-index: var(--z-toast);
     display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-radius: 99px; font-size: 14px;
-    background: var(--bg-elev, var(--surface, #151a24)); color: var(--text, #e6edf6); border: 1px solid color-mix(in oklch, var(--accent) 40%, transparent);
-    box-shadow: 0 12px 32px -8px rgba(0,0,0,.5); animation: toastin .35s var(--ease-in-out) both; }
-  .update-btn { padding: 6px 14px; border-radius: 99px; background: var(--accent); color: #0a0d13; font-weight: 600; }
+    background: var(--bg-elev, var(--surface, var(--bg))); color: var(--text); border: 1px solid color-mix(in oklch, var(--accent) 40%, transparent);
+    box-shadow: 0 12px 32px -8px color-mix(in oklch, var(--ink) 50%, transparent); animation: toastin .35s var(--ease-in-out) both; }
+  .update-btn { padding: 6px 14px; border-radius: 99px; background: var(--accent); color: var(--ink); font-weight: 600; }
   .update-x { width: 28px; height: 28px; border-radius: 50%; font-size: 18px; color: inherit; opacity: .7; }
   @keyframes toastin { from { opacity: 0; transform: translate(-50%, 12px); } }
   /* Smoothness: skip layout/paint of off-screen cards, GPU-hint the moving layers, crisper text */
@@ -101,7 +101,7 @@
     flex: 0 0 auto;
     border-radius: var(--r-md);
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    color: #0a0d13;
+    color: var(--ink);
     display: grid; place-items: center;
     box-shadow: 0 8px 24px -6px color-mix(in oklch, var(--accent) 55%, transparent);
     position: relative;
@@ -466,7 +466,7 @@
     display: grid; place-items: center;
     font-size: 20px; font-weight: 900;
     letter-spacing: -.04em;
-    color: #0a0d13;
+    color: var(--ink);
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
     box-shadow: 0 10px 28px -8px color-mix(in oklch, var(--accent) 65%, transparent);
     z-index: var(--z-labels);
@@ -731,7 +731,7 @@
     display: grid;
     place-items: center;
     background: linear-gradient(135deg, var(--c), color-mix(in oklch, var(--c) 70%, black));
-    color: #fff;
+    color: var(--paper);
     box-shadow: 0 6px 16px -6px color-mix(in oklch, var(--c) 60%, transparent);
     transition: box-shadow var(--dur-fast) var(--ease-out);
   }
@@ -765,7 +765,7 @@
     color: var(--text-mute);
     border: 1px solid var(--border);
     letter-spacing: .04em;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 6px color-mix(in oklch, var(--ink) 10%, transparent);
     z-index: var(--z-monitor);   /* badge above the card content */
   }
 
@@ -926,8 +926,8 @@
 
   var CONTROLLER = [
     '(function () {',
-    '  if (window.__autolabPerfGuard) return;',
-    '  window.__autolabPerfGuard = true;',
+    '  if (document.documentElement.dataset.perfGuard) return;',
+    '  document.documentElement.dataset.perfGuard = "1";',
     '  var raf = window.requestAnimationFrame.bind(window);',
     '  var caf = window.cancelAnimationFrame.bind(window);',
     '  var paused = false;',
@@ -1125,16 +1125,6 @@ import { createKeyRouter, installKeys } from './keys.js';
     try { localStorage.setItem('autolab.recents', JSON.stringify(state.recents)); } catch (_) {}
   }
 
-  function injectEmbedFix(fr) {
-    try {
-      var doc = fr.contentDocument;
-      if (!doc || !doc.body) return;
-      doc.body.classList.add('embedded');
-      /* Theme is NOT written here any more: the shell sends `setTheme` (one path). */
-      if (doc.body.classList.contains('uses-ui-kit')) return;
-    } catch (_) {}
-  }
-
   var MAX_LIVE = 4;
   var lru = [];
   function touchLru(id) { lru = lru.filter(function (x) { return x !== id; }); lru.push(id); }
@@ -1163,7 +1153,6 @@ import { createKeyRouter, installKeys } from './keys.js';
     fr.setAttribute('allow', 'autoplay; fullscreen');
     fr.src = mod.file;
     fr.addEventListener('load', function () {
-      injectEmbedFix(fr);
       var nudge = function () {
         try { fr.contentWindow.dispatchEvent(new Event('resize')); } catch (_) {}
         try { if (fr.contentWindow.document) fr.contentWindow.document.dispatchEvent(new Event('resize')); } catch (_) {}
@@ -1788,8 +1777,6 @@ import { createKeyRouter, installKeys } from './keys.js';
     var d = e.data;
     if (!d || d.source !== 'auto-module') return;
     if (d.type === 'ready') {
-      var fr = iframes[d.moduleId];
-      if (fr) injectEmbedFix(fr);
       sendAllCommands(d.moduleId);
     } else if (d.type === 'key') {
       /* a shell-owned key pressed while focus is inside the module iframe */

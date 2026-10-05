@@ -120,6 +120,19 @@ export function createHeader(opts = {}) {
   return api;
 }
 
+/* Phase 8: the ONE place a plain <button> is built for kit chrome (panel toggle / tabs / show-more, orb, play / reset).
+   opts: { cls, id, label (aria-label), html (inner), type, attrs }.  Module controls are controls.js specs, never this. */
+export function chromeButton(doc, opts = {}) {
+  const b = doc.createElement('button');
+  b.type = opts.type || 'button';
+  if (opts.cls) b.className = opts.cls;
+  if (opts.id) b.id = opts.id;
+  if (opts.label) b.setAttribute('aria-label', opts.label);
+  if (opts.html != null) b.innerHTML = opts.html;
+  Object.entries(opts.attrs || {}).forEach(([k, v]) => b.setAttribute(k, v));
+  return b;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    ⋯ menu — one sheet/popover node, built once, re-synced with update()
    state: { speed, density, theme:'dark'|'light', wireframe, xray }
@@ -129,6 +142,8 @@ export function createMenu(opts = {}) {
   const doc = opts.doc || document;
   const win = doc.defaultView || window;
   const onChange = opts.onChange || function () {};
+  /* opts.hide: rows a 2D module has no use for ('density' | 'wireframe' | 'xray'); they are never added to the sheet */
+  const skipRows = new Set(opts.hide || []);
   const uid = 'al-menu-' + (++_uid);
   const st = {
     speed: clampSpeed(opts.state && opts.state.speed != null ? opts.state.speed : SPEED.def),
@@ -170,7 +185,7 @@ export function createMenu(opts = {}) {
     return b;
   });
   rowDens.appendChild(lblDens); rowDens.appendChild(seg);
-  menu.appendChild(rowDens);
+  if (!skipRows.has('density')) menu.appendChild(rowDens);
 
   /* switches */
   function switchRow(key, label) {
@@ -178,7 +193,7 @@ export function createMenu(opts = {}) {
     const t = el(doc, 'span', 'al-menu-label'); t.textContent = label;
     const knob = el(doc, 'span', 'al-switch-knob', { 'aria-hidden': 'true' });
     b.appendChild(t); b.appendChild(knob);
-    menu.appendChild(b);
+    if (!skipRows.has(key)) menu.appendChild(b);
     return b;
   }
   const swTheme = switchRow('theme', 'Light theme');

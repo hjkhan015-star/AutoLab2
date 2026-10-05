@@ -60,11 +60,11 @@ const CFG = {
     ["state",  "State"]
   ],
   "legend": [
-    ["#86efac", "Low-pressure feed"],
-    ["#f97316", "High-pressure rail"],
-    ["#ffb347", "Fuel spray"],
-    ["#ef4444", "Injector leak (fault)"],
-    ["#a855f7", "Post injection (DPF)"]
+    ["var(--c-green)", "Low-pressure feed"],
+    ["var(--c-orange)", "High-pressure rail"],
+    ["var(--c-orange)", "Fuel spray"],
+    ["var(--c-red)", "Injector leak (fault)"],
+    ["var(--c-violet)", "Post injection (DPF)"]
   ],
   "overview": "<div class=\"al-sec\"><h4>One rail, many injectors<\/h4><p>A high-pressure pump fills a shared rail; the ECU opens each injector with a solenoid or piezo actuator. Because pressure is stored in the rail and not generated per injector, injection pressure is <b>independent of engine speed<\/b> &mdash; timing and quantity are fully flexible.<\/p><\/div><div class=\"al-sec\"><h4>Why high pressure?<\/h4><p>Higher pressure atomises diesel into finer droplets that mix faster with air &mdash; cleaner combustion, less noise and better economy. Modern systems reach 1800&ndash;2500&nbsp;bar. Droplet size falls roughly as the &minus;0.35 power of pressure, so going from 300 to 2000&nbsp;bar halves the Sauter mean diameter.<\/p><\/div><div class=\"al-sec\"><h4>Pressure control<\/h4><p>A <b>suction or metering valve<\/b> on the HP pump sets how much fuel enters the pump, and a <b>pressure-control valve (PCV)<\/b> on the rail bleeds excess back to the tank. Together they hold rail pressure at the ECU's target within a few milliseconds.<\/p><\/div><div class=\"al-sec\"><h4>Multiple injections<\/h4><ul><li><b>Pilot<\/b> &mdash; a small early shot that softens the sharp diesel knock at low load.<\/li><li><b>Main<\/b> &mdash; delivers most of the torque.<\/li><li><b>Post<\/b> &mdash; a late shot that helps raise exhaust temperature for DPF regeneration.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Watch rail pressure rise as load increases. Now select <b>Weak HP pump<\/b>: the target keeps rising but the rail can only reach the pump's capability ceiling. Then try <b>Leaking injector<\/b> &mdash; pressure drops sharply at idle and the return line runs hot.<\/p><\/div>",
   "faults": [

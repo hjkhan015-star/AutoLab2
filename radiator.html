@@ -62,13 +62,13 @@ const CFG = {
     ["state", "State"]
   ],
   "legend": [
-    ["#f97316", "Hot coolant"],
-    ["#38bdf8", "Cooled coolant"],
-    ["#7dd3fc", "Air through fins"],
-    ["#06b6d4", "Electric fan"],
-    ["#b91c1c", "Overheat glow"],
-    ["#1a1410", "Blocked fins (fault)"],
-    ["#e5e7eb", "Steam / boiling"]
+    ["var(--c-orange)", "Hot coolant"],
+    ["var(--c-cyan)", "Cooled coolant"],
+    ["var(--c-cyan)", "Air through fins"],
+    ["var(--c-cyan)", "Electric fan"],
+    ["var(--c-red)", "Overheat glow"],
+    ["var(--surface-3)", "Blocked fins (fault)"],
+    ["var(--c-slate)", "Steam / boiling"]
   ],
   "overview": "<div class=\"al-sec\"><h4>Heat exchanger<\/h4><p>Hot coolant flows through many thin tubes; air flows across large fins bonded to them. Heat moves coolant &rarr; tubes &rarr; fins &rarr; air. The whole system is an energy balance: whatever the engine produces must be rejected to the air or the temperature rises.<\/p><\/div><div class=\"al-sec\"><h4>Thermostat, fan, ram air<\/h4><ul><li><b>Below ~85&nbsp;&deg;C<\/b> the thermostat is closed &mdash; coolant recirculates through the block and warms up quickly.<\/li><li><b>At speed<\/b> ram air is enough; the fan is not needed.<\/li><li><b>In traffic<\/b> the electric fan pulls air through the core. The fan shroud stops air recirculating around the fan.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Pressure cap<\/h4><p>The cap holds about 1.2&nbsp;bar, raising the boiling point of coolant to ~126&nbsp;&deg;C. That headroom is what stops local boiling inside the cylinder head. A failed cap drops the boiling point to roughly 100&nbsp;&deg;C.<\/p><\/div><div class=\"al-sec\"><h4>Coolant level<\/h4><p>Coolant is the heat carrier <i>and<\/i> part of the thermal mass. Low coolant means less flow through the radiator and a smaller buffer &mdash; temperature swings get larger and the system boils over much sooner.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Set high load and rpm with the car stopped. The coolant climbs, the fan kicks in, but the core eventually heat-soaks and temperature stabilises around 100&nbsp;&deg;C. Now select <b>Blocked core<\/b> or <b>Failed fan<\/b> and watch the readouts head for the red. Reset with <b>Cold start<\/b> to see the thermostat delay for yourself.<\/p><\/div>",
   "faults": [

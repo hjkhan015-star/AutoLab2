@@ -1169,7 +1169,7 @@ import { Parts } from './components.js';
 
     monitor: {
       config: { label: 'Boost pressure', value: { label: 'Boost pressure', unit: 'bar', max: 100, bar: true }, rows: [['drive', 'Turbine speed'], ['egt', 'Exhaust gas temp'], ['iat', 'Intake (post-IC)'], ['rpm', 'Engine speed']],
-      footer: '<div class="mon-legend"><span><i style="background:#9ec9ff"></i>Fresh air</span><span><i style="background:#ffb257"></i>Hot compressed</span><span><i style="background:#38bdf8"></i>Cooled charge</span><span><i style="background:#ff6a1a"></i>Hot exhaust</span></div>',
+      footer: '<div class="mon-legend"><span><i style="background:var(--c-sky)"></i>Fresh air</span><span><i style="background:var(--c-orange)"></i>Hot compressed</span><span><i style="background:var(--c-cyan)"></i>Cooled charge</span><span><i style="background:var(--c-orange)"></i>Hot exhaust</span></div>',
       status: { text: 'Idle' } },
       initial: { value: { text: '0', unit: 'bar' }, rows: { drive: '0 rpm', egt: '20 °C', iat: '20 °C', rpm: '—' }, status: ['Idle', false] }
     },

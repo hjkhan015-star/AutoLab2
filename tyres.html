@@ -10,104 +10,6 @@
 <style>
 :root { --al-accent: #64748b; }
 html.light-theme { --al-accent: color-mix(in oklch, #64748b 68%, black); }
-
-/* ── Floating panel ── */
-#ty-ui {
-  position: fixed; top: 80px; right: 14px;
-  width: min(258px, calc(100vw - 28px));
-  max-height: min(76vh, 640px);
-  overflow-y: auto; overflow-x: hidden;
-  display: flex; flex-direction: column; gap: 9px;
-  padding: 10px 12px 12px; border-radius: 12px;
-  background: rgba(8,11,18,.84);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(148,163,184,.22);
-  color: #cbd5e1; user-select: none; -webkit-user-select: none;
-  z-index: 9999;
-  font: 600 11px/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  box-shadow: 0 10px 32px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.25);
-  transition: opacity .18s ease;
-  scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.35) transparent;
-}
-#ty-ui::-webkit-scrollbar { width: 6px; }
-#ty-ui::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); border-radius: 999px; }
-#ty-ui.hidden { display: none; }
-#ty-ui.dragging { box-shadow: 0 18px 44px rgba(0,0,0,.55), 0 4px 10px rgba(0,0,0,.3); }
-
-#ty-ui .ty-header {
-  display: flex; align-items: center; gap: 7px;
-  margin: -4px -6px 2px -6px; padding: 5px 6px 5px 8px;
-  border-radius: 8px; cursor: grab;
-  background: rgba(148,163,184,.08);
-  touch-action: none; flex-shrink: 0;
-  position: sticky; top: -10px; z-index: 1;
-  backdrop-filter: blur(6px);
-}
-#ty-ui.dragging .ty-header { cursor: grabbing; background: rgba(100,116,139,.20); }
-#ty-ui .ty-grip { color: #64748b; font-size: 13px; line-height: 1; letter-spacing: 1px; }
-#ty-ui.dragging .ty-grip { color: var(--al-accent, #64748b); }
-#ty-ui .ty-title { flex: 1; font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: #94a3b8; }
-#ty-ui .ty-icon { cursor: pointer; background: transparent; border: 0; color: #94a3b8; font-size: 14px; padding: 1px 6px; border-radius: 6px; line-height: 1; transition: background .12s, color .12s; }
-#ty-ui .ty-icon:hover { background: rgba(148,163,184,.18); color: #e2e8f0; }
-#ty-ui .ty-body { display: flex; flex-direction: column; gap: 9px; }
-#ty-ui.ty-collapsed .ty-body { display: none; }
-#ty-ui.ty-collapsed { max-height: 40px; overflow: hidden; }
-
-#ty-ui button { font: inherit; }
-#ty-ui .ty-row { display: flex; gap: 5px; align-items: center; }
-#ty-ui .ty-lab { color: #94a3b8; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; min-width: 54px; }
-#ty-ui .ty-btn {
-  cursor: pointer; border: 1px solid rgba(148,163,184,.32);
-  background: rgba(15,23,42,.72); color: #e2e8f0;
-  border-radius: 999px; padding: 4px 9px; font-size: 10.5px;
-  transition: background .15s, border-color .15s, color .15s;
-}
-#ty-ui .ty-btn.on { background: var(--al-accent, #64748b); color: #f8fafc; border-color: transparent; }
-#ty-ui input[type=range] {
-  -webkit-appearance: none; appearance: none; width: 100%; height: 3px;
-  background: rgba(148,163,184,.28); border-radius: 999px; outline: none;
-}
-#ty-ui input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
-  background: var(--al-accent, #64748b); cursor: pointer; border: 0;
-  box-shadow: 0 1px 3px rgba(0,0,0,.4);
-}
-#ty-ui input[type=range]::-moz-range-thumb {
-  width: 13px; height: 13px; border-radius: 50%;
-  background: var(--al-accent, #64748b); cursor: pointer; border: 0;
-}
-#ty-ui .ty-slider { display: flex; flex-direction: column; gap: 3px; }
-#ty-ui .ty-slider .ty-head {
-  display: flex; justify-content: space-between;
-  color: #94a3b8; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase;
-}
-#ty-ui .ty-slider .ty-val { color: #e2e8f0; }
-
-#ty-ui-toggle {
-  position: fixed; right: 14px; bottom: calc(var(--dock-h, 24vh) + var(--s-3, 12px)); z-index: var(--z-monitor);
-  width: 42px; height: 42px; border-radius: 50%;
-  background: rgba(8,11,18,.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(148,163,184,.3);
-  color: var(--al-accent, #64748b);
-  font-size: 17px; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.4);
-  transition: transform .15s; touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-#ty-ui-toggle:active { transform: scale(.9); }
-#ty-ui-toggle.hidden { display: none; }
-
-@media (max-width: 768px) {
-  #ty-ui { top: 68px; right: 10px; width: min(250px, calc(100vw - 20px)); padding: 10px 12px 14px; max-height: 68vh; }
-  #ty-ui .ty-btn { padding: 6px 12px; font-size: 11.5px; }
-  #ty-ui input[type=range] { height: 4px; }
-  #ty-ui input[type=range]::-webkit-slider-thumb { width: 16px; height: 16px; }
-  #ty-ui input[type=range]::-moz-range-thumb { width: 16px; height: 16px; }
-  #ty-ui .ty-header { padding: 7px 8px 7px 10px; }
-  #ty-ui .ty-grip { font-size: 15px; }
-  #ty-ui-toggle { bottom: 96px; width: 46px; height: 46px; font-size: 19px; }
-}
 </style>
 </head>
 <body>
@@ -127,6 +29,9 @@ html.light-theme { --al-accent: color-mix(in oklch, #64748b 68%, black); }
 <script type="module">
 import { runGuidedModule } from './components.js';
 
+/* Written by the dock controls (read by build().update). */
+const EXT = { pressure: 32, load: 400, speed: 0, treadDepth: 7.5, surface: 'dry' };
+
 /* ── CONFIG (module content) ─────────────────────────────────────── */
 const CFG = {
   "moduleId": "tyres",
@@ -137,7 +42,7 @@ const CFG = {
   "camPos": [4.6, 1.8, 6.6],
   "target": [0, -0.15, 0],
   "floorY": -2.6,
-  "ctl": { "label": "Tyre pressure", "val": 55, "caption": "Inflation" },
+  "ctl": null,
   "chipLabel": "Contact patch",
   "rows": [["patch", "Contact patch"], ["wear", "Wear"]],
   "ro": [
@@ -150,10 +55,10 @@ const CFG = {
     ["rr",    "Rolling resistance"]
   ],
   "legend": [
-    ["#22c55e", "Even contact"],
-    ["#ef4444", "Overloaded zone"],
-    ["#f59e0b", "Heat"],
-    ["#111827", "Tread"]
+    ["var(--c-green)", "Even contact"],
+    ["var(--c-red)", "Overloaded zone"],
+    ["var(--c-orange)", "Heat"],
+    ["var(--surface-3)", "Tread"]
   ],
   "overview": "<div class=\"al-sec\"><h4>Only contact with the road<\/h4><p>Four palm-sized contact patches transmit all driving, braking and cornering forces. Correct pressure keeps the patch flat, even and predictable.<\/p><p>Use the floating panel: drag <b>Pressure<\/b>, <b>Load<\/b> and <b>Speed<\/b>, pick a <b>surface<\/b> (Dry / Wet \/ Standing water), and adjust <b>tread depth<\/b>. The tyre deforms in real time and the patch heats and colours according to the physics.<\/p><\/div><div class=\"al-sec\"><h4>Pressure effects<\/h4><ul><li><b>Under-inflated<\/b> – patch is long, shoulders overloaded, hot, more fuel used, wear on both edges.<\/li><li><b>Over-inflated<\/b> – tyre crowns, small centre patch, less grip, harsh ride, centre wear.<\/li><li><b>Correct<\/b> – even patch and wear; set to placard pressure when cold.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Reading a tyre<\/h4><p>Sidewall code like <b>205/55 R16 91V<\/b>: width 205&nbsp;mm, aspect 55% of width, radial construction, 16-inch rim, 91 load index, V speed rating.<\/p><\/div><div class=\"al-sec\"><h4>Aquaplaning<\/h4><p>On a wet road the tread must pump water out of the way. A worn tyre on standing water can aquaplane — the patch lifts off the road entirely. Risk climbs sharply above the aquaplaning speed, which depends on pressure, tread depth and water depth.<\/p><\/div>",
   "faults": [
@@ -170,6 +75,17 @@ const CFG = {
     ["Aquaplaning speed depends on…", ["Pressure and tread depth", "Colour of the car", "Engine power"], 0, "Higher pressure and deeper tread both raise the aquaplaning speed."]
   ]
 };
+
+CFG.ctls = [
+  { id: 'ctl', preset: 'percent', label: 'Pressure', unit: 'psi', min: 18, max: 45, step: 0.5, decimals: 1, def: 32, onChange: (v) => { EXT.pressure = v; } },
+  { id: 'load', preset: 'percent', label: 'Load / corner', unit: 'kg', min: 150, max: 700, step: 10, def: 400, onChange: (v) => { EXT.load = v; } },
+  { id: 'speed', preset: 'vehicle-speed', max: 240, step: 5, def: 0, label: 'Speed', onChange: (v) => { EXT.speed = v; } },
+  { id: 'tread', preset: 'percent', label: 'Tread depth', unit: 'mm', min: 1.6, max: 9, step: 0.1, decimals: 1, def: 7.5, onChange: (v) => { EXT.treadDepth = v; } }
+];
+CFG.options = [
+  { id: 'surface', type: 'choice', layout: 'segmented', label: 'Surface', def: 'dry', onChange: (id) => { EXT.surface = id; },
+    options: [{ id: 'dry', label: 'Dry' }, { id: 'wet', label: 'Wet' }, { id: 'standing', label: 'Water' }] }
+];
 
 /* ══════════════════════════════════════════════════════════════════
    MODULE SCENE — realistic deformable tyre with floating panel
@@ -484,159 +400,7 @@ function build(H) {
   };
   let prevT = 0;
 
-  /* ═══════════════════════════════════════════════════════════
-     UI PANEL — floating, draggable
-     ═══════════════════════════════════════════════════════════ */
-  try {
-    const panel = document.createElement('div');
-    panel.id = 'ty-ui';
-    document.body.appendChild(panel);
-
-    const header = document.createElement('div');
-    header.className = 'ty-header';
-    const grip = document.createElement('span');
-    grip.className = 'ty-grip';
-    grip.textContent = '⠿';
-    header.appendChild(grip);
-    const title = document.createElement('span');
-    title.className = 'ty-title';
-    title.textContent = 'Tyre Controls';
-    header.appendChild(title);
-    const collapseBtn = document.createElement('button');
-    collapseBtn.type = 'button';
-    collapseBtn.className = 'ty-icon';
-    collapseBtn.textContent = '—';
-    collapseBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      panel.classList.toggle('ty-collapsed');
-      collapseBtn.textContent = panel.classList.contains('ty-collapsed') ? '+' : '—';
-    });
-    header.appendChild(collapseBtn);
-    panel.appendChild(header);
-
-    const body = document.createElement('div');
-    body.className = 'ty-body';
-    panel.appendChild(body);
-
-    /* sliders */
-    function makeSlider(label, unit, min, max, step, initial, onChange) {
-      const wrap = document.createElement('div');
-      wrap.className = 'ty-slider';
-      const head = document.createElement('div');
-      head.className = 'ty-head';
-      const l = document.createElement('span'); l.textContent = label;
-      const v = document.createElement('span'); v.className = 'ty-val';
-      v.textContent = initial.toFixed(step < 1 ? 1 : 0) + ' ' + unit;
-      head.appendChild(l); head.appendChild(v);
-      const inp = document.createElement('input');
-      inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step; inp.value = initial;
-      inp.addEventListener('input', () => {
-        const val = parseFloat(inp.value);
-        v.textContent = val.toFixed(step < 1 ? 1 : 0) + ' ' + unit;
-        onChange(val);
-      });
-      wrap.appendChild(head); wrap.appendChild(inp);
-      body.appendChild(wrap);
-    }
-
-    makeSlider('Pressure', 'psi', 18, 45, 0.5, 32, v => state.pressure = v);
-    makeSlider('Load / corner', 'kg', 150, 700, 10, 400, v => state.load = v);
-    makeSlider('Speed', 'km/h', 0, 240, 5, 0, v => state.speed = v);
-    makeSlider('Tread depth', 'mm', 1.6, 9, 0.1, 7.5, v => state.treadDepth = v);
-
-    /* surface toggle */
-    (function () {
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px';
-      const lab = document.createElement('div');
-      lab.className = 'ty-lab';
-      lab.textContent = 'Surface';
-      wrap.appendChild(lab);
-      const row = document.createElement('div');
-      row.className = 'ty-row';
-      const opts = [['dry', 'Dry'], ['wet', 'Wet'], ['standing', 'Water']];
-      const btns = {};
-      opts.forEach(([key, txt]) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'ty-btn' + (state.surface === key ? ' on' : '');
-        b.textContent = txt;
-        b.addEventListener('click', () => {
-          state.surface = key;
-          Object.keys(btns).forEach(k => btns[k].classList.toggle('on', k === key));
-        });
-        btns[key] = b;
-        row.appendChild(b);
-      });
-      wrap.appendChild(row);
-      body.appendChild(wrap);
-    })();
-
-    /* drag logic */
-    (function makeDraggable(el, handle) {
-      let dragging = false, pid = null, sx = 0, sy = 0, sl = 0, st = 0;
-      handle.addEventListener('pointerdown', e => {
-        if (e.target.closest('button, input, canvas, a, select, textarea')) return;
-        e.preventDefault(); e.stopPropagation();
-        dragging = true; pid = e.pointerId;
-        const r = el.getBoundingClientRect();
-        sl = r.left; st = r.top;
-        sx = e.clientX; sy = e.clientY;
-        el.style.right = 'auto';
-        el.style.left = sl + 'px';
-        el.style.top  = st + 'px';
-        el.classList.add('dragging');
-        try { handle.setPointerCapture(pid); } catch (_) {}
-      });
-      handle.addEventListener('pointermove', e => {
-        if (!dragging || e.pointerId !== pid) return;
-        e.preventDefault();
-        const dx = e.clientX - sx, dy = e.clientY - sy;
-        const w = el.offsetWidth, h = el.offsetHeight;
-        let nl = sl + dx, nt = st + dy;
-        const mv = 48;
-        nl = Math.max(-w + mv, Math.min(window.innerWidth - mv, nl));
-        nt = Math.max(0, Math.min(window.innerHeight - 32, nt));
-        el.style.left = nl + 'px';
-        el.style.top  = nt + 'px';
-      });
-      const end = () => {
-        if (!dragging) return;
-        dragging = false;
-        el.classList.remove('dragging');
-        try { handle.releasePointerCapture(pid); } catch (_) {}
-      };
-      handle.addEventListener('pointerup', end);
-      handle.addEventListener('pointercancel', end);
-      handle.addEventListener('lostpointercapture', end);
-    })(panel, header);
-
-    /* FAB toggle */
-    const fab = document.createElement('button');
-    fab.id = 'ty-ui-toggle';
-    fab.type = 'button';
-    fab.innerHTML = '×';
-    fab.title = 'Hide controls';
-    fab.addEventListener('click', () => {
-      const hidden = panel.classList.toggle('hidden');
-      fab.innerHTML = hidden ? '⚙' : '×';
-      fab.title = hidden ? 'Show controls' : 'Hide controls';
-    });
-    document.body.appendChild(fab);
-
-    /* keep inside viewport on resize */
-    window.addEventListener('resize', () => {
-      if (!panel.style.left) return;
-      const w = panel.offsetWidth, h = panel.offsetHeight;
-      let l = parseFloat(panel.style.left) || 0;
-      let t = parseFloat(panel.style.top)  || 0;
-      const mv = 48;
-      l = Math.max(-w + mv, Math.min(window.innerWidth - mv, l));
-      t = Math.max(0, Math.min(window.innerHeight - 32, t));
-      panel.style.left = l + 'px';
-      panel.style.top  = t + 'px';
-    });
-  } catch (e) { /* overlay is optional */ }
+  /* Pressure, load, speed, tread depth and surface are dock controls declared in CFG; they write to EXT. */
 
   /* ═══════════════════════════════════════════════════════════
      PHYSICS + DEFORMATION
@@ -684,6 +448,7 @@ function build(H) {
       const dt = Math.min(0.05, Math.max(0.001, t - prevT));
       prevT = t;
 
+      Object.assign(state, { pressure: EXT.pressure, load: EXT.load, speed: EXT.speed, surface: EXT.surface, treadDepth: EXT.treadDepth });
       const pressure = state.pressure;
       const load     = state.load;
       const speed    = state.speed;

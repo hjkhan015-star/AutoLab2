@@ -11,16 +11,13 @@
   /* ═══ Panel text ═══ */
   #trans-desc-title {
     display: block;
-    color: var(--text, #e5e7eb);
+    color: var(--text);
     font-weight: 700;
     margin-bottom: 4px;
   }
-  html.light-theme #trans-desc-title { color: #0a0d13; }
 
-  #trans-desc-body { color: var(--text-dim, #94a3b8); font-size: 12.5px; line-height: 1.55; }
-  #trans-desc-body strong { color: var(--text, #e5e7eb); font-weight: 700; }
-  html.light-theme #trans-desc-body { color: #475569; }
-  html.light-theme #trans-desc-body strong { color: #0a0d13; }
+  #trans-desc-body { color: var(--text-dim); font-size: 12.5px; line-height: 1.55; }
+  #trans-desc-body strong { color: var(--text); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -799,7 +796,7 @@
       if (descTitleEl) descTitleEl.textContent = '4-Wheeler Drive (Propeller Shaft)';
       if (descBodyEl) descBodyEl.innerHTML = 'Engine power flows from the <strong>flywheel</strong> into the <strong>gearbox</strong>. A <strong>universal joint</strong> transfers torque through the <strong>propeller shaft</strong> to the <strong>differential</strong>. The differential turns the power 90° and splits it to the <strong>rear axles</strong>, driving the rear wheels.';
       ui.monitor.update({
-        value: { text: '4W', unit: '', color: '#3b82f6', bar: 100, barColor: '#3b82f6' },
+        value: { text: '4W', unit: '', color: 'var(--c-sky)', bar: 100, barColor: 'var(--c-sky)' },
         rows: { path: 'Prop shaft' },
         status: ['4-Wheeler Drive', true]
       });
@@ -808,7 +805,7 @@
       if (descTitleEl) descTitleEl.textContent = '2-Wheeler Drive (Chain Drive)';
       if (descBodyEl) descBodyEl.innerHTML = 'Engine power flows into the <strong>gearbox</strong>, which turns the <strong>front sprocket</strong>. A <strong>chain</strong> transfers this power to the larger <strong>rear sprocket</strong>, providing gear reduction and driving the <strong>rear wheel</strong>.';
       ui.monitor.update({
-        value: { text: '2W', unit: '', color: '#a855f7', bar: 50, barColor: '#a855f7' },
+        value: { text: '2W', unit: '', color: 'var(--c-violet)', bar: 50, barColor: 'var(--c-violet)' },
         rows: { path: 'Chain' },
         status: ['2-Wheeler Drive', true]
       });
