@@ -1,5 +1,19 @@
 # Changelog
 
+## 8.9.3 - Phase 9b: options grid + "More" sheet
+- **No more sideways options.** Phone portrait: `.al-dock-options` is a wrapping grid; each option is a cell with a small caps label above its control, segmented controls fill the cell, toggles / actions / Flow are compact glass chips side by side. The zone scrolls vertically only when it must.
+- **"More" chip.** More than 4 option cells → first 3 plus a 44 px More chip that opens a glass sheet (same grid, `--z-menu`, scrim, Esc / Done close, focus trap, focus returns to the chip, `aria-expanded`, `role="dialog"`). Pure rule: `splitOptionCells(cells, max = 4)` in dock.js. Cells move between the dock and the sheet on rotation / resize.
+- **Many-item choices** (> 4 segments) wrap into rows of up to 4 (`segGrid`) instead of a strip.
+- Primary zone keeps a 108 px floor in the options state; `.al-dock-options` gets the remaining height. `dockHeightPx` (24 vh / 30 vh) unchanged. Landscape rails and the desktop bar keep their layout. Option tap targets are 44 px (was 40 in portrait).
+- **Wide screens (from the 8.10.0 branch, merged into 9b): side panel in landscape devices.** `layoutMode` has a `'wide'` mode (not a phone, width ≥ 1024): no bottom bar, the dock is a left rail (280 px, 320 px from 1600 px) with transport, sliders / dials / pedals, then options; the Monitor is a docked right column that never folds to an orb; the ‹ handle folds the rail to a 56 px strip (saved per module). 721–1023 px keeps the bottom bar; phones are unchanged. `--dock-rail` became `--dock-rail-l` / `--dock-rail-r` (the `#canvas-wrap` / labels inset rules, `app.css` stage canvases and sensors.html follow; this is the one place 9b touches those rules, on request). Options in the rail use the 9b cell look (label above, chips side by side, a choice takes a full row, no More chip: the rail scrolls vertically). sensors.html keeps its 232 px gutter only for 721–1023 px.
+- No module page changed except sensors.html (the wide-layout padding). Tests: `tests/options.test.mjs` (pure, CSS, and jsdom DOM groups); cache `autolab-v8.9.3`.
+
+## 8.9.2 - Phase 9a: glass dock (surface + transport)
+- Dock paints by device tier: `html[data-ui-tier="high|mid|low"]` (dock.js). One `classifyDevice()` now feeds both the 3D quality and the dock. `?ui=low|mid|high` overrides it; reduced transparency forces low; the frame-time governor fires `al-perf-slow` when resolution is already at its floor and the dock steps one tier down.
+- Phone portrait: the dock floats (8 px gap, 26 px radius) on glass (blur + sheen + accent hairline on high, lighter on mid, solid on low) over a soft accent aurora. Its box still ends at `--dock-h`, so framing, labels and the 30 vh ceiling are unchanged.
+- Transport: one pill with a filled accent play button and a quiet reset. Landscape rails and the desktop bar share the glass surface.
+- Tests: `tests/glass.test.mjs` (7 groups). Cache `autolab-v8.9.2`.
+
 ## 8.9.1 - Phase 8.5: fixes found in the Phase 8 notes
 - **Landscape rail no longer clips axis labels.** The axis floor (`min-width: 140px`) was wider than the 122 px rail; it is now `var(--ctl-axis-min, 140px)`, set to `0px` inside the landscape dock, the select floor drops too, and a long axis name ends in an ellipsis instead of losing its first letters.
 - **sensors.html no longer needs three.js.** `kit.js` loads three.js (and OrbitControls) with one top-level `await` unless `<html data-no3d>` is set; every 3D page gets the same objects as before. sensors lost its import map, so a first visit offline works.

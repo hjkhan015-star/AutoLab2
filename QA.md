@@ -1,4 +1,4 @@
-# QA matrix — Auto Lab v8.9.1
+# QA matrix — Auto Lab v8.9.3
 
 42 module pages (the registry in `modules.js`; the repo also has `index.html` and `404.html`, 44 pages in all) × 4 viewports × 2 modes.
 
@@ -304,6 +304,8 @@ Everything else needs a device, a browser and eyes: nothing in the sandbox could
 
 ## desktop — 1280×800 or larger — standalone
 
+From 1024 px wide the "dock" is the **left rail** (280 px, 320 px from 1600 px) and the Monitor is the **right column**; read the `dock ≤ 30 vh` column as "no bottom bar, the rails fit the page".
+
 | module | header 32 px | dock ≤ 30 vh | model in upper/mid | controls reachable | no duplicate control | no duplicate value | keys | reduced motion | light theme | offline |
 |---|---|---|---|---|---|---|---|---|---|---|
 | engine | auto | ☐ | ☐ | ☐ | auto | auto | ☐ | ☐ | ☐ | ☐ |
@@ -350,6 +352,8 @@ Everything else needs a device, a browser and eyes: nothing in the sandbox could
 | tyres | auto | ☐ | ☐ | ☐ | auto | ☐ | ☐ | ☐ | ☐ | ☐ |
 
 ## desktop — 1280×800 or larger — embedded
+
+Same wide layout inside the shell (the rails start under the 32 px shell header).
 
 | module | header 32 px | dock ≤ 30 vh | model in upper/mid | controls reachable | no duplicate control | no duplicate value | keys | reduced motion | light theme | offline |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -406,6 +410,18 @@ Everything else needs a device, a browser and eyes: nothing in the sandbox could
 | exhaustsystem | acoustic spectrum | ☐ | ☐ | ☐ | ☐ |
 | ignition | spark advance vs rpm | ☐ | ☐ | ☐ | ☐ |
 | crankshaft-piston | piston motion graph | ☐ | ☐ | ☐ | ☐ |
+
+**Wide layout (1024 px and up).** Open one module of each kind at 1024×768, 1280×800, 1920×1080 and on a TV (3840×2160) and check:
+
+| check | 1024×768 | 1280×800 | 1920×1080 | 3840×2160 |
+|---|---|---|---|---|
+| controls in the left rail, no bottom bar, nothing cut at either rail edge | ☐ | ☐ | ☐ | ☐ |
+| the ‹ handle folds the rail to a strip; the model grows to fill; ‹ opens it again | ☐ | ☐ | ☐ | ☐ |
+| Monitor is the right column and scrolls when its rows are long (crankshaft-piston, awd, catalytic) | ☐ | ☐ | ☐ | ☐ |
+| pedal / dial / gate controls are centred and tappable in the rail (automatic, braking, engine) | ☐ | ☐ | ☐ | ☐ |
+| rail scrolls when a module has many controls (awd, thermostat) | ☐ | ☐ | ☐ | ☐ |
+| window resized across 1024 px: layout switches between the bottom bar and the rails without a reload | ☐ | ☐ | ☐ | ☐ |
+| sensors: document and Monitor column do not overlap | ☐ | ☐ | ☐ | ☐ |
 
 **Mode switch refills the Monitor.** Switch every mode; rows, trace and footer legend must follow at once, with no stale label and no empty first frame.
 

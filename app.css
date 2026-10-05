@@ -121,6 +121,13 @@
 
     --blur: 14px;
     --blur-lg: 22px;
+
+    /* Glass (Phase 9a): the control dock. Fill / highlight / hairline / shadow; blur strength comes from the device tier (controls.css). */
+    --glass-fill:   oklch(0.20 0.020 255 / 0.50);
+    --glass-hi:     oklch(1 0 0 / 0.16);
+    --glass-lo:     oklch(1 0 0 / 0.05);
+    --glass-edge:   oklch(1 0 0 / 0.14);
+    --glass-shadow: 0 -4px 24px oklch(0 0 0 / 0.30), 0 12px 32px oklch(0 0 0 / 0.45);
   }
 
   /* ═════════════════════════════════════════════════════════════════
@@ -170,6 +177,12 @@
                  0 10px 28px oklch(0.20 0.02 250 / 0.10);
     --shadow-lg: 0 4px 8px oklch(0.20 0.02 250 / 0.06),
                  0 20px 48px oklch(0.20 0.02 250 / 0.14);
+
+    --glass-fill:   oklch(1 0 0 / 0.58);
+    --glass-hi:     oklch(1 0 0 / 0.95);
+    --glass-lo:     oklch(1 0 0 / 0.35);
+    --glass-edge:   oklch(0.30 0.02 250 / 0.12);
+    --glass-shadow: 0 -2px 18px oklch(0.30 0.04 250 / 0.10), 0 10px 30px oklch(0.30 0.05 250 / 0.18);
   }
 
   /* Reduced motion */
@@ -592,7 +605,7 @@
      Never in the dock or the info panel. Ignores pointer events so orbit controls keep working. ---- */
   .ui-stage-layer {
     position: fixed;
-    inset: var(--stage-top, 0px) var(--dock-rail, 0px) var(--dock-h, 0px) var(--dock-rail, 0px);
+    inset: var(--stage-top, 0px) var(--dock-rail-r, 0px) var(--dock-h, 0px) var(--dock-rail-l, 0px);
     z-index: var(--z-labels, 2);
     display: flex; align-items: flex-end; gap: var(--s-2);
     padding: var(--s-2);

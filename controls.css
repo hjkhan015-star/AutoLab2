@@ -14,6 +14,8 @@
   --dock-slim: 56px;          /* slim bar (transport + one primary)       */
   --dock-options: 44px;       /* options row                              */
   --dock-rail-w: 140px;       /* landscape-phone side rails               */
+  --dock-wide-w: 280px;       /* wide (>= 1024 px): left control rail and right Monitor column */
+  --dock-wide-slim: 56px;     /* wide: left rail folded to a strip        */
   --monitor-strip-h: 28px;    /* one-line monitor strip                   */
   --monitor-max: 40vh;        /* expanded monitor card, phone             */
 
@@ -241,22 +243,27 @@
    --dock-h      set in px by dock.js from the iframe's own viewport
                  (vh here = this document's height = screen − 32 px shell header).
                  These are only the first-paint fallbacks before dock.js runs.
-   --dock-rail   landscape phones: width of each side rail (0 elsewhere).            */
+   --dock-rail-l / --dock-rail-r   width of the left / right rail the stage gives up: landscape phones 140 px each,
+                 wide screens the control rail (left) and the Monitor column (right); 0 elsewhere.
+                 dock.js sets both from the viewport; the media queries are the first-paint fallbacks. */
 :root {
   --stage-top: calc(var(--hdr-h) + var(--safe-t, 0px));
   --dock-h: var(--dock-default);
-  --dock-rail: 0px;
+  --dock-rail-l: 0px;
+  --dock-rail-r: 0px;
 }
 @media (max-height: 540px) { :root { --stage-top: calc(var(--hdr-h-land) + var(--safe-t, 0px)); } }
-@media (max-height: 540px) and (min-aspect-ratio: 1/1) { :root { --dock-h: 0px; --dock-rail: var(--dock-rail-w); } }
-@media (min-width: 721px) and (min-height: 541px) { :root { --dock-h: 72px; } }
+@media (max-height: 540px) and (min-aspect-ratio: 1/1) { :root { --dock-h: 0px; --dock-rail-l: var(--dock-rail-w); --dock-rail-r: var(--dock-rail-w); } }
+@media (min-width: 721px) and (max-width: 1023px) and (min-height: 541px) { :root { --dock-h: 72px; } }
+@media (min-width: 1024px) and (min-height: 541px) { :root { --dock-h: 0px; --dock-rail-l: var(--dock-wide-w); --dock-rail-r: var(--dock-wide-w); } }
+@media (min-width: 1600px) and (min-height: 541px) { :root { --dock-wide-w: 320px; --ctl-text: 13px; --ctl-value-text: 14px; } }
 body.embedded { --stage-top: 0px; }
 
-#canvas-wrap { inset: var(--stage-top) var(--dock-rail) var(--dock-h) var(--dock-rail); }
+#canvas-wrap { inset: var(--stage-top) var(--dock-rail-r) var(--dock-h) var(--dock-rail-l); }
 /* labels are clipped to the stage, so they can never draw over the dock or the header */
 #labels-root {
   position: fixed;
-  inset: var(--stage-top) var(--dock-rail) var(--dock-h) var(--dock-rail);
+  inset: var(--stage-top) var(--dock-rail-r) var(--dock-h) var(--dock-rail-l);
   overflow: hidden;
 }
 
@@ -337,9 +344,8 @@ body:not(.embedded) > .al-hdr {
 .al-dock[data-mode="portrait"] .al-dock-page { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; }
 .al-dock[data-mode="portrait"] .al-dock-options {
   grid-area: options;
-  height: var(--dock-options);
-  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
   display: none;
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
 }
 .al-dock[data-mode="portrait"] .al-dock-options::-webkit-scrollbar { display: none; }
 .al-dock[data-mode="portrait"][data-state="options"] .al-dock-options { display: flex; }
@@ -416,6 +422,69 @@ body:not(.embedded) > .al-hdr {
 .al-dock[data-mode="desktop"] .al-dock-pages { display: contents; }
 .al-dock[data-mode="desktop"] .al-dock-page { flex: 0 0 auto; }
 
+/* ── dock: wide (>= 1024 px) = a left rail; the handle folds it to a 56 px strip ── */
+.al-dock[data-mode="wide"] {
+  top: var(--stage-top); left: 0; bottom: 0;
+  width: var(--dock-rail-l);
+  /* side padding leaves room for the slider's value bubble at both ends of the track */
+  padding: var(--ctl-gap) calc(var(--ctl-gap) + 12px) calc(var(--safe-b, 0px) + var(--ctl-gap)) calc(var(--safe-l, 0px) + var(--ctl-gap) + 12px);
+  display: flex; flex-direction: column; align-items: stretch; gap: var(--ctl-gap);
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  border-right: 1px solid var(--border);
+}
+.al-dock[data-mode="wide"] .al-dock-handle { flex: 0 0 auto; width: 100%; height: 28px; place-items: center end; cursor: pointer; }
+.al-dock[data-mode="wide"] .al-dock-handle span {
+  width: 9px; height: 9px; border-radius: 0; background: transparent;
+  border: solid var(--text-mute); border-width: 0 0 2px 2px; transform: rotate(45deg); margin-right: var(--ctl-gap);
+  transition: transform var(--dur-base, .2s) var(--ease-out, ease-out);
+}
+.al-dock[data-mode="wide"] .al-dock-dots { display: none; }
+.al-dock[data-mode="wide"] .al-dock-transport { flex: 0 0 auto; justify-content: flex-start; }
+.al-dock[data-mode="wide"] .al-dock-primary,
+.al-dock[data-mode="wide"] .al-dock-pages,
+.al-dock[data-mode="wide"] .al-dock-page { display: contents; }
+.al-dock[data-mode="wide"] .al-dock-slot {
+  flex: 0 0 auto; width: 100%; max-height: none; margin: 0; overflow: visible;
+}
+.al-dock[data-mode="wide"] .al-dock-options {
+  flex: 0 0 auto; flex-direction: column; align-items: stretch;
+  padding-top: var(--ctl-gap); border-top: 1px solid var(--border);
+  -webkit-mask-image: none; mask-image: none;
+}
+.al-dock[data-mode="wide"] .al-dock-options:not(:has(*)) { display: none; }
+.al-dock[data-mode="wide"] .al-dock-options .ctl { flex-direction: column; align-items: stretch; }
+.al-dock[data-mode="wide"] .ctl-sel { min-width: 0; }
+/* sliders use the whole rail (a dial or pedal keeps its own size and stays centred) */
+.al-dock[data-mode="wide"] { --ctl-axis-min: 0px; }
+.al-dock[data-mode="wide"] .ui-widget:has(.ctl-axis) { align-items: stretch; }
+.al-dock[data-mode="wide"] .ui-widget:has(.ctl-axis) .ui-widget-frame { min-width: 0; }
+.al-dock[data-mode="wide"] .al-dock-flow .ui-tb-check { width: 100%; }
+
+/* folded: transport only, stacked, in a strip as wide as one tap target */
+.al-dock[data-mode="wide"][data-state="slim"] { padding-inline: calc((var(--dock-wide-slim) - var(--ctl-tap)) / 2); align-items: center; }
+.al-dock[data-mode="wide"][data-state="slim"] .al-dock-handle { place-items: center; }
+.al-dock[data-mode="wide"][data-state="slim"] .al-dock-handle span { transform: rotate(-135deg); margin-right: 0; }
+.al-dock[data-mode="wide"][data-state="slim"] .al-dock-transport { flex-direction: column; }
+.al-dock[data-mode="wide"][data-state="slim"] .al-dock-slot,
+.al-dock[data-mode="wide"][data-state="slim"] .al-dock-options { display: none; }
+
+/* the Monitor is the right column: it gives the stage its width back, scrolls when its rows are long, and never folds to an orb */
+html[data-dock="wide"] #ui-top-stack { left: calc(var(--s-4) + var(--safe-l, 0px) + var(--dock-rail-l)); right: calc(var(--s-4) + var(--safe-r, 0px) + var(--dock-rail-r)); }
+html[data-dock="wide"]:not([data-monitor]) #ui-top-stack > #ui-slot-tr { display: none; }
+html[data-dock="wide"] #ui-top-stack > #ui-slot-tr {
+  position: fixed; top: var(--stage-top); right: 0; bottom: 0; left: auto;
+  width: var(--dock-rail-r); box-sizing: border-box;
+  padding: var(--ctl-gap) calc(var(--safe-r, 0px) + var(--ctl-gap)) calc(var(--safe-b, 0px) + var(--ctl-gap)) var(--ctl-gap);
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  align-items: stretch; pointer-events: auto;
+  background: var(--bg-elev, var(--surface)); border-left: 1px solid var(--border);
+  z-index: var(--z-monitor);
+}
+html[data-dock="wide"] .ui-monitor { width: 100%; min-width: 0; max-width: none; background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-dock="wide"] .ui-monitor .ui-orb-toggle,
+html[data-dock="wide"] .ui-monitor .ui-orb-icon { display: none; }
+html[data-dock="wide"] .ui-stage-layer { padding-bottom: var(--s-2); }
+
 /* ── info: header ⓘ opens a bottom sheet on phones (closed by default); desktop keeps the side panel ── */
 .al-sheet-scrim { position: fixed; inset: 0; z-index: var(--z-menu); background: color-mix(in oklch, var(--bg) 62%, transparent); display: none; }
 body.al-sheet-open .al-sheet-scrim { display: block; }
@@ -443,15 +512,15 @@ body.al-sheet-open .al-sheet-scrim { display: block; }
   .ui-slot-tr {
     position: fixed;
     top: calc(var(--stage-top) + var(--s-1, 4px));
-    left: calc(var(--safe-l, 0px) + var(--dock-rail) + var(--s-2, 8px));
-    right: calc(var(--safe-r, 0px) + var(--dock-rail) + var(--s-2, 8px));
+    left: calc(var(--safe-l, 0px) + var(--dock-rail-l) + var(--s-2, 8px));
+    right: calc(var(--safe-r, 0px) + var(--dock-rail-r) + var(--s-2, 8px));
     z-index: var(--z-monitor);
   }
   .ui-orb-toggle, .ui-orb-icon { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .al-dock[data-mode="portrait"], .ui-panel { transition: none; }
+  .al-dock[data-mode="portrait"], .ui-panel, .al-dock[data-mode="wide"] .al-dock-handle span { transition: none; }
 }
 
 
@@ -835,20 +904,20 @@ body.al-sheet-open .al-sheet-scrim { display: block; }
 .ctl-action-btn:focus-visible { outline: 2px solid var(--ctl-focus); outline-offset: 2px; }
 .ctl-choice.is-disabled, .ctl-toggle.is-disabled, .ctl-action.is-disabled { opacity: .5; }
 
-/* options row: ONE scrollable line of 40–44 px chips, fade edges (mask, tokens only) */
-.al-dock-options {
+/* options row (desktop bar, landscape rail). Phone portrait uses the Phase 9b grid at the end of this file. */
+.al-dock:not([data-mode="portrait"]) .al-dock-options {
   overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
   -webkit-mask-image: linear-gradient(to right, transparent 0, var(--text) var(--ctl-gap), var(--text) calc(100% - var(--ctl-gap) * 2), transparent 100%);
           mask-image: linear-gradient(to right, transparent 0, var(--text) var(--ctl-gap), var(--text) calc(100% - var(--ctl-gap) * 2), transparent 100%);
 }
 .al-dock-options::-webkit-scrollbar { display: none; }
-.al-dock-options > *, .al-dock-flow > * { flex: none; }
+.al-dock:not([data-mode="portrait"]) .al-dock-options > *, .al-dock:not([data-mode="portrait"]) .al-dock-flow > * { flex: none; }
 .al-dock-options .ctl { flex-direction: row; align-items: center; gap: var(--ctl-gap); }
 .al-dock-options .ctl-choice > .ctl-label { white-space: nowrap; }
 .al-dock[data-mode="portrait"] .al-dock-options .ctl-seg-btn,
 .al-dock[data-mode="portrait"] .al-dock-options .ctl-switch,
 .al-dock[data-mode="portrait"] .al-dock-options .ctl-action-btn,
-.al-dock[data-mode="portrait"] .al-dock-options .ctl-select { min-height: 40px; }
+.al-dock[data-mode="portrait"] .al-dock-options .ctl-select { min-height: var(--ctl-tap); }
 .al-dock[data-mode="landscape"] .al-dock-options { -webkit-mask-image: none; mask-image: none; }
 .al-dock[data-mode="landscape"] .al-dock-options .ctl { flex-direction: column; align-items: stretch; }
 
@@ -962,3 +1031,219 @@ body.al-sheet-open .al-sheet-scrim { display: block; }
   .ui-monitor .mon-status-full:not(:empty) { display: block; margin-bottom: var(--s-2); font: 600 12px/1.35 var(--font-sans); color: var(--warn); }
   .ui-monitor .mon-status-full[data-tone="crit"] { color: var(--crit); }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 9a — glass dock (surface + transport pill)
+   html[data-ui-tier] (dock.js) picks the paint: high = blur + sheen + glow, mid = lighter blur, low = solid fill.
+   Layout, tap sizes and the 30 vh ceiling are identical in every tier. Tokens only (colours live in app.css).
+   ═══════════════════════════════════════════════════════════════════════ */
+:root { --dock-gap: 8px; --dock-blur: 12px; --dock-sat: 1.25; --dock-radius: 26px; --dock-glow: transparent; }
+html[data-ui-tier="high"] { --dock-blur: 26px; --dock-sat: 1.7; --dock-glow: color-mix(in oklch, var(--al-accent, var(--accent)) 30%, transparent); }
+html[data-ui-tier="mid"]  { --dock-blur: 12px; --dock-sat: 1.25; }
+html[data-ui-tier="low"]  { --dock-blur: 0px; --dock-sat: 1; }
+
+/* the zone behind the floating panel: a soft accent aurora, so the glass has something to blur */
+body:has(.al-dock[data-mode="portrait"])::before {
+  content: "";
+  position: fixed; left: 0; right: 0; bottom: 0;
+  height: var(--dock-h);
+  z-index: var(--z-stage);
+  pointer-events: none;
+  background:
+    radial-gradient(70% 110% at 12% 105%, color-mix(in oklch, var(--al-accent, var(--accent)) 34%, transparent), transparent 70%),
+    radial-gradient(60% 100% at 92% 115%, color-mix(in oklch, var(--accent-2) 26%, transparent), transparent 70%),
+    var(--bg);
+}
+
+/* the glass surface (phone portrait, landscape slots, desktop bar) */
+.al-dock[data-mode="portrait"],
+.al-dock[data-mode="desktop"],
+.al-dock[data-mode="landscape"] .al-dock-slot,
+.al-dock[data-mode="landscape"] .al-dock-options,
+.al-dock[data-mode="landscape"] .al-dock-transport {
+  background-color: var(--glass-fill);
+  background-image: linear-gradient(180deg, var(--glass-hi) 0, var(--glass-lo) 42%, transparent 100%);
+  -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-sat));
+  backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-sat));
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--glass-hi), var(--glass-shadow), 0 -2px 28px var(--dock-glow);
+}
+html[data-ui-tier="mid"] .al-dock[data-mode="portrait"],
+html[data-ui-tier="mid"] .al-dock[data-mode="desktop"] { background-image: none; box-shadow: inset 0 1px 0 var(--glass-hi), var(--glass-shadow); }
+html[data-ui-tier="low"] .al-dock[data-mode="portrait"],
+html[data-ui-tier="low"] .al-dock[data-mode="desktop"],
+html[data-ui-tier="low"] .al-dock[data-mode="landscape"] .al-dock-slot,
+html[data-ui-tier="low"] .al-dock[data-mode="landscape"] .al-dock-options,
+html[data-ui-tier="low"] .al-dock[data-mode="landscape"] .al-dock-transport {
+  background-color: var(--bg-elev);
+  background-image: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: var(--shadow-sm);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .al-dock[data-mode="portrait"], .al-dock[data-mode="desktop"] { background-color: var(--bg-elev); }
+}
+
+/* the floating panel: inset from the screen edge, rounded on all corners; its box still ends where --dock-h says */
+.al-dock[data-mode="portrait"] {
+  left:   calc(var(--safe-l, 0px) + var(--dock-gap));
+  right:  calc(var(--safe-r, 0px) + var(--dock-gap));
+  bottom: calc(var(--safe-b, 0px) + var(--dock-gap));
+  height:     calc(var(--dock-h) - var(--dock-gap) - var(--safe-b, 0px));
+  max-height: calc(var(--dock-max) - var(--dock-gap) - var(--safe-b, 0px));
+  padding: 0 var(--ctl-gap);
+  border-radius: var(--dock-radius);
+}
+/* accent hairline along the top edge: each module's own colour */
+.al-dock[data-mode="portrait"]::after {
+  content: "";
+  position: absolute; left: 12%; right: 12%; top: 0; height: 2px;
+  border-radius: var(--r-pill, 999px);
+  background: linear-gradient(90deg, transparent, var(--al-accent, var(--accent)) 50%, transparent);
+  opacity: .9;
+  pointer-events: none;
+}
+html[data-ui-tier="low"] .al-dock[data-mode="portrait"]::after { opacity: .6; }
+.al-dock[data-mode="portrait"] .al-dock-handle span { background: color-mix(in oklch, var(--text) 28%, transparent); }
+
+/* transport: one pill — a filled accent play button over a quiet reset */
+.al-dock-transport {
+  padding: 4px;
+  border-radius: var(--r-pill, 999px);
+  background: var(--glass-lo);
+  border: 1px solid var(--glass-edge);
+  gap: 6px;
+  align-self: center;
+}
+.al-dock[data-mode="portrait"] .al-dock-transport { gap: 4px; }
+.al-dock-transport .ui-tb-btn {
+  border-radius: var(--r-pill, 999px);
+  background: transparent;
+  border: 0;
+  color: var(--text-dim);
+}
+.al-dock-transport .ui-tb-btn:hover { background: var(--surface-hover); color: var(--text); }
+.al-dock-transport .ui-tb-btn svg { width: 20px; height: 20px; }
+.al-dock-transport #btn-play {
+  width: calc(var(--ctl-tap) + 6px); height: calc(var(--ctl-tap) + 6px);
+  color: var(--ink);
+  background: linear-gradient(160deg, color-mix(in oklch, var(--al-accent, var(--accent)) 78%, var(--paper)), var(--al-accent, var(--accent)));
+  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--paper) 45%, transparent);
+}
+html.light-theme .al-dock-transport #btn-play { color: var(--paper); }
+html[data-ui-tier="high"] .al-dock-transport #btn-play { box-shadow: inset 0 1px 0 color-mix(in oklch, var(--paper) 45%, transparent), 0 6px 18px color-mix(in oklch, var(--al-accent, var(--accent)) 45%, transparent); }
+.al-dock-transport #btn-play:hover { background: linear-gradient(160deg, color-mix(in oklch, var(--al-accent, var(--accent)) 70%, var(--paper)), var(--al-accent, var(--accent))); color: var(--ink); }
+html.light-theme .al-dock-transport #btn-play:hover { color: var(--paper); }
+.al-dock-transport .ui-tb-btn:active { transform: scale(.92); }
+.al-dock-transport .ui-tb-btn:focus-visible { outline: 2px solid var(--ctl-focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .al-dock-transport .ui-tb-btn { transition: none; } .al-dock-transport .ui-tb-btn:active { transform: none; } }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 9b — options grid + "More" sheet. Tokens only; z-index from the scale.
+   Phone portrait: the options zone is a wrapping grid (label ABOVE control), it may scroll VERTICALLY, never sideways.
+   More than 4 cells → first 3 + a "More" chip; the rest sit in a glass sheet that uses the same grid.
+   Layout and tap sizes do not depend on data-ui-tier; only paint does (below).
+   ═══════════════════════════════════════════════════════════════════════ */
+:root { --dock-primary-min: 108px; --opt-gap: 6px; }
+
+.al-dock[data-mode="portrait"] { grid-template-rows: var(--dock-handle) minmax(var(--dock-primary-min), 1fr) auto; }
+.al-dock[data-mode="portrait"][data-state="slim"] { grid-template-rows: 12px minmax(0, 1fr) 0; }
+.al-dock[data-mode="portrait"][data-state="options"] .al-dock-options {
+  max-height: calc(var(--dock-h) - var(--dock-gap) - var(--safe-b, 0px) - var(--dock-handle) - var(--dock-primary-min));
+}
+.al-dock[data-mode="portrait"] .al-dock-options,
+.al-dock[data-mode="wide"] .al-dock-options,
+.al-more-grid {
+  flex-wrap: wrap; flex-direction: row; align-items: flex-start; align-content: flex-start;
+  gap: var(--opt-gap) var(--ctl-gap);
+  -webkit-mask-image: none; mask-image: none;
+}
+.al-dock[data-mode="portrait"] .al-dock-options { padding: 2px 0 var(--opt-gap); }
+.al-dock[data-mode="portrait"] .al-dock-flow,
+.al-dock[data-mode="portrait"] .al-dock-extras { display: contents; }
+.al-more-grid { display: flex; }
+
+/* a cell: small label above, control below */
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) > [data-cell] { min-width: 0; flex: 0 1 auto; }
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) > [data-cell="choice"] { flex: 1 1 calc(50% - var(--ctl-gap)); }
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) > [data-span="full"] { flex-basis: 100%; }
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl { flex-direction: column; align-items: stretch; gap: 2px; }
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-choice > .ctl-label {
+  display: block; min-height: 0; font-size: var(--ctl-text); line-height: 1.2; white-space: normal;
+  color: var(--text-mute); text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+}
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-seg { display: flex; width: 100%; border-color: var(--glass-edge); background: var(--glass-lo); }
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-seg-btn {
+  min-width: 0; min-height: var(--ctl-tap); background: transparent; border-left-color: var(--glass-edge);
+}
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-seg-btn[aria-checked="true"] { background: var(--ctl-accent); }
+/* many items: rows of up to 4, hairlines between cells; no sideways strip */
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-seg[data-many] { display: grid; }
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-seg[data-many] .ctl-seg-btn {
+  border-left: 0; box-shadow: inset -1px -1px 0 var(--glass-edge);
+}
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-sel { min-width: 0; }
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-select { background: var(--glass-lo); border-color: var(--glass-edge); }
+
+/* chips: switches, actions, the Flow check, the More chip */
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-switch,
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-action-btn,
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ui-tb-check,
+.al-dock-more, .al-more-close {
+  min-height: var(--ctl-tap); min-width: var(--ctl-tap);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-pill, 999px);
+  background: var(--glass-lo); color: var(--text);
+  box-sizing: border-box; padding: 0 calc(var(--ctl-gap) * 1.5);
+  font: inherit; font-size: max(var(--ctl-text), 12px); font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--ctl-gap);
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent; cursor: pointer;
+}
+.al-dock-more svg { width: 16px; height: 16px; fill: currentColor; }
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-switch[aria-checked="true"],
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ui-tb-check:has(input:checked),
+.al-dock-more[aria-expanded="true"] {
+  border-color: var(--ctl-fill);
+  background: color-mix(in oklch, var(--ctl-fill) 22%, var(--glass-lo));
+}
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ui-tb-check input { width: 20px; height: 20px; margin: 0; }
+.al-dock-more[hidden], .al-more[hidden] { display: none; }
+/* wide rail: same cells; a choice takes the whole row, chips sit side by side, the rail itself scrolls vertically (no More chip) */
+.al-dock[data-mode="wide"] .al-dock-flow, .al-dock[data-mode="wide"] .al-dock-extras { display: contents; }
+.al-dock[data-mode="wide"] .al-dock-options > [data-cell="choice"] { flex-basis: 100%; }
+.al-dock[data-mode="wide"] .al-dock-flow .ui-tb-check { width: auto; }
+.al-dock-more:focus-visible, .al-more-close:focus-visible,
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-switch:focus-visible,
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ui-tb-check:focus-within { outline: 2px solid var(--ctl-focus); outline-offset: 2px; }
+.al-dock[data-mode="landscape"] .al-dock-more, .al-dock[data-mode="desktop"] .al-dock-more, .al-dock[data-mode="wide"] .al-dock-more { display: none; }
+/* the (hidden) More chip is a child, so :not(:has(*)) no longer means "empty": use the dock's own flag */
+.al-dock[data-mode="landscape"][data-has-options="false"] .al-dock-options,
+.al-dock[data-mode="wide"][data-has-options="false"] .al-dock-options { display: none; }
+
+/* the More sheet: scrim + glass panel above the dock */
+.al-more { position: fixed; inset: 0; z-index: var(--z-menu); }
+.al-more-scrim { position: absolute; inset: 0; background: color-mix(in oklch, var(--bg) 62%, transparent); }
+.al-more-sheet {
+  position: absolute;
+  left: calc(var(--safe-l, 0px) + var(--dock-gap)); right: calc(var(--safe-r, 0px) + var(--dock-gap));
+  bottom: calc(var(--dock-h, 0px) + var(--dock-gap));
+  max-height: calc(100dvh - var(--dock-h, 0px) - var(--stage-top, 0px) - 2 * var(--dock-gap));
+  width: min(calc(100% - 2 * var(--dock-gap)), 560px); margin: 0 auto;
+  box-sizing: border-box; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  padding: var(--ctl-gap);
+  color: var(--text); font-family: var(--font-sans);
+  border-radius: var(--dock-radius);
+  background-color: var(--glass-fill);
+  border: 1px solid var(--glass-edge);
+  -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-sat));
+  backdrop-filter: blur(var(--dock-blur)) saturate(var(--dock-sat));
+  box-shadow: inset 0 1px 0 var(--glass-hi), var(--glass-shadow);
+}
+html[data-ui-tier="low"] .al-more-sheet {
+  background-color: var(--bg-elev);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: var(--shadow-sm);
+}
+.al-more-head { display: flex; align-items: center; justify-content: space-between; gap: var(--ctl-gap); margin-bottom: var(--ctl-gap); }
+.al-more-title { font-size: var(--ctl-text); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-mute); }
+.al-more-grid { padding: 0; }

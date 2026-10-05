@@ -12,11 +12,11 @@
   html.light-theme { --al-accent: color-mix(in oklch, #22c55e 68%, black); }
   /* A 2D document page: it scrolls under the kit's fixed header and above the dock (padding = their heights). */
   body { overflow-y: auto; background: var(--bg); color: var(--text); font-family: var(--font-sans);
-         padding: var(--stage-top) var(--dock-rail) calc(var(--dock-h) + var(--safe-b) + var(--s-6)); }
+         padding: var(--stage-top) var(--dock-rail-r) calc(var(--dock-h) + var(--safe-b) + var(--s-6)) var(--dock-rail-l); }
   :root { --mon-clear: 0px; }
   @media (max-width: 720px), (max-height: 540px) { :root { --mon-clear: 36px; } }
-  /* desktop: the Monitor card floats at the top right, so the document leaves it a gutter */
-  @media (min-width: 721px) and (min-height: 541px) { body { padding-right: 232px; } }
+  /* 721 - 1023 px: the Monitor card floats at the top right, so the document leaves it a gutter. From 1024 px the Monitor is a column of its own. */
+  @media (min-width: 721px) and (max-width: 1023px) and (min-height: 541px) { body { padding-right: 232px; } }
   .wrap { max-width: 1000px; margin: 0 auto; padding: 0 var(--s-4); }
   .intro { padding: calc(var(--s-3) + var(--mon-clear)) 0 var(--s-3); }
   .k { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--al-accent); font-weight: 700; }
