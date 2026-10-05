@@ -55,14 +55,14 @@ t('protocol: setLabelDensity + toggleInfo + key (both directions); setLabels kep
   assert.match(kit, /setLabels:\s+v =>/, 'legacy setLabels still handled');
 });
 
-t('theme: one path only — the shell no longer writes light-theme into the iframe', () => {
-  const fix = index.slice(index.indexOf('function injectEmbedFix'), index.indexOf('var MAX_LIVE'));
-  assert.ok(!/light-theme/.test(fix), 'injectEmbedFix still toggles light-theme');
-  assert.match(fix, /classList\.add\('embedded'\)/, 'injectEmbedFix itself is kept until Phase 8');
+t('theme: one path only — the shell never writes light-theme into the iframe; injectEmbedFix is gone (the kit adds body.embedded itself)', () => {
+  assert.ok(!/injectEmbedFix/.test(index), 'injectEmbedFix removed in Phase 8');
+  assert.ok(!/contentDocument[^;]*classList[^;]*light-theme/.test(index), 'shell writes light-theme into the iframe');
+  assert.match(kit, /classList\.add\('embedded', 'uses-ui-kit'\)/);
 });
 
 t('R6/R7 (Phase 2 supersedes Phase 1): play / reset live in the dock in BOTH modes; density + sim speed only in the ⋯ menu', () => {
-  for (const id of ['btn-play', 'btn-reset']) assert.equal(kit.split('\n').filter((l) => l.includes(`id="${id}"`)).length, 1, id);
+  for (const id of ['btn-play', 'btn-reset']) assert.equal(kit.split('\n').filter((l) => l.includes(`id: '${id}'`)).length, 1, id);
   assert.ok(!/id="btn-density"/.test(kit) && !/id="speed"/.test(kit));
   assert.ok(!/t\.speed && t\.speed\.module/.test(kit), 'Phase 3: the temporary module-local slider is gone (axes replace it)');
   assert.ok(!/body\.embedded\.uses-ui-kit \.ui-toolbar #btn-play/.test(appcss), 'CSS does not hide dock nodes');

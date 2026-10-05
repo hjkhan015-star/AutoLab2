@@ -32,55 +32,85 @@ const reg = readFileSync(root + 'modules.js', 'utf8');
 for (const m of reg.matchAll(/"file": "([^"]+)"/g)) if (!existsSync(root + m[1])) fail(`modules.js: missing ${m[1]}`);
 const ids = [...reg.matchAll(/"id": "([^"]+)", "label"/g)].map((m) => m[1]);
 if (new Set(ids).size !== ids.length) fail('duplicate module ids');
-/* ── Phase 0 advisory rules: print WARN, never fail (become FAIL in Phase 8) ── */
-let warns = 0;
-const warn = (m) => { console.warn('WARN', m); warns++; };
+/* ── Phase 8: the Phase 0 advisory rules are now FAIL rules (R-numbers refer to the hard rules in the prompt pack) ── */
 const coreBlock = (sw.match(/const CORE_ASSETS = \[([\s\S]*?)\n\];/) || [, ''])[1];
 const precached = new Set([...coreBlock.matchAll(/'\.\/([^']+)'/g)].map((m) => m[1]));
-/* Phase 6.5 (D6-8): lines allowed to contain <button / <select / <input on a kit page, and why. Not controls — content. */
-const AUTHORED_OK = [
-  [/class="al-opt"|al-opt/, 'quiz option buttons (components.js Widgets.wireQuiz owns the behaviour)'],
-  [/data-quiz|quiz/, 'quiz markup'],
-  [/tq-toggle/, 'gearbox torque-chart collapse chevron (panel chrome, not a control); revisit in Phase 7b']
+const stripComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
+/* Files allowed to build <button> / <select> / <input type=range> markup, and why (everything else must use a controls.js spec). */
+const CONTROL_OWNERS = new Set(['controls.js', 'chrome.js', 'dock.js', 'monitor.js']);
+const CONTROL_OK = [
+  [/^guard\.js$/, 'guard.js is a standalone script (no modules, no kit): its WebGL-error overlay has one Retry button'],
+  [/^(index|404)\.html$/, 'the shell (index.html) owns the module cards, search and install UI; 404.html is a standalone page']
 ];
+const CONTROL_RE = /<(button|select)\b|type\s*=\s*["']range["']|type\s*=\s*['"]?range|createElement\(\s*['"`](button|select)['"`]\s*\)|createElement\(\s*['"`]input['"`]\s*\)/;
+/* (0) every file that exists is precached (task 4) */
+for (const f of readdirSync(root)) {
+  if (!/\.(js|css|html)$/.test(f) || f === 'sw.js' || f === '404.html') continue;
+  if (!precached.has(f)) fail(`${f}: exists but is not listed in sw.js CORE_ASSETS`);
+}
+for (const f of precached) if (f && !existsSync(root + f)) fail(`sw.js CORE_ASSETS lists ${f} but it does not exist`);
+if ((sw.match(/\bconst VERSION\s*=/g) || []).length !== 1) fail('sw.js must define exactly one VERSION constant');
+/* (v) one version everywhere: README, GUIDE, COMPONENTS and the components.js / components.css headers carry the sw.js VERSION number */
+const verNum = (sw.match(/const VERSION\s*=\s*'autolab-v([\d.]+)'/) || [, ''])[1];
+if (!verNum) fail('sw.js: VERSION is not autolab-v<number>');
+for (const [f, re] of [['README.md', /^# AutoLab2 \(Auto Lab v([\d.]+)\)/m], ['GUIDE.md', /Auto Lab v([\d.]+)/], ['COMPONENTS.md', /Auto Lab v([\d.]+)/], ['components.js', /\(v([\d.]+)\)/], ['components.css', /\(v([\d.]+)\)/]]) {
+  const m = readFileSync(root + f, 'utf8').match(re);
+  if (!m) fail(`${f}: no version string (expected "v${verNum}")`); else if (m[1] !== verNum) fail(`${f}: says v${m[1]} but sw.js is v${verNum}`);
+}
 const hexCounts = [];
+const jsFiles = readdirSync(root).filter((f) => f.endsWith('.js') && f !== 'sw.js');
 for (const f of html) {
   const s = readFileSync(root + f, 'utf8');
+  const code = stripComments(s.replace(/<style[\s\S]*?<\/style>/g, ''));
   /* (a) every local .js/.css referenced by an HTML page is precached */
   const refs = new Set();
   for (const r of s.matchAll(/(?:src|href)="(?!https?:|#|data:|mailto:)\.?\/?([^"?#]+\.(?:js|css))"/g)) refs.add(r[1]);
   for (const r of s.matchAll(/from\s+['"]\.\/([^'"]+\.js)['"]/g)) refs.add(r[1]);
-  for (const r of refs) if (!precached.has(r)) warn(`${f}: ${r} is not in sw.js CORE_ASSETS`);
+  for (const r of refs) if (!precached.has(r)) fail(`${f}: ${r} is not in sw.js CORE_ASSETS`);
   /* (b) duplicate static id="…" inside one page */
   const seen = new Map();
   for (const m of s.matchAll(/\sid="([^"]+)"/g)) seen.set(m[1], (seen.get(m[1]) || 0) + 1);
   const dups = [...seen].filter(([, c]) => c > 1).map(([id]) => id);
-  if (dups.length) warn(`${f}: duplicate id(s): ${dups.join(', ')}`);
+  if (dups.length) fail(`${f}: duplicate id(s): ${dups.join(', ')}`);
   /* (c) module pages must not define the kit's own control ids */
-  if (f !== 'index.html' && f !== '404.html')
-    for (const id of ['btn-play', 'btn-reset', 'speed']) if (seen.has(id)) warn(`${f}: defines id="${id}" (owned by the kit/dock)`);
-  /* (e) Phase 6 / 6.5: kit modules author NO interactive controls of their own — they use options:[choice|toggle|action].
-         EXCLUSIONS (explicit, with reasons) live in AUTHORED_OK below; anything else on a kit page is a WARN. */
-  if (/from\s+['"]\.\/(kit|components)\.js['"]/.test(s)) {
-    const code = s.replace(/<style[\s\S]*?<\/style>/g, '');
-    for (const l of code.split('\n')) {
-      if (/^\s*(\/\/|\/\*|\*)/.test(l) || AUTHORED_OK.some(([re]) => re.test(l))) continue;
-      if (/<(button|select|input)\b|createElement\(['"`](button|select|input)['"`]\)/.test(l)) { warn(`${f}: authors its own control (use options:[...]): ${l.trim().slice(0, 70)}`); break; }
-    }
-    if (/extras:\s*\[\s*\{/.test(code)) warn(`${f}: toolbar extras are retired — use options:[...]`);
-    if (/window\.__\w*Sync\w*\s*=/.test(code)) warn(`${f}: window.__*Sync* hook (the kit syncs the play icons)`);
+  if (f !== 'index.html' && f !== '404.html') {
+    for (const id of ['btn-play', 'btn-reset', 'speed', 'toolbar-extras']) if (seen.has(id)) fail(`${f}: defines id="${id}" (owned by the kit/dock)`);
+    if (/getElementById\(\s*['"]toolbar-extras['"]\s*\)|#toolbar-extras/.test(code)) fail(`${f}: writes into #toolbar-extras (retired: use options:[...])`);
   }
-  /* (d) hard-coded colours inside <style> (report only) */
-  const styles = [...s.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n');
-  const c = (styles.match(/#[0-9a-fA-F]{3,8}\b|rgba?\(/g) || []).length;
-  if (c) hexCounts.push([f, c]);
+  /* (e) no hand-built controls: range / select / button markup or createElement outside controls.js / chrome.js / dock.js / monitor.js */
+  if (!CONTROL_OK.some(([re]) => re.test(f))) {
+    for (const l of code.split('\n')) {
+      if (CONTROL_RE.test(l)) { fail(`${f}: builds its own control (use options:[...] / axes): ${l.trim().slice(0, 80)}`); break; }
+    }
+  }
+  if (/from\s+['"]\.\/(kit|components)\.js['"]/.test(s)) {
+    if (/extras:\s*\[\s*\{/.test(code)) fail(`${f}: toolbar extras are retired — use options:[...]`);
+    if (/window\.__\w*Sync\w*\s*=/.test(code)) fail(`${f}: window.__*Sync* hook (the kit syncs the play icons)`);
+    if (/window\.__\w+/.test(code)) fail(`${f}: window.__* global (Phase 8 removed every hook)`);
+    /* global: a chart (canvas / svg) never lives inside a widgets / readout / panel template string */
+    for (const m of code.matchAll(/(?:overview|faults|quiz|widgets|readout|panel)[\w.]*\s*[:=]\s*(?:\(\)\s*=>\s*)?`([\s\S]*?)`/g))
+      if (/<canvas\b|<svg\b/.test(m[1])) fail(`${f}: <canvas>/<svg> chart inside a panel/widget template (use ui.stage.canvas or a Monitor trace)`);
+    /* global: nobody writes the Monitor root (rows / traces / footer go through ui.monitor.set / update) */
+    if (/monitor\.root\s*(\.(innerHTML|textContent|style|classList|append\w*|insert\w*|replace\w*|remove\w*)|\s*=[^=])/.test(code)) fail(`${f}: writes ui.monitor.root (use ui.monitor.set / update)`);
+    /* global: ui.stage canvases never sit in the dock, panel or Monitor */
+    if (/(?:dock|panel|monitor)[\w.]*\.(?:appendChild|append|prepend)\(\s*[\w.]*stage[\w.]*canvas/.test(code)) fail(`${f}: a ui.stage canvas is appended into the dock / panel / Monitor`);
+  }
+  /* (d) hard-coded colours inside <style> are FAIL outside tokens; --al-accent declarations are the per-module accent and are allowed.
+         404.html is a standalone page that loads no stylesheet, so it cannot use tokens. */
+  if (f !== '404.html') {
+    const styles = [...s.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n');
+    for (const l of styles.split('\n')) {
+      if (/--al-accent\s*:/.test(l)) continue;
+      if (/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(l.replace(/#[a-zA-Z_][\w-]*\s*[{,.:\[>]/g, ''))) { hexCounts.push(f); fail(`${f}: hard-coded colour in <style> (use a token): ${l.trim().slice(0, 80)}`); break; }
+    }
+  }
 }
-if (hexCounts.length) {
-  hexCounts.sort((a, b) => b[1] - a[1]);
-  const total = hexCounts.reduce((a, [, c]) => a + c, 0);
-  console.log(`INFO hard-coded hex/rgba in <style>: ${total} across ${hexCounts.length} pages; top: ` +
-    hexCounts.slice(0, 5).map(([f, c]) => `${f}=${c}`).join(', '));
+/* the same control rule for the shared scripts: only the four owners may build controls */
+for (const f of jsFiles) {
+  if (CONTROL_OWNERS.has(f) || CONTROL_OK.some(([re]) => re.test(f))) continue;
+  const code = stripComments(readFileSync(root + f, 'utf8'));
+  for (const l of code.split('\n')) if (CONTROL_RE.test(l)) { fail(`${f}: builds its own control outside controls.js / chrome.js / dock.js / monitor.js: ${l.trim().slice(0, 80)}`); break; }
+  if (/window\.__\w+/.test(code)) fail(`${f}: window.__* global`);
 }
-if (warns) console.warn(`${warns} advisory warning(s) (not failing yet)`);
 console.log(fails ? `\n${fails} problem(s)` : `OK — ${html.length} pages, ${ids.length} modules checked`);
 process.exit(fails ? 1 : 0);

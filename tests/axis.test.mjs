@@ -88,7 +88,7 @@ await t('Phase 4: the five copy-pasted pedal implementations are gone (no spring
 });
 
 await t('Phase 4: no old pedal selectors anywhere, and no light-theme pedal override', () => {
-  for (const f of [...pages, 'app.css', 'components.css', 'controls.css', 'legacy.css', 'kit.js', 'components.js']) {
+  for (const f of [...pages, 'app.css', 'components.css', 'controls.css', 'kit.js', 'components.js']) {
     const s = rd(f);
     assert.ok(!/\.br-pedal|\.at-pedal|\.carb-pedal|#accel-|\.clutch-pedal|#clutch-pedal|\.pedal-plate|\.pedal-grip/.test(s), `${f}: old pedal selector`);
     assert.ok(!/html\.light-theme[^{]*pedal/i.test(s), `${f}: light-theme pedal override`);

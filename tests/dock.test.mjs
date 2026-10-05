@@ -1,6 +1,6 @@
 // node tests/dock.test.mjs  (no dependencies) — Phase 2: dock logic, dock DOM (fake document), layout guards
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import {
   DOCK, STATES, layoutMode, swipeDirection, nextState, tapState, dockHeightPx, dockLayout,
   assignSlots, clampPage, pageFromScroll, dockStorageKey, serializeDock, parseDock,
@@ -256,7 +256,7 @@ const kit = strip(rd('kit.js')), ctl = strip(rd('controls.css')), app = strip(rd
 
 t('one node each: kit builds btn-play / btn-reset exactly once, in BOTH modes (no !embedded guard)', () => {
   for (const id of ['btn-play', 'btn-reset']) {
-    const hits = kit.split('\n').filter((l) => l.includes(`id="${id}"`));
+    const hits = kit.split('\n').filter((l) => l.includes(`id: '${id}'`));
     assert.equal(hits.length, 1, `${id} built ${hits.length}×`);
     assert.ok(!/embedded/.test(hits[0]), `${id} must not depend on embedded`);
   }
@@ -266,10 +266,10 @@ t('one node each: kit builds btn-play / btn-reset exactly once, in BOTH modes (n
   assert.ok(!/id="btn-density"/.test(kit) && !/id="speed"/.test(kit), 'density button + sim-speed slider live in the ⋯ menu only');
   assert.ok(!/_ensureSlot\('(bl|br|bc)'\)/.test(kit), 'bl / br / bc slots are gone');
 });
-t('UI.create still accepts widgets:{bl,br}, toolbar and extras, mounted inside the dock', () => {
+t('UI.create still accepts widgets:{bl,br} and toolbar, mounted inside the dock; Phase 8 retired toolbar.extras (use options:[…])', () => {
   assert.match(kit, /\[\['bl', 'left'\], \['br', 'right'\]\]/);
   assert.match(kit, /this\._dock\.addPrimary\(\{ id: slotName, side, node: el \}\)/);
-  assert.match(kit, /dock\.extras\.appendChild\(btn\)/);
+  assert.ok(!/t\.extras/.test(kit), 'toolbar.extras is retired');
   assert.match(kit, /this\._dock\.addPrimary\(\{ id: 'ax-' \+ spec\.id/, 'Phase 3: axes go to the primary zone');
   assert.match(kit, /id="toolbar-extras"|toolbar-extras/.test(rd('dock.js')) ? /./ : /toolbar-extras/);
   assert.match(rd('dock.js'), /id: 'toolbar-extras'/, 'modules that append to #toolbar-extras keep working');
@@ -321,7 +321,7 @@ t('kit: a ResizeObserver on the stage re-fits the renderer (window listeners kep
 t('labels: default density Key on phones (shell + standalone); labels.js keeps a pre-chosen level', () => {
   assert.match(rd('index.html'), /density: isPhone\(window\.innerWidth, window\.innerHeight\) \? 1 : 2/);
   assert.match(kit, /_applyLevel\(phone \? 1 : 2\)/);
-  assert.match(rd('labels.js'), /window\.__autolabDensity\) \? window\.__autolabDensity/);
+  assert.match(rd('labels.js'), /shared\.density\) \? shared\.density/);
 });
 t('R10: app.css + index.html use only the z-index scale; controls.css too', () => {
   for (const [name, src] of [['app.css', app], ['index.html', strip(rd('index.html'))], ['controls.css', ctl]])
@@ -335,11 +335,11 @@ t('app.css: Phase 1 leftovers gone (shell tokens, 80px/84px bottoms, bl/br offse
   assert.ok(!/:not\(\.uses-ui-kit\)/.test(app), 'legacy selectors moved out');
   assert.ok(!/100vh/.test(app));
 });
-t('legacy.css: exists, marked, loaded by sensors.html ONLY, precached', () => {
-  assert.match(rd('legacy.css'), /Loaded ONLY by sensors\.html/);
-  const users = readdirSync(new URL('../', import.meta.url)).filter((f) => f.endsWith('.html') && /legacy\.css/.test(rd(f)));
-  assert.deepEqual(users, ['sensors.html']);
-  assert.ok(rd('sw.js').includes("'./legacy.css'") && rd('sw.js').includes("'./dock.js'"));
+t('Phase 8: legacy.css is gone (no page, no sw.js entry), dock.js precached, sw.js version in range', () => {
+  assert.ok(!existsSync(new URL('../legacy.css', import.meta.url)), 'legacy.css deleted');
+  const users = readdirSync(new URL('../', import.meta.url)).filter((f) => (f.endsWith('.html') || f.endsWith('.js')) && /legacy\.css/.test(rd(f)));
+  assert.deepEqual(users, []);
+  assert.ok(!rd('sw.js').includes('legacy.css') && rd('sw.js').includes("'./dock.js'"));
   assert.match(rd('sw.js'), /const VERSION = 'autolab-v8\.[6-9](\.\d+)?'/);
 });
 t('100vh replaced by 100dvh in wiring.html and 404.html', () => {
