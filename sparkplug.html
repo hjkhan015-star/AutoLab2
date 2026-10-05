@@ -565,7 +565,6 @@ function build(H) {
       const preIgn = tipTemp > 900;
 
       const cyc = frac(t * CYCLE_HZ);
-      const charging = cyc < 0.58;
       const firing   = cyc >= 0.58 && cyc < 0.80;
       const burning  = cyc >= 0.80;
 

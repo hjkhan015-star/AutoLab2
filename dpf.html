@@ -36,9 +36,9 @@ const CFG = {
   "title": "Diesel Particulate Filter",
   "kicker": "Exhaust & Emissions",
   "accent": "#94a3b8",
-  "badge": "Wall-flow filter",
-  "camPos": [4.8, 2.6, 6.4],
-  "target": [0, 0, 0],
+  "badge": "DOC + wall-flow filter",
+  "camPos": [5.2, 3.0, 7.2],
+  "target": [0, 0.35, 0],
   "floorY": -1.6,
   ctls: [   /* Phase 3: sliders live in the dock as axis controls; ctls[0] (id 'ctl') = the main 0-100 % control */
     { id:'ctl', label:"Engine load", caption:"Engine load", preset:'percent', def:40 },
@@ -49,36 +49,48 @@ const CFG = {
   "rows": [["soot", "Soot"], ["regen", "Regen"]],
   "ro": [
     ["soot", "Soot load"],
+    ["ecu", "ECU soot est."],
     ["ash", "Ash load"],
+    ["cap", "Soot limit"],
     ["bp", "Back pressure"],
     ["dps", "dP sensor (ECU)"],
     ["eff", "Filtration"],
-    ["temp", "Filter bed"],
+    ["temp", "Bed avg / peak"],
+    ["doc", "DOC conversion"],
     ["egt", "Exhaust gas"],
     ["flow", "Exhaust flow"],
-    ["regen", "Regeneration"]
+    ["regen", "Regeneration"],
+    ["dtc", "Codes | regens / aborts"],
+    ["verdict", "Service verdict"]
   ],
   "legend": [
-    ["var(--c-slate)", "Soot particles"],
+    ["var(--c-slate)", "Soot-laden exhaust"],
+    ["var(--c-orange)", "Post-injected fuel (HC)"],
+    ["var(--c-orange)", "NO\u2082 from the DOC"],
     ["var(--c-cyan)", "Filtered exhaust"],
-    ["var(--c-slate)", "Ceramic wall"],
-    ["var(--c-slate)", "Ash layer (permanent)"],
-    ["var(--c-cyan)", "Differential-pressure sensor"],
-    ["var(--c-orange)", "Regeneration heat"]
+    ["var(--c-slate)", "Ceramic wall / plugs"],
+    ["var(--c-slate)", "Ash plug (permanent)"],
+    ["var(--c-amber)", "DOC catalyst"],
+    ["var(--c-cyan)", "Sensors / ECU wiring"]
   ],
-  "overview": "<div class=\"al-sec\"><h4>Wall-flow filter</h4><p>A ceramic honeycomb with thousands of square channels, plugged at alternate ends. Exhaust is forced through the porous walls, which trap over 99&nbsp;% of the solid soot particles. Everything that survives the wall leaves as harmless CO&#8322; and water.</p></div><div class=\"al-sec\"><h4>Soot in, soot out</h4><ul><li><b>Soot</b> builds up with engine load and engine speed and never leaves on its own.</li><li><b>Passive regeneration</b> burns it slowly with NO&#8322; once the bed is above roughly 350&nbsp;&deg;C &mdash; a long motorway run.</li><li><b>Active regeneration</b> uses post-injection to hold about 600&ndash;650&nbsp;&deg;C for ten to twenty minutes and burns the soot to CO&#8322;.</li><li><b>Ash</b> is the incombustible residue of oil additives. It accumulates for the whole life of the filter and can only be removed by cleaning or replacement.</li></ul></div><div class=\"al-sec\"><h4>Back pressure &amp; sensing</h4><p>A differential-pressure sensor compares the pressure upstream and downstream of the block. The ECU converts that into an estimated soot mass and decides when to regenerate. A clogged filter raises back pressure, costs power, raises fuel consumption and eventually forces limp mode.</p></div><div class=\"al-sec\"><h4>Try this</h4><p>Leave the fault on <b>None</b>, set a high load and speed and watch soot climb. Then drop the load and press <b>Force regen</b> &mdash; the bed takes ~16&nbsp;s to soak up to 620&nbsp;&deg;C before the soot starts falling. Now try the <b>failed dP sensor</b> fault and see that the ECU never asks for a regeneration.</p></div>",
+  "overview": "<div class=\"al-sec\"><h4>What you are looking at</h4><p>A cut-away of a diesel exhaust canister. Exhaust enters on the left, passes the <b>DOC</b> (diesel oxidation catalyst, gold) and then the <b>wall-flow filter</b> (ceramic honeycomb, tan). In the filter, alternate channels are plugged at opposite ends, so the gas must cross the porous wall. Soot stays on the inlet side of the wall; clean gas leaves through the outlet channels. Three temperature sensors (T1, T2, T3), a differential-pressure sensor and the ECU run the regeneration.</p></div><div class=\"al-sec\"><h4>Chemistry</h4><ul><li><b>DOC:</b> CO + &frac12;O&#8322; &rarr; CO&#8322; &nbsp;|&nbsp; HC + O&#8322; &rarr; CO&#8322; + H&#8322;O (releases the heat) &nbsp;|&nbsp; NO + &frac12;O&#8322; &rarr; NO&#8322; (light-off ~200&ndash;250&nbsp;&deg;C).</li><li><b>Passive regen:</b> C + 2NO&#8322; &rarr; CO&#8322; + 2NO. Works from ~280&nbsp;&deg;C and fades above ~450&nbsp;&deg;C, where NO&#8322; is no longer stable.</li><li><b>Active regen:</b> C + O&#8322; &rarr; CO&#8322; (&Delta;H &asymp; &minus;33&nbsp;kJ per g of carbon). Needs ~550&nbsp;&deg;C and above; the ECU post-injects fuel that burns on the DOC to lift the gas to ~620&nbsp;&deg;C.</li><li><b>Ash:</b> Ca, Zn, Mg, P and S from lube oil (e.g. CaSO&#8324;). It does not burn, collects at the plugged ends and slowly cuts the soot capacity.</li></ul></div><div class=\"al-sec\"><h4>The ECU's job</h4><p>It reads soot from the pressure drop, but only when the flow is high enough for the signal to mean something. It requests a regeneration at ~6&nbsp;g/L and stops near 0.9&nbsp;g/L, but only runs it while the <b>enabling conditions</b> hold (DOC lit off, enough exhaust flow). If you drop to idle mid-regen it aborts. It also cuts post-injection above ~780&nbsp;&deg;C. Its monitors set P2002, P2453, P2458 and P2463 with a debounce time.</p></div><div class=\"al-sec\"><h4>Typical numbers</h4><ul><li>Soot limit: ~5&ndash;8&nbsp;g/L (here 9 for a new filter, falling as ash builds).</li><li>Clean filter: a few kPa at full flow. Loaded: tens of kPa.</li><li>Regen: 600&ndash;650&nbsp;&deg;C for 10&ndash;20 min on a real car (seconds here).</li><li>Damage: cordierite cracks from thermal shock above roughly 1&thinsp;000&nbsp;&deg;C and melts near 1&thinsp;400&nbsp;&deg;C.</li></ul></div><div class=\"al-sec\"><h4>Try this</h4><p>1) Set <b>Time scale</b> to 20&times;, load ~70&nbsp;%, speed ~3000 and <b>Urban</b>: soot climbs, the ECU requests a regen and runs it. Watch T-peak stay near 700&nbsp;&deg;C.<br>2) Now the dangerous one: at <b>1&times;</b> let soot reach ~8&nbsp;g/L (use <b>Failed dP sensor</b> to let it build, then set the fault back to <b>None</b> and tick <b>Force regen</b>). When <b>Bed avg / peak</b> passes ~650&nbsp;&deg;C and the filter glows orange (soot is burning hard), drop load and speed to idle. Low flow cannot carry the heat away, the peak shoots past 1&thinsp;000&nbsp;&deg;C and the filter cracks (permanent).<br>3) Press <b>Age filter</b> a few times: ash cuts the soot limit and raises back pressure.</p></div>",
   "faults": [
-    ["Cracked / melted substrate", "P2002 filter efficiency below threshold. Filtration collapses and soot slips straight through, but back pressure actually falls so the ECU thinks the filter is fine.", "Compare dP with soot load; borescope or remove and inspect the block. Replace the DPF."],
-    ["Clogged by short trips", "P2463 excessive soot accumulation, frequent aborted regenerations, rising oil level from fuel dilution.", "Give the car a sustained motorway run or command a forced regeneration in the workshop."],
-    ["Failed differential-pressure sensor", "P2453 sensor range/performance. The ECU sees almost no pressure drop, so automatic regeneration never triggers and soot climbs unseen until limp mode.", "Compare the sensor reading with a known-good gauge; check the sensing tubes for blockage."],
-    ["Regeneration inhibited", "P2458 regeneration duration exceeded. Post-injection cannot raise the bed temperature, so every regeneration attempt fails and soot keeps rising.", "Check exhaust temperature sensors, glow/post-injection strategy and thermostat; carry out a forced regeneration with a diagnostic tool."]
+    ["Cracked / melted substrate (P2002)", "Filtration collapses and soot slips through the crack. Back pressure falls, so a driver notices nothing. The ECU's monitor compares the measured dP with the expected value for the soot it has modelled and sets P2002 once the flow is high enough to judge.", "Compare dP with the modelled soot load, borescope or remove the block. Replace the DPF. Find the cause (a runaway regen, usually)."],
+    ["Clogged by short trips (P2463)", "Cold, short journeys never light the DOC or heat the bed, so passive regen almost stops and active regens are aborted. Soot passes the limit, oil level rises from post-injected fuel dilution.", "A sustained motorway run, or a forced regeneration in the workshop. Check the oil level."],
+    ["Failed differential-pressure sensor (P2453)", "The sensor reads almost nothing, so the ECU believes the filter is empty. Its plausibility monitor needs ~6 s at good flow to notice; after that it falls back to a soot model.", "Compare the sensor with a known-good gauge; check the two sensing tubes for blockage or a swapped hose."],
+    ["Regeneration inhibited (P2458)", "Post-injection is commanded but no heat reaches the bed (injector, wiring or lockout). The regen runs past its time limit and the ECU gives up and locks it out.", "Check the injector and T-sensors, fix the cause, then force a regeneration with a scan tool (the Force regen switch clears the lock-out)."],
+    ["Aged DOC (no light-off)", "A thermally aged or poisoned catalyst lights off ~70 \u00B0C later and converts less. HC from post-injection slips through, the bed never reaches temperature, NO\u2082 for passive regen is lower. Regens time out (P2458).", "Compare T1 / T2: a healthy DOC shows a clear temperature rise during post-injection. Replace the DOC."],
+    ["Thermal runaway after a regen at idle", "If load drops to idle while the bed is hot and heavily loaded, the exhaust flow cannot cool it, burning soot heats the bed, which burns soot faster. Peaks beyond 1 000 \u00B0C crack or melt the substrate.", "Never idle straight after a long regen. Replace the cracked filter."]
   ],
   "quiz": [
-    ["Active regeneration needs the filter bed at roughly…", ["150 °C", "350 °C", "620 °C"], 2, "Post-injection holds the bed at about 600-650 °C so oxygen can burn the soot to CO2."],
-    ["Why does the ash layer never disappear?", ["It is an incombustible metallic oxide from oil additives", "It is too cold", "It is filtered out again"], 0, "Ash is the mineral residue left after the soot burns - only physical cleaning removes it."],
-    ["A differential-pressure sensor stuck low causes…", ["More frequent regeneration", "The ECU to under-estimate soot and never regenerate", "Higher filtration efficiency"], 1, "The dP signal is the ECU's only soot observer. No pressure rise, no regeneration request."],
-    ["Passive regeneration is most likely during…", ["Repeated short cold trips", "A long motorway run above ~350 °C", "Idling in traffic"], 1, "Sustained high exhaust temperature with NO2 oxidises soot continuously without extra fuel."],
-    ["A cracked substrate typically shows…", ["Filtration loss but lower back pressure", "Very high back pressure", "No soot at all in the exhaust"], 0, "Gas bypasses the porous wall through the crack, so particles escape while the pressure drop falls."]
+    ["Active regeneration needs the filter bed at roughly\u2026", ["150 \u00B0C", "350 \u00B0C", "620 \u00B0C"], 2, "Post-injection holds the bed near 600-650 \u00B0C so O\u2082 can burn the soot: C + O\u2082 \u2192 CO\u2082."],
+    ["Why does the ash layer never disappear?", ["It is an incombustible metal sulphate/oxide from oil additives", "It is too cold to burn", "It is filtered out again"], 0, "Ash is mineral residue left after the soot burns. Only cleaning or replacement removes it, and it steadily lowers the soot capacity."],
+    ["A differential-pressure sensor stuck low causes\u2026", ["More frequent regeneration", "The ECU to under-estimate soot, until its plausibility monitor sets P2453", "Higher filtration efficiency"], 1, "dP is the ECU's soot observer. No pressure rise, no regeneration request, until the monitor catches it."],
+    ["Passive regeneration burns soot with\u2026", ["Oxygen at 650 \u00B0C", "NO\u2082 from the DOC at 280-450 \u00B0C", "Fuel from the injector"], 1, "C + 2NO\u2082 \u2192 CO\u2082 + 2NO. The DOC makes the NO\u2082, so a cold or aged DOC means little passive regen."],
+    ["A cracked substrate typically shows\u2026", ["Filtration loss but lower back pressure", "Very high back pressure", "No soot at all in the exhaust"], 0, "Gas bypasses the porous wall through the crack, so particles escape while the pressure drop falls."],
+    ["Why can a regen at idle destroy the filter?", ["Idle exhaust is too cold to burn anything", "Low flow cannot carry the combustion heat away, so the bed runs away", "Idle raises the back pressure"], 1, "Soot burning releases ~33 kJ/g. With little flow to cool the block the temperature keeps rising, and so does the burn rate."],
+    ["Why does the ECU read dP only at reasonable exhaust flow?", ["The sensor sleeps at idle", "Pressure drop scales with flow, so at low flow it is too small to tell soot from noise", "Soot only forms at high flow"], 1, "dP rises roughly with flow^1.5. At idle a loaded and a clean filter look almost the same."],
+    ["What does ash do over the filter's life?", ["Nothing, it is inert", "Lowers the soot capacity and raises the back pressure", "Makes regeneration cooler"], 1, "Ash fills channel ends and thickens the wall deposit, so the same soot mass gives a higher dP and the limit comes sooner."]
   ]
 };
 
@@ -93,25 +105,43 @@ function clampN(x, a, b) {
   return x < a ? a : (x > b ? b : x);
 }
 const num = (x, d) => (Number.isFinite(x) ? x : d);
+const smooth01 = (x) => { const t = clampN(x, 0, 1); return t * t * (3 - 2 * t); };
 
 /* ── named constants ─────────────────────────────────────────────── */
-const SOOT_MAX_RATE = 0.16;   /* g/L per s at full load AND full revs      */
-const PASSIVE_MAX   = 0.055;  /* g/L per s, NO2 oxidation at >= 500 C      */
-const ACTIVE_MAX    = 0.90;   /* g/L per s, O2 oxidation at >= 680 C       */
-const ASH_FROM_SOOT = 0.012;  /* g of ash left per g of soot burned        */
-const ASH_WEAR      = 0.00012;/* g/L per s, continuous lube-oil ash        */
-const TAU_FILTER    = 16;     /* s, monolith thermal time constant         */
-const REGEN_TEMP    = 620;    /* C, post-injection bed target              */
-const REGEN_ON      = 6.0;    /* g/L, ECU soot threshold to START a regen  */
-const REGEN_OFF     = 0.9;    /* g/L, ECU soot threshold to STOP a regen   */
-const SOOT_LIMIT    = 9.0;    /* g/L, derate / limp-mode threshold         */
-const ASH_MAX       = 2.5;    /* g/L, ash saturation                       */
-const EGT_IDLE      = 110;    /* C above ambient at idle, no load          */
+const SOOT_MAX_RATE = 0.16;   /* g/L per s at full load AND full revs                       */
+const PASSIVE_MAX   = 0.055;  /* g/L per s, NO2 oxidation (C + 2NO2 -> CO2 + 2NO)           */
+const ACTIVE_MAX    = 0.90;   /* g/L per s, O2 oxidation reference (C + O2 -> CO2)          */
+const ASH_FROM_SOOT = 0.004;  /* g of ash left per g of soot burned (scaled so ~40 regens = 1 g/L) */
+const ASH_WEAR      = 0.00012;/* g/L per s, continuous lube-oil ash                         */
+const AGE_STEP      = 0.45;   /* g/L of ash added by one "Age filter" press (~100 000 km)   */
+const TAU_FILTER    = 16;     /* s, monolith thermal time constant at half flow             */
+const TAU_DOC       = 8;      /* s, DOC brick thermal time constant                         */
+const TAU_IN        = 3;      /* s, gas temperature response to post-injection              */
+const REGEN_TEMP    = 620;    /* C, post-injection gas target at the filter inlet           */
+const REGEN_ON      = 6.0;    /* g/L, ECU soot estimate that REQUESTS a regen               */
+const REGEN_OFF     = 0.9;    /* g/L, ECU soot estimate that ENDS a regen                   */
+const SOOT_LIMIT    = 9.0;    /* g/L, derate / limp threshold for a clean new filter        */
+const ASH_MAX       = 2.5;    /* g/L, ash saturation                                        */
+const EGT_IDLE      = 110;    /* C above ambient at idle, no load                           */
+const DOC_LIGHTOFF  = 215;    /* C, DOC half-conversion (light-off) when healthy            */
+const DOC_AGED_SHIFT= 70;     /* C, light-off shift of an aged DOC                          */
+const HEAT_K        = 12;     /* K*flow per (g/L/s): lumped soot heat release. Real: dH ~33 kJ/g carbon
+                                 over the heat capacity of block + gas; scaled so a normal regen peaks ~700 C */
+const PEAK_S        = 3.0;    /* s, hot-spot lead of the core over the bed average           */
+const O2_REF        = 0.13;   /* O2 mole fraction at the reference burn rate                 */
+const OVERTEMP_CUT  = 780;    /* C, ECU stops post-injection above this bed peak             */
+const OVERTEMP_BACK = 700;    /* C, ECU resumes below this (hysteresis)                      */
+const T_CRACK       = 1000;   /* C, thermal-shock damage starts above this bed peak          */
+const T_MELT        = 1400;   /* C, cordierite melts near this                               */
+const CRACK_BYPASS  = 0.38;   /* fraction of flow that bypasses the wall through a crack     */
+const FLOW_ENABLE   = 0.18;   /* flow, below this the dP signal is not usable (ECU enabling) */
+const FLOW_REGEN    = 0.20;   /* flow, an active regen needs at least this to run            */
+const DEBOUNCE_S    = 6;      /* s, monitor debounce before a DTC is latched                 */
+const REGEN_MAX_S   = 180;    /* s, a regen longer than this sets P2458                      */
+const BP_LIMP       = 26;     /* kPa, back pressure that forces limp mode                    */
 
-/* Soot formation: rises steeply with load (diffusion combustion goes
-   rich and cool, which makes soot) and with engine speed (more
-   combustion events per second). Direction: more load -> more soot,
-   more rpm -> more soot, motorway cycle -> slightly less per km. */
+/* Soot formation. Direction: more load -> more soot (rich, cool diffusion
+   flame), more rpm -> more soot, motorway -> slightly less per second. */
 function sootProduction(load, rpm, cycleFactor) {
   const L = clampN(load, 0, 1);
   const N = clampN((num(rpm, 800) - 800) / 4200, 0, 1);
@@ -120,23 +150,8 @@ function sootProduction(load, rpm, cycleFactor) {
   return SOOT_MAX_RATE * shape * revs * clampN(cycleFactor, 0.2, 2);
 }
 
-/* Passive (NO2-assisted) oxidation. Direction: essentially zero below
-   ~300 C, grows steeply with temperature, saturates by ~500 C. */
-function passiveOxidation(T) {
-  const x = clampN((num(T, 0) - 280) / 220, 0, 1.4);
-  return PASSIVE_MAX * Math.pow(x, 2.2);
-}
-
-/* Active (O2) oxidation. Direction: nothing below ~560 C, then rises
-   quickly with temperature and needs soot present to consume. */
-function activeOxidation(T, soot) {
-  const x = clampN((num(T, 0) - 550) / 130, 0, 1.8);
-  const fuel = clampN(num(soot, 0) / 1.5, 0, 1);
-  return ACTIVE_MAX * Math.pow(x, 1.7) * fuel;
-}
-
-/* Exhaust gas temperature at the filter inlet. Direction: rises with
-   load, rises with rpm, tracks ambient, shifted by the drive cycle. */
+/* Exhaust gas temperature at the DOC inlet. Direction: more load -> hotter,
+   more rpm -> hotter, tracks ambient, shifted by the drive cycle. */
 function exhaustGasTemp(load, rpm, ambient, cycleDelta) {
   const L = clampN(load, 0, 1);
   const N = clampN((num(rpm, 800) - 800) / 4200, 0, 1);
@@ -144,24 +159,90 @@ function exhaustGasTemp(load, rpm, ambient, cycleDelta) {
   return clampN(num(ambient, 20) + EGT_IDLE + rise + num(cycleDelta, 0), -30, 900);
 }
 
-/* Back pressure across the block. Direction: rises with soot AND ash
-   loading (both restrict the porous wall) and with the square-ish of
-   exhaust mass flow. ~2.6 kPa clean, >35 kPa when fully loaded. */
-function backpressure(flowNorm, soot, ash) {
+/* Exhaust mass-flow proxy 0..1.2. Direction: more load -> more flow, more rpm -> more flow. */
+function exhaustFlow(load, rpm) {
+  const L = clampN(load, 0, 1);
+  const N = clampN((num(rpm, 800) - 800) / 4200, 0, 1);
+  return clampN(0.10 + 0.85 * (0.45 * L + 0.55 * N), 0.05, 1.2);
+}
+
+/* Exhaust O2 fraction. Direction: more load -> less O2 (diesel is lean, idle ~18 %, full load ~6 %). */
+function exhaustO2(load) { return 0.18 - 0.12 * clampN(load, 0, 1); }
+
+/* DOC conversion (0..1). Direction: ~0 when cold, S-curve through light-off,
+   ~1 once hot. `shift` > 0 models an aged catalyst (light-off later). */
+function docActivity(T, shift) {
+  return smooth01((num(T, 0) - num(shift, 0) - (DOC_LIGHTOFF - 45)) / 90);
+}
+
+/* Passive oxidation (C + 2NO2). Direction: needs the DOC to make NO2, needs
+   NOx (more load -> more), peaks 350-450 C, fades above ~450 C (NO2 -> NO). */
+function passiveOxidation(T, load, docAct) {
+  const nox  = 0.25 + 0.75 * clampN(load, 0, 1);
+  const rise = smooth01((num(T, 0) - 260) / 140);
+  const fall = 1 - 0.65 * smooth01((num(T, 0) - 450) / 150);
+  return PASSIVE_MAX * clampN(docAct, 0, 1) * (0.3 + 0.7 * nox) * rise * fall;
+}
+
+/* Active oxidation (C + O2). Direction: nothing below ~550 C, then rises
+   steeply with temperature (Arrhenius-like), scales with O2, needs soot. */
+function activeOxidation(T, soot, o2) {
+  const x    = clampN((num(T, 0) - 550) / 130, 0, 3.2);
+  const fuel = clampN(num(soot, 0) / 1.5, 0, 1);
+  const ox   = clampN(num(o2, 0.13) / O2_REF, 0.2, 1.6);
+  return clampN(ACTIVE_MAX * Math.pow(x, 1.7) * fuel * ox, 0, 6);
+}
+
+/* Bed thermal time constant. Direction: more flow -> faster response (gas carries heat). */
+function convTau(flow) { return TAU_FILTER * Math.pow(0.5 / clampN(flow, 0.12, 1.2), 0.7); }
+
+/* Heating rate from burning soot, K/s. Direction: more burn -> hotter, LESS flow -> hotter
+   (the gas is what carries the heat out). This is the runaway mechanism. */
+function combustionHeat(burn, flow) { return HEAT_K * clampN(burn, 0, 6) / (0.2 + clampN(flow, 0.05, 1.2)); }
+
+/* One explicit step of the bed average temperature (C): relaxation toward the gas
+   inlet temperature plus combustion heat. */
+function bedStep(T, Tin, flow, burn, h) {
+  return clampN(T + ((Tin - T) / convTau(flow) + combustionHeat(burn, flow)) * h, -30, 1500);
+}
+
+/* Hot-spot temperature at the core. Direction: the faster the burn and the lower the flow,
+   the further the peak sits above the average. */
+function bedPeak(T, burn, flow) { return T + clampN(PEAK_S * combustionHeat(burn, flow), 0, 500); }
+
+/* Soot capacity factor. Direction: more ash -> less room for soot (up to -30 %). */
+function capFactor(ash) { return 1 - 0.30 * clampN(ash, 0, ASH_MAX) / ASH_MAX; }
+
+/* Back pressure across the block (kPa). Direction: more soot, more ash, more flow -> more dP.
+   A crack (bypass) removes most of the restriction. */
+function backpressure(flowNorm, soot, ash, bypass) {
   const f = clampN(flowNorm, 0, 1.2);
-  const loading = 1.35 * (clampN(num(soot, 0), 0, 20) + 1.4 * clampN(num(ash, 0), 0, ASH_MAX));
+  const loading = 1.35 * (clampN(num(soot, 0), 0, 20) + 1.4 * clampN(num(ash, 0), 0, ASH_MAX)) * (1 - 0.95 * clampN(bypass, 0, 1));
   const flow = 0.25 + 1.60 * Math.pow(f, 1.5);
   return clampN((0.9 + loading) * flow, 0, 120);
 }
 
-/* Filtration efficiency. Direction: a healthy wall-flow filter traps
-   >99 % of solid mass; a crack lets a large fraction bypass the wall.
-   A brand-new (unloaded) filter is marginally less efficient. */
-function filtrationEfficiency(fault, soot) {
-  let e = 0.995;
-  if (fault === 'cracked') e = 0.62;
-  e -= 0.02 * (1 - clampN(num(soot, 0) / 4, 0, 1));
-  return clampN(e, 0.30, 0.999);
+/* ECU's soot estimate from the measured dP. Inverse of backpressure(): more dP at the same
+   flow -> more soot; the ECU subtracts its own ash estimate. */
+function ecuSootFromDp(dp, flowNorm, ash) {
+  const ff = 0.25 + 1.60 * Math.pow(clampN(flowNorm, 0.05, 1.2), 1.5);
+  const loading = num(dp, 0) / ff - 0.9;
+  return clampN(loading / 1.35 - 1.4 * clampN(ash, 0, ASH_MAX), 0, 20);
+}
+
+/* Filtration efficiency. Direction: healthy wall >97 %, improves as the cake forms;
+   more bypass (crack) -> less efficient. */
+function filtrationEfficiency(bypass, soot) {
+  const cake = clampN(num(soot, 0) / 4, 0, 1);
+  const wall = 0.975 + 0.02 * cake;
+  const b = clampN(bypass, 0, 1);
+  return clampN((1 - b) * wall + b * 0.04, 0.2, 0.999);
+}
+
+/* Permanent substrate damage rate (1/s). Direction: nothing below T_CRACK, rises with the
+   hot-spot temperature above it. Damage never decreases. */
+function thermalDamageRate(peak) {
+  return 0.15 * clampN((num(peak, 0) - T_CRACK) / 150, 0, 3);
 }
 
 /* Drive cycles: thermal offset (C) and soot multiplier. */
@@ -173,226 +254,425 @@ const CYCLES = {
 
 const FAULT_INFO = {
   none:           { label: 'None (healthy)',                warn: '' },
-  cracked:        { label: 'Cracked substrate (P2002)',     warn: 'P2002 - particulate filter efficiency below threshold. Exhaust bypasses the porous wall through the crack: filtration collapses while the back pressure actually falls.' },
-  shorttrips:     { label: 'Clogged by short trips (P2463)',warn: 'P2463 - excessive soot accumulation. Short journeys never heat the filter enough for passive regeneration, so soot builds far faster than it burns off.' },
-  dpsensor:       { label: 'Failed dP sensor (P2453)',      warn: 'P2453 - differential pressure sensor circuit range/performance. The ECU sees almost no pressure drop, so automatic regeneration never triggers and soot climbs unseen.' },
-  regeninhibited: { label: 'Regeneration inhibited (P2458)',warn: 'P2458 - regeneration duration. Post-injection is not raising the bed temperature, so every regeneration attempt fails and soot keeps accumulating.' }
+  cracked:        { label: 'Cracked substrate (P2002)',     warn: 'Cracked substrate: exhaust bypasses the porous wall, filtration collapses while back pressure falls.' },
+  shorttrips:     { label: 'Clogged by short trips (P2463)',warn: 'Short trips: the filter never gets hot enough for passive regeneration, so soot builds far faster than it burns off.' },
+  dpsensor:       { label: 'Failed dP sensor (P2453)',      warn: 'dP sensor stuck low: the ECU sees almost no pressure drop, so it thinks the filter is empty until its plausibility monitor trips.' },
+  regeninhibited: { label: 'Regeneration inhibited (P2458)',warn: 'Post-injection is not raising the bed temperature, so every regeneration attempt fails and soot keeps accumulating.' },
+  docaged:        { label: 'Aged DOC (no light-off)',       warn: 'Aged DOC: light-off is ~70 C later and conversion is low. HC slips through, the bed stays cold, regens time out.' }
+};
+const DTC_TEXT = {
+  P2002: 'P2002 - filter efficiency below threshold: measured dP is far below what the soot model expects (cracked or missing substrate).',
+  P2453: 'P2453 - dP sensor implausible: no pressure drop at good flow. The ECU now estimates soot from a model.',
+  P2458: 'P2458 - regeneration duration exceeded: the bed never got to temperature. Regeneration is locked out.',
+  P2463: 'P2463 - excessive soot accumulation. Drive on a motorway or run a forced regeneration.'
 };
 
 /* ═══════════════════════════════════════════════════════════════════
-   EXTRA CONTROLS (built here because the runtime only provides one slider)
+   STATE
    ═══════════════════════════════════════════════════════════════════ */
-const S = {
-  rpm: 1800,
-  ambient: 20,
-  cycle: 'mixed',
-  fault: 'none',
-  regenCmd: false,
-  speed: 1
-};
+const S = { rpm: 1800, ambient: 20, cycle: 'mixed', fault: 'none', regenCmd: false, speed: 1 };
 
-
-
-/* ── simulation state (module level so Reset can reach it) ───────── */
 /* Phase 7a: the history lives in the Monitor (CFG.traces); the module only hands over one normalised sample
    per ~140 ms while the sim runs (0..100 % of each old axis range) and the current warning sentence. */
 let traceSample = null, traceClear = false, warnText = '';
 const traceN = (v, lo, hi) => Math.round(clampN((v - lo) / (hi - lo), 0, 1) * 1000) / 10;
+
 const sim = {
-  soot: 1.0,
-  ash: 0.03,
-  Tbed: 45,
-  regenActive: false,
-  lastT: -1,
-  lastSample: 0
+  soot: 1.0, ash: 0.03, damage: 0,
+  Tbed: 45, Tpeak: 45, peakMax: 45, Tdoc: 45, Tin: 45,
+  docAct: 0, burn: 0, bypass: 0, dp: 0, bp: 0, eff: 0.99,
+  ecuSoot: 1.0, modelSoot: 1.0,                 /* ECU's dP-based estimate and its own model     */
+  regenState: 0,                                /* 0 idle, 1 requested/waiting, 2 heating, 3 active */
+  postCmd: false, postAct: false, cut: false, lock: false,
+  tReg: 0, regens: 0, aborts: 0,
+  tP2453: 0, tP2002: 0, tP2463: 0,
+  dtc: { P2002: false, P2453: false, P2458: false, P2463: false },
+  lastT: -1
 };
 
 function resetModel() {
-  sim.soot = 1.0;
-  sim.ash = 0.03;
-  sim.Tbed = S.ambient + 25;
-  sim.regenActive = false;
+  const a = num(S.ambient, 20);
+  sim.soot = 1.0; sim.ash = 0.03; sim.damage = 0;
+  sim.Tbed = sim.Tpeak = sim.peakMax = sim.Tdoc = sim.Tin = a + 25;
+  sim.docAct = 0; sim.burn = 0; sim.bypass = 0; sim.dp = 0; sim.bp = 0; sim.eff = 0.99;
+  sim.ecuSoot = 1.0; sim.modelSoot = 1.0;
+  sim.regenState = 0; sim.postCmd = false; sim.postAct = false; sim.cut = false; sim.lock = false;
+  sim.tReg = 0; sim.regens = 0; sim.aborts = 0;
+  sim.tP2453 = sim.tP2002 = sim.tP2463 = 0;
+  sim.dtc.P2002 = sim.dtc.P2453 = sim.dtc.P2458 = sim.dtc.P2463 = false;
   sim.lastT = -1;
   traceClear = true;                  /* Monitor trace is cleared on the next update */
-  sim.lastSample = 0;
   S.regenCmd = false;
 }
 function resetAll() {
-  S.rpm = 1800;
-  S.ambient = 20;
-  S.cycle = 'mixed';
-  S.fault = 'none';
-  S.speed = 1;
+  S.rpm = 1800; S.ambient = 20; S.cycle = 'mixed'; S.fault = 'none'; S.speed = 1;
   resetModel();
   controls.resetAll();                 /* every axis back to its default (store -> onChange -> S) */
+}
+
+/* Debounced monitor timer: counts up while the condition holds, falls back otherwise. */
+function tick(t, cond, h) { return cond ? t + h : Math.max(0, t - 2 * h); }
+
+/* ── ECU: soot estimate, monitors with enabling conditions, regeneration state machine ── */
+function ecuStep(h, L, rpm, flow) {
+  const fault = S.fault;
+  const dpOk = flow >= FLOW_ENABLE && rpm >= 1000;              /* enabling condition for any dP use */
+  /* the sensor reading */
+  sim.dp = (fault === 'dpsensor') ? clampN(0.15 + 0.10 * flow, 0, 1) : sim.bp;
+  /* soot estimate: dP only while enabled (otherwise hold), or the model after P2453 */
+  if (dpOk) sim.ecuSoot += (ecuSootFromDp(sim.dp, flow, sim.ash) - sim.ecuSoot) * (1 - Math.exp(-h / 2));
+  const est = sim.dtc.P2453 ? sim.modelSoot : sim.ecuSoot;
+
+  /* monitor P2453: reading far below even a clean filter at good flow */
+  const expClean = backpressure(flow, 0, sim.ash, 0);
+  sim.tP2453 = tick(sim.tP2453, flow >= 0.45 && rpm >= 1000 && sim.dp < 0.6 * expClean, h);
+  if (sim.tP2453 > DEBOUNCE_S) sim.dtc.P2453 = true;
+  /* monitor P2002: dP well below what the modelled soot would give (needs measurable soot) */
+  const expSoot = backpressure(flow, sim.modelSoot, sim.ash, 0);
+  sim.tP2002 = tick(sim.tP2002, flow >= 0.35 && rpm >= 1000 && !sim.dtc.P2453 && sim.modelSoot >= 2 && sim.dp < 0.75 * expSoot, h);
+  if (sim.tP2002 > DEBOUNCE_S) sim.dtc.P2002 = true;
+  /* monitor P2463: soot near the (ash-reduced) limit */
+  const lim = SOOT_LIMIT * capFactor(sim.ash);
+  sim.tP2463 = tick(sim.tP2463, est > 0.85 * lim, h);
+  if (sim.tP2463 > DEBOUNCE_S) sim.dtc.P2463 = true;
+  if (est < REGEN_OFF * 2) sim.dtc.P2463 = false;                /* clears after a successful burn-off */
+
+  /* over-temperature protection with hysteresis */
+  if (sim.Tpeak > OVERTEMP_CUT) sim.cut = true; else if (sim.Tpeak < OVERTEMP_BACK) sim.cut = false;
+
+  /* regeneration state machine */
+  if (S.regenCmd && sim.lock && fault !== 'regeninhibited') { sim.lock = false; sim.dtc.P2458 = false; }   /* workshop forced regen overrides the lock-out once the cause is fixed */
+  const want = !sim.lock && (S.regenCmd || est > REGEN_ON);
+  const enable = flow >= FLOW_REGEN && sim.Tdoc > DOC_LIGHTOFF;   /* enabling conditions to RUN a regen (ECU sees T, not conversion) */
+  if (sim.regenState === 0) {
+    if (want) { sim.regenState = 1; sim.tReg = 0; }
+  } else if (sim.regenState === 1) {
+    if (!want) sim.regenState = 0;
+    else if (enable && !sim.cut) sim.regenState = 2;
+  } else {
+    sim.tReg += h;
+    if (!enable) { sim.regenState = 1; sim.aborts++; }           /* aborted: idle / DOC cooled */
+    else if (sim.tReg > REGEN_MAX_S) {                           /* took too long -> P2458, lock out */
+      sim.dtc.P2458 = true; sim.lock = true; sim.regenState = 0; sim.aborts++;
+      if (S.regenCmd) { S.regenCmd = false; controls.set('force', false); }
+    } else if (est < REGEN_OFF) {                                /* done */
+      sim.regenState = 0; sim.regens++;
+      if (S.regenCmd) { S.regenCmd = false; controls.set('force', false); }
+    } else if (sim.regenState === 2 && sim.Tbed > 550) sim.regenState = 3;
+  }
+  sim.postCmd = sim.regenState >= 2 && !sim.cut;
+  sim.postAct = sim.postCmd && fault !== 'regeninhibited';
+}
+
+/* One physics step of length h seconds (called with h <= 0.25 s). */
+function stepSim(h, L, rpm, amb, flow, egt, cyc) {
+  const fault = S.fault;
+  /* DOC and gas path */
+  sim.Tdoc += (egt - sim.Tdoc) * (1 - Math.exp(-h / TAU_DOC));
+  const aged = fault === 'docaged';
+  sim.docAct = docActivity(sim.Tdoc, aged ? DOC_AGED_SHIFT : 0) * (aged ? 0.55 : 1);
+  ecuStep(h, L, rpm, flow);
+  /* post-injected HC burns on the DOC and lifts the gas toward REGEN_TEMP (only as far as the DOC converts) */
+  const Tt = egt + (sim.postAct ? Math.sqrt(sim.docAct) * Math.max(0, REGEN_TEMP - egt) : 0);   /* HC lights off before NO, hence sqrt */
+  sim.Tin += (Tt - sim.Tin) * (1 - Math.exp(-h / TAU_IN));
+
+  /* substrate state -> bypass and efficiency */
+  const bypassFault = (fault === 'cracked') ? CRACK_BYPASS : 0;
+  sim.bypass = Math.max(bypassFault, CRACK_BYPASS * clampN(sim.damage * 4, 0, 1) + (sim.damage >= 1 ? 0.1 : 0));
+  sim.eff = filtrationEfficiency(sim.bypass, sim.soot);
+
+  /* soot mass balance (soot that is not captured never accumulates) */
+  const passMul = (fault === 'shorttrips' ? 0.15 : 1);
+  const sootMul = (fault === 'shorttrips' ? 1.35 : 1);
+  const prod = sootProduction(L, rpm, cyc.soot) * sootMul;
+  const burn0 = passiveOxidation(sim.Tbed, L, sim.docAct) * passMul + activeOxidation(sim.Tbed, sim.soot, exhaustO2(L));
+  const dBurn = Math.min(sim.soot, Math.max(0, burn0) * h);
+  sim.burn = h > 0 ? dBurn / h : 0;
+  sim.soot = clampN(sim.soot + prod * sim.eff * h - dBurn, 0, 15);
+  sim.modelSoot = clampN(sim.modelSoot + (sootProduction(L, rpm, 1) * 0.92 - sim.burn) * h, 0, 15);
+  sim.ash = clampN(sim.ash + dBurn * ASH_FROM_SOOT + ASH_WEAR * h, 0, ASH_MAX);
+
+  /* bed temperature and damage */
+  sim.Tbed = bedStep(sim.Tbed, sim.Tin, flow, sim.burn, h);
+  sim.Tpeak = bedPeak(sim.Tbed, sim.burn, flow);
+  if (sim.Tpeak > sim.peakMax) sim.peakMax = sim.Tpeak;
+  if (sim.Tpeak > T_MELT) sim.damage = 1;
+  sim.damage = clampN(sim.damage + thermalDamageRate(sim.Tpeak) * h, 0, 1);
+
+  /* pressure drop (uses the bypass just computed) */
+  sim.bp = backpressure(flow, sim.soot, sim.ash, sim.bypass);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
    MODULE SCENE (per-module 3D parts)
    ═══════════════════════════════════════════════════════════════════ */
 function build(H){
- const {box,cyl,cylX,mat,glass,stream,lc,clamp,root,THREE,lowEnd,pipe}=H;
+ const {box,cyl,cylX,sph,mat,glass,stream,pipe,clamp,root,THREE,lowEnd}=H;
 
- /* ── housing ───────────────────────────────────────────────────── */
- const steel = mat(0x6b7280,.8,.4);
- cylX(1.0,1.0,3.5,glass(0x94a3b8,.16),0,0,0,null,40,true);          /* outer shell (transparent) */
- cylX(.42,1.0,.7,steel,-2.15,0,0);                                   /* inlet cone  */
- cylX(1.0,.42,.7,steel, 2.15,0,0);                                   /* outlet cone */
- cylX(.42,.42,1.6,steel,-3.3,0,0,null,24,true);                      /* inlet pipe  */
- cylX(.42,.42,1.6,steel, 3.3,0,0,null,24,true);                      /* outlet pipe */
-
- /* ── plugged end faces ─────────────────────────────────────────── */
- function face(inv){
-   const cv=document.createElement('canvas'); cv.width=cv.height=256;
-   const g=cv.getContext('2d'); g.fillStyle='#c8bfa5'; g.fillRect(0,0,256,256);
-   for(let i=0;i<16;i++)for(let j=0;j<16;j++){
-     if(((i+j)%2===0)!==inv){ g.fillStyle='#3f3a33'; g.fillRect(i*16+2,j*16+2,12,12); }
-     else { g.fillStyle='#e7dfc6'; g.fillRect(i*16+2,j*16+2,12,12); }
+ /* ── canvas textures (built once; only their material opacity / tint moves) ── */
+ const CW = 512, CH = 480, MATB = 15, ROWS = 14, PLUG = 40;
+ const rh = (CH - 2 * MATB) / ROWS;
+ function tex(draw, w, h) {
+   const cv = document.createElement('canvas'); cv.width = w || CW; cv.height = h || CH;
+   const g = cv.getContext('2d'); draw(g, cv.width, cv.height);
+   const t = new THREE.CanvasTexture(cv); return t;
+ }
+ /* base cut face: mat band, plugged alternate channels */
+ const baseTex = tex((g) => {
+   g.fillStyle = '#c9bf9f'; g.fillRect(0, 0, CW, CH);
+   g.fillStyle = '#e8dcc0'; g.fillRect(0, 0, CW, MATB); g.fillRect(0, CH - MATB, CW, MATB);
+   for (let i = 0; i < ROWS; i++) {
+     const y = MATB + i * rh + 3, hh = rh - 6;
+     if (i % 2 === 0) {                                   /* inlet channel: open left, plugged right */
+       g.fillStyle = '#4a4a4f'; g.fillRect(0, y, CW - PLUG, hh);
+       g.fillStyle = '#a99d7c'; g.fillRect(CW - PLUG, y, PLUG, hh);
+     } else {                                             /* outlet channel: plugged left, open right */
+       g.fillStyle = '#cfe6ec'; g.fillRect(PLUG, y, CW - PLUG, hh);
+       g.fillStyle = '#a99d7c'; g.fillRect(0, y, PLUG, hh);
+     }
+   }
+ });
+ const sootTex = tex((g) => {                             /* cake on both walls of every inlet channel */
+   g.fillStyle = 'rgba(8,8,10,0.96)';
+   for (let i = 0; i < ROWS; i += 2) {
+     const y = MATB + i * rh + 3, hh = rh - 6;
+     for (let x = 0; x < CW - PLUG; x += 8) {
+       const th = 4 + 6 * (x / CW);
+       g.fillRect(x, y, 8, th); g.fillRect(x, y + hh - th, 8, th);
+     }
+   }
+ });
+ const ashTex = tex((g) => {                              /* ash plug at the closed end of each inlet channel */
+   g.fillStyle = '#8a8577';
+   for (let i = 0; i < ROWS; i += 2) g.fillRect(CW - PLUG - 70, MATB + i * rh + 3, 70, rh - 6);
+ });
+ const burnTex = tex((g) => {                             /* glowing soot while it burns */
+   for (let i = 0; i < ROWS; i += 2) {
+     const y = MATB + i * rh + 3, hh = rh - 6;
+     const gr = g.createLinearGradient(0, 0, CW, 0);
+     gr.addColorStop(0, 'rgba(255,90,0,0.55)'); gr.addColorStop(0.5, 'rgba(255,170,40,0.95)'); gr.addColorStop(1, 'rgba(255,90,0,0.55)');
+     g.fillStyle = gr; g.fillRect(0, y, CW - PLUG, hh);
+   }
+ });
+ const crackTex = tex((g) => {
+   g.strokeStyle = '#050505'; g.lineWidth = 4; g.lineJoin = 'round';
+   [[0.30, 0.0], [0.52, 0.2], [0.72, 0.1]].forEach((c) => {
+     g.beginPath(); let x = c[0] * CW; g.moveTo(x, MATB);
+     for (let y = MATB; y < CH - MATB; y += 24) { x += ((y * 13 + c[1] * 97) % 17) - 8; g.lineTo(x, y); }
+     g.stroke();
+   });
+ });
+ const DW = 160, DROWS = 28, drh = (CH - 2 * MATB) / DROWS;
+ const docTex = tex((g) => {                              /* catalyst honeycomb, all channels open */
+   g.fillStyle = '#6e5410'; g.fillRect(0, 0, DW, CH);
+   g.fillStyle = '#e8dcc0'; g.fillRect(0, 0, DW, MATB); g.fillRect(0, CH - MATB, DW, MATB);
+   for (let i = 0; i < DROWS; i++) { g.fillStyle = (i % 2) ? '#d4a72c' : '#e3b93f'; g.fillRect(0, MATB + i * drh + 2, DW, drh - 4); }
+ }, DW, CH);
+ function faceTex(inv) {
+   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+   const g = cv.getContext('2d'); g.fillStyle = '#c8bfa5'; g.fillRect(0, 0, 256, 256);
+   for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) {
+     g.fillStyle = (((i + j) % 2 === 0) !== inv) ? '#3f3a33' : '#e7dfc6'; g.fillRect(i * 16 + 2, j * 16 + 2, 12, 12);
    }
    return new THREE.CanvasTexture(cv);
  }
- [[-1.202,-Math.PI/2,false],[1.202,Math.PI/2,true]].forEach(f=>{
-   const m=new THREE.Mesh(new THREE.CircleGeometry(.88,40),new THREE.MeshBasicMaterial({map:face(f[2])}));
-   m.position.x=f[0]; m.rotation.y=f[1]; root.add(m);
+
+ /* ── layout (world x) ──────────────────────────────────────────── */
+ const DOC_X = -1.30, DOC_L = 0.50;           /* DOC brick:  -1.55 .. -1.05  */
+ const DPF_X =  0.35, DPF_L = 2.00;           /* filter:     -0.65 ..  1.35  */
+ const R = 0.88;                              /* monolith radius             */
+
+ /* half cylinder (back half, z<0) so the front is cut away; axis along X */
+ function halfCylX(r, len, x, m, back, open) {
+   const g = new THREE.CylinderGeometry(r, r, len, lowEnd ? 28 : 44, 1, !!open, back ? Math.PI / 2 : -Math.PI / 2, Math.PI);
+   const o = new THREE.Mesh(g, m); o.rotation.z = Math.PI / 2; o.position.x = x; root.add(o); return o;
+ }
+ const steel  = mat(0x8b8f96, .85, .35);
+ const steelB = mat(0x6b7280, .8, .4);
+ const steelBack = mat(0x8b8f96, .85, .35); steelBack.side = THREE.DoubleSide;
+ halfCylX(1.0, 3.5, 0, steelBack, true, true);                       /* canister, back half opaque */
+ halfCylX(1.0, 3.5, 0, glass(0x94a3b8, .08), false, true);           /* front half: faint, for context */
+
+ /* cones and pipes: translucent steel so the flow inside can be seen */
+ const shellGlass = glass(0x9aa3ae, .30);
+ cylX(.42, 1.0, .7, shellGlass, -2.15, 0, 0, null, 36, true);
+ cylX(1.0, .42, .7, shellGlass,  2.15, 0, 0, null, 36, true);
+ cylX(.42, .42, 1.8, shellGlass, -3.4, 0, 0, null, 24, true);
+ cylX(.42, .42, 1.8, shellGlass,  3.4, 0, 0, null, 24, true);
+ /* flanges / V-band clamps and weld seams */
+ [-1.8, 1.8].forEach((x) => { const t = new THREE.Mesh(new THREE.TorusGeometry(1.03, .05, 10, 40), steelB); t.rotation.y = Math.PI / 2; t.position.x = x; root.add(t); });
+ [-4.3, 4.3].forEach((x) => { const t = new THREE.Mesh(new THREE.TorusGeometry(.46, .045, 10, 28), steelB); t.rotation.y = Math.PI / 2; t.position.x = x; root.add(t); });
+
+ /* ── DOC ───────────────────────────────────────────────────────── */
+ const docBody = new THREE.MeshStandardMaterial({ color: 0xb98d1e, roughness: .8, metalness: .1, emissive: 0x000000, emissiveIntensity: 0 });
+ halfCylX(R, DOC_L, DOC_X, docBody, true, false);
+ halfCylX(.94, DOC_L, DOC_X, new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 1, side: THREE.DoubleSide }), true, true);
+ const docFace = new THREE.MeshBasicMaterial({ map: docTex, side: THREE.DoubleSide });
+ const docPlane = new THREE.Mesh(new THREE.PlaneGeometry(DOC_L, 1.88), docFace);
+ docPlane.position.set(DOC_X, 0, 0.004); root.add(docPlane);
+
+ /* ── filter body, mat, cut face and overlays ───────────────────── */
+ const mono = new THREE.MeshStandardMaterial({ color: 0xb6a98a, roughness: .9, metalness: 0, emissive: 0x000000, emissiveIntensity: 0 });
+ halfCylX(R, DPF_L, DPF_X, mono, true, false);
+ halfCylX(.94, DPF_L, DPF_X, new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 1, side: THREE.DoubleSide }), true, true);
+ const baseM = new THREE.MeshBasicMaterial({ map: baseTex, side: THREE.DoubleSide });
+ const base = new THREE.Mesh(new THREE.PlaneGeometry(DPF_L, 1.88), baseM);
+ base.position.set(DPF_X, 0, 0.004); root.add(base);
+ function overlay(t, z, additive) {
+   const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+   if (additive) m.blending = THREE.AdditiveBlending;
+   const o = new THREE.Mesh(new THREE.PlaneGeometry(DPF_L, 1.88), m);
+   o.position.set(DPF_X, 0, z); o.renderOrder = 2; root.add(o); return m;
+ }
+ const sootM  = overlay(sootTex, 0.007, false);
+ const ashM   = overlay(ashTex,  0.010, false);
+ const burnM  = overlay(burnTex, 0.013, true);
+ const crackM = overlay(crackTex, 0.016, false);
+ /* plugged end faces (checkerboard of open / plugged cells), back halves */
+ [[DPF_X - DPF_L / 2 - 0.002, -Math.PI / 2, false, Math.PI / 2], [DPF_X + DPF_L / 2 + 0.002, Math.PI / 2, true, -Math.PI / 2]].forEach((f) => {
+   const m = new THREE.Mesh(new THREE.CircleGeometry(R, 40, f[3], Math.PI), new THREE.MeshBasicMaterial({ map: faceTex(f[2]), side: THREE.DoubleSide }));
+   m.position.x = f[0]; m.rotation.y = f[1]; root.add(m);
  });
 
- /* ── ceramic monolith: emissive driven by bed temperature ─────── */
- const mono = new THREE.MeshStandardMaterial({ color:0xb6a98a, roughness:.9, metalness:0, emissive:0x000000, emissiveIntensity:0 });
- cylX(.88,.88,2.4,mono,0,0,0,null,32);
+ /* ── sensors, wiring, ECU ──────────────────────────────────────── */
+ const sensorMat = mat(0x334155, .5, .55, { emissive: 0x22d3ee, emissiveIntensity: .9 });
+ box(0.34, 0.24, 0.28, sensorMat, 0, 1.22, 0);                                   /* dP sensor */
+ pipe([[-1.55, 1.00, 0], [-0.55, 1.18, 0], [-0.06, 1.22, 0]], 0.022, steel);     /* upstream sensing tube   */
+ pipe([[ 1.55, 1.00, 0], [ 0.55, 1.18, 0], [ 0.06, 1.22, 0]], 0.022, steel);     /* downstream sensing tube */
+ const wireMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+ const tipMats = [];
+ [[-2.25, .9, 'T1'], [-0.85, 1.0, 'T2'], [1.55, 1.0, 'T3']].forEach((s) => {
+   const x = s[0], top = s[1] + 0.25;
+   cyl(0.035, 0.035, top - 0.3, steelB, x, (top + 0.3) / 2, -0.4, null, 10);
+   const tm = new THREE.MeshStandardMaterial({ color: 0x334155, emissive: 0x22d3ee, emissiveIntensity: .5, roughness: .5 });
+   const tip = new THREE.Mesh(new THREE.SphereGeometry(.07, 12, 8), tm); tip.position.set(x, 0.3, -0.4); root.add(tip); tipMats.push(tm);
+   pipe([[x, top, -0.4], [x, 1.9, -0.4], [x * 0.3, 2.3, -0.4]], 0.012, wireMat);
+ });
+ pipe([[0, 1.34, 0], [0, 1.9, -0.2], [0, 2.3, -0.4]], 0.012, wireMat);
+ const ecuMat = mat(0x1e293b, .4, .5);
+ box(1.0, 0.16, 0.55, ecuMat, -0.1, 2.38, -0.4);
+ const ecuLed = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: .9 });
+ const led = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), ecuLed); led.position.set(0.3, 2.49, -0.4); root.add(led);
 
- /* ── soot cake (grows and shrinks with regeneration) ──────────── */
- const sootM = new THREE.MeshBasicMaterial({ color:0x05060a, transparent:true, opacity:.1, depthWrite:false });
- cylX(.925,.925,2.42,sootM,0,0,0,null,32);
+ /* ── regeneration indicator lamp on the outlet ─────────────────── */
+ const regenMat = new THREE.MeshStandardMaterial({ color: 0x3a2a20, emissive: 0xff6a00, emissiveIntensity: 0, metalness: 0, roughness: .5 });
+ const regenLight = new THREE.Mesh(new THREE.SphereGeometry(0.085, 14, 10), regenMat);
+ regenLight.position.set(2.75, 1.0, 0); root.add(regenLight);
 
- /* ── ash layer: monotonically increasing, never burns off ─────── */
- const ashM = new THREE.MeshBasicMaterial({ color:0x8a8577, transparent:true, opacity:.03, depthWrite:false });
- cylX(.895,.895,2.40,ashM,0,0,0,null,32);
-
- /* ── crack lines (visible only with the cracked-substrate fault) ─ */
- const crackMat = new THREE.MeshBasicMaterial({ color:0x0b0b0b });
- const cracks = new THREE.Group();
- const NC = lowEnd ? 3 : 5;
- for (let i=0;i<NC;i++){
-   const a = i*(Math.PI*2/NC) + 0.5;
-   const r = 0.895 + 0.010*(i%3);
-   const m = new THREE.Mesh(new THREE.BoxGeometry(2.44,0.055,0.055), crackMat);
-   m.position.set(0, Math.cos(a)*r, Math.sin(a)*r);
-   cracks.add(m);
+ /* ── particle streams (colour = species / role) ────────────────── */
+ const nIn = lowEnd ? 12 : 22, nMid = lowEnd ? 5 : 8, nOut = lowEnd ? 10 : 18;
+ const rawS  = stream([[-4.3, 0, 0], [-1.6, 0, 0]],               nIn,  0x6b7280, .13);   /* soot-laden exhaust   */
+ const hcS   = stream([[-4.3, -.12, .05], [-1.6, -.12, .05]],      lowEnd ? 6 : 10, 0xff6a00, .10);   /* post-injected HC */
+ const docS  = stream([[-1.55, .2, .05], [-1.05, .2, .05]],        lowEnd ? 3 : 5, 0xd4a72c, .08);
+ const noxS  = stream([[-1.0, .1, .05], [-0.66, .1, .05]],         lowEnd ? 3 : 6, 0xb45309, .10);   /* NO2 to the filter */
+ const zig = [[0.063, -0.063], [0.314, 0.440], [-0.188, -0.314]];                              /* inlet row y, outlet row y */
+ const NZ = lowEnd ? 2 : 3;
+ const zin = [], zwall = [], zout = [];
+ for (let i = 0; i < NZ; i++) {
+   const a = zig[i][0], b = zig[i][1], dz = 0.05;
+   zin.push(stream([[-.65, a, dz], [.40, a, dz]],                nMid, 0x525252, .08));
+   zwall.push(stream([[.40, a, dz], [.60, b, dz]],               3,    0xc8bfa5, .08));
+   zout.push(stream([[.60, b, dz], [1.35, b, dz]],               nMid, 0xa5f3fc, .08));
  }
- cracks.visible = false;
- root.add(cracks);
+ const clean = stream([[1.4, 0, 0], [4.3, 0, 0]],                 nOut, 0xa5f3fc, .11);
+ const leak  = stream([[-.65, .5, .06], [.35, .5, .06], [1.35, .5, .06]], lowEnd ? 6 : 12, 0x94a3b8, .10);
 
- /* ── differential-pressure sensor + its two sensing tubes ─────── */
- const sensorMat = mat(0x334155,.5,.55,{ emissive:0x22d3ee, emissiveIntensity:.9 });
- box(0.34,0.24,0.28,sensorMat,0,1.22,0);
- pipe([[-1.55,1.00,0],[-0.55,1.18,0],[-0.06,1.22,0]],0.022,steel);
- pipe([[ 1.55,1.00,0],[ 0.55,1.18,0],[ 0.06,1.22,0]],0.022,steel);
-
- /* ── regeneration indicator lamp on the outlet ────────────────── */
- const regenMat = new THREE.MeshStandardMaterial({ color:0x3a2a20, emissive:0xff6a00, emissiveIntensity:0, metalness:0, roughness:.5 });
- const regenLight = new THREE.Mesh(new THREE.SphereGeometry(0.085,14,10), regenMat);
- regenLight.position.set(2.75,1.0,0);
- root.add(regenLight);
-
- /* ── particle streams ─────────────────────────────────────────── */
- const nIn  = lowEnd ? 12 : 22;
- const nMid = lowEnd ?  6 : 10;
- const nOut = lowEnd ? 10 : 18;
- const rawS  = stream([[-4.2,0,0],[-1.25,0,0]],           nIn,  0x6b7280, .13);
- const s1    = stream([[-1.15,.25,0],[.3,.25,0]],         nMid, 0x525252, .09);
- const s2    = stream([[.3,.25,0],[.3,.05,0]],            Math.max(3, nMid>>1), 0xc8bfa5, .09);
- const s3    = stream([[.3,.05,0],[1.2,.05,0]],           nMid, 0xa5f3fc, .09);
- const clean = stream([[1.3,0,0],[4.3,0,0]],              nOut, 0xa5f3fc, .11);
- const leak  = stream([[-1.15,.42,.42],[1.22,.42,.42]],   lowEnd ? 8 : 16, 0x94a3b8, .10);
-
+ /* preallocated colours (no allocation in update) */
+ const cCold = new THREE.Color(0x140700), cHot = new THREE.Color(0xff3a00);
+ const cTipC = new THREE.Color(0x22d3ee), cTipH = new THREE.Color(0xff6a00);
  let lastDom = 0;
 
  return {
   labels:[
-    ['Exhaust in (soot)',[-3.5,.78,0]],
-    ['Ceramic filter block',[0,1.30,0]],
-    ['Plugged channel ends',[-1.25,-1.18,.6]],
-    ['Soot cake',[.85,-1.05,.75]],
-    ['Ash layer (permanent)',[-.75,-1.22,-.75]],
+    ['Exhaust in (soot, NOx, CO, HC)',[-3.6,.78,0]],
+    ['Post-injected fuel (HC)',[-3.0,-.62,.05]],
+    ['T1 inlet temperature',[-2.25,1.2,-.4]],
+    ['DOC (oxidation catalyst)',[-1.3,-1.22,.3]],
+    ['T2 pre-filter temperature',[-.85,1.3,-.4]],
+    ['Plugged channel ends',[-.62,-.55,.1]],
+    ['Soot cake (inlet channels)',[-.05,.063,.05]],
+    ['Ash plug (permanent)',[1.05,.063,.05]],
+    ['Intumescent mat',[.35,-.91,.05]],
+    ['Ceramic wall-flow filter',[.35,-1.45,.2]],
     ['Differential-pressure sensor',[0,1.62,0]],
+    ['T3 outlet temperature',[1.55,1.3,-.4]],
+    ['ECU (monitors, regen control)',[-.1,2.7,-.4]],
     ['Filtered exhaust',[3.5,.78,0]]
   ],
   update(c){
    /* ── 1. inputs ─────────────────────────────────────────────── */
-   const dt   = Math.max(0, num(c.dt, 0)) * S.speed;
-   const L    = clamp(c.k, 0, 1);
-   const rpm  = num(S.rpm, 1800);
-   const amb  = num(S.ambient, 20);
-   const fault= S.fault;
-   const cyc  = CYCLES[S.cycle] || CYCLES.mixed;
+   const dtRaw = Math.max(0, num(c.dt, 0)) * S.speed;
+   const L     = clamp(c.k, 0, 1);
+   const rpm   = num(S.rpm, 1800);
+   const amb   = num(S.ambient, 20);
+   const fault = S.fault;
+   const cyc   = CYCLES[S.cycle] || CYCLES.mixed;
 
    /* toolbar Reset rewinds simT -> detect and clear the model */
    if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) resetModel();
    sim.lastT = c.t;
 
-   /* ── 2. exhaust mass-flow proxy (0..1.2) ───────────────────── */
-   const flowNorm = clampN(0.10 + 0.85*(0.45*L + 0.55*clampN((rpm-800)/4200,0,1)), 0.05, 1.2);
-   let egt = exhaustGasTemp(L, rpm, amb, cyc.egt);
+   /* ── 2. physics (substeps keep the fast-forward stable) ────── */
+   const flow = exhaustFlow(L, rpm);
+   const egt  = exhaustGasTemp(L, rpm, amb, cyc.egt);
+   const n = dtRaw > 0 ? Math.min(80, Math.ceil(dtRaw / 0.25)) : 0;
+   const h = n ? dtRaw / n : 0;
+   for (let i = 0; i < n; i++) stepSim(h, L, rpm, amb, flow, egt, cyc);
+   if (n === 0 && sim.bp === 0) sim.bp = backpressure(flow, sim.soot, sim.ash, sim.bypass);
+   const bp = backpressure(flow, sim.soot, sim.ash, sim.bypass);   /* current flow, so sliders respond at once */
+   sim.bp = bp;
+   const dpSeen = (fault === 'dpsensor') ? clampN(0.15 + 0.10 * flow, 0, 1) : bp;
+   const eff = sim.eff;
+   const limit = SOOT_LIMIT * capFactor(sim.ash);
+   const est = sim.dtc.P2453 ? sim.modelSoot : sim.ecuSoot;
 
-   /* ── 3. ECU regeneration request ───────────────────────────── */
-   const sensorOk = (fault !== 'dpsensor');
-   const sootSeen = sensorOk ? sim.soot : sim.soot * 0.12;   /* ECU's estimate */
-   const want = S.regenCmd || sootSeen > REGEN_ON;
-   if (want && !sim.regenActive) sim.regenActive = true;
-   if (sim.regenActive && sim.soot < REGEN_OFF) {
-     sim.regenActive = false;
-     if (S.regenCmd) { controls.set('force', false); }
-   }
-
-   /* ── 4. bed temperature: post-injection target + thermal lag ─ */
-   let target = egt;
-   if (sim.regenActive && fault !== 'regeninhibited') target = Math.max(egt, REGEN_TEMP);
-   if (dt > 0) {
-     const a = 1 - Math.exp(-dt / TAU_FILTER);
-     sim.Tbed += (target - sim.Tbed) * a;
-   }
-   sim.Tbed = clampN(sim.Tbed, -25, 900);
-
-   /* ── 5. soot & ash mass balance ────────────────────────────── */
-   const sootMul = (fault === 'cracked' ? 0.55 : 1) * (fault === 'shorttrips' ? 1.35 : 1);
-   const passMul = (fault === 'shorttrips' ? 0.15 : 1) * (fault === 'cracked' ? 0.60 : 1);
-   const prod = sootProduction(L, rpm, cyc.soot) * sootMul;
-   const burn = passiveOxidation(sim.Tbed) * passMul
-              + (fault === 'regeninhibited' ? 0 : activeOxidation(sim.Tbed, sim.soot));
-   const dBurn = Math.min(sim.soot, Math.max(0, burn) * dt);
-   sim.soot = clampN(sim.soot + prod*dt - dBurn, 0, 15);
-   sim.ash  = clampN(sim.ash + dBurn*ASH_FROM_SOOT + ASH_WEAR*dt, 0, ASH_MAX);
-
-   /* ── 6. pressures and filtration ───────────────────────────── */
-   const bp     = backpressure(flowNorm, sim.soot, sim.ash);
-   const dpSeen = (fault === 'dpsensor') ? clampN(0.20 + 0.55*flowNorm, 0, 3.5) : bp;
-   const eff    = filtrationEfficiency(fault, sim.soot);
-
-   /* ── 7. derived status strings ─────────────────────────────── */
+   /* ── 3. derived status strings ─────────────────────────────── */
    let rstat;
-   if (fault === 'regeninhibited' && sim.regenActive) rstat = 'FAILED - no heat';
-   else if (sim.regenActive && sim.Tbed < 550)        rstat = 'Heating up';
-   else if (sim.regenActive)                          rstat = 'Active regen';
-   else if (sim.Tbed > 330)                           rstat = 'Passive regen';
-   else                                               rstat = 'Loading';
+   if (sim.lock)                                          rstat = 'LOCKED OUT';
+   else if (sim.regenState === 1)                         rstat = (flow < FLOW_REGEN) ? 'Waiting: drive' : (sim.Tdoc <= DOC_LIGHTOFF ? 'Waiting: DOC cold' : 'Requested');
+   else if (sim.regenState >= 2 && sim.cut)               rstat = 'Over-temp cut';
+   else if (sim.regenState >= 2 && sim.postCmd && !sim.postAct) rstat = 'FAILED - no heat';
+   else if (sim.regenState === 2)                         rstat = 'Heating up';
+   else if (sim.regenState === 3)                         rstat = 'Active regen';
+   else if (sim.Tbed > 330 && sim.burn > 0.002)           rstat = 'Passive regen';
+   else                                                   rstat = 'Loading';
+   let codes = '';
+   for (const k in sim.dtc) if (sim.dtc[k]) codes += (codes ? ' ' : '') + k;
+   let verdict;
+   if (sim.damage > 0.12 || sim.bypass > 0.2) verdict = 'REPLACE (damaged)';
+   else if (sim.ash > 1.8 || (limit < 7.0 && est > limit)) verdict = 'CLEAN / REPLACE';
+   else if (sim.soot > limit)                 verdict = 'FORCED REGEN';
+   else if (sim.ash > 1.2 || sim.soot > REGEN_ON) verdict = 'SERVICE SOON';
+   else                                       verdict = 'PASS';
 
-   /* ── 8. 3D visuals ─────────────────────────────────────────── */
-   sootM.opacity = 0.04 + 0.72 * clamp(sim.soot / 10, 0, 1);
-   ashM.opacity  = 0.02 + 0.55 * clamp(sim.ash / ASH_MAX, 0, 1);
+   /* ── 4. 3D visuals ─────────────────────────────────────────── */
+   sootM.opacity  = 0.03 + 0.95 * clamp(sim.soot / 9, 0, 1);
+   ashM.opacity   = 0.05 + 0.90 * clamp(sim.ash / ASH_MAX, 0, 1);
+   burnM.opacity  = clamp(sim.burn / 0.6, 0, 1);
+   crackM.opacity = clamp(sim.bypass / CRACK_BYPASS, 0, 1);
 
    const hot = clamp((sim.Tbed - 240) / 440, 0, 1);
-   mono.emissive.copy(lc(0x140700, 0xff3a00, hot));
+   mono.emissive.copy(cCold).lerp(cHot, hot);
    mono.emissiveIntensity = 0.04 + 1.45 * hot;
-   cracks.visible = (fault === 'cracked');
+   baseM.color.setRGB(1, 1 - 0.50 * hot, 1 - 0.78 * hot);          /* cut face tints with bed temperature */
+   const dh = clamp((sim.Tdoc - 200) / 400, 0, 1);
+   docBody.emissive.copy(cCold).lerp(cHot, dh);
+   docBody.emissiveIntensity = 0.03 + 0.9 * dh;
+   docFace.color.setRGB(1, 1 - 0.45 * dh, 1 - 0.75 * dh);
 
-   const dens = clamp(flowNorm / 1.05, 0.05, 1);
-   const spd  = 0.05 + 0.30 * flowNorm;
+   const dens = clamp(flow / 1.05, 0.05, 1);
+   const spd  = 0.05 + 0.30 * flow;
    rawS.update(c.t, spd, dens);
-   s1.update(c.t, spd, dens);
-   s2.update(c.t, spd, dens * 0.9);
-   s3.update(c.t, spd, dens);
+   hcS.update(c.t, spd, sim.postCmd ? dens : 0);
+   docS.update(c.t, spd, dens * (0.3 + 0.7 * sim.docAct));
+   noxS.update(c.t, spd, dens * sim.docAct * (0.25 + 0.75 * L));
+   for (let i = 0; i < NZ; i++) {
+     zin[i].update(c.t, spd, dens);
+     zwall[i].update(c.t, spd, dens * 0.9 * (1 - sim.bypass));
+     zout[i].update(c.t, spd, dens * eff * (1 - sim.bypass));
+   }
    clean.update(c.t, spd, dens * (0.55 + 0.45 * eff));
-   leak.update(c.t, spd, (fault === 'cracked') ? dens * 0.85 : 0);
+   leak.update(c.t, spd, dens * 0.85 * clamp(sim.bypass / CRACK_BYPASS, 0, 1));
 
    const pulse = 0.5 + 0.5 * Math.sin(c.t * 3.2);
    if (fault === 'dpsensor') {
@@ -402,11 +682,20 @@ function build(H){
      sensorMat.emissive.setHex(0x22d3ee);
      sensorMat.emissiveIntensity = 0.35 + 0.95 * clamp(dpSeen / 25, 0, 1);
    }
+   /* T1 = gas in, T2 = gas after the DOC (post-injection exotherm), T3 = outlet (lags the bed) */
+   const tv0 = clamp((egt - 100) / 600, 0, 1), tv1 = clamp((sim.Tin - 100) / 600, 0, 1), tv2 = clamp((sim.Tbed - 100) / 600, 0, 1);
+   tipMats[0].emissive.copy(cTipC).lerp(cTipH, tv0); tipMats[0].emissiveIntensity = 0.4 + 0.9 * tv0;
+   tipMats[1].emissive.copy(cTipC).lerp(cTipH, tv1); tipMats[1].emissiveIntensity = 0.4 + 0.9 * tv1;
+   tipMats[2].emissive.copy(cTipC).lerp(cTipH, tv2); tipMats[2].emissiveIntensity = 0.4 + 0.9 * tv2;
 
-   if (sim.regenActive && fault === 'regeninhibited') {
+   if (codes)                       { ecuLed.color.setHex(0xef4444); ecuLed.emissive.setHex(0xef4444); ecuLed.emissiveIntensity = 0.5 + 0.6 * pulse; }
+   else if (sim.regenState > 0)     { ecuLed.color.setHex(0xf59e0b); ecuLed.emissive.setHex(0xf59e0b); ecuLed.emissiveIntensity = 0.8; }
+   else                             { ecuLed.color.setHex(0x22c55e); ecuLed.emissive.setHex(0x22c55e); ecuLed.emissiveIntensity = 0.7; }
+
+   if (sim.regenState >= 2 && sim.postCmd && !sim.postAct) {
      regenMat.color.setHex(0xef4444); regenMat.emissive.setHex(0xef4444);
      regenMat.emissiveIntensity = 0.55 + 0.65 * Math.abs(Math.sin(c.t * 5));
-   } else if (sim.regenActive) {
+   } else if (sim.regenState >= 2) {
      regenMat.color.setHex(0xff6a00); regenMat.emissive.setHex(0xff6a00);
      regenMat.emissiveIntensity = 0.45 + 1.65 * clamp((sim.Tbed - 500) / 180, 0, 1);
    } else {
@@ -414,27 +703,35 @@ function build(H){
      regenMat.emissiveIntensity = 0.03 + 0.28 * clamp((sim.Tbed - 320) / 260, 0, 1);
    }
 
-   /* ── 9. throttled DOM work (graph + warning banner) ────────── */
+   /* ── 5. throttled DOM work (trace + warning banner) ────────── */
    const now = performance.now();
    if (now - lastDom > 140) {
      lastDom = now;
-     if (dt > 0) traceSample = [traceN(sim.soot, 0, 12), traceN(sim.Tbed, 0, 800)];
-     let warn = FAULT_INFO[fault] ? FAULT_INFO[fault].warn : '';
+     if (dtRaw > 0) traceSample = [traceN(sim.soot, 0, 12), traceN(sim.Tbed, 0, 1200), traceN(bp, 0, 40)];
+     let warn = '';
+     if (sim.damage > 0.12)               warn = 'Substrate damaged by overheating (peak ' + sim.peakMax.toFixed(0) + ' C seen). The crack is permanent - replace the filter.';
+     else if (sim.Tpeak > T_CRACK)        warn = 'THERMAL RUNAWAY: bed peak ' + sim.Tpeak.toFixed(0) + ' C. Low flow cannot carry the heat away - the substrate is cracking.';
+     else if (sim.cut && sim.regenState > 0) warn = 'Bed peak ' + sim.Tpeak.toFixed(0) + ' C - the ECU has cut post-injection (limit ' + OVERTEMP_CUT + ' C).';
+     else if (codes)                      { const f = codes.split(' ')[0]; warn = DTC_TEXT[f] || ''; }
+     if (!warn && FAULT_INFO[fault]) warn = FAULT_INFO[fault].warn;
      if (!warn) {
-       if (sim.soot > SOOT_LIMIT)      warn = 'Soot load critical (' + sim.soot.toFixed(1) + ' g/L). Power derate is active - a forced workshop regeneration or a replacement filter is required.';
-       else if (bp > 26)               warn = 'Back pressure ' + bp.toFixed(0) + ' kPa - limp mode imminent.';
-       else if (sim.soot > REGEN_ON)   warn = 'Soot load high - the ECU is requesting an active regeneration.';
-       else if (sim.ash > 1.2)         warn = 'Ash load ' + sim.ash.toFixed(2) + ' g/L - the filter is approaching the end of its service life.';
+       if (sim.soot > limit)               warn = 'Soot load critical (' + sim.soot.toFixed(1) + ' g/L, limit ' + limit.toFixed(1) + '). Power derate is active - a forced workshop regeneration or a replacement filter is required.';
+       else if (bp > BP_LIMP)              warn = 'Back pressure ' + bp.toFixed(0) + ' kPa - limp mode imminent.';
+       else if (sim.regenState === 1)      warn = 'The ECU wants a regeneration but the enabling conditions are not met (' + rstat.toLowerCase() + ').';
+       else if (sim.soot > REGEN_ON)       warn = 'Soot load high - the ECU is requesting an active regeneration.';
+       else if (sim.ash > 1.2)             warn = 'Ash load ' + sim.ash.toFixed(2) + ' g/L - the filter is approaching the end of its service life.';
      }
      warnText = warn;
    }
 
-   /* ── 10. readouts ──────────────────────────────────────────── */
-   const sootState = sim.soot > SOOT_LIMIT ? 'crit' : (sim.soot > REGEN_ON ? 'warn' : 'ok');
-   const bpState   = bp > 26 ? 'crit' : (bp > 15 ? 'warn' : 'ok');
+   /* ── 6. readouts ───────────────────────────────────────────── */
+   const sootState = sim.soot > limit ? 'crit' : (sim.soot > REGEN_ON ? 'warn' : 'ok');
+   const bpState   = bp > BP_LIMP ? 'crit' : (bp > 15 ? 'warn' : 'ok');
    const effState  = eff < 0.80 ? 'crit' : (eff < 0.95 ? 'warn' : 'ok');
    const ashState  = sim.ash > 1.6 ? 'crit' : (sim.ash > 1.0 ? 'warn' : 'ok');
-   const regState  = sim.regenActive ? ((fault === 'regeninhibited') ? 'crit' : 'warn') : 'ok';
+   const regState  = (sim.lock || (sim.regenState >= 2 && sim.postCmd && !sim.postAct)) ? 'crit' : (sim.regenState > 0 ? 'warn' : 'ok');
+   const tempState = sim.Tpeak > T_CRACK ? 'crit' : (sim.Tpeak > OVERTEMP_CUT ? 'warn' : 'hi');
+   const verState  = verdict === 'PASS' ? 'ok' : (verdict === 'SERVICE SOON' || verdict === 'FORCED REGEN' ? 'warn' : 'crit');
 
    let tr;
    if (traceClear) { traceClear = false; traceSample = null; tr = { hist: null }; }
@@ -450,16 +747,21 @@ function build(H){
      },
      ro: {
        soot:  [sim.soot.toFixed(2) + ' g/L', sootState],
+       ecu:   [est.toFixed(2) + ' g/L' + (sim.dtc.P2453 ? ' (model)' : ''), Math.abs(est - sim.soot) > 2 ? 'warn' : ''],
        ash:   [sim.ash.toFixed(2) + ' g/L',  ashState],
+       cap:   [limit.toFixed(1) + ' g/L',    limit < 7 ? 'warn' : ''],
        bp:    [bp.toFixed(1) + ' kPa',       bpState],
        dps:   [dpSeen.toFixed(1) + ' kPa',   fault === 'dpsensor' ? 'crit' : 'ok'],
        eff:   [(eff * 100).toFixed(1) + ' %', effState],
-       temp:  [sim.Tbed.toFixed(0) + ' \u00B0C', sim.Tbed > 700 ? 'warn' : 'hi'],
+       temp:  [sim.Tbed.toFixed(0) + ' / ' + sim.Tpeak.toFixed(0) + ' \u00B0C', tempState],
+       doc:   [(sim.docAct * 100).toFixed(0) + ' % @ ' + sim.Tdoc.toFixed(0) + ' \u00B0C', sim.docAct < 0.5 ? 'warn' : ''],
        egt:   [egt.toFixed(0) + ' \u00B0C',  egt > 620 ? 'warn' : ''],
-       flow:  [(flowNorm * 100).toFixed(0) + ' %', ''],
-       regen: [rstat, regState]
+       flow:  [(flow * 100).toFixed(0) + ' %', flow < FLOW_ENABLE ? 'warn' : ''],
+       regen: [rstat, regState],
+       dtc:   [(codes || 'none') + ' | ' + sim.regens + '/' + sim.aborts, codes ? 'crit' : 'ok'],
+       verdict: [verdict, verState]
      },
-     status: [warnText || rstat, true, warnText ? 'warn' : ''],
+     status: [warnText || rstat, true, warnText ? (sim.Tpeak > T_CRACK || sim.damage > 0.12 ? 'crit' : 'warn') : ''],
       traces: tr,
      ctl: (L * 100).toFixed(0) + ' %'
    };
@@ -477,14 +779,18 @@ CFG.options = [
   { id: 'timeScale', type: 'choice', layout: 'segmented', label: 'Time scale', options: [{ id: '1', label: '1×' }, { id: '5', label: '5×' }, { id: '20', label: '20×' }], def: '1',
     onChange: (id) => { S.speed = Number(id) || 1; } },
   { id: 'force', type: 'toggle', label: 'Force regen',
-    onChange: (on) => { S.regenCmd = on; } }
+    onChange: (on) => { S.regenCmd = on; } },
+  { id: 'age', type: 'action', label: 'Age filter (+100k km ash)',
+    onAction: () => { sim.ash = clampN(sim.ash + AGE_STEP, 0, ASH_MAX); } }
 ];
 CFG.onReset = resetAll;      /* the dock Reset runs the module reset (model + every control) */
-/* Phase 7a: the old history canvas is a Monitor trace. Both series are drawn as 0..100 % of their old axis ranges. */
-CFG.traces = [{ id: 'hist', label: 'Soot load and bed temperature history (% of full scale)', min: 0, max: 100, length: 150,
+resetModel();
+/* Phase 7a: the old history canvas is a Monitor trace. All series are drawn as 0..100 % of their axis ranges. */
+CFG.traces = [{ id: 'hist', label: 'Soot, bed temperature and back pressure history (% of full scale)', min: 0, max: 100, length: 150,
   series: [
     { id: 'a', label: 'Soot g/L', color: 'var(--accent)' },
-    { id: 'b', label: 'Bed \u00B0C', color: 'var(--warn)' }
+    { id: 'b', label: 'Bed \u00B0C', color: 'var(--warn)' },
+    { id: 'c', label: 'dP kPa', color: 'var(--ok)' }
   ] }];
 runGuidedModule(CFG, build);
 </script>

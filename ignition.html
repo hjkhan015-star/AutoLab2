@@ -136,7 +136,7 @@
     crank:       new THREE.MeshStandardMaterial({ color: 0x8a94a5, metalness: 0.92, roughness: 0.24 }),
     wireRed:     new THREE.MeshStandardMaterial({ color: 0xe0303c, metalness: 0.35, roughness: 0.48, emissive: 0xe0303c, emissiveIntensity: 0 }),
     wireBlue:    new THREE.MeshStandardMaterial({ color: 0x3a7fe0, metalness: 0.35, roughness: 0.48, emissive: 0x3a7fe0, emissiveIntensity: 0 }),
-    wireBlack:   new THREE.MeshStandardMaterial({ color: 0x14171d, metalness: 0.32, roughness: 0.62 }),
+    wireBlack:   new THREE.MeshStandardMaterial({ color: 0x3a4250, metalness: 0.32, roughness: 0.58 }),
     wireSignal:  new THREE.MeshStandardMaterial({ color: 0x1ac078, metalness: 0.32, roughness: 0.48, emissive: 0x1ac078, emissiveIntensity: 0 }),
     spark:       new THREE.MeshBasicMaterial({ color: 0xfff5a0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }),
     arc:         new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
@@ -518,6 +518,8 @@
   /* 4 posts — glowing brass with emissive tips */
   const POST_R = 0.16;
   const POST_ANG = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
+  /* Firing order 1-3-4-2: post k feeds plug POST_TO_PLUG[k] (the rotor reaches posts 0,1,3,2 in turn for cylinders 1,2,3,4) */
+  const POST_TO_PLUG = [0, 1, 3, 2];
   const distPosts = [];
   const distPostMeshes = [];
   POST_ANG.forEach((a) => {
@@ -874,6 +876,29 @@
   const wireMeshes = [];
   const wireFlows = [];
 
+  /* Additive glow is invisible on the light theme's near-white background, so the electrical effects (wire halos,
+     current dots, arcs) switch to ordinary blending with a deeper tint there. */
+  const isLightTheme = () => document.documentElement.classList.contains('light-theme');
+  let lightTheme = isLightTheme();
+  const themeGlows = [];
+  const LIGHT_TINT = 0.62;
+  function registerGlow(mat) {
+    const dark = mat.color.clone();
+    const light = dark.clone().multiplyScalar(LIGHT_TINT);
+    themeGlows.push({ mat, dark, light });
+    if (lightTheme) { mat.blending = THREE.NormalBlending; mat.color.copy(light); }
+  }
+  function syncTheme() {
+    const l = isLightTheme();
+    if (l === lightTheme) return;
+    lightTheme = l;
+    themeGlows.forEach(g => {
+      g.mat.blending = l ? THREE.NormalBlending : THREE.AdditiveBlending;
+      g.mat.color.copy(l ? g.light : g.dark);
+      g.mat.needsUpdate = true;
+    });
+  }
+
   function addWire(waypoints, radius, mat, glowColor, cylIndex, flowColor) {
     const { mesh, curve } = makeManhattanWire(waypoints, radius, mat, 0.045);
     system.add(mesh);
@@ -884,9 +909,14 @@
         color: glowColor, transparent: true, opacity: 0,
         blending: THREE.AdditiveBlending, depthWrite: false
       });
-      const glowMesh = new THREE.Mesh(mesh.geometry, glowMat);
-      glowMesh.scale.setScalar(1.5);
+      /* the halo is its own fatter tube on the same path: scaling the wire mesh would scale it about the
+         scene origin and throw a ghost copy of the wire across the screen */
+      const glowGeo = new THREE.TubeGeometry(
+        curve, Math.max(24, curve.points.length * 2), radius * 1.9, isLowEnd ? 6 : 8, false);
+      const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+      glowMesh.renderOrder = 4;
       system.add(glowMesh);
+      registerGlow(glowMat);
     }
 
     /* Flow particles inside the wire */
@@ -901,6 +931,7 @@
         color: flowColor, transparent: true, opacity: 0,
         blending: THREE.AdditiveBlending, depthWrite: false
       });
+      registerGlow(fMat);
       const fPoints = new THREE.Points(fGeo, fMat);
       fPoints.frustumCulled = false;
       fPoints.renderOrder = 6;
@@ -956,23 +987,29 @@
     distConnHV.clone()
   ], 0.034, M.wireBlue, 0x4a8fff, null, 0x6ab0ff);
 
-  /* 6. Distributor posts → each plug */
-  const POST_TO_PLUG = [0, 1, 3, 2];
+  /* 6. Distributor posts → each plug (POST_TO_PLUG is declared with the posts) */
+  /* Each cable gets its own height AND its own depth lane, so no two cables ever cross or pass through each other:
+     post 0 / 2 move out to the front / back, posts 1 / 3 already sit at ±0.16 and keep that depth. */
+  const POST_LANE_Z = [0.30, 0.16, -0.30, -0.16];
   distPosts.forEach((post, i) => {
     const plugIdx = POST_TO_PLUG[i];
     const plugX = PLUG_XS[plugIdx];
     const plugTop = plugTopPositions[plugIdx];
     const overY = DIST.y + 0.55 + i * 0.06;
+    const laneZ = POST_LANE_Z[i];
 
-    addWire([
+    const path = [
       post.clone(),
       new THREE.Vector3(post.x, overY, post.z),
-      new THREE.Vector3(plugX, overY, post.z),
-      new THREE.Vector3(plugX, plugTop.y + 0.20, post.z),
+      new THREE.Vector3(post.x, overY, laneZ),
+      new THREE.Vector3(plugX, overY, laneZ),
+      new THREE.Vector3(plugX, plugTop.y + 0.20, laneZ),
       new THREE.Vector3(plugX, plugTop.y + 0.20, 0),
       new THREE.Vector3(plugX, plugTop.y + 0.10, 0),
       plugTop.clone()
-    ], 0.022, M.wireBlue, 0x4a8fff, plugIdx, 0x6ab0ff);
+    ].filter((v, k, arr) => k === 0 || v.distanceToSquared(arr[k - 1]) > 1e-8);   /* no zero-length legs */
+
+    addWire(path, 0.022, M.wireBlue, 0x4a8fff, plugIdx, 0x6ab0ff);
   });
 
   /* 7. Battery − → Ground */
@@ -1000,10 +1037,10 @@
      LIGHTNING ARC POOL — arcs are created on demand and fade out
      ═══════════════════════════════════════════════════════════ */
   const activeArcs = [];
-  const coilToDistHV = { a: coilConnHV.clone(), b: distConnHV.clone() };
 
   function spawnArc(a, b, color, jitter, thickness, life) {
     const arc = makeLightningArc(a, b, color, jitter, 8, thickness);
+    if (lightTheme) { arc.mat.blending = THREE.NormalBlending; arc.mat.color.multiplyScalar(0.55); }
     system.add(arc.mesh);
     activeArcs.push({ ...arc, life, maxLife: life });
   }
@@ -1186,7 +1223,6 @@
   });
 
   /* Panel readout refs */
-  const panelBody = ui.panel.body;
   /* Spark-advance curve: a picture, not a time series, so it is a stage canvas (bottom-left over the 3D view). */
   const advCanvas = ui.stage.canvas({ id: 'advance', label: 'Spark advance · ° BTDC vs rpm', width: 360, height: 92, corner: 'bl' });
   const advCtx    = advCanvas ? advCanvas.getContext('2d') : null;
@@ -1204,7 +1240,6 @@
   if (advCanvas && window.ResizeObserver) new ResizeObserver(sizeAdvCanvas).observe(advCanvas);
   sizeAdvCanvas();
   ui.panel.remeasure();                       /* the panel lost its curve canvas (now a stage canvas) and its rows (now Monitor rows) */
-  const strokeDescEl = document.getElementById('stroke-desc');
 
   /* ═══════════════════════════════════════════════════════════
      ADVANCE CURVE CHART
@@ -1271,7 +1306,6 @@
   /* ═══════════════════════════════════════════════════════════
      SIM STATE
      ═══════════════════════════════════════════════════════════ */
-  const ORDER = [0, 2, 3, 1];
   const VIS_SLOW = 0.08;
   const CHARGE_WIN_DEG = 64;
   const START_CRANK = 690;
@@ -1362,21 +1396,12 @@
        c) Plug electrode → ground strap */
     spawnArc(coilConnHV.clone(), distConnHV.clone(), 0x8ac8ff, 0.05, 0.012, 0.14);
 
-    /* Which post does the rotor fire next? */
-    const postAng = POST_ANG.map(a => (a + advNow * DEG));
-    const rotorAng = (crankAngle / 2 + advNow / 2) * DEG;
-    /* Simplest: find nearest post to rotor tip */
-    let nearest = 0, bestD = Infinity;
-    for (let k = 0; k < 4; k++) {
-      const a = POST_ANG[k];
-      const rAng = rotorAng;
-      let d = Math.abs(((a - rAng) % TAU + TAU) % TAU);
-      if (d > Math.PI) d = TAU - d;
-      if (d < bestD) { bestD = d; nearest = k; }
-    }
-    const rotorTipWorld = new THREE.Vector3();
-    rotorTip.getWorldPosition(rotorTipWorld);
-    const postWorld = distPosts[nearest];
+    /* The rotor is pointing at this cylinder's post at the instant of firing (the rotor turns at half crank
+       speed, posts sit 90° apart), so the jump goes to the post whose cable leads to this plug. */
+    const postIdx = POST_TO_PLUG.indexOf(i);
+    const postWorld = distPosts[postIdx];
+    const rotorTipWorld = new THREE.Vector3(
+      DIST.x + Math.cos(POST_ANG[postIdx]) * 0.16, DIST.y + 0.27, DIST.z + Math.sin(POST_ANG[postIdx]) * 0.16);
     spawnArc(rotorTipWorld, postWorld.clone(), 0xffd060, 0.04, 0.009, 0.12);
 
     /* Plug electrode arc */
@@ -1515,6 +1540,7 @@
     requestAnimationFrame(tick);
     const dt = Math.min(clock.getDelta(), 0.05);
     controls.update();
+    syncTheme();
 
     const simDt = state.playing !== false ? dt : 0;
 
@@ -1619,7 +1645,7 @@
       if (!w.glowMat) continue;
       if (!ignitionOn) { w.glowMat.opacity = 0; continue; }
       const p = w.cylIndex === null ? wirePulseShared : wirePulseCyl[w.cylIndex];
-      w.glowMat.opacity = Math.min(1, (w.cylIndex === null ? 0.06 : 0) + p * 1.0);
+      w.glowMat.opacity = Math.min(1, (w.cylIndex === null ? 0.06 : 0) + p * 1.0) * (lightTheme ? 0.7 : 1);
     }
 
     /* Flow particles inside wires */

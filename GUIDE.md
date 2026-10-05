@@ -1,4 +1,4 @@
-# Auto Lab v8.9 — Build Guide
+# Auto Lab v8.9.1 — Build Guide
 
 How a module page is put together, how to add one, and the rules the tests enforce.
 Reference tables (every control spec, every Monitor channel) are in `COMPONENTS.md`.
@@ -76,7 +76,7 @@ const mode = ui.controls.value('mode');         // option id
 - **The Monitor** is `ui.monitor.set(config)` (rebuilds rows / traces / footer, e.g. on a mode switch) and `ui.monitor.update(patch)` (values: `rows`, `rowLabels`, `traces`, `gauge`, `footer`, `status`). Text is written at ≤ 9 Hz, traces drawn at ≤ 30 Hz, so call `update` every frame.
 - **`monitorRows(ui, ids, drop)`** lets old code that writes `ro.x.textContent = …` / `ro.x.className = 'v warn'` write Monitor rows instead.
 - **A picture that is not a time series** (spectrum, advance curve, torque map): `const cv = ui.stage.canvas({ id, label, width, height, corner: 'bl' | 'br', size })`, draw into `cv`, change its caption with `ui.stage.caption(id, text)`, remove with `ui.stage.remove(id)`. It floats over the stage, above the dock, with no pointer events.
-- **A 2D page** (no 3D scene): add `data-no3d` to `<html>`, link `app.css` and `controls.css`, set `body { padding: var(--stage-top) var(--dock-rail) calc(var(--dock-h) + var(--safe-b)) }`, and give the ⋯ menu `menuHide: ['density', 'wireframe', 'xray']` in `wireBridge`. `sensors.html` is the example.
+- **A 2D page** (no 3D scene): add `data-no3d` to `<html>`, link `app.css` and `controls.css`, set `body { padding: var(--stage-top) var(--dock-rail) calc(var(--dock-h) + var(--safe-b)) }`, and give the ⋯ menu `menuHide: ['density', 'wireframe', 'xray']` in `wireBridge`. `data-no3d` also makes `kit.js` skip three.js, so such a page needs no import map and loads offline on a first visit. Inside the shell the module reports `menuHide` in its `ready` message and the shell hides those rows (and ignores W / X) while that module is open. `sensors.html` is the example.
 
 ## 5. Keymap **[test]**
 
@@ -113,3 +113,16 @@ Keys are ignored while typing in an input / select, with Ctrl / Meta / Alt held,
 2. Bump `VERSION` in `sw.js`; update the version in README, GUIDE, COMPONENTS and the `components.js` / `components.css` headers.
 3. New files are in `CORE_ASSETS`; a new module is in `modules.js`.
 4. Fill the manual cells of `QA.md`; put small findings in `POLISH.md`.
+
+## 9. Where an improvement goes (extension points)
+
+| To change | Edit | Notes |
+|---|---|---|
+| Look of every control (size, radius, track, thumb, focus) | the `--ctl-*` tokens at the top of `controls.css`; per-control values (`--ctl-thumb-size`, `--ctl-pad-w`, `--ctl-dial-size`) sit in that control's block | Tokens only (R3). Landscape rails lower the axis floor with `--ctl-axis-min`. |
+| Colours, light theme | `app.css` tokens (`--c-*`, `--ink`, `--paper`) | One edit reaches every page and both themes. |
+| Dock layout per viewport (portrait pages, landscape rails, desktop bar) | `dock.js` (`dockLayout`, `dockHeightPx` are pure and tested) and the `.al-dock[data-mode=…]` blocks in `controls.css` | Add the test beside the change in `tests/dock.test.mjs`. |
+| A new control kind | `controls-core.js` (logic) + `controls.js` (node) + its block in `controls.css` + a row in `COMPONENTS.md` section 3 | Modules only declare a spec. |
+| Monitor: a new row, trace or gauge look | `monitor.js` / `monitor-core.js` | Modules only declare channels in their config. |
+| A ⋯ menu row | `chrome.js` `createMenu` (rows in the `hideable` map can be hidden per module) | A new view option also needs a shell command in `index.html` and `kit.js` `dispatch`. |
+| Shared 3D parts and guided panels | `components.js` / `components.css`, `COMPONENTS.md` | Fix a part once and every module that links it follows. |
+| Improving one module | its own `.html` only | Keep controls as specs and numbers as Monitor rows; `npm test` says when a rule is broken. |

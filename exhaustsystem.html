@@ -146,41 +146,6 @@ import { Parts } from './components.js';
     })
   };
 
-  function applyThermalGradient(mesh, T_in, T_out) {
-    const g = mesh.geometry;
-    if (!g.attributes.position) return;
-    const pos = g.attributes.position;
-    const count = pos.count;
-    let minX = Infinity, maxX = -Infinity;
-    for (let i = 0; i < count; i++) {
-      const x = pos.getX(i);
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-    }
-    const span = Math.max(1e-6, maxX - minX);
-    const colorArr = new Float32Array(count * 3);
-    const cHot  = new THREE.Color().setHSL(0.045, 0.95, 0.55);
-    const cMid  = new THREE.Color().setHSL(0.10,  0.55, 0.42);
-    const cCool = new THREE.Color().setHSL(0.58,  0.35, 0.42);
-    for (let i = 0; i < count; i++) {
-      const t = (pos.getX(i) - minX) / span;
-      const c = t < 0.5
-        ? cHot.clone().lerp(cMid, t * 2)
-        : cMid.clone().lerp(cCool, (t - 0.5) * 2);
-      colorArr[i * 3]     = c.r;
-      colorArr[i * 3 + 1] = c.g;
-      colorArr[i * 3 + 2] = c.b;
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
-    if (Array.isArray(mesh.material)) {
-      mesh.material.forEach(m => { m.vertexColors = true; m.color.set(0xffffff); m.needsUpdate = true; });
-    } else {
-      mesh.material = mesh.material.clone();
-      mesh.material.vertexColors = true;
-      mesh.material.color.set(0xffffff);
-      mesh.material.needsUpdate = true;
-    }
-  }
 
   /* ═══════════════════════════════════════════════════════════
      GEOMETRY HELPERS
@@ -221,12 +186,6 @@ import { Parts } from './components.js';
   function localWaveSpeed(x, len) {
     return speedOfSound(gasTempAt(x, len)) * TUNING.waveSpeedScale;
   }
-  function conversionFromTemp(T) {
-    const k = Math.max(0, (T - TUNING.catalyst.lightOffStart) /
-                          (TUNING.catalyst.lightOffFull - TUNING.catalyst.lightOffStart));
-    return 1 - Math.exp(-Math.pow(k, 2.2));
-  }
-
   /* ═══════════════════════════════════════════════════════════
      WAVE TUBE FACTORY
      ═══════════════════════════════════════════════════════════ */
@@ -994,7 +953,6 @@ import { Parts } from './components.js';
   const badgeEl       = document.getElementById('stroke-badge');
   const badgeTextEl   = document.getElementById('badge-text');
   const moduleTitleEl = document.getElementById('module-title');
-  const moduleKickerEl= document.getElementById('module-kicker');
   const strokeDescEl  = document.getElementById('stroke-desc');
 
   /* ═══════════════════════════════════════════════════════════
@@ -1095,12 +1053,6 @@ import { Parts } from './components.js';
     ${catRxHtml}`;
   if (panelBody) panelBody.appendChild(catChemEl);
 
-  const ccNote = catChemEl.querySelector('#cc-note');
-  function setCatLam(key) {
-    catLam = key;
-    if (ctl.get('lambda') !== ['rich', 'stoich', 'lean'].indexOf(key)) ctl.set('lambda', ['rich', 'stoich', 'lean'].indexOf(key));
-    if (ccNote) ccNote.textContent = CAT_NOTES[key];
-  }
 
   function updateCatChemUI() {
     const q = (sel) => catChemEl.querySelector(sel);
@@ -1129,10 +1081,6 @@ import { Parts } from './components.js';
   wireSoundWidget();
 
   const CONFIG_ORDER = ['compare', 'full'];
-  const CONFIG_LABELS = {
-    principle: 'Principle', compare: 'Compare',
-    catalyst:  'Catalyst',  full:    'Full System'
-  };
 
   let camTween = null;
   function animateCamera(pos, tgt) {
@@ -1245,38 +1193,6 @@ import { Parts } from './components.js';
       if (p.done) {                                   /* white flash at the reaction site */
         const f = clamp(1 - (p.x - p.xc) / 0.12, 0, 1);
         r += (1 - r) * f; g += (1 - g) * f; b += (1 - b) * f;
-      }
-      catFlowCol[i * 3] = r; catFlowCol[i * 3 + 1] = g; catFlowCol[i * 3 + 2] = b;
-    }
-    catFlowGeo.attributes.position.needsUpdate = true;
-    catFlowGeo.attributes.color.needsUpdate = true;
-  }
-  function updateCatalystLegacy(dt, rf) {
-    catT += (90 + 630 * rf - catT) * Math.min(1, dt * 0.25);
-    const heat = clamp((catT - 200) / 450, 0, 1);
-    M.honeycomb.emissiveIntensity = 0.05 + heat * (0.40 + 0.10 * Math.sin(time * 4));
-    lightOffRing.material.opacity = catT > 270 ? 0.30 + 0.30 * (0.5 + 0.5 * Math.sin(time * 5)) : 0.0;
-    preO2glow.material.opacity  = 0.45 + 0.35 * Math.sin(time * 6);
-    postO2glow.material.opacity = 0.45 + 0.35 * Math.sin(time * 6 + 2.4);
-    ecuLed.material.color.setHex(Math.sin(time * 8) > 0 ? 0x22c55e : 0x0e3f22);
-
-    if (!state.showGas) return;
-    const convFrac = conversionFromTemp(catT);
-    for (let i = 0; i < CAT_N; i++) {
-      const p = catFlowData[i];
-      p.x += dt * p.speed * (0.5 + rf);
-      if (p.x > CAT_LEN / 2 + 0.30) p.x = -CAT_LEN / 2 - 0.30;
-      p.converted = clamp((p.x + CAT_LEN / 2) / CAT_LEN, 0, 1) * convFrac;
-      catFlowPos[i * 3]     = p.x;
-      catFlowPos[i * 3 + 1] = p.y + Math.sin(time * 4 + p.j * TAU) * 0.02;
-      catFlowPos[i * 3 + 2] = p.z + Math.cos(time * 4 + p.j * TAU) * 0.02;
-      let r, g, b;
-      if (p.species === 0)      { r = 1.00; g = 0.35; b = 0.10; }
-      else if (p.species === 1) { r = 1.00; g = 0.85; b = 0.20; }
-      else                      { r = 0.25; g = 0.45; b = 1.00; }
-      if (p.converted > 0.45) {
-        const k = clamp((p.converted - 0.45) / 0.35, 0, 1);
-        r += (0.30 - r) * k; g += (1.00 - g) * k; b += (0.80 - b) * k;
       }
       catFlowCol[i * 3] = r; catFlowCol[i * 3 + 1] = g; catFlowCol[i * 3 + 2] = b;
     }

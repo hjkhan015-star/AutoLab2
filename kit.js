@@ -10,8 +10,6 @@
      const ui    = UI.create({ ... });
    ═══════════════════════════════════════════════════════════════════════ */
 
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createLabelSystem as _createLabelSystem, KINDS as LABEL_KINDS, DENSITY_INFO, getLabelDensity, setLabelDensity } from './labels.js';
 import { createKeyRouter, installKeys } from './keys.js';
 import { nextDensity, isPhone, createHeader, createMenu, clampSpeed, chromeButton } from './chrome.js';
@@ -19,6 +17,14 @@ import { createDock, modelShiftPx } from './dock.js';
 import { controls, createAxis, createMomentary, createDial, createChoice, createToggle, createAction } from './controls.js';
 import { createMonitor } from './monitor.js';
 export { controls };
+
+/* three.js is the 3D half. A page marked <html data-no3d> (sensors) uses only the header, dock and Monitor, so it never loads it:
+   first visit offline works, and the importmap is not needed there. Every other page gets the same objects as before. */
+const NO3D = document.documentElement.hasAttribute('data-no3d');
+const [THREE, OrbitControls] = NO3D ? [null, null] : await Promise.all([
+  import('three'),
+  import('three/addons/controls/OrbitControls.js').then((m) => m.OrbitControls)
+]);
 
 /* controls.css holds the header, ⋯ menu, dock and phone-sheet styles. Module pages link it; this is the
    safety net (resolved next to kit.js) so a page that forgot the <link> still gets a styled dock. */
@@ -86,7 +92,7 @@ function detectQuality() {
 
 function createViewManager(scene, renderer, camera) {
   const DARK_BG = 0x0b0e14, LIGHT_BG = 0xdde2ea;
-  const DARK_FLOOR = 0x12161f, LIGHT_FLOOR = 0xcbd0d8;
+  const LIGHT_FLOOR = 0xcbd0d8;
   const state = { theme: 'dark', wireframe: false, xray: false };
   const originals = {
     bg: null, fog: null, hemi: null, hemiIntensity: 0.55,
@@ -560,26 +566,6 @@ export function createParticleTexture() {
    leader lines, anti-flicker, auto-declutter). Re-exported here so every
    module's existing `Base.createLabelSystem()` call picks it up for free. */
 export const createLabelSystem = _createLabelSystem;
-
-export function createBridge(moduleId, onCommand) {
-  const embedded = detectEmbed();
-  function send(msg) {
-    if (!embedded) return;
-    try { window.parent.postMessage(Object.assign({ source: 'auto-module', moduleId }, msg), '*'); }
-    catch (_) {}
-  }
-  window.addEventListener('message', (e) => {
-    const d = e.data;
-    if (!d || d.source !== 'auto-shell') return;
-    if (d.moduleId && d.moduleId !== moduleId) return;
-    if (typeof onCommand === 'function') onCommand(d);
-  });
-  return {
-    embedded,
-    ready() { send({ type: 'ready' }); },
-    setStatus(text, color) { send({ type: 'state', status: { text, color } }); }
-  };
-}
 
 export function createUIState() {
   const isCoarse = matchMedia('(pointer: coarse)').matches;
@@ -1228,7 +1214,7 @@ class UIKit {
     });
 
     return {
-      ready() { send({ type: 'ready' }); },
+      ready() { send({ type: 'ready', menuHide: opts.menuHide || [] }); },
       setStatus(text, color) { send({ type: 'state', status: { text, color } }); },
       /* Modules that change state directly can ask the kit to re-sync. */
       syncControls() { _syncPlayIcons(); _syncControls(); },

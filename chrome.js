@@ -142,8 +142,9 @@ export function createMenu(opts = {}) {
   const doc = opts.doc || document;
   const win = doc.defaultView || window;
   const onChange = opts.onChange || function () {};
-  /* opts.hide: rows a 2D module has no use for ('density' | 'wireframe' | 'xray'); they are never added to the sheet */
-  const skipRows = new Set(opts.hide || []);
+  /* rows a 2D module has no use for ('density' | 'wireframe' | 'xray') are hidden: opts.hide at build time, setHidden() when the
+     shell learns what the module in its frame can do */
+  let skipRows = new Set(opts.hide || []);
   const uid = 'al-menu-' + (++_uid);
   const st = {
     speed: clampSpeed(opts.state && opts.state.speed != null ? opts.state.speed : SPEED.def),
@@ -185,7 +186,7 @@ export function createMenu(opts = {}) {
     return b;
   });
   rowDens.appendChild(lblDens); rowDens.appendChild(seg);
-  if (!skipRows.has('density')) menu.appendChild(rowDens);
+  menu.appendChild(rowDens);
 
   /* switches */
   function switchRow(key, label) {
@@ -193,12 +194,15 @@ export function createMenu(opts = {}) {
     const t = el(doc, 'span', 'al-menu-label'); t.textContent = label;
     const knob = el(doc, 'span', 'al-switch-knob', { 'aria-hidden': 'true' });
     b.appendChild(t); b.appendChild(knob);
-    if (!skipRows.has(key)) menu.appendChild(b);
+    menu.appendChild(b);
     return b;
   }
   const swTheme = switchRow('theme', 'Light theme');
   const swWire  = switchRow('wireframe', 'Wireframe');
   const swXray  = switchRow('xray', 'X-ray');
+  const hideable = { density: rowDens, wireframe: swWire, xray: swXray };
+  function applyHidden() { Object.keys(hideable).forEach((k) => { hideable[k].hidden = skipRows.has(k); }); }
+  applyHidden();
 
   /* host: the caller's container, or <body> */
   const host = opts.host || doc.body;
@@ -256,7 +260,8 @@ export function createMenu(opts = {}) {
       menu.style.left = ''; menu.style.top = '';
     }
   }
-  function focusables() { return Array.from(menu.querySelectorAll('input, button')).filter((n) => !n.disabled && n.tabIndex !== -1); }
+  function inHiddenRow(n) { for (let x = n; x && x !== menu; x = x.parentElement) if (x.hidden) return true; return false; }
+  function focusables() { return Array.from(menu.querySelectorAll('input, button')).filter((n) => !n.disabled && n.tabIndex !== -1 && !inHiddenRow(n)); }
 
   function show(a) {
     if (open) return;
@@ -333,6 +338,9 @@ export function createMenu(opts = {}) {
       if (patch.xray != null) st.xray = !!patch.xray;
       render();
     },
-    getState() { return Object.assign({}, st); }
+    getState() { return Object.assign({}, st); },
+    /* rows this module cannot use; an empty list shows them all again */
+    setHidden(list) { skipRows = new Set(list || []); applyHidden(); },
+    isHidden(key) { return skipRows.has(key); }
   };
 }

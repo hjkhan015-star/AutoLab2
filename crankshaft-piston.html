@@ -383,7 +383,7 @@ CYLINDERS.forEach(c => {
   addP(ringGeo, MAT.oilRing, 0, 0.16, 0);
   const pin = addP(pinCylGeo, MAT.pin); pin.rotation.z = Math.PI / 2;
   [-0.34, 0.34].forEach(x => { const b = addP(bossGeo, c.pistonMat, x, 0, 0); b.rotation.z = Math.PI / 2; });
-  const tag = addP(tagGeo, new THREE.MeshStandardMaterial({ color: c.colour, emissive: c.colour, emissiveIntensity: 0.45 }), 0, 0.368, 0);
+  addP(tagGeo, new THREE.MeshStandardMaterial({ color: c.colour, emissive: c.colour, emissiveIntensity: 0.45 }), 0, 0.368, 0);
   low.add(p); c.pistonG = p;
 });
 

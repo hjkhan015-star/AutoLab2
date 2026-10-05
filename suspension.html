@@ -605,8 +605,8 @@ import { Parts } from './components.js';
     leafSprings.push(s);
     return s;
   }
-  const leafL = makeLeafSpring(-TRACK_HALF);
-  const leafR = makeLeafSpring( TRACK_HALF);
+  makeLeafSpring(-TRACK_HALF);
+  makeLeafSpring( TRACK_HALF);
 
   const shackles = [];
   [-TRACK_HALF, TRACK_HALF].forEach(z => {
@@ -781,11 +781,9 @@ import { Parts } from './components.js';
     ]
   });
 
-  const panelBody = ui.panel.body;
 
   const badgeEl       = document.getElementById('stroke-badge');
   const badgeTextEl   = document.getElementById('badge-text');
-  const moduleTitleEl = document.getElementById('module-title');
   const strokeDescEl  = document.getElementById('stroke-desc');
   const impactFlashEl = document.getElementById('impact-flash');
   const impactWarnEl  = document.getElementById('impact-warning');
@@ -885,7 +883,6 @@ import { Parts } from './components.js';
   function updateSpeedLabel() {
     if (slowMo) {
     } else {
-      const kmh = Math.round(2.4 * state.speedMul * 16);
     }
     ui.monitor.update({ rows: { speed: slowMo ? 'SLO-MO' : `~${Math.round(2.4 * state.speedMul * 16)} km/h` } });
   }

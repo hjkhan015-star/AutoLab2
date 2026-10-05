@@ -118,7 +118,6 @@
   const CONV_R  = 0.55;
   const CONV_W  = 0.60;
 
-  const SHAFT_X = 0.10;
   const PLAN_X  = 0.90;
   const SUN_R   = 0.16;
   const PLANET_R = 0.16;
@@ -141,12 +140,6 @@
   tcShell.rotation.z = Math.PI * 0.20;
   tcGroup.add(tcShell);
 
-  function makeCutFace(w, h, mat, x, y, z, ry) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
-    m.position.set(x, y, z);
-    if (ry) m.rotation.y = ry;
-    return m;
-  }
 
   const frontCoverGeo = new THREE.CylinderGeometry(CONV_R * 0.95, CONV_R * 0.95, 0.04, 40);
   const frontCover = new THREE.Mesh(frontCoverGeo, M.alum);
@@ -557,7 +550,7 @@
   });
 
   /* ─── Wire local toolbar controls (play/reset/speed/labels/gas) ── */
-  (function syncToolbarIcons() {   /* Phase 2: click wiring removed — the kit (dock.js/kit.js) owns btn-play / btn-reset; only icon sync stays */
+  (function () {   /* Phase 2: click wiring removed — the kit (dock.js/kit.js) owns btn-play / btn-reset; only icon sync stays */
 
     function syncPlayIcons() {
       const ip  = document.getElementById('icon-play');
@@ -625,7 +618,6 @@
 
     const engineOmega  = engineRpm * 0.0012;
     const turbineOmega = turbineRpm * 0.0012;
-    const outputOmega  = outputRpm * 0.0012 * Math.abs(gearRatio);
 
     impellerAngle += dt * engineOmega;
     turbineAngle  += dt * turbineOmega;

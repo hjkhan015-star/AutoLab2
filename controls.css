@@ -186,6 +186,7 @@
   font-variant-numeric: tabular-nums;
   color: var(--text-mute);
 }
+.al-menu-row[hidden] { display: none; }
 .al-menu-row > .al-menu-range { flex: 1 0 100%; width: 100%; height: var(--ctl-tap); margin: 0; accent-color: var(--al-accent, var(--accent)); cursor: pointer; }
 .al-menu-row > .al-menu-label + .al-menu-value { flex: 0 0 auto; }
 
@@ -465,7 +466,7 @@ body.al-sheet-open .al-sheet-scrim { display: block; }
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 140px;
+  min-width: var(--ctl-axis-min, 140px);
   width: 100%;
   color: var(--text);
 }
@@ -850,6 +851,13 @@ body.al-sheet-open .al-sheet-scrim { display: block; }
 .al-dock[data-mode="portrait"] .al-dock-options .ctl-select { min-height: 40px; }
 .al-dock[data-mode="landscape"] .al-dock-options { -webkit-mask-image: none; mask-image: none; }
 .al-dock[data-mode="landscape"] .al-dock-options .ctl { flex-direction: column; align-items: stretch; }
+
+/* landscape rails are 140 px minus gaps: the axis and select floors give way, a long axis name is cut with an ellipsis, never its first letters */
+.al-dock[data-mode="landscape"] { --ctl-axis-min: 0px; }
+.al-dock[data-mode="landscape"] .ctl-sel { min-width: 0; }
+.al-dock[data-mode="landscape"] .ui-widget { align-items: stretch; }
+.al-dock[data-mode="landscape"] .ui-widget-frame { min-width: 0; }
+.al-dock[data-mode="landscape"] .ctl-axis .ctl-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ctl[hidden] { display: none; }
 

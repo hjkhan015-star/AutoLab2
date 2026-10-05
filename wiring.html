@@ -494,7 +494,6 @@ function build(H) {
   const MDIF   = matF(0xf1f5f9, .05, .75);
   const MBRS   = matF(0xd4a34a, .80, .35);
   const MLOOM  = matF(0x0e0e0e, .05, .90);   // harness wrap
-  const MTIRE  = matF(0x0a0a0a, .05, .92);   // fat bundle
   const MGLASSLID = new THREE.MeshStandardMaterial({
     color: 0x222a36, metalness: .20, roughness: .12,
     transparent: true, opacity: .48, side: THREE.DoubleSide,
@@ -1053,7 +1052,7 @@ function build(H) {
   };
 
   /* ═══════════════ MODAL ═══════════════ */
-  (function buildFuseBoxModal() {
+  (function () {
     const overlay = document.createElement('div');
     overlay.id = 'fb-overlay';
     const modal = document.createElement('div');
@@ -1382,7 +1381,6 @@ function build(H) {
   /* ═══════════════════════════════════════════════════════════
      UPDATE — physics rewritten from scratch
      ═══════════════════════════════════════════════════════════ */
-  let prevT = 0;
 
   return {
     labels: [

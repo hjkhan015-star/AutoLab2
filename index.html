@@ -1088,6 +1088,7 @@ import { createKeyRouter, installKeys } from './keys.js';
   var iframes = Object.create(null);
   var speedTouched = false;
   var modSpeed = Object.create(null);
+  var menuHidden = Object.create(null);   /* per module: ⋯ menu rows it cannot use (reported in its ready message) */
 
   function savePrefs() {
     try {
@@ -1438,99 +1439,6 @@ import { createKeyRouter, installKeys } from './keys.js';
   }
 
   /* ─── Apps grid view (mobile launcher style) ─── */
-  function renderAppsGrid() {
-    var all = allSystems(), hasOther = all.some(function (s) { return s.id === 'other'; });
-    var doms = ['All'].concat(DOMAINS, hasOther ? ['Other'] : []);
-
-    var tabs = el('div', 'dom-tabs');
-    doms.forEach(function (d) {
-      var b = el('button', 'dom-tab' + (state.dom === d ? ' on' : ''), d);
-      b.onclick = function () { state.dom = d; renderHome('home'); };
-      tabs.appendChild(b);
-    });
-    homeMain.appendChild(tabs);
-
-    var wrap = el('div', 'apps-wrap');
-
-    all.forEach(function (s) {
-      if (state.dom !== 'All' && state.dom !== s.domain) return;
-      wrap.appendChild(buildAppSystemCard(s));
-    });
-
-    if (!wrap.children.length) {
-      homeMain.appendChild(buildEmptyState('Nothing here', 'No systems in this group yet.'));
-      return;
-    }
-    homeMain.appendChild(wrap);
-  }
-
-  function buildAppSystemCard(s) {
-    var card = el('section', 'app-system');
-    card.style.setProperty('--c', s.color);
-    card.setAttribute('aria-label', s.title + ' — ' + (s.modules.length + s.soon.length) + ' modules');
-
-    /* head */
-    var head = el('div', 'app-system-head');
-    var ic = el('div', 'app-system-ic');
-    ic.appendChild(svgWrap(s.icon));
-    head.appendChild(ic);
-
-    var meta = el('div', 'app-system-meta');
-    meta.appendChild(el('div', 'app-system-title', s.title));
-    var subBits = [s.domain];
-    if (s.blurb) subBits.push(s.blurb.split('.')[0]);
-    meta.appendChild(el('div', 'app-system-sub', subBits.join(' · ')));
-    head.appendChild(meta);
-
-    var total = s.modules.length + (s.soon ? s.soon.length : 0);
-    var count = el('span', 'app-system-count', total + (total === 1 ? ' APP' : ' APPS'));
-    head.appendChild(count);
-    card.appendChild(head);
-
-    /* tiles */
-    var tiles = el('div', 'app-tiles');
-
-    s.modules.forEach(function (mid) {
-      var m = byId(mid);
-      if (!m) return;
-      var mt = META[m.id] || ['Basic', 10, '3D'];
-      var tile = el('button', 'app-tile');
-      tile.style.setProperty('--c', m.color || s.color);
-      tile.setAttribute('aria-label', m.title + ' — ' + mt[0] + ' · ' + mt[2]);
-      tile.setAttribute('title', m.title);
-
-      var icB = el('div', 'app-tile-ic');
-      icB.appendChild(svgWrap(m.icon || ''));
-      tile.appendChild(icB);
-
-      if (mt[2]) {
-        var badgeText = mt[2] === '3D' ? '3D' : mt[2] === '2D' ? '2D' : 'MIX';
-        var badge = el('span', 'app-tile-mode', badgeText);
-        icB.appendChild(badge);
-      }
-
-      var lbl = el('div', 'app-tile-lbl', m.label || m.title);
-      tile.appendChild(lbl);
-
-      tile.onclick = function () { openModule(m.id); };
-      tiles.appendChild(tile);
-    });
-
-    (s.soon || []).forEach(function (label) {
-      var tile = el('div', 'app-tile soon');
-      tile.style.setProperty('--c', s.color);
-      tile.setAttribute('aria-disabled', 'true');
-      tile.setAttribute('title', label + ' — coming soon');
-      var icB = el('div', 'app-tile-ic');
-      icB.appendChild(svgWrap('<circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16v.01"/>'));
-      tile.appendChild(icB);
-      tile.appendChild(el('div', 'app-tile-lbl', label));
-      tiles.appendChild(tile);
-    });
-
-    card.appendChild(tiles);
-    return card;
-  }
 
   function buildRecentItem(mod) {
     var el = document.createElement('button');
@@ -1689,6 +1597,7 @@ import { createKeyRouter, installKeys } from './keys.js';
     var mod = modules.find(function (m) { return m.id === id; });
     if (!mod) return;
     state.active = id;
+    if (menu) menu.setHidden(menuHidden[id] || []);
     pushRecent(id);
     for (var k in iframes) {
       if (k !== id) postTo(k, { type: 'command', action: 'setPlaying', value: false });
@@ -1777,6 +1686,8 @@ import { createKeyRouter, installKeys } from './keys.js';
     var d = e.data;
     if (!d || d.source !== 'auto-module') return;
     if (d.type === 'ready') {
+      menuHidden[d.moduleId] = Array.isArray(d.menuHide) ? d.menuHide : [];
+      if (d.moduleId === state.active) menu.setHidden(menuHidden[d.moduleId]);
       sendAllCommands(d.moduleId);
     } else if (d.type === 'key') {
       /* a shell-owned key pressed while focus is inside the module iframe */
@@ -1800,8 +1711,8 @@ import { createKeyRouter, installKeys } from './keys.js';
       }
       if (!state.active) return;
       if (a === 'theme') setTheme(state.theme === 'light' ? 'dark' : 'light');
-      else if (a === 'wireframe') setWireframe(!state.wireframe);
-      else if (a === 'xray') setXRay(!state.xray);
+      else if (a === 'wireframe') { if (!menu.isHidden('wireframe')) setWireframe(!state.wireframe); }
+      else if (a === 'xray') { if (!menu.isHidden('xray')) setXRay(!state.xray); }
     },
     forward: function (a) {
       if (state.active) postTo(state.active, { type: 'command', action: 'key', value: a });

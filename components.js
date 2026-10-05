@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   components.js — Auto Lab shared components (v8.9)
+   components.js — Auto Lab shared components (v8.9.1)
 
    ONE place for the parts every module used to copy-paste, so all modules
    look and behave the same.
@@ -259,7 +259,6 @@ bridge.setStatus(CFG.title + ' ready', CFG.accent);
 
 /* ── Animation ───────────────────────────────────────────────────── */
 let last = performance.now(), raf = 0, roClock = 1;
-const tmp = new THREE.Vector3();
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 function frame(now) {
   raf = requestAnimationFrame(frame);

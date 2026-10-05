@@ -501,7 +501,6 @@ radiator.rotation.y = 0.06;
 radSys.add(radiator);
 
 const CORE_H = 2.62;
-const CORE_D = 0.40;
 
 const FIN_N = isLowEnd ? 46 : 76;
 const finGeoInstance = new THREE.BoxGeometry(0.011, CORE_H, 0.32);
@@ -603,7 +602,7 @@ function makeFanBlade() {
   return m;
 }
 
-const radFan = (function createRealisticFan() {
+const radFan = (function () {
   const group = new THREE.Group();
   const spinner = new THREE.Group();
   group.add(spinner);

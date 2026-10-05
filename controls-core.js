@@ -314,8 +314,6 @@ export function createPedalModel({ k = DEFAULT_PEDAL_K, ramp = PEDAL_RAMP, value
    Options are written  ['A','B']  or  [{id,label,tone}]  and normalised to {id,label,tone,index}. */
 export const isChoice = (spec) => !!spec && (spec.type === 'choice' || spec.kind === 'choice');
 export const isToggle = (spec) => !!spec && (spec.type === 'toggle' || spec.kind === 'toggle');
-export const isAction = (spec) => !!spec && (spec.type === 'action' || spec.kind === 'action');
-export const CHOICE_LAYOUTS = Object.freeze(['segmented', 'select', 'gate']);
 export const TONES = Object.freeze(['normal', 'crit']);
 
 /** ['A','B'] | [{id,label,tone}] -> [{id,label,tone,index}]. Throws on empty / duplicate ids. */
