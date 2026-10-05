@@ -926,4 +926,6 @@ export function createAction(rawSpec, opts = {}) {
 }
 
 /** Format helper re-exported for modules that build their own text. */
+/* Phase 8: self-check answer button markup (components.js Widgets.quiz is the only caller) — controls.js owns every <button> string */
+export const quizOptionHTML = (text) => `<button type="button" class="al-opt">${text}</button>`;
 export { fmt as formatValue, clamp };

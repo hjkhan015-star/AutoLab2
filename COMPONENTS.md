@@ -1,119 +1,114 @@
-# Auto Lab — Shared Components (v5.0)
+# Auto Lab v8.9 — Components and Control Reference
 
-## Files
-| File | Purpose |
+The building blocks. How to put them together: `GUIDE.md`.
+
+## 1. Files and what they export
+
+| File | Public API |
 |---|---|
-| `components.js` | Shared 3D helpers (`createGeoKit`), panel widgets (`Widgets`) and the guided-module runtime (`runGuidedModule`) |
-| `components.css` | Styles for readout grid, overview sections, faults, quiz, legend (`.al-*`); sliders, pedals, hold buttons and dials are styled in `controls.css` (`.ctl-axis`, `.ctl-pedal`, `.ctl-momentary`, `.ctl-dial`) |
-| `kit.js` / `labels.js` / `app.css` | Unchanged base engine, labels, theme |
+| `kit.js` | `buildScene`, `attachResize`, `createUIState`, `UI.create(cfg)`, `createBridge`, `monitorRows`, `createMaterials`, geometry helpers (`halfCylShell`, `makeHelixSpring`, `tubeBetween`, `makeFlange`, `makeCog`, …), `createParticleTexture`, `createLabelSystem`, `getLabelDensity`, `setLabelDensity`, `THREE`, `OrbitControls`, `controls`, `DEG`, `TAU`. |
+| `chrome.js` | `createHeader`, `createMenu({ hide })`, `chromeButton(doc, { cls, id, label, html, type, attrs })`, `nextDensity`, `isPhone`, `clampSpeed`. |
+| `controls.js` | `controls` (registry API), `createAxis`, `createMomentary`, `createDial`, `createChoice`, `createToggle`, `createAction`, `quizOptionHTML`. |
+| `dock.js` | `createDock`, `DOCK` constants, pure layout helpers. |
+| `monitor.js` | `createMonitor`. |
+| `components.js` | `Parts`, `createGeoKit`, `Widgets` (`overview`, `faults`, `quiz`, `legend`, `wireQuiz`), `guidedCtls`, `runGuidedModule`. |
+| `labels.js` | `createLabelSystem`, `KINDS`, `DENSITY_INFO`, `getLabelDensity`, `setLabelDensity`. |
 
-## Link a module (2 lines + 1)
-```html
-<link rel="stylesheet" href="app.css">
-<link rel="stylesheet" href="components.css">
-<script type="module">
-  import { runGuidedModule } from './components.js';
-  const CFG = { /* text, quiz, faults, readouts, legend, ctls[] (sliders) */ };
-  function build(H) { const { box, cyl, mat, pipe, stream, THREE } = H; /* parts */ return { labels: [...], update(c) {...} }; }
-  runGuidedModule(CFG, build);
-</script>
-```
-Keep `:root { --al-accent: #hex; }` (and the light-theme line) in the module `<style>`.
+## 2. `UI.create(cfg)`
 
-`H` provides: `THREE root lowEnd mat glass glow V3 clamp lerp lc put box cyl cylX cylZ sph tor pipe stream Base`.
-If `build()` uses a helper, destructure it from `H` (they are no longer module-level globals).
+| Key | Value |
+|---|---|
+| `moduleId` | string; keys the dock's saved state. |
+| `panel` | `{ kicker, title, tabs: [{ id, label, icon?, color? }], onTab(id), badge: { text, color } }`; the info panel (`ui.panel.body`, `.expand()`, `.collapse()`, `.selectTab(id)`, `.remeasure()`). |
+| `monitor` | `{ config, initial }`; see section 5. |
+| `toolbar` | `{ play, reset, speed: { label, min, max, step, value }, labels }`; play and reset go to the dock's transport. `extras` is retired: use `options`. |
+| `axes` | list of axis / momentary / dial specs; primary zone of the dock. Each may carry `side: 'left' | 'right'` and `onChange(real, raw, norm)`. |
+| `options` | list of choice / toggle / action specs; the dock's options row, or the primary zone with `primary: true`. |
+| `widgets` | `{ bl, br }` compatibility slots, `{ html, caption, onMount }`; mounted in the dock's primary zone. |
 
-## Converted to shared components (18)
-airfilter, awd, catalytic, coilplug, commonrail, dpf, driveshaft, egr, fuelpump, intercooler, lighting, oilfilter, oilpump, radiator, sparkplug, thermostat, tyres, wiring.
-Each dropped from ~17 KB to ~5 KB; the geometry kit, panel UI, quiz, loop and 36 CSS rules now live once.
+Returns `ui` with `ui.controls`, `ui.axis(id)`, `ui.addOptions(list)`, `ui.panel`, `ui.monitor`, `ui.stage`, `ui.toolbar` (`.dock`), and `ui.wireBridge({ viewManager, state, onCommand, menuHide })`. `menuHide` removes ⋯ menu rows a 2D page cannot use (`'density'`, `'wireframe'`, `'xray'`).
 
-## Shared parts (`Parts`, also available as `H.Parts`)
-| Part | Replaces | Used by |
+## 3. Controls (specs)
+
+Every spec needs an `id` (unique per page). `preset` fills defaults; explicit fields win. Values live in the registry as 0..1.
+
+| Type | Spec fields | `value(id)` |
 |---|---|---|
-| `Parts.tubeBetween(a,b,r,mat,segments)` | local `tubeBetween` | exhaustsystem, starting-system |
-| `Parts.coilSpring({radius,length,turns,wire,mat,axis,centered,samplesPerTurn,samples,radial})` | `coilSpring`, `makeSpring`, `makeCoilSpring` | clutch, lubrication, suspension |
-| `Parts.additivePoints(tex,count,size,opacity,{color,renderOrder,parent})` | point-cloud setup in 4 stream builders | mpfi, turbocharger, braking, electrical (and `H.stream` style modules) |
-| `Parts.DEG` / `Parts.TAU` | local `DEG`/`TAU` constants | 11 modules now use `Base.DEG`/`Base.TAU` |
-Geometry is identical to the old copies (checked vertex-by-vertex).
+| `axis` (default) | `look: 'slider' \| 'pedal'`, `label`, `ariaLabel`, `preset`, `min`, `max`, `def`, `step`, `unit`, `decimals`, `scale`, `format(real)`, `hint`, `side`, `color`; pedal only: `spring: 'return'`, `k`, `keys: 'arrows'`, `ticks`, `ramp` | real number (step-snapped) |
+| `momentary` | `label`, `ariaLabel`, `keys: 'arrows'` | 0 / 1 |
+| `dial` | `look: 'wheel' \| 'crank' \| 'knob'`, `range` (360), `wrap`, `def` (degrees), `step`, `spring: 'return'`, `k`, `side`, `color`, `onGrab(active)` | degrees; positive = clockwise |
+| `choice` | `layout: 'segmented' \| 'select' \| 'gate'`, `label`, `options: ['A', 'B'] \| [{ id, label, tone: 'normal' \| 'crit' }]`, `def` (id or index), `wrap`, `neutral` (gate), `primary`, `side`, `onChange(id, index)` | option id |
+| `toggle` | `label`, `def: false`, `onChange(bool)` | boolean |
+| `action` | `label`, `tone: 'normal' \| 'crit'`, `onAction()` | none (`controls.on(id, fn)` fires on click) |
 
-## Panel CSS / quiz (all 23 panel modules)
-obd2, ecu, abs-esc, crankshaft-piston, valvetrain now link `components.css` and use `Widgets.wireQuiz()`. Only real differences stay local (`.al-w` min-width; `.al-pins` in obd2). `.al-sel` moved into components.css.
+Registry (`ui.controls` = `kit.controls`): `has(id)`, `spec(id)`, `get(id)` (0..1), `value(id)`, `raw(id)` (value × `scale`), `set(id, n)`, `on(id, fn)` (returns an unsubscribe), `resetAll()`.
 
-## Deliberately NOT merged (different look/behaviour — needs a visual check)
-- Road wheels: suspension `makeWheel`, steering `makeRoadWheel`, differential `makeWheelAssembly` (different axes, tread, animation hooks). (`makeSimpleWheel` in steering is a steering wheel, not a road wheel.)
-- Gears (differential bevel gears, starting-system teeth, steering gears), pulleys, fans/impellers, shock absorbers, hoses: each is built differently per module.
-- Stream update logic (`updateStream`) differs per module; only the shared point-cloud setup was merged.
-To merge one of these: add it to `Parts`, keep the old function as a thin wrapper, compare in a browser.
+Presets: `rpm`, `load`, `ambient`, `vehicle-speed`, `voltage`, `percent` (values in `GUIDE.md` §7).
 
-## Sliders: `axis` (Phase 3)
-One slider primitive for the whole project: `controls.js` builds it, `controls.css` styles it (`.ctl-axis`), `controls-core.js` holds the maths.
-- **Guided modules:** list sliders in `CFG.ctls[]`. `ctls[0]` has id `ctl` (main 0-100 % control, read by `update({k})`; `apply({ctl:'…'})` sets its text). Each extra entry is an axis spec plus `onChange(real, raw, norm)`.
-  `{ id:'rpm', preset:'rpm', max:5500, def:2400, label:'Engine speed', onChange:(v)=>{ S.rpm = v; } }`.
-  `CFG.ctl { label, val, caption }` still works (shim -> `ctls[0]`).
-- **`UI.create` modules:** `axes: [spec, …]` (hosted in the dock's primary zone). Read values with `ui.controls.get(id)` (0..1), `.value(id)` (real units), `.raw(id)` (value x `scale`, e.g. centivolts). Never read a slider's DOM value. Reset: `ui.controls.resetAll()`.
-- **Presets:** `rpm` 800-5000 (def 1800) - `load` 0-100 % - `ambient` -10..45 °C (def 20) - `vehicle-speed` 0-160 km/h - `voltage` 8-15 V (def 13.5, `scale` 100) - `percent`. Override any field in the spec.
-- **Sim speed is not a quantity.** `state.speedMul` is sim speed (⋯ menu) only; engine rpm / load / vehicle speed are their own axes.
+## 4. Guided CFG (`runGuidedModule`)
 
+| Field | Meaning |
+|---|---|
+| `moduleId`, `title`, `kicker`, `accent`, `badge` | identity and the info-panel header |
+| `camPos`, `target`, `floorY` | camera and floor |
+| `ctl: { label, val, caption }` | the main 0–100 % axis (id `ctl`, read as `k`); `ctl: null` for none |
+| `ctls` | explicit axis specs (replaces `ctl`) |
+| `options` | choice / toggle / action specs |
+| `chipLabel` | name of the Monitor's big value |
+| `rows`, `ro` | Monitor rows `[id, label]`; a row named like `chipLabel` is dropped |
+| `traces` | Monitor traces (section 5) |
+| `legend` | `[[colour, text]]`; shown as the Monitor footer. Colours are tokens (`'var(--c-cyan)'`) |
+| `overview`, `faults`, `quiz` | panel content; `quiz` is `[question, [answers], correctIndex, explanation]` |
+| `onReset()` | called on Reset, before `controls.resetAll()` |
 
-## Pedals and momentary buttons (Phase 4)
-One pedal primitive (`axis` with `look:'pedal'`) and one hold-button primitive (`momentary`), both built by `controls.js` and styled in `controls.css` (`.ctl-pedal`, `.ctl-momentary`). Used by `braking` (`brake`), `automatic`, `carburetor`, `turbocharger` (`throttle`), `abs-esc` (`brake`) and `clutch` (`clutch`, momentary).
-- **Spec:** `axes:[{ id:'throttle', look:'pedal', label:'Throttle', preset:'percent', spring:'return', k:9.05, keys:'arrows', ticks:3, side:'right', color:'var(--crit)' }]`. `look:'pedal'` = pedal pad; `spring:'return'` = springs back to the default on release; `k` = spring rate in s⁻¹; `keys:'arrows'` = Shift-hold also works while the page body has focus; `ticks:n` = tick marks; `ramp` = Shift-hold speed (default 4 per second); `ariaLabel` overrides the label for screen readers.
-- **Spring rate `k`:** time-based, so a release takes the same time at 30, 60 or 144 Hz. Convert an old per-frame factor with `decayFactorToK(factor)` = −ln(factor)·60 (0.86 → 9.05, 0.88 → 7.67). `prefers-reduced-motion` releases instantly.
-- **Look:** desktop vertical 54×158 px; phone (`max-width:720px` or `max-height:540px`) a horizontal bar 52 px high. One shared animation loop in `controls.js`; it only runs while a pedal is moving.
-- **Keys:** ↑/↓ step 8 % and stay; Shift (hold) = quick press, release springs back; **Space does nothing on a pedal** (it stays play/pause). Auto-repeat is ignored.
-- **ARIA:** `role="slider"`, `aria-valuemin/max/now`, `aria-valuetext` with unit ("62%"), `aria-label`, `:focus-visible` ring.
-- **Reading it:** `ui.controls.get('throttle')` (0..1), `.value('throttle')` (0–100). `ui.controls.set('throttle', n)` sets it and leaves it there (no spring). `ui.controls.resetAll()` releases it; call it from the module's Reset.
-- **Momentary:** `axes:[{ id:'clutch', type:'momentary', label:'Clutch', keys:'arrows' }]`. `ui.controls.get('clutch')` is 0 or 1; `ui.controls.on('clutch', fn)` fires on both edges. Press with the pointer (captured), Shift, or Enter / Space on the focused element. The module keeps its own easing (the clutch's engage / disengage).
-- **Do not** hand-build a pedal, keep a `throttle` / `pedalPos` variable, or add per-module key handlers for ↑/↓/Space/Shift.
+`build(H)` returns `{ labels: [[text, [x, y, z]]], update(c), showLabel?(i) }`. `update` receives `{ t, dt, k, sp }` and returns `{ big, unit, bar, rows, ro, status: [text, on, tone?], ctl, traces }`.
 
-## Dials: wheel, crank, knob (Phase 5)
-One rotary primitive (`type:'dial'`), built by `controls.js` (`createDial`, `controls.dial(spec)`) and styled in `controls.css` (`.ctl-dial`). Used by `engine` (`crank`), `steering` (`wheel`), `differential` (`wheel`) and `awd` (`steer`).
-- **Spec:** `axes:[{ id:'wheel', type:'dial', look:'wheel', label:'Steering', range:360, def:0, step:1, spring:'return', k:4.68, side:'right', onGrab:(on)=>{…} }]`. `look` = `'wheel' | 'crank' | 'knob'` (one inline SVG each); `range` = total sweep in degrees; `wrap:true` (default for `crank`) = wraps at `range` instead of clamping; `def` = default angle in degrees; `step` = degree step used by `value()`; `spring:'return'` + `k` (s⁻¹) = released dial returns to its default on the shared loop; `onGrab(active)` fires when the user starts / stops holding it (pointer or key). Guided modules put the same spec in `CFG.ctls[]`.
-- **Registry:** a clamped wheel / knob stores −1..1 (± range/2); a wrapping crank stores 0..1 (0..range). Positive = clockwise = a right turn. `controls.get(id)` = that value (continuous); **`controls.value(id)` = degrees**, clockwise positive, snapped to `step`; `controls.set(id, n)` / `setValue(id, deg)` move it exactly (no spring, cancels a running spring). `controls.dragging(id)` is true while the user holds it.
-- **Pointer:** drag anywhere on the dial (pointer capture); the angle comes from the pointer (0° = up, clockwise +), unwrapped across ±180°. **Keys:** ←/→ turn 10°, **→ is clockwise in every module**; `Enter` and `Home` = back to the default (the one reset path); Space stays play/pause. `role="slider"`, `aria-valuemin/max/now` in degrees, `aria-valuetext` ("12° right", "centre", crank "123°"), focus ring, `prefers-reduced-motion` = no spring animation.
-- **Look:** 132 px on desktop, **96 px on phones**, never below 44 px; the angle is small text next to the name (shown once; no caption). Tokens only (no hex / rgba).
-- **Simulation owns its own sign:** `steering` keeps `steerAngle > 0 = left` and reads `steerAngle = −dial · π`; `differential` keeps `steerAngle > 0 = clockwise`. Auto Drive turns the dial with `controls.set` (never springs). `engine` keeps its own `theta` and mirrors it into the dial every frame; user turns come back through `ui.controls.on('crank')`.
-- **awd mapping:** `S.steering = |dial|` (0..1) — centre = 0 %, 90° either way = 50 %, full lock either way = 100 %; no spring.
-- **Do not** hand-build a wheel / crank, keep a `steerAngle` drag state, or add ←/→/Enter handlers for it in a module.
+## 5. Monitor
 
-## Options: choice, toggle, action (Phase 6)
-`controls.js` exports `createChoice`, `createToggle`, `createAction` (also `controls.choice / toggle / action`). A choice registers its selected index, a toggle 0 / 1; `controls.value(id)` returns the option id or a boolean, an action has no value.
-- `choice` layouts: `segmented` (radiogroup, ←/→), `select` (native, tokens), `gate` (SVG stick: ↑/↓, `N` / `Esc` / `Home` = neutral; options may carry `x,y`, spec may carry `rail:[[x1,y1,x2,y2],…]`).
-- `toggle`: `role="switch"`; `action`: `onAction()`, `inst.trigger()`.
-- Host: `UI.create({options:[…]})`, `ui.addOptions([…])`, `CFG.options` (guided); `primary:true` + `side` for the primary zone. `controls.setDisabled / setHidden(id, bool)`.
-- Pure helpers in `controls-core.js`: `normalizeOptions`, `choiceIndex`, `stepChoice`, `gateKeyToIntent`, `toggleFlip`, …
+`ui.monitor.set(config)` rebuilds; `ui.monitor.update(patch)` writes; `flush()`, `open(on)`, `isOpen`.
 
-## Monitor (Phase 7a) — `ui.monitor`
-One readout surface per module. Modules never import `monitor.js`; they use the kit API.
-```js
-ui.monitor.set({ label, value:{label,unit,max,bar}, rows:[[id,label]], traces:[{id,label,series:[{id,color}],min,max}],
-                 gauge:{id,label,min,max,unit}, status:true, footer:'<html>' });
-ui.monitor.update({ value:{text,unit,bar,barColor,color,tone} | text, rows:{ id: 'text' | ['text','ok|warn|crit|hi'] },
-                    traces:{ id:[v, …] }, gauge: v | [v,'text'], status:['text', on] });
-```
-Text writes are limited to ≈ 9 Hz (the latest value always lands); trace samples are buffered at once and drawn ≈ 30 Hz. Unknown row ids are ignored. `ui.chip.*` still works (thin wrappers) until Phase 7b removes it.
-In `runGuidedModule`, keep returning `{ big, unit, bar, rows, ro, status, ctl }` from `mod.update()`; `ro` rows are Monitor rows.
+**config:**
 
-**Guided modules (7a-2):** declare `CFG.traces = [{ id:'hist', label, min:0, max:100, length:150, series:[{ id, label, color:'var(--accent)' }, …] }]` and return `traces: { hist: [a, b] }` (one sample, only when due; `null` clears on Reset) plus `status: [text, on, 'warn'|'crit'|'']` from `mod.update()`. A warning sentence is the status (`status: [warn || state, true, warn ? 'warn' : '']`). Keep one history: the Monitor's. Series colours are tokens (`var(--accent)`, `var(--warn)`, …), never hex.
-**Speed rows:** a module prints engine / vehicle speed as a Monitor row (`ui.monitor.update({ rows: { rpm: text } })`), never through `ui.toolbar.setRpmLabel`.
+| Field | Meaning |
+|---|---|
+| `label` | card title |
+| `value` | `{ label, unit, max, bar: true }` the big number and its bar |
+| `rows` | `[[id, label]]` |
+| `traces` | `[{ id, label, min, max, length, series: [{ id, label, color }] }]`; `color` is a token such as `'var(--c-orange)'` |
+| `gauge` | optional gauge config |
+| `footer` | HTML; the legend (`.mon-legend`, swatches `<i style="background:var(--c-…)">`) |
+| `status` | `{ text }` |
 
+**update patch:** `label`, `value: { text, unit, bar, barColor, color }`, `rows: { id: text \| [text, tone] }`, `rowLabels: { id: text }`, `traces: { id: [v, …] \| null }` (one sample per series; `null` clears), `gauge`, `footer`, `status: [text, on, tone?]`. Tones: `ok`, `warn`, `crit`.
 
-### Monitor, final API (Phase 7 complete)
-- The Monitor is the ONE readout surface: big value + bar, status lamp, rows, traces, one gauge, footer. The info panel is text (overview, faults, quiz); it never holds a number, a bar, a badge or a canvas. Nothing may append DOM into `ui.monitor.root`.
-- `monitor: { config: { label, value:{label,unit,max,bar}, rows:[[id,name]…], traces:[…], gauge:{id,label,min,max,unit}, footer:'<html>', status:{text} }, initial: {…} }`; `ui.monitor.update({ value, rows:{id:text|[text,tone]}, rowLabels:{id:name}, traces:{id:[v…]|null}, gauge:[pct,text], status:[text,on,tone?] })` (one call per frame; adjacent calls are a test failure); `ui.monitor.set(config)` swaps the whole set (mode-specific rows).
-- Mode-dependent rows: either one config per mode (`const monConfig = (mode) => ({…})`, `ui.monitor.set(monConfig(mode))` then `updateLivePanel(); ui.monitor.flush()`), or fixed row ids renamed with `rowLabels`.
-- Legends: put the HTML in the config `footer` using `<div class="mon-legend"><span><i style="background:#…"></i>Name</span>…</div>`. Never a dock widget. Guided modules: `CFG.legend` is turned into the footer by components.js.
-- Old-style update code (`ro.x.textContent = …; ro.x.className = 'v warn'`): `const ro = monitorRows(ui, ['x', 'y'], ['droppedRepeat'])` (exported by kit.js) writes Monitor rows with the tone.
-- Row styling hook for module CSS: `[data-row="<id>"]`; never new selectors on Monitor internals.
+Choose a surface: **row** for a plain number, **trace** for a time series, **stage canvas** for a picture that is not a time series, **gauge** for a single bounded meter. Never write `ui.monitor.root`.
 
-### Monitor, Phase 7b2 additions
-- A canvas that shows a **time series** becomes a Monitor trace: `monitor: { config: { traces:[{ id, label, min, max, length, series:[{ id, label, color:'var(--accent)' }] }] } }`, then `ui.monitor.update({ traces:{ id:[v…] } })` from the existing update path (one sample per call; no second history buffer) and `traces:{ id:null }` on Reset. Keep real units and the old fixed `min` / `max`; put the unit in the trace `label`. Trace, row and gauge ids share one namespace (a trace may not reuse a row id).
-- A number is a **row**; a bounded single quantity may be a **gauge**. `ui.monitor.update({ rowLabels:{ id:'New name' } })` renames a row when the module's mode changes (cooling: Surface area ↔ Thermostat status).
-- A **picture that is not a time series** (a spectrum, an advance curve, a torque map, a curve over a 720° cycle) stays a canvas, on the stage: `const cv = ui.stage.canvas({ id, label, width, height, corner:'bl'|'br', size })` (logical size `width × height`, CSS width `size` px, never wider than 60 vw), `ui.stage.caption(id, text)` for a caption that changes with the mode. Draw into `cv` as before. The layer sits over the 3D stage above the dock, ignores pointer events and must not hold a control. Never put a canvas in the dock, the info panel or the Monitor.
-- A mode-specific channel: call `ui.monitor.set(otherConfig)` on the mode change, then `ui.monitor.update` the current values (electrical's alternator waveform). `set()` clears every trace.
+## 6. Stage canvases
 
-### Monitor, Phase 7b1 additions
-- `ui.chip.*`, the `chip:` config and `ui.toolbar.setRpmLabel` no longer exist. Use `UI.create({ monitor: { config, initial } })` and `ui.monitor.update({ ... })`.
-- `ui.monitor.update({ label })` changes the head label at runtime (the one label channel). `status` is `[text, on, tone?]`, tone `'' | 'warn' | 'crit'`.
-- Every row has `data-row="<id>"`: a module may style one row from its own CSS (`#ui-monitor [data-row="phase"] .mon-row-v`). Do not query or append into the Monitor's DOM; if a module needs a graph, it is a trace.
-- Merge the writes of one function into ONE `ui.monitor.update({ label, value, rows, status })`; call `ui.monitor.flush()` only when a user action must show at once.
+`ui.stage.canvas({ id, label, width, height, corner: 'bl' | 'br', size })` returns the `<canvas>`; `ui.stage.caption(id, text)`; `ui.stage.remove(id)`; `ui.stage.root`.
+
+## 7. Dock
+
+Built by `UI.create`. States: `slim` (56 px), `default` (24 vh), `options` (44 px row added); ceiling 30 vh. Primary zone: 1–3 controls in thumb zones, 4 or more as pages with dots. Landscape phones: two 140 px side rails. Desktop: one bar. Extra API on `ui.toolbar.dock`: `addOption(node)`, `addPrimary({ id, side, node })`, `refresh()`.
+
+## 8. Colour tokens
+
+| Use | Tokens |
+|---|---|
+| Surfaces | `--bg`, `--bg-elev`, `--surface`, `--surface-2`, `--surface-3` |
+| Text | `--text`, `--text-dim`, `--text-mute` |
+| Borders | `--border`, `--border-hi` |
+| State | `--ok`, `--warn`, `--crit`, `--accent`, `--info` |
+| Categorical (legends, trace series) | `--c-red`, `--c-orange`, `--c-amber`, `--c-yellow`, `--c-lime`, `--c-green`, `--c-cyan`, `--c-sky`, `--c-blue`, `--c-violet`, `--c-pink`, `--c-slate` |
+| Fixed neutrals | `--ink` (shadows, dark fills, text on an accent), `--paper` (highlights, text on a filled colour) |
+| Per module | `--al-accent` (declared as a hex in the page; the only hex allowed) |
+
+Alpha: `color-mix(in oklch, var(--c-red) 20%, transparent)`.
+
+## 9. Side-panel widgets (`components.js` → `Widgets`)
+
+`overview(cfg)`, `faults(cfg)`, `quiz(cfg)` (builds the self-check; answer buttons come from `controls.js` `quizOptionHTML`), `legend(cfg)` (the Monitor footer HTML), `wireQuiz(host)` (one click handler for every `.al-q` in `host`). Hand-written quiz markup is not allowed in a page; pass `{ quiz: [...] }` to `Widgets.quiz`.
+
+## 10. 3D helpers (`createGeoKit(ctx)`)
+
+`mat`, `glass`, `glow`, `box`, `cyl`, `cylX`, `cylZ`, `sph`, `tor`, `pipe`, `stream`, `V3`, `clamp`, `lerp`, `lc`, `put`; plus `Parts`: `tubeBetween`, `coilSpring`, `additivePoints`, `DEG`, `TAU`. 3D material colours stay in JS; everything in CSS is a token.

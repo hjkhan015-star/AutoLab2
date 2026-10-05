@@ -119,6 +119,16 @@ const _v = {
   },
 };
 
+/* Phase 8: the one place the label density (and the live label system) is kept. Replaces the old window globals;
+   kit.js and any module that draws its own labels (cooling) read it through these functions. */
+const shared = { density: 2, system: null };
+export const getLabelDensity = () => shared.density;
+export function setLabelDensity(level) {
+  const n = [0, 1, 2].includes(level) ? level : 2;
+  if (shared.system) shared.system.setDensity(n); else shared.density = n;
+  return shared.density;
+}
+
 export function createLabelSystem(options = {}) {
   const root = document.getElementById('labels-root') || document.body;
   const MARGIN  = options.margin  ?? 10;
@@ -141,13 +151,13 @@ export function createLabelSystem(options = {}) {
   let order = 0;
   /* a level already chosen before the label system existed (kit.js: Key on phones) is kept */
   let density = [0, 1, 2].includes(options.density) ? options.density
-              : [0, 1, 2].includes(window.__autolabDensity) ? window.__autolabDensity : DENSITY.ALL;
+              : [0, 1, 2].includes(shared.density) ? shared.density : DENSITY.ALL;
   let dirtyRank = true;
   let raf = 0, lastNow = 0;
   let lastSig = '', lastSolve = -Infinity;
   const listeners = new Set();
 
-  window.__autolabDensity = density;
+  shared.density = density;
 
   /* — DOM builders — */
   function makeEl(text) {
@@ -328,7 +338,7 @@ export function createLabelSystem(options = {}) {
     setDensity(level) {
       level = Math.max(0, Math.min(2, level | 0));
       if (level === density) return;
-      density = level; window.__autolabDensity = level;
+      density = level; shared.density = level;
       listeners.forEach(fn => { try { fn(level); } catch (_) {} });
       ensureLoop();
     },
@@ -367,9 +377,7 @@ export function createLabelSystem(options = {}) {
       for (const id of [...L.keys()]) api.remove(id);
       listeners.clear();
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
-      if (window.__autolabLabels === api) {
-        try { delete window.__autolabLabels; } catch (_) { window.__autolabLabels = null; }
-      }
+      if (shared.system === api) shared.system = null;
     },
     get labels() { return L; },
     kinds: KINDS,
@@ -493,6 +501,6 @@ export function createLabelSystem(options = {}) {
      </div>
      <div class="lab-legend"><b>Colour</b>${Object.values(KINDS).map(k => `<span style="--lc:${k.color}"><i></i>${k.name}</span>`).join('')}</div>`;
 
-  window.__autolabLabels = api;
+  shared.system = api;
   return api;
 }

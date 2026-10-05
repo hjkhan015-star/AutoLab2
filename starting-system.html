@@ -1235,20 +1235,20 @@ import { Parts } from './components.js';
     const amps = Math.round(sys.currentDraw) + ' A';
     if (mode === 'circuit') {
       ui.monitor.update({
-        value: { text: String(Math.round(sys.currentDraw)), unit: 'A', color: '#ef4444', bar: Math.min(100, (sys.currentDraw / 300) * 100), barColor: '#ef4444' },
+        value: { text: String(Math.round(sys.currentDraw)), unit: 'A', color: 'var(--c-red)', bar: Math.min(100, (sys.currentDraw / 300) * 100), barColor: 'var(--c-red)' },
         rows: { bat: sys.batteryVolts.toFixed(1) + ' V', starter: Math.round(sys.starterRpm) + ' rpm' },
         status: [KEY_NAMES[sys.key], sys.key >= 2]
       });
     } else if (mode === 'starter') {
       ui.monitor.update({
-        value: { text: String(Math.round(sys.starterRpm)), unit: 'rpm', color: '#22c55e', bar: Math.min(100, (sys.starterRpm / TUNING.starterFreeRpm) * 100), barColor: '#22c55e' },
+        value: { text: String(Math.round(sys.starterRpm)), unit: 'rpm', color: 'var(--c-green)', bar: Math.min(100, (sys.starterRpm / TUNING.starterFreeRpm) * 100), barColor: 'var(--c-green)' },
         rows: { key: KEY_NAMES[sys.key], bat: sys.batteryVolts.toFixed(1) + ' V', amps, sol: (sys.pinionExtend * 100).toFixed(0) + ' %' },
         status: [sys.pinionExtend > 0.85 ? 'Meshed' : 'Clear', sys.pinionExtend > 0.85]
       });
     } else if (mode === 'mesh') {
       const ringRpm = sys.starterRpm / TUNING.gearRatio;
       ui.monitor.update({
-        value: { text: String(Math.round(ringRpm)), unit: 'rpm', color: '#f59e0b', bar: Math.min(100, (ringRpm / 500) * 100), barColor: '#f59e0b' },
+        value: { text: String(Math.round(ringRpm)), unit: 'rpm', color: 'var(--c-orange)', bar: Math.min(100, (ringRpm / 500) * 100), barColor: 'var(--c-orange)' },
         rows: { key: KEY_NAMES[sys.key], bat: sys.batteryVolts.toFixed(1) + ' V', amps, ratio: `${TUNING.ringTeeth}:${TUNING.pinionTeeth} → 12:1`, pin: Math.round(sys.starterRpm) + ' rpm' },
         status: [sys.pinionExtend > 0.85 ? 'Engaged' : 'Clear', sys.pinionExtend > 0.85]
       });

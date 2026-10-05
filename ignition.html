@@ -8,77 +8,6 @@
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  /* ═══════════════════════════════════════════════════════════
-     PANEL READOUT INTERIOR — firing order, 720° cycle bar, wire legend
-     ═══════════════════════════════════════════════════════════ */
-  #ign-readout { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-  #ign-readout .ig-rows {
-    display: flex; flex-direction: column; gap: 5px;
-    font-size: 11.5px; color: var(--text-dim, #94a3b8);
-  }
-  #ign-readout .ig-row {
-    display: flex; justify-content: space-between; gap: 10px;
-    font-family: var(--font-mono);
-  }
-  #ign-readout .ig-row > span:first-child {
-    font-family: var(--font-sans);
-    font-weight: 500;
-  }
-  #ign-readout .ig-row b {
-    color: var(--text, #e5e7eb); font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-  html.light-theme #ign-readout .ig-row b { color: #0a0d13; }
-
-  #cycle-bar {
-    position: relative; height: 12px;
-    margin-top: 8px;
-    background: rgba(0,0,0,.32);
-    border: 1px solid var(--border, rgba(255,255,255,.10));
-    border-radius: 8px; overflow: visible;
-  }
-  #cycle-progress {
-    position: absolute; left: 0; top: 0; bottom: 0;
-    background: linear-gradient(90deg, #38bdf8, #f59e0b);
-    border-radius: 8px; width: 0%;
-    transition: width .06s linear;
-    box-shadow: 0 0 12px rgba(245,158,11,.55);
-  }
-  .cyc-marker {
-    position: absolute; top: -6px; bottom: -6px;
-    width: 2px; background: #f59e0b;
-    box-shadow: 0 0 8px rgba(245,158,11,.85);
-    pointer-events: none; transition: box-shadow .08s, background .08s;
-  }
-  .cyc-marker > span {
-    position: absolute; top: -15px; left: 50%;
-    transform: translateX(-50%);
-    font-size: 10px; font-weight: 800;
-    color: #cbd5e1;
-    font-family: var(--font-mono);
-    transition: color .08s;
-  }
-  .cyc-marker.firing { background: #ffd166; box-shadow: 0 0 18px rgba(255,209,102,1); }
-  .cyc-marker.firing > span { color: #ffd166; }
-  #cycle-labels {
-    display: flex; justify-content: space-between;
-    margin-top: 8px;
-    font-size: 10px; color: #64748b;
-    font-family: var(--font-mono);
-    letter-spacing: .05em;
-  }
-  html.light-theme #cycle-labels { color: #94a3b8; }
-
-  .ig-legend {
-    display: flex; flex-wrap: wrap; gap: 6px 12px;
-    margin-top: 10px;
-    font-size: 10px; color: var(--text-dim, #9aa3b2);
-  }
-  .ig-legend span { display: inline-flex; align-items: center; gap: 5px; }
-  .ig-legend i {
-    width: 8px; height: 8px; border-radius: 50%;
-    display: inline-block; flex: 0 0 auto;
-  }
 </style>
 </head>
 <body>
@@ -207,7 +136,7 @@
     crank:       new THREE.MeshStandardMaterial({ color: 0x8a94a5, metalness: 0.92, roughness: 0.24 }),
     wireRed:     new THREE.MeshStandardMaterial({ color: 0xe0303c, metalness: 0.35, roughness: 0.48, emissive: 0xe0303c, emissiveIntensity: 0 }),
     wireBlue:    new THREE.MeshStandardMaterial({ color: 0x3a7fe0, metalness: 0.35, roughness: 0.48, emissive: 0x3a7fe0, emissiveIntensity: 0 }),
-    wireBlack:   new THREE.MeshStandardMaterial({ color: 0x3a4250, metalness: 0.32, roughness: 0.58 }),
+    wireBlack:   new THREE.MeshStandardMaterial({ color: 0x14171d, metalness: 0.32, roughness: 0.62 }),
     wireSignal:  new THREE.MeshStandardMaterial({ color: 0x1ac078, metalness: 0.32, roughness: 0.48, emissive: 0x1ac078, emissiveIntensity: 0 }),
     spark:       new THREE.MeshBasicMaterial({ color: 0xfff5a0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }),
     arc:         new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
@@ -589,8 +518,6 @@
   /* 4 posts — glowing brass with emissive tips */
   const POST_R = 0.16;
   const POST_ANG = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
-  /* Firing order 1-3-4-2: post k feeds plug POST_TO_PLUG[k] (the rotor reaches posts 0,1,3,2 in turn for cylinders 1,2,3,4) */
-  const POST_TO_PLUG = [0, 1, 3, 2];
   const distPosts = [];
   const distPostMeshes = [];
   POST_ANG.forEach((a) => {
@@ -947,29 +874,6 @@
   const wireMeshes = [];
   const wireFlows = [];
 
-  /* Additive glow is invisible on the light theme's near-white background, so the electrical effects (wire halos,
-     current dots, arcs) switch to ordinary blending with a deeper tint there. */
-  const isLightTheme = () => document.documentElement.classList.contains('light-theme');
-  let lightTheme = isLightTheme();
-  const themeGlows = [];
-  const LIGHT_TINT = 0.62;
-  function registerGlow(mat) {
-    const dark = mat.color.clone();
-    const light = dark.clone().multiplyScalar(LIGHT_TINT);
-    themeGlows.push({ mat, dark, light });
-    if (lightTheme) { mat.blending = THREE.NormalBlending; mat.color.copy(light); }
-  }
-  function syncTheme() {
-    const l = isLightTheme();
-    if (l === lightTheme) return;
-    lightTheme = l;
-    themeGlows.forEach(g => {
-      g.mat.blending = l ? THREE.NormalBlending : THREE.AdditiveBlending;
-      g.mat.color.copy(l ? g.light : g.dark);
-      g.mat.needsUpdate = true;
-    });
-  }
-
   function addWire(waypoints, radius, mat, glowColor, cylIndex, flowColor) {
     const { mesh, curve } = makeManhattanWire(waypoints, radius, mat, 0.045);
     system.add(mesh);
@@ -980,14 +884,9 @@
         color: glowColor, transparent: true, opacity: 0,
         blending: THREE.AdditiveBlending, depthWrite: false
       });
-      /* the halo is its own fatter tube on the same path: scaling the wire mesh would scale it about the
-         scene origin and throw a ghost copy of the wire across the screen */
-      const glowGeo = new THREE.TubeGeometry(
-        curve, Math.max(24, curve.points.length * 2), radius * 1.9, isLowEnd ? 6 : 8, false);
-      const glowMesh = new THREE.Mesh(glowGeo, glowMat);
-      glowMesh.renderOrder = 4;
+      const glowMesh = new THREE.Mesh(mesh.geometry, glowMat);
+      glowMesh.scale.setScalar(1.5);
       system.add(glowMesh);
-      registerGlow(glowMat);
     }
 
     /* Flow particles inside the wire */
@@ -1002,7 +901,6 @@
         color: flowColor, transparent: true, opacity: 0,
         blending: THREE.AdditiveBlending, depthWrite: false
       });
-      registerGlow(fMat);
       const fPoints = new THREE.Points(fGeo, fMat);
       fPoints.frustumCulled = false;
       fPoints.renderOrder = 6;
@@ -1058,29 +956,23 @@
     distConnHV.clone()
   ], 0.034, M.wireBlue, 0x4a8fff, null, 0x6ab0ff);
 
-  /* 6. Distributor posts → each plug (POST_TO_PLUG is declared with the posts) */
-  /* Each cable gets its own height AND its own depth lane, so no two cables ever cross or pass through each other:
-     post 0 / 2 move out to the front / back, posts 1 / 3 already sit at ±0.16 and keep that depth. */
-  const POST_LANE_Z = [0.30, 0.16, -0.30, -0.16];
+  /* 6. Distributor posts → each plug */
+  const POST_TO_PLUG = [0, 1, 3, 2];
   distPosts.forEach((post, i) => {
     const plugIdx = POST_TO_PLUG[i];
     const plugX = PLUG_XS[plugIdx];
     const plugTop = plugTopPositions[plugIdx];
     const overY = DIST.y + 0.55 + i * 0.06;
-    const laneZ = POST_LANE_Z[i];
 
-    const path = [
+    addWire([
       post.clone(),
       new THREE.Vector3(post.x, overY, post.z),
-      new THREE.Vector3(post.x, overY, laneZ),
-      new THREE.Vector3(plugX, overY, laneZ),
-      new THREE.Vector3(plugX, plugTop.y + 0.20, laneZ),
+      new THREE.Vector3(plugX, overY, post.z),
+      new THREE.Vector3(plugX, plugTop.y + 0.20, post.z),
       new THREE.Vector3(plugX, plugTop.y + 0.20, 0),
       new THREE.Vector3(plugX, plugTop.y + 0.10, 0),
       plugTop.clone()
-    ].filter((v, k, arr) => k === 0 || v.distanceToSquared(arr[k - 1]) > 1e-8);   /* no zero-length legs */
-
-    addWire(path, 0.022, M.wireBlue, 0x4a8fff, plugIdx, 0x6ab0ff);
+    ], 0.022, M.wireBlue, 0x4a8fff, plugIdx, 0x6ab0ff);
   });
 
   /* 7. Battery − → Ground */
@@ -1112,7 +1004,6 @@
 
   function spawnArc(a, b, color, jitter, thickness, life) {
     const arc = makeLightningArc(a, b, color, jitter, 8, thickness);
-    if (lightTheme) { arc.mat.blending = THREE.NormalBlending; arc.mat.color.multiplyScalar(0.55); }
     system.add(arc.mesh);
     activeArcs.push({ ...arc, life, maxLife: life });
   }
@@ -1261,29 +1152,6 @@
       kicker: 'Electrical',
       title:  'Ignition System & Spark Timing',
       badge:  { text: 'Ignition', color: '#f59e0b' },
-      readout: `
-        <div id="ign-readout">
-          <div class="ig-rows">
-            <div class="ig-row"><span>Firing order</span><b>1–3–4–2</b></div>
-          </div>
-          <div id="cycle-bar">
-            <div id="cycle-progress"></div>
-            <div class="cyc-marker" data-marker="0" style="left:0%"><span>1</span></div>
-            <div class="cyc-marker" data-marker="1" style="left:25%"><span>3</span></div>
-            <div class="cyc-marker" data-marker="2" style="left:50%"><span>4</span></div>
-            <div class="cyc-marker" data-marker="3" style="left:75%"><span>2</span></div>
-          </div>
-          <div id="cycle-labels">
-            <span>0°</span><span>180°</span><span>360°</span><span>540°</span><span>720°</span>
-          </div>
-          <div class="ig-legend">
-            <span><i style="background:#e0303c;box-shadow:0 0 6px #e0303c88"></i>Battery +</span>
-            <span><i style="background:#3a7fe0;box-shadow:0 0 6px #3a7fe088"></i>High voltage</span>
-            <span><i style="background:#1ac078;box-shadow:0 0 6px #1ac07888"></i>ECU signal</span>
-            <span><i style="background:#14171d;box-shadow:0 0 6px #14171d88;border:1px solid #555"></i>Ground</span>
-          </div>
-        </div>
-      `,
       desc: `<strong>Ignition.</strong> The ignition coil is a transformer — 12 V from the battery flows through its
              primary winding, building a magnetic field. When the ECU breaks that circuit, the field collapses and
              induces 20,000–40,000 V in the secondary winding. That high voltage jumps the spark plug gap, igniting
@@ -1296,8 +1164,10 @@
     },
 
     monitor: {
-      config: { label: 'Live firing', value: { label: 'Live firing', unit: '', max: 100, bar: true }, rows: [['adv', 'Advance'], ['dwell', 'Coil dwell'], ['rpm', 'Engine speed']], status: { text: 'Ready' } },
-      initial: { value: { text: 'Idle', unit: '' }, rows: { adv: '10° BTDC', dwell: '3.2 ms', rpm: '800 rpm' }, status: ['Ready', false] }
+      config: { label: 'Live firing', value: { label: 'Live firing', unit: '', max: 100, bar: true }, rows: [['adv', 'Advance'], ['dwell', 'Coil dwell'], ['order', 'Firing order'], ['rpm', 'Engine speed']],
+      footer: '<div class="mon-legend"><span><i style="background:var(--c-red)"></i>Battery +</span><span><i style="background:var(--c-sky)"></i>High voltage</span><span><i style="background:var(--c-green)"></i>ECU signal</span><span><i style="background:var(--surface-3);border:1px solid var(--border-hi)"></i>Ground</span></div>',
+      status: { text: 'Ready' } },
+      initial: { value: { text: 'Idle', unit: '' }, rows: { adv: '10° BTDC', dwell: '3.2 ms', order: '1–3–4–2', rpm: '800 rpm' }, status: ['Ready', false] }
     },
 
     toolbar: {
@@ -1317,7 +1187,6 @@
 
   /* Panel readout refs */
   const panelBody = ui.panel.body;
-  const cycleProgEl = panelBody ? panelBody.querySelector('#cycle-progress') : null;
   /* Spark-advance curve: a picture, not a time series, so it is a stage canvas (bottom-left over the 3D view). */
   const advCanvas = ui.stage.canvas({ id: 'advance', label: 'Spark advance · ° BTDC vs rpm', width: 360, height: 92, corner: 'bl' });
   const advCtx    = advCanvas ? advCanvas.getContext('2d') : null;
@@ -1334,8 +1203,7 @@
   }
   if (advCanvas && window.ResizeObserver) new ResizeObserver(sizeAdvCanvas).observe(advCanvas);
   sizeAdvCanvas();
-  ui.panel.remeasure();                       /* the panel lost its curve canvas (now a stage canvas) and three rows (now Monitor rows) */
-  const markerEls = panelBody ? Array.from(panelBody.querySelectorAll('.cyc-marker')) : [];
+  ui.panel.remeasure();                       /* the panel lost its curve canvas (now a stage canvas) and its rows (now Monitor rows) */
   const strokeDescEl = document.getElementById('stroke-desc');
 
   /* ═══════════════════════════════════════════════════════════
@@ -1420,11 +1288,6 @@
   crankAngle = START_CRANK;
   prevCrankAngle = START_CRANK;
 
-  const markerForCyl = [null, null, null, null];
-  if (markerEls.length === 4) {
-    ORDER.forEach((cyl, k) => { markerForCyl[cyl] = markerEls[k]; });
-  }
-
   /* Flame kernel inside each bore */
   const flameMeshes = PLUG_XS.map(x => {
     const m = new THREE.Mesh(
@@ -1499,12 +1362,21 @@
        c) Plug electrode → ground strap */
     spawnArc(coilConnHV.clone(), distConnHV.clone(), 0x8ac8ff, 0.05, 0.012, 0.14);
 
-    /* The rotor is pointing at this cylinder's post at the instant of firing (the rotor turns at half crank
-       speed, posts sit 90° apart), so the jump goes to the post whose cable leads to this plug. */
-    const postIdx = POST_TO_PLUG.indexOf(i);
-    const postWorld = distPosts[postIdx];
-    const rotorTipWorld = new THREE.Vector3(
-      DIST.x + Math.cos(POST_ANG[postIdx]) * 0.16, DIST.y + 0.27, DIST.z + Math.sin(POST_ANG[postIdx]) * 0.16);
+    /* Which post does the rotor fire next? */
+    const postAng = POST_ANG.map(a => (a + advNow * DEG));
+    const rotorAng = (crankAngle / 2 + advNow / 2) * DEG;
+    /* Simplest: find nearest post to rotor tip */
+    let nearest = 0, bestD = Infinity;
+    for (let k = 0; k < 4; k++) {
+      const a = POST_ANG[k];
+      const rAng = rotorAng;
+      let d = Math.abs(((a - rAng) % TAU + TAU) % TAU);
+      if (d > Math.PI) d = TAU - d;
+      if (d < bestD) { bestD = d; nearest = k; }
+    }
+    const rotorTipWorld = new THREE.Vector3();
+    rotorTip.getWorldPosition(rotorTipWorld);
+    const postWorld = distPosts[nearest];
     spawnArc(rotorTipWorld, postWorld.clone(), 0xffd060, 0.04, 0.009, 0.12);
 
     /* Plug electrode arc */
@@ -1579,7 +1451,6 @@
     wirePulseShared = 0;
     coilFlash = 0; rotorFlash = 0; ecuBlink = 0;
     lastFireCyl = -1; lastFireAt = -1e9; chargeLevel = 0;
-    if (markerEls.length) markerEls.forEach(el => el.classList.remove('firing'));
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -1644,7 +1515,6 @@
     requestAnimationFrame(tick);
     const dt = Math.min(clock.getDelta(), 0.05);
     controls.update();
-    syncTheme();
 
     const simDt = state.playing !== false ? dt : 0;
 
@@ -1749,7 +1619,7 @@
       if (!w.glowMat) continue;
       if (!ignitionOn) { w.glowMat.opacity = 0; continue; }
       const p = w.cylIndex === null ? wirePulseShared : wirePulseCyl[w.cylIndex];
-      w.glowMat.opacity = Math.min(1, (w.cylIndex === null ? 0.06 : 0) + p * 1.0) * (lightTheme ? 0.7 : 1);
+      w.glowMat.opacity = Math.min(1, (w.cylIndex === null ? 0.06 : 0) + p * 1.0);
     }
 
     /* Flow particles inside wires */
@@ -1814,14 +1684,6 @@
 
     updateSparkBurst(simDt);
     updateArcs(simDt);
-
-    /* 720° cycle bar */
-    if (cycleProgEl) cycleProgEl.style.width = (crankAngle / 7.2).toFixed(2) + '%';
-    for (let i = 0; i < 4; i++) {
-      const el = markerForCyl[i];
-      if (!el) continue;
-      el.classList.toggle('firing', markerPulse[i] > 0.3);
-    }
 
     /* HUD at 10 Hz */
     uiAcc += dt;

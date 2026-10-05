@@ -271,32 +271,10 @@ const TABS = {
       <div class="s">Rough running, backfire, single-cylinder misfire.</div>
       <div class="c">Check: valve guide wear, valve stem straightness, spring breakage.</div>
     </div>`,
-  quiz: () => `
-    <div class="al-q" data-a="1">
-      <div class="q">1. What does the cam base circle do?</div>
-      <button class="al-opt">Pushes the valve open</button>
-      <button class="al-opt">Holds the valve closed between events</button>
-      <button class="al-opt">Drives the oil pump</button>
-      <div class="al-exp">The base circle is the round part of the cam — while the follower is on it, the valve is fully closed and resting on its seat.</div>
-    </div>
-    <div class="al-q" data-a="2">
-      <div class="q">2. Valve overlap happens when…</div>
-      <button class="al-opt">Both valves are fully closed</button>
-      <button class="al-opt">The piston is at the bottom of its stroke</button>
-      <button class="al-opt">Intake and exhaust valves are both slightly open around TDC</button>
-      <div class="al-exp">Overlap is the brief window at TDC where exhaust is still closing and intake is already opening — it helps scavenge burnt gases and improves cylinder filling.</div>
-    </div>
-    <div class="al-q" data-a="0">
-      <div class="q">3. Why does the camshaft rotate at half crank speed?</div>
-      <button class="al-opt">Because a four-stroke cycle needs two crank revolutions per cam revolution</button>
-      <button class="al-opt">Because the cam chain has a 2:1 reduction for the oil pump</button>
-      <button class="al-opt">Because valve lift is doubled</button>
-      <div class="al-exp">In a 4-stroke engine the full cycle is 720° of crank. Each valve opens once per cycle, so the cam only needs one revolution — a 2:1 reduction from the crank.</div>
-    </div>`
-};
+  quiz: () => Widgets.quiz({ quiz: [["What does the cam base circle do?", ["Pushes the valve open", "Holds the valve closed between events", "Drives the oil pump"], 1, "The base circle is the round part of the cam — while the follower is on it, the valve is fully closed and resting on its seat."], ["Valve overlap happens when…", ["Both valves are fully closed", "The piston is at the bottom of its stroke", "Intake and exhaust valves are both slightly open around TDC"], 2, "Overlap is the brief window at TDC where exhaust is still closing and intake is already opening — it helps scavenge burnt gases and improves cylinder filling."], ["Why does the camshaft rotate at half crank speed?", ["Because a four-stroke cycle needs two crank revolutions per cam revolution", "Because the cam chain has a 2:1 reduction for the oil pump", "Because valve lift is doubled"], 0, "In a 4-stroke engine the full cycle is 720° of crank. Each valve opens once per cycle, so the cam only needs one revolution — a 2:1 reduction from the crank."]] })};
 
 /* 7b3: the module legend is the Monitor footer */
-const LEGEND = '<div class="mon-legend"><span><i style="background:#38bdf8"></i>Intake valve</span><span><i style="background:#f97316"></i>Exhaust valve</span><span><i style="background:#b8c0cc"></i>Camshaft</span><span><i style="background:#9aa3b2"></i>Valve spring</span></div>';
+const LEGEND = '<div class="mon-legend"><span><i style="background:var(--c-cyan)"></i>Intake valve</span><span><i style="background:var(--c-orange)"></i>Exhaust valve</span><span><i style="background:var(--c-slate)"></i>Camshaft</span><span><i style="background:var(--c-slate)"></i>Valve spring</span></div>';
 
 const ui = Base.UI.create({
   moduleId: CFG.moduleId,

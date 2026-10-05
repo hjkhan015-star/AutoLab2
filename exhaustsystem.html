@@ -11,12 +11,12 @@
   /* ═══════ Catalyst chemistry block (inside info panel) ═══════ */
   #cat-chem {
     margin-top: 12px; padding-top: 10px;
-    border-top: 1px solid var(--border, rgba(255,255,255,.10));
-    font-size: 11px; color: var(--text-dim, #94a3b8);
+    border-top: 1px solid var(--border, color-mix(in oklch, var(--text) 10%, transparent));
+    font-size: 11px; color: var(--text-dim);
   }
   #cat-chem .cc-title {
     font-size: 10px; font-weight: 800; letter-spacing: .1em;
-    text-transform: uppercase; color: var(--text-mute, #64748b);
+    text-transform: uppercase; color: var(--text-mute);
     margin: 12px 0 5px;
   }
   #cat-chem .cc-title:first-child { margin-top: 0; }
@@ -26,13 +26,13 @@
     align-items: center; gap: 8px; margin: 5px 0;
   }
   #cat-chem .cc-eff b {
-    text-align: right; color: var(--text, #e5e7eb);
+    text-align: right; color: var(--text);
     font-family: var(--font-mono);
     font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums;
   }
   #cat-chem .cc-bar, #cat-chem .cc-act {
     height: 6px; border-radius: 99px; overflow: hidden;
-    background: var(--surface-3, rgba(255,255,255,.08));
+    background: var(--surface-3, color-mix(in oklch, var(--paper) 8%, transparent));
   }
   #cat-chem .cc-act { height: 4px; }
   #cat-chem .cc-bar i, #cat-chem .cc-act i {
@@ -47,9 +47,8 @@
   #cat-chem .cc-dot { width: 8px; height: 8px; border-radius: 50%; }
   #cat-chem .cc-eq {
     font-family: var(--font-mono);
-    font-size: 10.5px; line-height: 1.4; color: var(--text, #e5e7eb);
+    font-size: 10.5px; line-height: 1.4; color: var(--text);
   }
-  html.light-theme #cat-chem .cc-eq, html.light-theme #cat-chem .cc-eff b { color: #0a0d13; }
 
 
   /* ═══════ Toolbar extras config switcher ═══════ */
@@ -937,10 +936,10 @@ import { Parts } from './components.js';
   const MON_BY_MODE = {
     principle: { label: 'Noise reduction',      rows: MON_COMMON.concat([['a1', 'Input amplitude'], ['a2', 'Mid chamber'], ['a3', 'Tailpipe output']]) },
     compare:   { label: 'Silencer advantage',   rows: MON_COMMON.concat([['a1', 'Silenced tail'], ['a2', 'Open tail'], ['a3', 'Attenuation']]),
-                 footer: '<div class="mon-legend"><span><i style="background:#ff3b3b"></i>Wave</span><span><i style="background:#ff9a3b"></i>Reflected</span><span><i style="background:#4ade80"></i>Weak wave</span><span><i style="background:#38bdf8"></i>Quiet sound</span></div>' },
+                 footer: '<div class="mon-legend"><span><i style="background:var(--c-red)"></i>Wave</span><span><i style="background:var(--c-orange)"></i>Reflected</span><span><i style="background:var(--c-green)"></i>Weak wave</span><span><i style="background:var(--c-cyan)"></i>Quiet sound</span></div>' },
     catalyst:  { label: 'Pollutant conversion', rows: MON_COMMON.concat([['a1', 'Substrate temp'], ['a2', 'Lambda (λ)']]) },
     full:      { label: 'Tailpipe noise',       rows: MON_COMMON.concat([['a1', 'Gas temp · manifold → tip'], ['a2', 'Noise · manifold → tip']]),
-                 footer: '<div class="mon-legend"><span><i style="background:#ff5a1e"></i>Hot gas</span><span><i style="background:#8fa0b8"></i>Cooled gas</span><span><i style="background:#ff3b3b"></i>Strong pulse</span><span><i style="background:#4ade80"></i>Weak pulse</span></div>' }
+                 footer: '<div class="mon-legend"><span><i style="background:var(--c-orange)"></i>Hot gas</span><span><i style="background:var(--c-sky)"></i>Cooled gas</span><span><i style="background:var(--c-red)"></i>Strong pulse</span><span><i style="background:var(--c-green)"></i>Weak pulse</span></div>' }
   };
   const monConfig = (m) => ({ label: MON_BY_MODE[m].label, value: { label: MON_BY_MODE[m].label, unit: '% cut', max: 100, bar: true },
                               rows: MON_BY_MODE[m].rows, footer: MON_BY_MODE[m].footer || '', status: { text: 'Silenced' } });
@@ -1477,7 +1476,7 @@ import { Parts } from './components.js';
       ui.monitor.update({
         label: 'Noise reduction',
         rows: { a1: Math.round(aIn * 100) + ' %', a2: Math.round(aMid * 100) + ' %', a3: `${Math.round(aOut * 100)} % · ${noise} dB` },
-        value: { text: String(cut), unit: '% cut', color: '#0ea5e9', bar: cut, barColor: '#0ea5e9' },
+        value: { text: String(cut), unit: '% cut', color: 'var(--c-cyan)', bar: cut, barColor: 'var(--c-cyan)' },
         status: ['Silenced', true]
       });
     } else if (mode === 'compare') {
@@ -1487,7 +1486,7 @@ import { Parts } from './components.js';
       ui.monitor.update({
         label: 'Silencer advantage',
         rows: { a1: Math.round(aTop * 100) + ' %', a2: Math.round(aBot * 100) + ' %', a3: `~${SND_MODES.straight.dB - SND_MODES.silencer.dB} dB` },
-        value: { text: String(delta), unit: 'pts', color: '#f59e0b', bar: Math.min(100, Math.max(0, delta)), barColor: '#f59e0b' },
+        value: { text: String(delta), unit: 'pts', color: 'var(--c-orange)', bar: Math.min(100, Math.max(0, delta)), barColor: 'var(--c-orange)' },
         status: ['Compare', true]
       });
     } else if (mode === 'catalyst') {
@@ -1497,14 +1496,14 @@ import { Parts } from './components.js';
       ui.monitor.update({
         label: 'Pollutant conversion',
         rows: { a1: Math.round(catT) + ' °C', a2: 'λ ' + catLambdaNow().toFixed(3) },
-        value: { text: String(conv), unit: '%', color: '#22c55e', bar: conv, barColor: '#22c55e' },
+        value: { text: String(conv), unit: '%', color: 'var(--c-green)', bar: conv, barColor: 'var(--c-green)' },
         status: [st.text, !!st.on]
       });
     } else {
       ui.monitor.update({
         label: 'Tailpipe noise',
         rows: { a1: Math.round(250 + 470 * rf) + ' → ' + Math.round(100 + 90 * rf) + ' °C', a2: `${noise + (sndMode === 'silencer' ? 40 : 24)} → ${noise} dB` },
-        value: { text: String(noise), unit: 'dB', color: '#38bdf8', bar: clamp((noise - 60) / 45, 0, 1) * 100, barColor: '#38bdf8' },
+        value: { text: String(noise), unit: 'dB', color: 'var(--c-cyan)', bar: clamp((noise - 60) / 45, 0, 1) * 100, barColor: 'var(--c-cyan)' },
         status: ['Full system', true]
       });
     }

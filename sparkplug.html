@@ -10,190 +10,6 @@
 <style>
 :root { --al-accent: #facc15; }
 html.light-theme { --al-accent: color-mix(in oklch, #facc15 68%, black); }
-
-/* ── Floating panel ── */
-#sp-ui {
-  position: fixed;
-  top: 80px;
-  right: 14px;
-  width: min(258px, calc(100vw - 28px));
-  max-height: min(72vh, 620px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  padding: 10px 12px 12px;
-  border-radius: 12px;
-  background: rgba(8, 11, 18, .84);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(148, 163, 184, .22);
-  color: #cbd5e1;
-  user-select: none;
-  -webkit-user-select: none;
-  z-index: 9999;
-  font: 600 11px/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  box-shadow: 0 10px 32px rgba(0, 0, 0, .45), 0 2px 6px rgba(0, 0, 0, .25);
-  transition: opacity .18s ease;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148,163,184,.35) transparent;
-}
-#sp-ui::-webkit-scrollbar { width: 6px; }
-#sp-ui::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); border-radius: 999px; }
-
-#sp-ui.hidden { display: none; }
-#sp-ui.dragging { box-shadow: 0 18px 44px rgba(0, 0, 0, .55), 0 4px 10px rgba(0, 0, 0, .3); }
-
-/* ── Header / drag handle ── */
-#sp-ui .sp-header {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: -4px -6px 2px -6px;
-  padding: 5px 6px 5px 8px;
-  border-radius: 8px;
-  cursor: grab;
-  background: rgba(148, 163, 184, .08);
-  touch-action: none;
-  flex-shrink: 0;
-  position: sticky;
-  top: -10px;
-  z-index: 1;
-  backdrop-filter: blur(6px);
-}
-#sp-ui.dragging .sp-header { cursor: grabbing; background: rgba(250, 204, 21, .14); }
-#sp-ui .sp-grip {
-  color: #64748b;
-  font-size: 13px;
-  line-height: 1;
-  letter-spacing: 1px;
-}
-#sp-ui.dragging .sp-grip { color: var(--al-accent, #facc15); }
-#sp-ui .sp-title {
-  flex: 1;
-  font-size: 9.5px;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: #94a3b8;
-}
-#sp-ui .sp-icon {
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  color: #94a3b8;
-  font-size: 14px;
-  padding: 1px 6px;
-  border-radius: 6px;
-  line-height: 1;
-  transition: background .12s, color .12s;
-}
-#sp-ui .sp-icon:hover { background: rgba(148,163,184,.18); color: #e2e8f0; }
-
-/* ── Body ── */
-#sp-ui .sp-body {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-#sp-ui.sp-collapsed .sp-body { display: none; }
-#sp-ui.sp-collapsed { max-height: 40px; overflow: hidden; }
-
-/* ── Rows ── */
-#sp-ui button { font: inherit; }
-#sp-ui .sp-row { display: flex; gap: 5px; align-items: center; }
-#sp-ui .sp-lab {
-  color: #94a3b8; font-size: 9.5px; letter-spacing: .1em;
-  text-transform: uppercase; min-width: 54px;
-}
-#sp-ui .sp-btn {
-  cursor: pointer;
-  border: 1px solid rgba(148, 163, 184, .32);
-  background: rgba(15, 23, 42, .72);
-  color: #e2e8f0;
-  border-radius: 999px;
-  padding: 4px 9px;
-  font-size: 10.5px;
-  transition: background .15s, border-color .15s, color .15s;
-}
-#sp-ui .sp-btn.on {
-  background: var(--al-accent, #facc15);
-  color: #111827;
-  border-color: transparent;
-}
-#sp-ui input[type=range] {
-  -webkit-appearance: none; appearance: none;
-  width: 100%; height: 3px;
-  background: rgba(148, 163, 184, .28);
-  border-radius: 999px; outline: none;
-}
-#sp-ui input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 13px; height: 13px; border-radius: 50%;
-  background: var(--al-accent, #facc15);
-  cursor: pointer; border: 0;
-  box-shadow: 0 1px 3px rgba(0,0,0,.4);
-}
-#sp-ui input[type=range]::-moz-range-thumb {
-  width: 13px; height: 13px; border-radius: 50%;
-  background: var(--al-accent, #facc15);
-  cursor: pointer; border: 0;
-}
-#sp-ui .sp-slider { display: flex; flex-direction: column; gap: 3px; }
-#sp-ui .sp-slider .sp-head {
-  display: flex; justify-content: space-between;
-  color: #94a3b8; font-size: 9.5px;
-  letter-spacing: .08em; text-transform: uppercase;
-}
-#sp-ui .sp-slider .sp-val { color: #e2e8f0; }
-
-/* ── Toggle FAB ── */
-#sp-ui-toggle {
-  position: fixed;
-  right: 14px;
-  bottom: calc(var(--dock-h, 24vh) + var(--s-3, 12px));   /* Phase 2: clear the control dock */
-  z-index: 10000;
-  width: 42px; height: 42px;
-  border-radius: 50%;
-  background: rgba(8, 11, 18, .85);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(148, 163, 184, .3);
-  color: var(--al-accent, #facc15);
-  font-size: 17px; line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0,0,0,.4);
-  transition: transform .15s;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-#sp-ui-toggle:active { transform: scale(.9); }
-#sp-ui-toggle.hidden { display: none; }
-
-/* ── Mobile tuning ── */
-@media (max-width: 768px) {
-  #sp-ui {
-    top: 68px;
-    right: 10px;
-    width: min(250px, calc(100vw - 20px));
-    padding: 10px 12px 14px;
-    max-height: 66vh;
-    font-size: 11px;
-  }
-  #sp-ui .sp-btn { padding: 6px 12px; font-size: 11.5px; }
-  #sp-ui input[type=range] { height: 4px; }
-  #sp-ui input[type=range]::-webkit-slider-thumb { width: 16px; height: 16px; }
-  #sp-ui input[type=range]::-moz-range-thumb { width: 16px; height: 16px; }
-  #sp-ui .sp-lab { font-size: 10px; }
-  #sp-ui .sp-slider .sp-head { font-size: 10px; }
-  #sp-ui .sp-slider .sp-val { font-size: 11px; }
-  #sp-ui .sp-header { padding: 7px 8px 7px 10px; }
-  #sp-ui .sp-grip { font-size: 15px; }
-  #sp-ui-toggle { bottom: 96px; width: 46px; height: 46px; font-size: 19px; }
-}
 </style>
 </head>
 <body>
@@ -212,6 +28,10 @@ html.light-theme { --al-accent: color-mix(in oklch, #facc15 68%, black); }
 
 <script type="module">
 import { runGuidedModule } from './components.js';
+
+/* Controls written by the dock; build() reads them (EXT.pick applies the choices that rebuild the scene). */
+const EXT = { rpm: 2800, load: 0.55, clear: false, pick: null };
+const pick = (key) => (id) => { if (EXT.pick) EXT.pick(key, id); };
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
 const CFG = {
@@ -235,12 +55,13 @@ const CFG = {
     ["temp",   "Tip temperature"],
     ["risk",   "Misfire risk"]
   ],
+  "traces": [{ "id": "kv", "label": "Secondary kV", "min": 0, "max": 50, "length": 144, "series": [{ "id": "v", "label": "kV", "color": "var(--c-cyan)" }] }],
   "legend": [
-    ["#f1f5f9", "Ceramic insulator"],
-    ["#e8a05a", "Copper core"],
-    ["#a5f3fc", "Spark"],
-    ["#ff8a2b", "Combustion"],
-    ["#e8e8ea", "Pt / Ir pad"]
+    ["var(--c-slate)", "Ceramic insulator"],
+    ["var(--c-orange)", "Copper core"],
+    ["var(--c-cyan)", "Spark"],
+    ["var(--c-orange)", "Combustion"],
+    ["var(--c-slate)", "Pt / Ir pad"]
   ],
   "overview": "<div class=\"al-sec\"><h4>Ignition point<\/h4><p>The plug delivers the coil’s high voltage across a small gap. The spark ignites the compressed mixture; the gap, electrode material, compression and heat range decide how reliably.<\/p><p>Use the panel: toggle <b>Cutaway<\/b> to slice the plug open, change the <b>heat range<\/b> to see the insulator nose grow or shrink, pick an <b>electrode material<\/b>, or drag <b>RPM<\/b> and <b>Load<\/b> to watch the coil’s available voltage and the required voltage cross over. <b>Drag the panel header to move it anywhere.<\/b><\/p><\/div><div class=\"al-sec\"><h4>Gap<\/h4><ul><li>Small gap – easy to fire but a small flame kernel.<\/li><li>Large gap – bigger kernel but needs more voltage; risk of misfire at high load.<\/li><li>Typical gap is 0.7–1.1 mm (check the engine spec).<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Heat range<\/h4><p>A “hot” plug has a long insulator nose that keeps tip temperature high; a “cold” plug sheds heat faster. Too hot risks pre-ignition; too cold fouls with carbon. The tip self-cleans above about 450&nbsp;°C.<\/p><\/div><div class=\"al-sec\"><h4>Electrode material<\/h4><p>Copper tips are cheap but erode; platinum and iridium last far longer and can be made much thinner, which lowers the required voltage slightly and sharpens the flame kernel.<\/p><\/div>",
   "faults": [
@@ -255,6 +76,23 @@ const CFG = {
     ["At very high RPM the coil has…", ["More time to charge", "Less time to charge", "No effect"], 1, "Dwell time shortens with RPM, so the coil may not fully saturate."]
   ]
 };
+
+CFG.ctls = [
+  { id: 'ctl', label: CFG.ctl.label, caption: CFG.ctl.caption, preset: 'percent', def: CFG.ctl.val },
+  { id: 'rpm', preset: 'rpm', min: 800, max: 7000, step: 100, def: 2800, label: 'Engine speed', onChange: (v) => { EXT.rpm = v; } },
+  { id: 'load', preset: 'load', def: 55, label: 'Load', onChange: (v) => { EXT.load = v / 100; } }
+];
+CFG.options = [
+  { id: 'heat', type: 'choice', layout: 'segmented', label: 'Heat range', def: 'normal', onChange: pick('heat'),
+    options: [{ id: 'hot', label: 'Hot' }, { id: 'normal', label: 'Normal' }, { id: 'cold', label: 'Cold' }] },
+  { id: 'material', type: 'choice', layout: 'segmented', label: 'Electrode', def: 'copper', onChange: pick('material'),
+    options: [{ id: 'copper', label: 'Cu' }, { id: 'platinum', label: 'Pt' }, { id: 'iridium', label: 'Ir' }] },
+  { id: 'view', type: 'choice', layout: 'segmented', label: 'View', def: 'full', onChange: pick('view'),
+    options: [{ id: 'full', label: 'Full' }, { id: 'cut', label: 'Cutaway' }] },
+  { id: 'cond', type: 'choice', layout: 'segmented', label: 'Condition', def: 'clean', onChange: pick('cond'),
+    options: [{ id: 'clean', label: 'Clean' }, { id: 'foul', label: 'Foul' }] }
+];
+CFG.onReset = () => { EXT.clear = true; };
 
 /* ══════════════════════════════════════════════════════════════════
    MODULE SCENE — realistic cross-sectioned spark plug
@@ -615,245 +453,17 @@ function build(H) {
   const HEAT_LOAD = { hot: 230, normal: 185, cold: 140 };
   const MAT_FAC   = { copper: 1.00, platinum: 1.08, iridium: 1.15 };
 
-  /* ══════════════════════════════════════════════════════════════
-     FLOATING DRAGGABLE UI PANEL
-     ══════════════════════════════════════════════════════════════ */
-  let rpmRange = null, loadRange = null;
-  let rpmVal = null, loadVal = null;
-  let waveCanvas = null, wctx = null;
-
-  try {
-    /* ── Panel root ── */
-    const panel = document.createElement('div');
-    panel.id = 'sp-ui';
-    document.body.appendChild(panel);
-
-    /* ── Header (drag handle) ── */
-    const header = document.createElement('div');
-    header.className = 'sp-header';
-
-    const grip = document.createElement('span');
-    grip.className = 'sp-grip';
-    grip.textContent = '⠿';
-    header.appendChild(grip);
-
-    const title = document.createElement('span');
-    title.className = 'sp-title';
-    title.textContent = 'Spark Plug Controls';
-    header.appendChild(title);
-
-    const collapseBtn = document.createElement('button');
-    collapseBtn.type = 'button';
-    collapseBtn.className = 'sp-icon';
-    collapseBtn.textContent = '—';
-    collapseBtn.title = 'Collapse';
-    collapseBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      panel.classList.toggle('sp-collapsed');
-      collapseBtn.textContent = panel.classList.contains('sp-collapsed') ? '+' : '—';
-    });
-    header.appendChild(collapseBtn);
-
-    panel.appendChild(header);
-
-    /* ── Body ── */
-    const body = document.createElement('div');
-    body.className = 'sp-body';
-    panel.appendChild(body);
-
-    /* ── Control rows ── */
-    function makeRow(label, options, initial, onPick) {
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px';
-      const lab = document.createElement('div');
-      lab.className = 'sp-lab';
-      lab.textContent = label;
-      wrap.appendChild(lab);
-      const row = document.createElement('div');
-      row.className = 'sp-row';
-      const btns = {};
-      options.forEach(([key, text]) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'sp-btn';
-        b.textContent = text;
-        b.addEventListener('click', e => {
-          e.stopPropagation();
-          onPick(key); select(key);
-        });
-        btns[key] = b;
-        row.appendChild(b);
-      });
-      function select(key) {
-        Object.keys(btns).forEach(kk => btns[kk].classList.toggle('on', kk === key));
-      }
-      select(initial);
-      wrap.appendChild(row);
-      body.appendChild(wrap);
-      return select;
-    }
-
-    makeRow('Heat range', [['hot', 'Hot'], ['normal', 'Normal'], ['cold', 'Cold']], 'normal', v => {
-      state.heat = v;
-      rebuildPlugs();
+  /* The controls (RPM, load, heat range, electrode, view, condition) are dock axes / options declared in CFG;
+     they write to EXT and EXT.pick() applies the choices that rebuild the scene. */
+  EXT.pick = (key, v) => {
+    if (key === 'heat') {
+      state.heat = v; rebuildPlugs();
       updateGround(state.hookY === 999 ? -0.89 : state.hookY);
-    });
+    } else if (key === 'material') state.material = v;
+    else if (key === 'view') { state.cut = (v === 'cut'); plugFull.visible = !state.cut; plugCut.visible = state.cut; }
+    else if (key === 'cond') state.forceFoul = (v === 'foul');
+  };
 
-    makeRow('Electrode', [['copper', 'Cu'], ['platinum', 'Pt'], ['iridium', 'Ir']], 'copper', v => {
-      state.material = v;
-    });
-
-    makeRow('View', [['full', 'Full'], ['cut', 'Cutaway']], 'full', v => {
-      state.cut = (v === 'cut');
-      plugFull.visible = !state.cut;
-      plugCut.visible  =  state.cut;
-    });
-
-    makeRow('Condition', [['clean', 'Clean'], ['foul', 'Foul']], 'clean', v => {
-      state.forceFoul = (v === 'foul');
-    });
-
-    /* RPM slider */
-    (function () {
-      const wrap = document.createElement('div');
-      wrap.className = 'sp-slider';
-      const head = document.createElement('div');
-      head.className = 'sp-head';
-      const l = document.createElement('span'); l.textContent = 'RPM';
-      const v = document.createElement('span'); v.className = 'sp-val'; v.textContent = state.rpm + '';
-      head.appendChild(l); head.appendChild(v);
-      const inp = document.createElement('input');
-      inp.type = 'range'; inp.min = '800'; inp.max = '7000'; inp.step = '100'; inp.value = state.rpm + '';
-      inp.addEventListener('input', () => {
-        state.rpm = parseFloat(inp.value);
-        v.textContent = state.rpm + '';
-      });
-      wrap.appendChild(head); wrap.appendChild(inp);
-      body.appendChild(wrap);
-      rpmRange = inp; rpmVal = v;
-    })();
-
-    /* Load slider */
-    (function () {
-      const wrap = document.createElement('div');
-      wrap.className = 'sp-slider';
-      const head = document.createElement('div');
-      head.className = 'sp-head';
-      const l = document.createElement('span'); l.textContent = 'Load';
-      const v = document.createElement('span'); v.className = 'sp-val'; v.textContent = Math.round(state.load * 100) + '%';
-      head.appendChild(l); head.appendChild(v);
-      const inp = document.createElement('input');
-      inp.type = 'range'; inp.min = '0'; inp.max = '100'; inp.step = '1'; inp.value = (state.load * 100) + '';
-      inp.addEventListener('input', () => {
-        state.load = parseFloat(inp.value) / 100;
-        v.textContent = Math.round(state.load * 100) + '%';
-      });
-      wrap.appendChild(head); wrap.appendChild(inp);
-      body.appendChild(wrap);
-      loadRange = inp; loadVal = v;
-    })();
-
-    /* Waveform */
-    waveCanvas = document.createElement('canvas');
-    waveCanvas.width = 192; waveCanvas.height = 64;
-    waveCanvas.style.cssText = 'width:100%;height:64px;border-radius:7px;background:rgba(2,6,16,.7);border:1px solid rgba(148,163,184,.18);display:block';
-    body.appendChild(waveCanvas);
-    wctx = waveCanvas.getContext('2d');
-
-    /* ══════ Drag logic (pointer events → mouse + touch) ══════ */
-    (function makeDraggable(el, handle) {
-      let dragging = false;
-      let pid = null;
-      let sx = 0, sy = 0, sl = 0, st = 0;
-      let hasDragged = false;
-
-      handle.addEventListener('pointerdown', e => {
-        // Ignore clicks on inner buttons/inputs
-        if (e.target.closest('button, input, canvas, a, select, textarea')) return;
-        e.preventDefault();
-        e.stopPropagation();
-
-        dragging = true;
-        pid = e.pointerId;
-        hasDragged = false;
-
-        const r = el.getBoundingClientRect();
-        sl = r.left;
-        st = r.top;
-        sx = e.clientX;
-        sy = e.clientY;
-
-        // Freeze current position via left/top so dragging is exact
-        el.style.right = 'auto';
-        el.style.left = sl + 'px';
-        el.style.top  = st + 'px';
-        el.classList.add('dragging');
-
-        try { handle.setPointerCapture(pid); } catch (_) {}
-      });
-
-      handle.addEventListener('pointermove', e => {
-        if (!dragging || e.pointerId !== pid) return;
-        e.preventDefault();
-
-        const dx = e.clientX - sx;
-        const dy = e.clientY - sy;
-        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) hasDragged = true;
-
-        const w = el.offsetWidth;
-        const h = el.offsetHeight;
-        let nl = sl + dx;
-        let nt = st + dy;
-
-        // Keep a sliver of the panel on-screen
-        const minVisible = 48;
-        nl = Math.max(-w + minVisible, Math.min(window.innerWidth  - minVisible, nl));
-        nt = Math.max(0, Math.min(window.innerHeight - 32, nt));
-
-        el.style.left = nl + 'px';
-        el.style.top  = nt + 'px';
-      });
-
-      const endDrag = e => {
-        if (!dragging) return;
-        dragging = false;
-        el.classList.remove('dragging');
-        try { handle.releasePointerCapture(pid); } catch (_) {}
-        pid = null;
-      };
-      handle.addEventListener('pointerup', endDrag);
-      handle.addEventListener('pointercancel', endDrag);
-      handle.addEventListener('lostpointercapture', endDrag);
-    })(panel, header);
-
-    /* ══════ Toggle FAB ══════ */
-    const toggleBtn = document.createElement('button');
-    toggleBtn.id = 'sp-ui-toggle';
-    toggleBtn.type = 'button';
-    toggleBtn.innerHTML = '×';
-    toggleBtn.title = 'Hide controls';
-    toggleBtn.addEventListener('click', () => {
-      const hidden = panel.classList.toggle('hidden');
-      toggleBtn.innerHTML = hidden ? '⚙' : '×';
-      toggleBtn.title = hidden ? 'Show controls' : 'Hide controls';
-    });
-    document.body.appendChild(toggleBtn);
-
-    /* ══════ Keep panel inside viewport on resize ══════ */
-    window.addEventListener('resize', () => {
-      if (!panel.style.left) return;            // still anchored right
-      const w = panel.offsetWidth;
-      const h = panel.offsetHeight;
-      let l = parseFloat(panel.style.left) || 0;
-      let t = parseFloat(panel.style.top)  || 0;
-      const minVisible = 48;
-      l = Math.max(-w + minVisible, Math.min(window.innerWidth - minVisible, l));
-      t = Math.max(0, Math.min(window.innerHeight - 32, t));
-      panel.style.left = l + 'px';
-      panel.style.top  = t + 'px';
-    });
-
-  } catch (e) { /* overlay is optional */ }
 
   /* ── waveform helpers ── */
   function voltageAt(ph, misfire, Vreq) {
@@ -874,40 +484,6 @@ function build(H) {
     const rnd = frac(Math.sin(cyc * 127.1 + 3.7) * 43758.5453);
     const chance = ratio > 0.58 ? 0.55 : ratio > 0.46 ? 0.18 : 0.0;
     return rnd < chance;
-  }
-
-  function drawWave(t, Vreq, avail, ratio, CYCLE_HZ) {
-    if (!wctx) return;
-    const W = waveCanvas.width, H = waveCanvas.height;
-    wctx.clearRect(0, 0, W, H);
-
-    wctx.strokeStyle = 'rgba(148,163,184,0.13)';
-    wctx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-      const y = Math.round(H * i / 4) + 0.5;
-      wctx.beginPath(); wctx.moveTo(0, y); wctx.lineTo(W, y); wctx.stroke();
-    }
-
-    const winSec = 2.4;
-    const yMax   = Math.max(avail * 1.02, Vreq * 1.12, 20);
-    wctx.strokeStyle = '#7dd3fc';
-    wctx.lineWidth = 1.4;
-    wctx.beginPath();
-    for (let x = 0; x <= W; x++) {
-      const tPast = t - (1 - x / W) * winSec;
-      const cyc   = Math.floor(tPast * CYCLE_HZ);
-      const ph    = tPast * CYCLE_HZ - cyc;
-      const mis   = misfireAt(cyc, ratio);
-      const V     = voltageAt(ph, mis, Vreq);
-      const y     = H - (V / yMax) * (H - 8) - 4;
-      if (x === 0) wctx.moveTo(x, y); else wctx.lineTo(x, y);
-    }
-    wctx.stroke();
-
-    wctx.fillStyle = 'rgba(148,163,184,0.7)';
-    wctx.font = '600 8px ui-sans-serif,system-ui,sans-serif';
-    wctx.fillText('SECONDARY kV', 6, 10);
-    wctx.fillText(yMax.toFixed(0), 6, H - 4);
   }
 
   const CYCLE_HZ = 0.85;
@@ -931,8 +507,7 @@ function build(H) {
       state.gapK = k;
       const t = (typeof c.t === 'number' ? c.t : 0);
 
-      if (rpmRange)  { state.rpm  = parseFloat(rpmRange.value);  if (rpmVal)  rpmVal.textContent  = state.rpm + ''; }
-      if (loadRange) { state.load = parseFloat(loadRange.value) / 100; if (loadVal) loadVal.textContent = Math.round(state.load * 100) + '%'; }
+      state.rpm = EXT.rpm; state.load = EXT.load;
 
       const tipTemp = HEAT_BASE[state.heat]
                     + state.load * HEAT_LOAD[state.heat]
@@ -1049,7 +624,6 @@ function build(H) {
         flameOuterMat.opacity = 0;
       }
 
-      drawWave(t, Vreq, avail, ratio, CYCLE_HZ);
 
       const burnMs = 1.85 - 0.85 * k;
       const statusText = misfireThisCycle && firing ? 'MISFIRE'
@@ -1059,6 +633,8 @@ function build(H) {
                        : 'CHARGING';
 
       const tempStr = tipTemp.toFixed(0) + ' °C' + (preIgn ? ' ⚠' : '');
+
+      const sample = EXT.clear ? (EXT.clear = false, null) : (c.dt > 0 ? [voltageAt(cyc, misfireThisCycle, Vreq)] : undefined);
 
       return {
         big: Vreq.toFixed(1),
@@ -1078,7 +654,9 @@ function build(H) {
           risk:   [riskTxt, riskCls]
         },
         status: [statusText, showArc || burning],
-        ctl: gapMm.toFixed(2) + ' mm'
+        ctl: gapMm.toFixed(2) + ' mm',
+        /* secondary voltage, one sample per update while playing (null once after Reset) */
+        ...(sample === undefined ? {} : { traces: { kv: sample } })
       };
     }
   };

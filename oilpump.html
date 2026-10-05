@@ -28,6 +28,7 @@ html.light-theme { --al-accent: color-mix(in oklch, #84cc16 68%, black); }
 </script>
 
 <script type="module">
+import * as Base from './kit.js';
 import { runGuidedModule, controls } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
@@ -59,13 +60,13 @@ const CFG = {
     ["state",  "State"]
   ],
   "legend": [
-    ["#fbbf24", "Warm oil"],
-    ["#b45309", "Hot, thin oil"],
-    ["#f1f5f9", "Aerated / cavitating oil"],
-    ["#94a3b8", "Rotors / gears"],
-    ["#a3e635", "Relief valve"],
-    ["#ef4444", "Worn pump warning"],
-    ["#1a1410", "Clogged pickup screen (fault)"]
+    ["var(--c-amber)", "Warm oil"],
+    ["var(--c-orange)", "Hot, thin oil"],
+    ["var(--c-slate)", "Aerated / cavitating oil"],
+    ["var(--c-slate)", "Rotors / gears"],
+    ["var(--c-lime)", "Relief valve"],
+    ["var(--c-red)", "Worn pump warning"],
+    ["var(--surface-3)", "Clogged pickup screen (fault)"]
   ],
   "overview": "<div class=\"al-sec\"><h4>Making flow, not pressure<\/h4><p>The pump only delivers <b>flow<\/b>. Pressure builds because oil has to squeeze through bearing clearances. The relief valve caps the maximum so cold, thick oil cannot burst the filter.<\/p><\/div><div class=\"al-sec\"><h4>Pump types<\/h4><ul><li><b>External gear<\/b> – two meshing gears carry oil round the outer walls. Cheap, rugged, but the biggest pressure ripple.<\/li><li><b>Gerotor<\/b> – inner rotor with one tooth fewer than the outer; compact, smooth, often crank-driven.<\/li><li><b>Vane<\/b> – sliding vanes in a rotor; variable-displacement versions cut flow at low load to save fuel. Lowest ripple.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Viscosity is everything<\/h4><p>Oil is ~100&nbsp;cSt at 40&nbsp;&deg;C and only ~10&nbsp;cSt at 100&nbsp;&deg;C. Thick, cold oil makes enormous pressure at idle (so the relief valve opens); thin, hot oil makes far less. That is why a healthy engine shows high pressure cold and lower pressure hot.<\/p><\/div><div class=\"al-sec\"><h4>Wear and leakage<\/h4><p>All the pressure is held back by the bearing clearances. As they open up with wear, more oil leaks past and pressure falls – first at hot idle, exactly where the low-pressure light lives.<\/p><\/div><div class=\"al-sec\"><h4>Aeration and cavitation<\/h4><p>If the pickup screen is clogged or the sump is low, the pump sucks air instead of oil at high rpm. Flow collapses, pressure becomes erratic and the pump can be damaged.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Watch the pressure at hot idle, then rev it – the relief valve opens and the plunger lifts. Switch pump type and compare the pressure ripple. Now crank <b>Bearing wear<\/b> to 80&nbsp;% and watch hot-idle pressure collapse, then select <b>Clogged pickup screen<\/b> and rev it to see aeration spike.<\/p><\/div>",
   "faults": [

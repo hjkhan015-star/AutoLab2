@@ -249,29 +249,7 @@ const TABS = {
       <div class="s">Long pedal, ABS pump runs constantly.</div>
       <div class="c">Check: fluid level, bleed sequence (usually with a scan tool to cycle the valves).</div>
     </div>`,
-  quiz: () => `
-    <div class="al-q" data-a="1">
-      <div class="q">1. Why does ABS try to keep a small amount of slip?</div>
-      <button class="al-opt">To save fuel</button>
-      <button class="al-opt">Grip peaks at roughly 10–25 % slip; a fully locked tyre has less grip and no steering</button>
-      <button class="al-opt">To cool the brakes</button>
-      <div class="al-exp">A sliding tyre loses both longitudinal and lateral grip. Peak braking force happens a little way into slip, not at full lock.</div>
-    </div>
-    <div class="al-q" data-a="2">
-      <div class="q">2. What does ESC add over ABS?</div>
-      <button class="al-opt">A bigger brake booster</button>
-      <button class="al-opt">A second hydraulic circuit</button>
-      <button class="al-opt">Yaw-rate and steering-angle sensing, so it can brake one wheel and cut torque</button>
-      <div class="al-exp">ESC compares the car's actual yaw with the driver's intended direction and corrects understeer or oversteer by braking individual wheels.</div>
-    </div>
-    <div class="al-q" data-a="0">
-      <div class="q">3. A wheel-speed sensor fails. What still works?</div>
-      <button class="al-opt">Conventional braking, and usually EBD, but not full ABS</button>
-      <button class="al-opt">Nothing — the brakes stop working</button>
-      <button class="al-opt">Only the parking brake</button>
-      <div class="al-exp">The system fails safe: the ABS and ESC lamps come on, but the hydraulic circuit still gives normal, unmodulated braking.</div>
-    </div>`
-};
+  quiz: () => Widgets.quiz({ quiz: [["Why does ABS try to keep a small amount of slip?", ["To save fuel", "Grip peaks at roughly 10–25 % slip; a fully locked tyre has less grip and no steering", "To cool the brakes"], 1, "A sliding tyre loses both longitudinal and lateral grip. Peak braking force happens a little way into slip, not at full lock."], ["What does ESC add over ABS?", ["A bigger brake booster", "A second hydraulic circuit", "Yaw-rate and steering-angle sensing, so it can brake one wheel and cut torque"], 2, "ESC compares the car's actual yaw with the driver's intended direction and corrects understeer or oversteer by braking individual wheels."], ["A wheel-speed sensor fails. What still works?", ["Conventional braking, and usually EBD, but not full ABS", "Nothing — the brakes stop working", "Only the parking brake"], 0, "The system fails safe: the ABS and ESC lamps come on, but the hydraulic circuit still gives normal, unmodulated braking."]] })};
 
 const ui = Base.UI.create({
   moduleId: CFG.moduleId,

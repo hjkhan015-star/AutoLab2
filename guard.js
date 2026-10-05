@@ -27,6 +27,8 @@
     } catch (_) { return false; }
   }
   function check() {
+    /* <html data-no3d>: a 2D page that only borrows the kit's chrome (sensors.html) does not need WebGL */
+    if (document.documentElement.hasAttribute('data-no3d')) return;
     if (!hasWebGL()) show('3D not available', 'This module needs WebGL. Enable hardware acceleration or try another browser.');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', check); else check();

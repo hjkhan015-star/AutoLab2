@@ -12,9 +12,9 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createLabelSystem as _createLabelSystem, KINDS as LABEL_KINDS, DENSITY_INFO } from './labels.js';
+import { createLabelSystem as _createLabelSystem, KINDS as LABEL_KINDS, DENSITY_INFO, getLabelDensity, setLabelDensity } from './labels.js';
 import { createKeyRouter, installKeys } from './keys.js';
-import { nextDensity, isPhone, createHeader, createMenu, clampSpeed } from './chrome.js';
+import { nextDensity, isPhone, createHeader, createMenu, clampSpeed, chromeButton } from './chrome.js';
 import { createDock, modelShiftPx } from './dock.js';
 import { controls, createAxis, createMomentary, createDial, createChoice, createToggle, createAction } from './controls.js';
 import { createMonitor } from './monitor.js';
@@ -30,7 +30,7 @@ function ensureControlsCss() {
   document.head.appendChild(l);
 }
 
-export { THREE, OrbitControls, LABEL_KINDS, DENSITY_INFO };
+export { THREE, OrbitControls, LABEL_KINDS, DENSITY_INFO, getLabelDensity, setLabelDensity };
 /* Phase 7b3: row sinks. A page whose update code writes `ro.x.textContent = '…'` and `ro.x.className = 'v warn'` (the old panel
    readout grid) gets the same two properties as Monitor rows instead: `const ro = monitorRows(ui, ['fl', 'fr'], ['speed'])`.
    `ids` are rows declared in the Monitor config; `drop` names are old readouts that repeated a row or the big value:
@@ -685,10 +685,7 @@ class UIKit {
     orbIcon.innerHTML = icon || '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/></svg>';
     card.appendChild(orbIcon);
 
-    const toggle = document.createElement('button');
-    toggle.className = 'ui-orb-toggle';
-    toggle.setAttribute('aria-label', 'Minimize');
-    toggle.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14z"/></svg>';
+    const toggle = chromeButton(document, { cls: 'ui-orb-toggle', label: 'Minimize', html: '<svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14z"/></svg>' });
     card.appendChild(toggle);
 
     const key = 'autolab.orb.' + this.moduleId + '.' + (card.id || 'card');
@@ -724,11 +721,9 @@ class UIKit {
       <div>
         <div class="ui-panel-kicker" id="module-kicker">${p.kicker || ''}</div>
         <div class="ui-panel-title"  id="module-title">${p.title || ''}</div>
-      </div>
-      <button class="ui-panel-toggle" id="panel-toggle" aria-label="Toggle info"
-              aria-expanded="${expanded}">
-        <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
-      </button>`;
+      </div>`;
+    head.appendChild(chromeButton(document, { cls: 'ui-panel-toggle', id: 'panel-toggle', label: 'Toggle info', attrs: { 'aria-expanded': String(expanded) },
+      html: '<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>' }));
     el.appendChild(head);
 
     this._panelTabs = {};
@@ -738,13 +733,10 @@ class UIKit {
       tabsEl.className = 'ui-panel-tabs';
       tabsEl.setAttribute('role', 'tablist');
       p.tabs.forEach((t, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'ui-tab' + (i === 0 ? ' active' : '');
+        const btn = chromeButton(document, { cls: 'ui-tab' + (i === 0 ? ' active' : ''), html: (t.icon || '') + `<span>${t.label}</span>`,
+          attrs: { role: 'tab', 'aria-selected': i === 0 ? 'true' : 'false' } });
         btn.dataset.tabId = t.id;
-        btn.setAttribute('role', 'tab');
-        btn.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
         if (t.color && i === 0) btn.style.background = t.color;
-        btn.innerHTML = (t.icon || '') + `<span>${t.label}</span>`;
         btn.addEventListener('click', () => this._selectTab(t.id));
         tabsEl.appendChild(btn);
         this._panelTabs[t.id] = t;
@@ -788,9 +780,7 @@ class UIKit {
 
     const ensureBtn = () => {
       if (btn) return btn;
-      btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'ui-panel-more';
+      btn = chromeButton(document, { cls: 'ui-panel-more' });
       btn.addEventListener('click', () => {
         expanded = !expanded;
         body.classList.toggle('is-expanded', expanded);
@@ -865,7 +855,7 @@ class UIKit {
 
   /* ── Toolbar → dock. play / reset go to the transport zone (built ONCE, embedded and standalone,
         R1/R6); module quantities are `axes` (see _buildAxes);
-        Flow and `extras` go to the options row. Sim speed / label density / Back are NOT built here:
+        Flow goes to the options row (`extras` are retired: use options:[…]). Sim speed / label density / Back are NOT built here:
         the ⋯ menu (shell, or standalone chrome.js) owns them. ── */
   _buildToolbar(t) {
     const dock = this._dock;
@@ -876,11 +866,11 @@ class UIKit {
 
     const refs = { root: dock.root };
     if (t.play !== false) {
-      refs.play = make(`<button type="button" class="ui-tb-btn" id="btn-play" aria-label="Pause">${iconPause}${iconPlay}</button>`);
+      refs.play = chromeButton(document, { cls: 'ui-tb-btn', id: 'btn-play', label: 'Pause', html: iconPause + iconPlay });
       dock.addTransport(refs.play);
     }
     if (t.reset !== false) {
-      refs.reset = make(`<button type="button" class="ui-tb-btn" id="btn-reset" aria-label="Reset">${iconReset}</button>`);
+      refs.reset = chromeButton(document, { cls: 'ui-tb-btn', id: 'btn-reset', label: 'Reset', html: iconReset });
       dock.addTransport(refs.reset);
     }
     if (t.gas) {
@@ -889,15 +879,6 @@ class UIKit {
       dock.addOption(flow);
       refs.gas = flow;
     }
-    (t.extras || []).forEach(x => {
-      const btn = document.createElement('button');
-      btn.className = 'ui-tb-btn keep-in-embed';
-      if (x.id) btn.id = x.id;
-      btn.innerHTML = x.icon || (x.label ? `<span style="font-size:11px;font-weight:800">${x.label}</span>` : '');
-      if (x.title) btn.title = x.title;
-      if (x.onClick) btn.addEventListener('click', x.onClick);
-      dock.extras.appendChild(btn);
-    });
     dock.refresh();
     this._toolbar = refs;
     return dock.root;
@@ -1139,8 +1120,7 @@ class UIKit {
     let _densLevel = 2;
     function _applyLevel(level) {
       _densLevel = [0, 1, 2].includes(level) ? level : 2;
-      window.__autolabLabels?.setDensity(_densLevel);
-      window.__autolabDensity = _densLevel;   /* modules with their own labels (cooling) read this */
+      setLabelDensity(_densLevel);            /* labels.js keeps the one density; modules with their own labels (cooling) read getLabelDensity() */
       if ('showLabels' in state) state.showLabels = _densLevel > 0;
     }
 
@@ -1161,7 +1141,7 @@ class UIKit {
       } else if (action === 'reset') {
         if (_reset) _reset.click(); else if (onCommand) onCommand({ action: 'reset' });
       } else if (action === 'labelDensity') {
-        const next = nextDensity(typeof window.__autolabDensity === 'number' ? window.__autolabDensity : 2);
+        const next = nextDensity(getLabelDensity());
         dispatch({ action: 'setLabelDensity', value: next });
         send({ type: 'state', density: next });
       } else if (!embedded) {                               /* standalone owns the shell keys too */
@@ -1213,7 +1193,7 @@ class UIKit {
       const vs = viewManager && viewManager.getState ? viewManager.getState() : { theme: 'dark', wireframe: false, xray: false };
       menu.update({
         speed: state.speedMul,
-        density: typeof window.__autolabDensity === 'number' ? window.__autolabDensity : _densLevel,
+        density: getLabelDensity(),
         theme: vs.theme, wireframe: vs.wireframe, xray: vs.xray
       });
     }
@@ -1222,6 +1202,7 @@ class UIKit {
       _applyLevel(phone ? 1 : 2);                            /* default label density: Key on phones */
       menu = createMenu({
         doc: document,
+        hide: opts.menuHide,                                   /* a 2D page drops the rows it cannot use */
         state: { speed: state.speedMul, density: _densLevel },
         onToggle: (open) => { if (self._header) self._header.setMenuExpanded(open); },
         onChange: (key, v) => {
@@ -1253,60 +1234,4 @@ class UIKit {
       syncControls() { _syncPlayIcons(); _syncControls(); },
     };
   }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   LEGACY — delete when every module is migrated to UI.create()
-   ═══════════════════════════════════════════════════════════════════════ */
-export function wireCommonUI(state, { onReset, onSpeed } = {}) {
-  const btnPlay  = document.getElementById('btn-play');
-  const iconPlay = document.getElementById('icon-play');
-  const iconPause= document.getElementById('icon-pause');
-  const btnReset = document.getElementById('btn-reset');
-  const speed    = document.getElementById('speed');
-  const rpmLabel = document.getElementById('rpm-label');
-  const chkLabels= document.getElementById('chk-labels');
-  const chkGas   = document.getElementById('chk-gas');
-
-  function updateRpmLabel() {
-    if (rpmLabel) rpmLabel.textContent = '~' + Math.round(400 + state.speedMul * 900) + ' rpm';
-  }
-  function updatePlayIcon() {
-    if (iconPlay)  iconPlay.style.display  = state.playing ? 'none'  : 'block';
-    if (iconPause) iconPause.style.display = state.playing ? 'block' : 'none';
-  }
-  if (btnPlay)  btnPlay.addEventListener('click', () => { state.playing = !state.playing; updatePlayIcon(); });
-  if (btnReset) btnReset.addEventListener('click', () => { if (onReset) onReset(); });
-  if (speed)    speed.addEventListener('input', () => {
-    state.speedMul = parseFloat(speed.value);
-    updateRpmLabel();
-    if (onSpeed) onSpeed(state.speedMul);
-  });
-  if (chkLabels) chkLabels.addEventListener('change', () => { state.showLabels = chkLabels.checked; });
-  if (chkGas)    chkGas.addEventListener('change',    () => { state.showGas    = chkGas.checked; });
-
-  updateRpmLabel();
-  updatePlayIcon();
-  return { updatePlayIcon, updateRpmLabel, viewManager: _vm };
-}
-
-export function wirePanelToggle() {
-  const eduPanel = document.getElementById('edu-panel');
-  const btn = document.getElementById('panel-toggle');
-  if (!eduPanel || !btn) return;
-  if (eduPanel.classList.contains('ui-panel')) return;
-  let userSet = false;
-  btn.addEventListener('click', () => {
-    userSet = true;
-    eduPanel.classList.toggle('collapsed');
-    btn.setAttribute('aria-expanded', String(!eduPanel.classList.contains('collapsed')));
-  });
-  function autoState() {
-    if (userSet) return;
-    const small = window.innerWidth <= 720 || window.innerHeight <= 540;
-    eduPanel.classList.toggle('collapsed', small);
-    btn.setAttribute('aria-expanded', String(!small));
-  }
-  autoState();
-  window.addEventListener('resize', autoState);
 }

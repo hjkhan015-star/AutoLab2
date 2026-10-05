@@ -1,149 +1,115 @@
-# Auto Lab — Continuation Guide
+# Auto Lab v8.9 — Build Guide
 
-This documents what was changed in this pass, and exactly how to carry the
-same treatment to the rest of the modules.
+How a module page is put together, how to add one, and the rules the tests enforce.
+Reference tables (every control spec, every Monitor channel) are in `COMPONENTS.md`.
+`npm test` fails on any rule marked **[test]**.
 
-## What's already done (applies to ALL 44 modules automatically)
+## 1. Files
 
-These live in the shared files, so every module picked them up with **zero
-per-file edits**:
+| File | Owns |
+|---|---|
+| `index.html` | The shell: module cards, search, install, the header's ⋯ menu host, one iframe per open module. |
+| `modules.js` | The module registry (id, title, file, domain). |
+| `app.css` | Reset, **tokens** (colours, spacing, type, the `--c-*` categorical palette, `--ink` / `--paper`), base layout. |
+| `controls.css` | Dock, header, stage inset, control and Monitor styles. Tokens only. |
+| `components.css` | Side-panel widgets (overview, faults, self-check). |
+| `kit.js` | `buildScene`, `UI.create`, `wireBridge`, materials, label re-exports, `monitorRows`. |
+| `chrome.js` | Header (`createHeader`), the ⋯ menu (`createMenu`), `chromeButton` (the one place kit chrome buttons are built). |
+| `controls.js` / `controls-core.js` | Every control primitive (axis, pedal, momentary, dial, choice, toggle, action) and the pure logic and registry behind them. |
+| `dock.js` | The control dock: layout, states, pages, swipe. |
+| `monitor.js` / `monitor-core.js` | The Monitor: value, rows, traces, gauge, status, footer. |
+| `labels.js` | 3D label system and the one label density (`getLabelDensity` / `setLabelDensity`). |
+| `keys.js` | The one keymap. |
+| `components.js` | `createGeoKit`, `Widgets`, and `runGuidedModule` (the 18 guided pages). |
+| `guard.js` | WebGL / import failure overlay; `<html data-no3d>` skips the WebGL check (sensors). |
+| `sw.js` | Service worker. **One** `VERSION` constant and `CORE_ASSETS` (every file that exists). |
 
-- **`labels.js`** (new file) — the label engine. Every label is auto-scored
-  into a priority tier (Primary / Secondary / Detail) based on what it
-  names, or you can force a tier explicitly. Labels are colour-coded by
-  system (air/fuel/exhaust/coolant/electrical/control/hot/mechanical),
-  get a leader line to their exact 3D point, and no longer flicker
-  (grace-period + hysteresis instead of hide-then-reshow every frame).
-- **`kit.js`** — now imports `labels.js` as `createLabelSystem`; added
-  `viewManager.setMeshMaterial(mesh, newMat)` (fixes wireframe/x-ray
-  breaking when a module swaps a mesh's material at runtime); added
-  `_wireAutoCollapse()`, which auto-caps any panel body taller than
-  ~220px and appends a "Show more ▼ / Show less ▲" toggle — only when
-  content actually overflows.
-- **`app.css`** — new styles for tiered/colour-coded labels + leader
-  lines, the auto-collapse panel cap, and a slightly shorter overall
-  panel max-height.
-- **Three modules patched** for the wireframe/x-ray bug specifically:
-  `abs-esc.html`, `electrical.html`, `mpfi.html` — they used to assign
-  `mesh.material = X` directly at runtime (a diode blinking, a valve
-  glowing hot), which silently reverted that one mesh out of
-  wireframe/x-ray mode. They now route through `viewManager.setMeshMaterial()`.
-- **`valvetrain.html`** — given an actual simulation upgrade (see below)
-  as a worked example of how to do the same to another module.
+## 2. The rules **[test]**
 
-## Who owns which control (Phase 1 of the control-system refactor)
+- **One place (R1).** Every control is one node, built by `controls.js`. A module never writes `<button>`, `<select>`, `type="range"` or `createElement('button')`; it declares a spec. Allowed to build controls: `controls.js`, `chrome.js`, `dock.js`, `monitor.js` (plus the shell `index.html`, `404.html`, and `guard.js`'s single Retry button).
+- **One dock, one Monitor (R2).** Controls live in the dock, numbers live in the Monitor. A number is printed once. The dock is 24 vh by default and never above 30 vh; the info sheet is at most 50 vh.
+- **Tokens only (R3).** No hex / `rgb()` / `rgba()` in any `<style>` or stylesheet except the per-module `--al-accent` declaration. Use `var(--text)`, `var(--c-cyan)`, `color-mix(in oklch, var(--c-red) 20%, transparent)`, `var(--ink)` / `var(--paper)`. A token adapts to the light theme, so a module needs no `html.light-theme` colour overrides. (3D materials in JS are not CSS and keep their own colours. `404.html` loads no stylesheet and is exempt.)
+- **One registry (R4).** Control values live in the shared registry as 0..1. Read with `ui.controls.get / value / on`; never read a slider's DOM value.
+- **One keymap (R5, R6).** `keys.js`. Each key has one owner; the other side forwards.
+- **Touch (R8).** `touch-action: none` and `contextmenu` blocking only on a control's drag surface.
+- **Unique ids (R9).** A duplicate control id throws; a duplicate `id="…"` in a page fails the check; a page may not define `btn-play`, `btn-reset`, `speed` or `toolbar-extras`.
+- **Layering (R10).** `z-index` only from the scale in `controls.css`.
+- **No globals.** No `window.__*` anywhere. Shared state lives in a module (`labels.js` for label density).
+- **No charts in panels.** No `<canvas>` or `<svg>` chart inside a panel / widget template; no writes to `ui.monitor.root`; a `ui.stage` canvas is never appended to the dock, panel or Monitor.
+- **Precache.** Every `.js` / `.css` / `.html` file that exists is in `CORE_ASSETS`, and every local file a page references is too.
+- **One version.** `sw.js` `VERSION`, `README.md`, `GUIDE.md`, `COMPONENTS.md`, `components.js` and `components.css` carry the same number.
 
-Every control exists once. The **shell** (`index.html`) draws the 32 px header — back, module title,
-info ⓘ, and a single ⋯ — through `chrome.js`. The ⋯ menu (bottom sheet on phones, popover on desktop)
-holds exactly: **sim speed, label density (All / Key / None), theme, wireframe, x-ray**. Nothing else.
-The old floating pill and the old settings sheet are gone. Title and accent colour come from `modules.js`.
+## 3. Add a guided module (the usual case)
 
-- **Sim speed only ever means sim speed** (shown as `0.85×`). A module quantity such as engine rpm or
-  load is the module's own control — never read it from `state.speedMul`. (`ignition`, `mpfi`, `abs-esc`, `cooling` all do this now.)
-- **Embedded modules build less, they don't hide.** When the kit detects it is inside the shell it does not
-  create play / reset / sim-speed / Flow / label-density nodes. Standalone pages still build them until Phase 2.
-- **One keymap** in `keys.js`: Space play/pause · R reset · D label density · L theme · W wireframe ·
-  X x-ray · Esc close menu / back. Shell owns L/W/X/Esc, the module owns Space/R/D; each side forwards the
-  keys it doesn't own (`postMessage` `type:'key'`). Pedals no longer use Space.
-- **Protocol additions** — shell→module commands `setLabelDensity` (0|1|2), `toggleInfo`, `key`;
-  module→shell `{type:'key', action}` and `{type:'state', playing | density}`. `setLabels` is kept for compatibility.
-- **Theme has one path:** the shell sends `setTheme`; it no longer writes `light-theme` into the iframe.
+1. Copy a small page (`airfilter.html`) to `mymodule.html`.
+2. Fill `CFG` (fields in `COMPONENTS.md`, "Guided CFG"): `moduleId`, `title`, `kicker`, `accent`, `badge`, `camPos`, `target`, `floorY`, `chipLabel` (the Monitor's big value), `rows` / `ro` (Monitor rows), `legend` (colour tokens), `overview`, `faults`, `quiz`.
+3. Controls: `ctl: { label, val, caption }` gives one 0–100 % axis (id `ctl`, read as `k`). For more, set `CFG.ctls = [axis specs]` (use presets) and `CFG.options = [choice | toggle | action specs]`. Use `onChange` to write to a variable your `build()` reads.
+4. Write `function build(H)` returning `{ labels, update(c) }`. `update({ t, dt, k, sp })` returns what to show: `{ big, unit, bar, rows, ro, status: [text, on], ctl, traces }`. A time series is a Monitor trace: `CFG.traces = [{ id, label, min, max, length, series: [{ id, label, color: 'var(--c-cyan)' }] }]`, and `update` returns `traces: { id: [v…] }` (a sample only when one is due; `null` clears it on Reset).
+5. End the script with `runGuidedModule(CFG, build)`.
+6. Register it: add the file to `modules.js` and to `CORE_ASSETS` in `sw.js`; bump `VERSION`; run `npm test`.
 
-## The dock and the standalone header (Phase 2)
-- **Dock** (`dock.js`, styles in `controls.css`): every module document has one. Bottom sheet on phones (24 vh, max 30 vh), two 140 px rails on landscape phones, one bar on desktop. Phone = `max-width:720px` or `max-height:540px`.
-- **Put controls in it through `UI.create`**: `toolbar` (play/reset/Flow/`extras`), `widgets.bl` (primary-left), `widgets.br` (primary-right). Do not add `position:fixed` elements at the bottom of a module.
-- **Height inside the shell:** `vh` in an iframe is the iframe height (screen minus the 32 px shell header), so the dock is a few px shorter than 24 % of the screen when embedded.
-- **Standalone header:** opened directly, a module draws the same `chrome.js` header (back, title, i, ...) and menu as the shell; title and colour come from `modules.js`. Embedded, the shell draws it and the module reserves no top space (`--stage-top: 0`).
-- **Info:** header i opens the info sheet (phones, closed by default) or the side panel (desktop).
-
-## Sliders (Phase 3)
-Every slider is an `axis` (`controls.js`): 44 px target, value bubble while dragging, `aria-valuetext` with unit, ↑/↓ keys, focus ring. Values live in one store; modules read `ui.controls.get/value/raw(id)`. Guided modules list them in `CFG.ctls[]`, other modules pass `axes:[…]` to `UI.create`. Engine rpm / load / vehicle speed are their own axes in `ignition`, `mpfi`, `cooling`, `abs-esc` — the ⋯ menu's Sim speed can no longer change them. See COMPONENTS.md for specs and presets.
-
-## Pedals (Phase 4)
-Brake, accelerator and clutch are `controls.js` primitives: an `axis` with `look:'pedal'` (spring-back, ↑/↓, Shift-hold) and a `momentary` (clutch). Phones get a 52 px horizontal bar; desktop a vertical 54×158 pedal. Read them with `ui.controls.get('throttle' | 'brake' | 'clutch')`; Space is only play/pause. Modules must not keep their own pedal variable or key handlers. See COMPONENTS.md.
-
-## Dials (Phase 5)
-The steering wheel and the engine crank are `controls.js` primitives: `type:'dial'` with `look:'wheel' | 'crank' | 'knob'`. Drag anywhere on it, ←/→ turn 10° (→ = clockwise = right in every module), Enter / Home = default; it is 96 px on phones and shows its angle once, as small text. Read it with `ui.controls.get('wheel')` (−1..1, clockwise +) or `ui.controls.value('wheel')` (degrees). `steering`, `differential` and `awd` use a `wheel`; `engine` uses a wrapping 0–720° `crank`. See COMPONENTS.md.
-
-## Options: choice / toggle / action (Phase 6)
-A module never authors a `<button>`, `<select>` or `<input>`. Declare `options: [spec]` in `UI.create` (or `CFG.options` for `runGuidedModule`; `ui.addOptions([...])` if the list is built later):
-- `{ id, type:'choice', layout:'segmented'|'select'|'gate', label, options:['A','B'] | [{id,label,tone:'crit'}], def, onChange(id, index) }` — 2–4 short options = segmented, longer lists = select, a gearbox stick = gate.
-- `{ id, type:'toggle', label, def:false, onChange(bool) }`
-- `{ id, type:'action', label, tone, onAction() }` (no state; a reset is an action only for module-specific extras — the dock Reset already exists).
-Read with `ui.controls.value(id)` (option id / boolean), follow the simulation with `ui.controls.set(id, indexOrBool)`, hide mode-dependent ones with `ui.controls.setHidden(id, true)`. Use `primary:true` only for something the user holds or flicks mid-run (a gear selector). Put module-specific resets in `CFG.onReset` (guided) or the bridge's `onCommand` — the dock Reset also calls `controls.resetAll()`. Control ids must be unique per page.
-
-## What's NOT done yet: simulation depth for the other 43 modules
-
-The valvetrain module previously had a cam-advance slider that only
-moved a valve *visually* with no consequence. I added a volumetric-
-efficiency model so advancing/retarding the cam now visibly shifts a
-simulated torque curve, with two new live readouts ("Volumetric eff.",
-"Torque effect"). This is the pattern to repeat: **find every module
-where a control changes state but nothing else in the simulation reacts
-to it, and give it a real, physically-motivated consequence.**
-
-### How to do it for another module
-
-1. Open the module file and find `updateReadouts()` (or the equivalent
-   per-frame readout function — every module has one).
-2. Find the control(s) — the sliders/buttons in the `bl`/`br` widgets —
-   and note what `state.*` field they write to.
-3. Ask: "in a real engine, what else changes when this control moves?"
-   Examples worth doing, roughly in priority order of teaching value:
-   - **turbocharger.html** — boost pressure control currently doesn't
-     visibly affect power/efficiency; tie it to a simple power curve and
-     an "overboost risk" warning past a threshold.
-   - **mpfi.html** / **carburetor.html** (if present) — air-fuel ratio
-     control should show a simulated "rich/lean" combustion-quality
-     readout, not just a number.
-   - **cooling** module(s) — thermostat/fan controls should show a
-     simulated engine temperature trending toward a target over time,
-     not just an instant on/off state.
-   - **abs-esc.html** — wheel-slip control should show simulated stopping
-     distance or traction change, not just valve state.
-   - **electrical.html** — load (headlights/fan/etc. on) should visibly
-     move a simulated battery voltage/charge readout over time.
-4. Write a small, named model function near the top of the `<script
-   type="module">` block (see `volumetricEfficiency()` in
-   `valvetrain.html` for the pattern: a couple of named constants, one
-   pure function, a comment explaining the real-world direction of the
-   effect and that it's simplified, not a dyno lookup table).
-5. Add 1–2 new rows to the module's `readoutHTML()` template with fresh
-   `id`s, register them in the `ro = { ... }` object, and set their text
-   + a CSS class (`ok`/`warn`/plain) inside `updateReadouts()`.
-6. Unit-test the model function in isolation with `node -e '...'` (copy
-   just the function, feed it a range of inputs, assert it stays in a
-   sane band and moves in the right direction) — see the Node snippet
-   used for `valvetrain.html`'s VE model as a template. Don't skip this;
-   it's the cheapest way to catch a sign error before it's live.
-7. Load the module in a browser and confirm the readout updates live as
-   you drag the control, and that nothing else broke (check the browser
-   console for errors).
-
-### Optional label/priority tuning per module
-
-The auto-tiering in `labels.js` (`scoreLabel()` / `MAJOR` / `MINOR`
-regexes) is a general-purpose heuristic and works out of the box for all
-modules, but if a specific module's Key-parts view looks off, you can
-override any individual label's tier without touching the shared file —
-just pass a tier when adding it:
+## 4. Add a custom module (own scene and update loop)
 
 ```js
-labels.add('flywheel', 'Flywheel', 1);   // 1 = force Primary
-labels.add('ring-gear-tooth', 'Ring gear tooth', 3); // 3 = force Detail
+import * as Base from './kit.js';
+const state = Base.createUIState();
+const { scene, camera, renderer, controls, viewManager } = Base.buildScene({ camPos: [4, 2, 6] });
+const ui = Base.UI.create({
+  moduleId: 'mymodule',
+  panel:   { kicker: 'Engine', title: 'My module', tabs: [{ id: 'overview', label: 'Overview' }], badge: { text: 'Badge' } },
+  monitor: { config: { label: 'Boost', value: { label: 'Boost', unit: ' kPa', max: 200, bar: true },
+                       rows: [['rpm', 'Speed'], ['temp', 'Temp']], traces: [], status: { text: 'Running' } },
+             initial: { value: { text: '0', unit: ' kPa', bar: 0 }, status: ['Running', false] } },
+  toolbar: { play: true, reset: true, speed: { label: 'Sim speed', min: 0.15, max: 2.5, step: 0.05, value: 0.85 }, labels: true },
+  axes:    [{ id: 'rpm', preset: 'rpm', side: 'left' }, { id: 'load', preset: 'load', side: 'right' }],
+  options: [{ id: 'mode', type: 'choice', layout: 'segmented', label: 'Mode', def: 'a', options: ['a', 'b'] }]
+});
+const bridge = ui.wireBridge({ viewManager, state, onCommand: (d) => { if (d.action === 'reset') ui.controls.resetAll(); } });
+bridge.ready();
+// each frame
+ui.monitor.update({ value: { text: '120', unit: ' kPa', bar: 60 }, rows: { rpm: '2800 rpm', temp: ['96 °C', 'warn'] }, status: ['Running', true] });
+const rpm = ui.controls.value('rpm');           // real value, step-snapped
+const mode = ui.controls.value('mode');         // option id
 ```
 
-or pass an options object to also force its colour category:
+- **The dock** is configured through `UI.create({ toolbar, axes, options, widgets })`; later additions go through `ui.addOptions([...])` or, for a node you built, `ui.toolbar.dock.addOption(node)` / `addPrimary({ id, side, node })` then `ui.toolbar.dock.refresh()`. There is no `ui.dock.set`. Read controls with `ui.controls.get(id)` (0..1), `.value(id)`, `.on(id, fn)`, `.set(id, n)`, `.resetAll()`; `ui.axis(id)` returns the instance.
+- **The Monitor** is `ui.monitor.set(config)` (rebuilds rows / traces / footer, e.g. on a mode switch) and `ui.monitor.update(patch)` (values: `rows`, `rowLabels`, `traces`, `gauge`, `footer`, `status`). Text is written at ≤ 9 Hz, traces drawn at ≤ 30 Hz, so call `update` every frame.
+- **`monitorRows(ui, ids, drop)`** lets old code that writes `ro.x.textContent = …` / `ro.x.className = 'v warn'` write Monitor rows instead.
+- **A picture that is not a time series** (spectrum, advance curve, torque map): `const cv = ui.stage.canvas({ id, label, width, height, corner: 'bl' | 'br', size })`, draw into `cv`, change its caption with `ui.stage.caption(id, text)`, remove with `ui.stage.remove(id)`. It floats over the stage, above the dock, with no pointer events.
+- **A 2D page** (no 3D scene): add `data-no3d` to `<html>`, link `app.css` and `controls.css`, set `body { padding: var(--stage-top) var(--dock-rail) calc(var(--dock-h) + var(--safe-b)) }`, and give the ⋯ menu `menuHide: ['density', 'wireframe', 'xray']` in `wireBridge`. `sensors.html` is the example.
 
-```js
-labels.add('sensor-x', 'Knock sensor', { tier: 1, kind: 'control' });
-```
+## 5. Keymap **[test]**
 
-### Testing note
+| Key | Action | Owner |
+|---|---|---|
+| Space | play / pause | module (the shell forwards it) |
+| R | reset | module |
+| D | label density | module |
+| L | theme | shell |
+| W | wireframe | shell |
+| X | x-ray | shell |
+| Esc | close the ⋯ menu / go back | shell |
+| ← → ↑ ↓ and Shift | adjust the focused control; Shift-hold drives a pedal | the control |
 
-This sandbox had no network access, so the WebGL scenes couldn't be
-rendered end-to-end here — the shared engine/panel logic was unit-tested
-directly (DOM + a fake camera, no three.js needed), and the `valvetrain.html`
-changes were verified as pure math with no three.js dependency. Before
-shipping further changes, do a real visual pass in a browser with network
-access (three.js loads from the CDN via the import map in each module).
+Keys are ignored while typing in an input / select, with Ctrl / Meta / Alt held, and Space on a focused button, link or slider means "activate".
+
+## 6. Mobile budget
+
+- Header: one row, **32 px** (28 px on a landscape phone). Standalone only; embedded modules have no header of their own.
+- Dock: default **24 vh**, hard ceiling **30 vh**; slim state 56 px; options row 44 px; landscape phones use two 140 px side rails. Tap targets are at least `--ctl-tap` (44 px).
+- Info panel: a bottom sheet of at most 50 vh on phones (closed by default, opened by ⓘ); a side panel on desktop.
+- Monitor: a 28 px strip under the header on phones, a card at the top right on desktop. Keep the row list short enough to read at a glance (the longest today are crankshaft-piston with 17 and mpfi / lubrication with 11; QA.md tracks them).
+- The model sits in the upper / middle of the stage (`--stage-top` to `--dock-h`). A stage canvas must not cover it.
+- Motion respects `prefers-reduced-motion`.
+- Offline: after the first visit everything (including three.js) is served from the cache.
+
+## 7. Presets
+
+`rpm` (800–5000, 1800), `load` (0–100 %), `ambient` (−10–45 °C), `vehicle-speed` (0–160 km/h), `voltage` (8–15 V), `percent` (0–100). Any field can be overridden: `{ preset: 'rpm', min: 0, max: 7000, def: 0 }`.
+
+## 8. Release checklist
+
+1. `npm test` passes.
+2. Bump `VERSION` in `sw.js`; update the version in README, GUIDE, COMPONENTS and the `components.js` / `components.css` headers.
+3. New files are in `CORE_ASSETS`; a new module is in `modules.js`.
+4. Fill the manual cells of `QA.md`; put small findings in `POLISH.md`.

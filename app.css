@@ -92,6 +92,23 @@
     --crit:        oklch(0.70 0.20 25);
     --info:        var(--accent);
 
+    /* Categorical palette (Phase 8): legend swatches and Monitor trace series. Semantic states use --ok / --warn / --crit. */
+    --c-red:    oklch(0.66 0.22 25);
+    --c-orange: oklch(0.72 0.19 50);
+    --c-amber:  oklch(0.78 0.17 75);
+    --c-yellow: oklch(0.86 0.17 95);
+    --c-lime:   oklch(0.84 0.20 128);
+    --c-green:  oklch(0.74 0.19 150);
+    --c-cyan:   oklch(0.80 0.13 205);
+    --c-sky:    oklch(0.75 0.15 230);
+    --c-blue:   oklch(0.64 0.20 260);
+    --c-violet: oklch(0.64 0.24 295);
+    --c-pink:   oklch(0.72 0.19 350);
+    --c-slate:  oklch(0.70 0.04 255);
+    /* Fixed neutrals: --ink for shadows / dark fills, --paper for highlights and text on a filled colour (same in both themes) */
+    --ink:   oklch(0.12 0.010 250);
+    --paper: oklch(0.99 0 0);
+
     --ring:        oklch(0.75 0.16 230 / 0.28);
 
     /* Shadows: two-layer (ambient + contact) */
@@ -133,6 +150,19 @@
     --crit:        oklch(0.55 0.22 25);
 
     --ring:        oklch(0.55 0.20 255 / 0.28);
+
+    --c-red:    oklch(0.56 0.22 25);
+    --c-orange: oklch(0.63 0.19 50);
+    --c-amber:  oklch(0.68 0.16 75);
+    --c-yellow: oklch(0.74 0.15 95);
+    --c-lime:   oklch(0.70 0.19 128);
+    --c-green:  oklch(0.58 0.17 150);
+    --c-cyan:   oklch(0.64 0.12 205);
+    --c-sky:    oklch(0.60 0.15 235);
+    --c-blue:   oklch(0.52 0.21 260);
+    --c-violet: oklch(0.52 0.24 295);
+    --c-pink:   oklch(0.60 0.20 350);
+    --c-slate:  oklch(0.55 0.04 255);
 
     --shadow-sm: 0 1px 2px oklch(0.20 0.02 250 / 0.06),
                  0 4px 12px oklch(0.20 0.02 250 / 0.08);
@@ -775,7 +805,6 @@
 
 /* ═══════════════════════════════════════════════════════════════════════
    UTILITIES
-   (The 90-line LEGACY !important block moved to legacy.css — loaded by sensors.html only.)
    ═══════════════════════════════════════════════════════════════════════ */
 @layer utilities {
   .ui-hidden { display: none !important; }

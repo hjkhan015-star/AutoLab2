@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   components.js — Auto Lab shared components (v2.0)
+   components.js — Auto Lab shared components (v8.9)
 
    ONE place for the parts every module used to copy-paste, so all modules
    look and behave the same.
@@ -28,7 +28,7 @@
    ═══════════════════════════════════════════════════════════════════════ */
 import * as THREE from 'three';
 import * as Base from './kit.js';
-import { controls } from './controls.js';
+import { controls, quizOptionHTML } from './controls.js';
 export { controls };
 
 /* ── 3D geometry kit ─────────────────────────────────────────────── */
@@ -136,7 +136,7 @@ export const Widgets = {
   faults: (cfg) => '<div class="al-sec"><h4>Common faults</h4></div>' + cfg.faults.map(f =>
     `<div class="al-fault"><div class="t">${f[0]}</div><div class="s">${f[1]}</div><div class="c">Check: ${f[2]}</div></div>`).join(''),
   quiz: (cfg) => cfg.quiz.map((q, n) => `<div class="al-q" data-a="${q[2]}"><div class="q">${n + 1}. ${q[0]}</div>` +
-    q[1].map(o => `<button class="al-opt">${o}</button>`).join('') + `<div class="al-exp">${q[3]}</div></div>`).join(''),
+    q[1].map(o => quizOptionHTML(o)).join('') + `<div class="al-exp">${q[3]}</div></div>`).join(''),
   /* 7b3: the module legend is the Monitor footer (shown once, in the Monitor card) */
   legend: (cfg) => '<div class="mon-legend">' + cfg.legend.map(l => `<span><i style="background:${l[0]}"></i>${l[1]}</span>`).join('') + '</div>',
   /* one click handler for every .al-q self-check question inside `host` */
