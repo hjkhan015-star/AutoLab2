@@ -37,9 +37,9 @@ const CFG = {
   "kicker": "Fuel Supply",
   "accent": "#10b981",
   "badge": "In-tank electric pump",
-  "camPos": [5.6, 3.4, 7.2],
-  "target": [1.2, 0, 0],
-  "floorY": -1.6,
+  "camPos": [7.0, 4.3, 9.0],
+  "target": [1.5, -0.2, 0],
+  "floorY": -1.5,
   ctls: [   /* Phase 3: sliders live in the dock as axis controls; ctls[0] (id 'ctl') = the main 0-100 % control */
     { id:'ctl', label:"Engine demand", caption:"Load", preset:'percent', def:40 },
     { id:'volts', preset:'voltage', label:'Battery voltage', onChange:(v)=>{ S.volts = v; } },
@@ -65,7 +65,7 @@ const CFG = {
     ["#ef4444", "Low pressure warning"],
     ["#f1f5f9", "Vapour / no prime"]
   ],
-  "overview": "<div class=\"al-sec\"><h4>Job of the system<\/h4><p>The tank stores fuel; the electric pump lifts it and pushes it through the filter to the fuel rail at a steady pressure (about 3–4&nbsp;bar for port injection). The regulator returns whatever the engine does not need.<\/p><\/div><div class=\"al-sec\"><h4>Parts<\/h4><ul><li><b>Tank &amp; baffles<\/b> – stop fuel surging away from the pickup under cornering.<\/li><li><b>In-tank pump<\/b> – a small DC motor driving a roller or turbine element; cooled and lubricated by the fuel itself.<\/li><li><b>Filter \/ sock<\/b> – traps particles down to ~10&nbsp;&micro;m.<\/li><li><b>Pressure regulator<\/b> – bleeds surplus fuel back to the tank so rail pressure stays constant as demand changes.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Flow, not pressure<\/h4><p>The pump is a <i>flow<\/i> device. The regulator turns that flow into a pressure by holding a spring-loaded seat closed. If the pump cannot deliver more than the engine uses, the regulator has nothing to return and the rail pressure collapses — the engine runs lean.<\/p><\/div><div class=\"al-sec\"><h4>Why voltage matters<\/h4><p>A DC motor's speed is roughly proportional to its supply voltage. A tired battery, a corroded connector or a failing relay all reduce voltage at the pump, and flow falls with it. A 30&nbsp;% voltage drop can be a 30&nbsp;% flow loss right when the engine needs fuel most.<\/p><\/div><div class=\"al-sec\"><h4>Heat and vapour lock<\/h4><p>Fuel absorbs heat from the pump motor and from the returned fuel. With a low tank level there is less fuel to absorb it, so temperature climbs and light ends start to vaporise — the pump then tries to compress a gas instead of a liquid and flow collapses.<\/p><\/div><div class=\"al-sec\"><h4>Try this<\/h4><p>Set full load and drag the <b>Battery voltage<\/b> down to 9&nbsp;V — watch supply fall below demand and the rail pressure sag. Then select <b>Failed relay \/ no prime<\/b> and see everything drop to zero. Refuel and reset to recover.<\/p><\/div>",
+  "overview": "<div class=\"al-sec\"><h4>Job of the system</h4><p>The tank stores fuel; the electric pump lifts it and pushes it through the filter to the fuel rail at a steady pressure (about 3–4&nbsp;bar for port injection). The regulator returns whatever the engine does not need.</p></div><div class=\"al-sec\"><h4>Parts</h4><ul><li><b>Tank, baffles &amp; filler neck</b> – baffles stop fuel surging away from the pickup in corners; the filler neck and cap seal the tank.</li><li><b>Pump module</b> – hangs from a flange in the top of the tank. A <b>swirl pot</b> (cup) keeps the pump covered, a <b>sock</b> strains the fuel, a <b>check valve</b> holds pressure after shut-down, and a <b>float</b> on an arm reads the level.</li><li><b>In-tank pump</b> – a small DC motor driving a turbine impeller; fuel flows through the motor, cooling and lubricating it.</li><li><b>Fuel filter</b> – clamped to the chassis, traps particles down to ~10&nbsp;&micro;m.</li><li><b>Fuel rail &amp; injectors</b> – the rail feeds every injector; the gauge on its test port shows rail pressure.</li><li><b>Pressure regulator</b> – a spring-loaded diaphragm valve on the rail end. It opens against the spring and bleeds surplus fuel back to the tank through the return line. Its vacuum port lets manifold vacuum help open it at idle.</li><li><b>Pump relay</b> – switches battery power to the pump; the ECU closes it at key-on and while the engine turns.</li></ul></div><div class=\"al-sec\"><h4>Flow, not pressure</h4><p>The pump is a <i>flow</i> device. The regulator turns that flow into a pressure by holding a spring-loaded seat closed. If the pump cannot deliver more than the engine uses, the regulator has nothing to return and the rail pressure collapses — the engine runs lean.</p></div><div class=\"al-sec\"><h4>Why voltage matters</h4><p>A DC motor's speed is roughly proportional to its supply voltage. A tired battery, a corroded connector or a failing relay all reduce voltage at the pump, and flow falls with it. A 30&nbsp;% voltage drop can be a 30&nbsp;% flow loss right when the engine needs fuel most.</p></div><div class=\"al-sec\"><h4>Heat and vapour lock</h4><p>Fuel absorbs heat from the pump motor and from the returned fuel. With a low tank level there is less fuel to absorb it, so temperature climbs and light ends start to vaporise — the pump then tries to compress a gas instead of a liquid and flow collapses.</p></div><div class=\"al-sec\"><h4>Read the gauge</h4><p>Green is 2.6–4.6&nbsp;bar. At idle the manifold vacuum lowers the regulator setting slightly, so a healthy rail reads a little lower than at full load. Red below 1.8&nbsp;bar means starving; red above 4.6&nbsp;bar means the regulator is not returning fuel.</p></div><div class=\"al-sec\"><h4>Try this</h4><p>Set full load and drag the <b>Battery voltage</b> down to 9&nbsp;V — watch supply fall below demand and the rail pressure sag. Then select <b>Stuck regulator (high)</b> and watch the return line go quiet while the gauge climbs. Select <b>Failed relay / no prime</b> and see everything drop to zero. Refuel and reset to recover.</p></div>",
   "faults": [
     ["Weak pump (worn / low voltage)", "Loss of power under load, hesitation, long cranking. Rail pressure falls as demand rises but returns at idle.", "Measure rail pressure at idle and under load; measure voltage at the pump connector while running; check pump current draw."],
     ["Clogged filter / sock", "Starving at high speed and high load; pressure drops away as flow demand increases. Pump may whine.", "Compare pressure before and after the filter; inspect the in-tank sock for debris; replace the filter."],
@@ -80,7 +80,10 @@ const CFG = {
     ["A clogged filter typically causes…", ["Low pressure under load", "Higher octane", "Colder intake"], 0, "Restriction limits flow, so pressure falls exactly when the engine needs fuel most."],
     ["Pump flow falls when…", ["Supply voltage falls", "Fuel is cold", "Tank is full"], 0, "A DC motor's speed is roughly proportional to supply voltage, so flow tracks voltage."],
     ["Rail pressure sags below the regulator setting when…", ["Supply is less than engine demand", "The tank is full", "The engine is idling"], 0, "With no surplus to return the regulator cannot hold pressure - the engine runs lean."],
-    ["Hot fuel at a low tank level is a problem because…", ["Less liquid fuel to absorb heat, so vapour forms", "It is heavier", "It damages the filter"], 0, "Vapour in the pump destroys flow - the pump cannot move gas efficiently."]
+    ["Hot fuel at a low tank level is a problem because…", ["Less liquid fuel to absorb heat, so vapour forms", "It is heavier", "It damages the filter"], 0, "Vapour in the pump destroys flow - the pump cannot move gas efficiently."],
+    ["What does the check valve in the pump outlet do?", ["Filters the fuel", "Holds pressure in the line after the pump stops", "Limits the pump speed"], 1, "It keeps the line full and pressurised, so the engine restarts quickly instead of waiting for the pump to refill the rail."],
+    ["Why is the pump sitting in a swirl pot (cup)?", ["To heat the fuel", "To keep the pickup covered in corners or when the tank is nearly empty", "To store the filter"], 1, "The cup stays full from the return jet, so the pump keeps drawing liquid even when fuel sloshes away from the tank floor."],
+    ["The regulator is stuck closed. What happens at the return line?", ["More fuel returns", "Nothing returns and rail pressure rises", "Air is drawn in"], 1, "With the seat jammed shut the surplus has nowhere to go, so the rail pressure climbs well above spec."]
   ]
 };
 
@@ -99,7 +102,8 @@ const num = (x, d) => (Number.isFinite(x) ? x : d);
 const V_NOM        = 13.5;   /* V, nominal supply with the alternator charging   */
 const V_CUTIN      = 6.0;    /* V, below this the pump motor will not turn       */
 const FLOW_NOM     = 120;    /* L/h, free flow at nominal voltage                */
-const REG_SET      = 3.5;    /* bar, healthy regulator set pressure              */
+const REG_SET      = 3.5;    /* bar, healthy regulator set pressure (wide-open throttle) */
+const VAC_DROP     = 0.45;   /* bar, manifold vacuum at idle lowers the set pressure     */
 const DEMAND_IDLE  = 4;      /* L/h, idle consumption                            */
 const DEMAND_MAX   = 90;     /* L/h, extra at full load + redline                */
 const TANK_LITRES  = 50;     /* L, tank capacity (for the level drain rate)      */
@@ -131,16 +135,20 @@ function fuelDemandLph(load, rpm) {
 
 /* Rail pressure (bar). The regulator holds its setting while the pump
    can supply at least the engine demand; below that the rail sags
-   proportionally. A stuck regulator scales the whole curve. */
-function railPressureBar(supplyLph, demandLph, fault) {
+   proportionally. The set pressure is vacuum-referenced: at idle the
+   manifold vacuum pulls the diaphragm open a little more, so the rail
+   sits about VAC_DROP lower than at full load (the injector sees a
+   constant pressure difference). A stuck regulator scales the curve. */
+function railPressureBar(supplyLph, demandLph, fault, load) {
   const s = Math.max(0, num(supplyLph, 0));
   const d = Math.max(1, num(demandLph, 1));
   if (s < 0.5) return 0;
   const ratio = clampN(s / d, 0, 1.30);
+  const setP = REG_SET - VAC_DROP * (1 - clampN(num(load, 1), 0, 1));
   let k = 1.0;
   if (fault === 'reghigh') k = 1.55;
   if (fault === 'reglow')  k = 0.45;
-  return clampN(REG_SET * k * Math.min(1, ratio), 0, 8);
+  return clampN(setP * k * Math.min(1, ratio), 0, 8);
 }
 
 /* Pump current (A). Direction: more flow -> more torque -> more
@@ -218,78 +226,237 @@ function resetAll() {
    MODULE SCENE (per-module 3D parts)
    ═══════════════════════════════════════════════════════════════════ */
 function build(H){
- const { box, cyl, cylX, cylZ, mat, glass, pipe, stream, lc, clamp, root, THREE, lowEnd } = H;
+ const { box, cyl, cylX, cylZ, sph, tor, mat, glass, pipe, stream, lc, root, THREE, lowEnd, Parts } = H;
+ const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 
- const steel = mat(0x8a93a5, .80, .30);
- const blue  = mat(0x38bdf8, .50, .40);
- const hose  = mat(0x1f2937, .20, .80);
- const grn   = mat(0xa3e635, .50, .40, { emissive: 0x000000, emissiveIntensity: 0 });
+ /* ── materials ────────────────────────────────────────────────── */
+ const steel     = mat(0x8a93a5, .80, .30);
+ const steelDark = mat(0x3d4555, .70, .40);
+ const frameMat  = mat(0x4b5563, .55, .55);
+ const hose      = mat(0x1f2937, .20, .80);
+ const brass     = mat(0xc9a24a, .90, .30);
+ const copper    = mat(0xd97706, .80, .35);
+ const rubber    = mat(0x111827, .10, .90);
+ const sockMat   = mat(0xd9cfae, .05, .95);
+ const cableRed  = mat(0xdc2626, .30, .60);
+ const cableBlk  = mat(0x0f172a, .30, .60);
 
- /* ── tank + baffles ───────────────────────────────────────────── */
+ /* ── helpers ──────────────────────────────────────────────────── */
+ /* cylinder between two points (struts, arms) */
+ const rod = (a, b, r, m, seg = 12) => {
+   const A = V(a), B = V(b), d = B.clone().sub(A);
+   const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, d.length(), seg), m);
+   o.position.copy(A).addScaledVector(d, 0.5);
+   o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
+   o.castShadow = !lowEnd; root.add(o); return o;
+ };
+ /* polyline with rounded corners, so hoses and the particle streams that ride inside them share one path */
+ const rounded = (pts, r = 0.16, steps = 5) => {
+   const out = [pts[0]];
+   for (let i = 1; i < pts.length - 1; i++) {
+     const p0 = V(pts[i - 1]), p1 = V(pts[i]), p2 = V(pts[i + 1]);
+     const a = p0.clone().sub(p1), b = p2.clone().sub(p1);
+     const rr = Math.min(r, a.length() / 2, b.length() / 2);
+     const pa = p1.clone().addScaledVector(a.normalize(), rr);
+     const pb = p1.clone().addScaledVector(b.normalize(), rr);
+     for (let s = 0; s <= steps; s++) {
+       const t = s / steps, u = 1 - t;
+       out.push([u * u * pa.x + 2 * u * t * p1.x + t * t * pb.x,
+                 u * u * pa.y + 2 * u * t * p1.y + t * t * pb.y,
+                 u * u * pa.z + 2 * u * t * p1.z + t * t * pb.z]);
+     }
+   }
+   out.push(pts[pts.length - 1]);
+   return out;
+ };
+
+ /* ── layout constants (world units) ───────────────────────────── */
+ const X0 = -0.95;                     /* pump module axis                       */
+ const RAIL_X = 4.1, RAIL_Y = -0.2;    /* fuel rail axis (runs along Z)          */
+ const FILT_X = 2.75, FILT_Y = -0.42;  /* fuel filter axis (runs along X)        */
+ const INJ_Z = [-0.8, -0.27, 0.27, 0.8];
+
+ /* ═══ CHASSIS: everything below is bolted to this ═════════════════ */
+ [-1, 1].forEach(s => box(7.8, 0.22, 0.14, frameMat, 1.5, -0.93, s * 1.5));          /* side rails            */
+ [-1.0, 1.0, FILT_X, RAIL_X].forEach(x => box(0.2, 0.2, 3.0, frameMat, x, -0.88, 0)); /* cross-members         */
+ box(3.5, 0.08, 2.6, steelDark, 0, -0.74, 0);                                         /* tank cradle plate     */
+
+ /* ═══ TANK: shell, baffles, straps, filler neck ═══════════════════ */
  box(3.4, 1.4, 2.2, glass(0x94a3b8, .16), 0, 0, 0);
- box(0.06, 1.3, 2.0, mat(0x64748b, .5, .5), -0.6, 0, 0);
- box(0.06, 1.3, 2.0, mat(0x64748b, .5, .5),  0.9, 0, 0);
-
- /* ── fuel (scales with level) ─────────────────────────────────── */
+ const baffleMat = mat(0x64748b, .5, .5);
+ [0.6, 1.25].forEach(x => box(0.05, 1.2, 2.2, baffleMat, x, 0.1, 0));                 /* slosh baffles: gap along the floor lets fuel cross */
+ [-1.2, 1.2].forEach(x => {                                                           /* straps: over the top, down both sides, into the cradle */
+   box(0.12, 0.04, 2.3, steel, x, 0.72, 0);
+   [-1, 1].forEach(s => box(0.12, 1.5, 0.04, steel, x, -0.03, s * 1.12));
+ });
  const fuelMat = glass(0xf59e0b, .46);
  const fuel = box(3.3, 1.3, 2.1, fuelMat, 0, 0, 0);
 
- /* ── in-tank pump + impeller ──────────────────────────────────── */
- const pumpMat = glass(0x64748b, .45);
- cyl(.34, .34, .90, pumpMat, -0.9, -.15, 0);
- const imp = new THREE.Group(); imp.position.set(-0.9, -.15, 0); root.add(imp);
- for (let i = 0; i < 6; i++) {
-   const v = box(.30, .70, .04, mat(0xf97316, .4, .4), 0, 0, 0, imp);
-   v.rotation.y = i * Math.PI / 6;
+ /* filler neck + cap (back right corner of the tank) */
+ rod([1.40, 0.62, -0.78], [1.95, 1.38, -1.02], 0.16, steelDark, 16);
+ const cap = rod([1.93, 1.34, -1.01], [2.04, 1.49, -1.06], 0.20, mat(0x1f2937, .3, .6), 20);
+
+ /* ═══ PUMP MODULE: hangs from the flange, rests in the swirl pot ═══ */
+ /* flange + bolts + connector + two nipples */
+ cyl(.46, .46, .07, steelDark, X0, 0.735, 0);
+ for (let i = 0; i < 8; i++) {
+   const a = i / 8 * Math.PI * 2;
+   cyl(.03, .03, .04, steel, X0 + Math.cos(a) * .38, 0.79, Math.sin(a) * .38);
  }
- cyl(.36, .36, .14, steel, -0.9, .37, 0);
+ box(0.22, 0.16, 0.16, steelDark, X0 - 0.28, 0.85, 0);                 /* electrical connector            */
+ cyl(.06, .06, .22, steel, X0, 0.88, 0);                               /* pressure outlet nipple (to filter) */
+ cyl(.055, .055, .20, steel, X0 + 0.24, 0.87, 0.22);                   /* return inlet nipple (from regulator) */
 
- /* ── filter canister ──────────────────────────────────────────── */
+ /* swirl pot (reservoir cup) on the tank floor, kept full by the return jet */
+ cyl(.5, .5, .38, glass(0x93c5fd, .18), X0, -0.49, 0, undefined, 40, true);
+ cyl(.5, .5, .03, steelDark, X0, -0.685, 0);                           /* cup floor                       */
+ tor(.5, .02, steelDark, X0, -0.30, 0).rotation.x = Math.PI / 2;       /* cup rim                         */
+
+ /* guide struts: flange -> rim of the cup, and return jet tube into the cup */
+ [[.32, .32], [-.32, -.32]].forEach(([dx, dz]) => rod([X0 + dx, 0.72, dz], [X0 + dx, -0.32, dz], .028, steel));
+ rod([X0 + 0.24, 0.72, 0.22], [X0 + 0.24, -0.46, 0.22], .028, hose);
+
+ /* sock strainer + inlet nozzle */
+ cyl(.34, .34, .06, sockMat, X0, -0.63, 0);
+ cyl(.09, .09, .08, steelDark, X0, -0.59, 0);
+
+ /* pump stage (translucent, impeller visible) and motor (translucent, armature visible) */
+ cyl(.2, .2, .22, glass(0x64748b, .40), X0, -0.46, 0);
+ const imp = new THREE.Group(); imp.position.set(X0, -0.46, 0); root.add(imp);
+ for (let i = 0; i < 8; i++) {
+   const v = box(.34, .16, .035, mat(0xf97316, .4, .4), 0, 0, 0, imp);
+   v.rotation.y = i * Math.PI / 8;
+ }
+ cyl(.2, .2, .36, glass(0x334155, .38), X0, -0.17, 0);
+ tor(.205, .02, mat(0x8b5cf6, .5, .4), X0, -0.17, 0).rotation.x = Math.PI / 2;
+ const arm = new THREE.Group(); arm.position.set(X0, -0.17, 0); root.add(arm);
+ cyl(.11, .11, .30, copper, 0, 0, 0, arm);                              /* armature windings */
+ box(.04, .31, .26, mat(0xf1f5f9, .2, .5), 0, 0, 0, arm);              /* marker, so the spin is visible */
+ cyl(.21, .21, .06, steelDark, X0, 0.04, 0);                           /* top cap                          */
+ cyl(.05, .05, .63, steel, X0, 0.385, 0);                              /* pressure tube, pump -> flange    */
+ cyl(.075, .075, .12, brass, X0, 0.26, 0);                             /* check valve (holds residual pressure) */
+ /* power leads: connector -> pump cap */
+ pipe([[X0 - 0.28, 0.8, 0.03], [X0 - 0.28, 0.3, 0.03], [X0 - 0.14, 0.07, 0.03]], .018, cableRed);
+ pipe([[X0 - 0.28, 0.8, -0.03], [X0 - 0.28, 0.3, -0.03], [X0 - 0.14, 0.07, -0.03]], .018, cableBlk);
+
+ /* fuel level sender: bracket from the flange, pivot, arm and float that rides the surface */
+ const PIV = [X0 + 0.62, 0.12, -0.10];
+ box(0.30, 0.05, 0.05, steel, X0 + 0.50, 0.72, PIV[2]);
+ rod([PIV[0], 0.72, PIV[2]], [PIV[0], PIV[1], PIV[2]], .022, steel);
+ const piv = new THREE.Group(); piv.position.set(...PIV); root.add(piv);
+ sph(.04, brass, 0, 0, 0, piv);
+ const ARM_L = 0.70;
+ box(ARM_L, 0.03, 0.03, steel, ARM_L / 2, 0, 0, piv);
+ const floatMesh = cyl(.1, .1, .09, mat(0xf8fafc, .1, .6), ARM_L, 0, 0, piv);
+
+ /* ═══ FILTER (clamped on a cross-member) ══════════════════════════ */
  const filtMat = mat(0x38bdf8, .50, .40, { emissive: 0x000000, emissiveIntensity: 0 });
- cyl(.35, .35, 1.20, filtMat, 2.0, .50, 0);
-
- /* ── fuel rail + bosses ───────────────────────────────────────── */
- const railMat = mat(0x9aa3b2, .85, .30, { emissive: 0x000000, emissiveIntensity: 0 });
- cylZ(.15, .15, 2.20, railMat, 4.0, -.25, 0);
- [-0.8, -0.27, 0.27, 0.8].forEach(z => cyl(.08, .08, .50, steel, 4.0, -.55, z));
-
- /* ── pressure regulator ───────────────────────────────────────── */
- const regMat = mat(0xa3e635, .50, .40, { emissive: 0x000000, emissiveIntensity: 0 });
- cyl(.20, .20, .50, regMat, 3.2, -.60, .95);
-
- /* ── hoses ────────────────────────────────────────────────────── */
- pipe([[-0.9, .4, 0], [-0.9, 1.5, 0], [2, 1.5, 0], [2, 1.1, 0]], .07, hose);
- pipe([[2, -.1, 0], [2, -.6, 0], [3.2, -.6, 0], [4, -.6, 0]], .07, hose);
- pipe([[4, -.3, .95], [3.2, -.3, .95], [2.6, -.3, .95], [1.4, -.3, .95]], .06, hose);
-
- /* ── particle streams ─────────────────────────────────────────── */
- const nA = lowEnd ? 10 : 18;
- const nB = lowEnd ?  8 : 14;
- const nC = lowEnd ?  8 : 12;
- const nV = lowEnd ?  6 : 10;
-
- const sA = stream([[-0.9, .4, 0], [-0.9, 1.5, 0], [2, 1.5, 0], [2, 1.1, 0]], nA, 0xf59e0b, .11);
- const sB = stream([[2, -.1, 0], [2, -.6, 0], [3.2, -.6, 0], [4, -.6, 0]], nB, 0xf59e0b, .11);
- const sC = stream([[4, -.3, .95], [3.2, -.3, .95], [2.6, -.3, .95], [1.4, -.3, .95]], nC, 0xf59e0b, .09);
- const vap = stream([[1.4, -.55, .95], [2.4, -.45, .95], [3.4, -.55, .95]], nV, 0xf1f5f9, .10);
-
- /* ── injector spray stubs (rail -> engine) ────────────────────── */
- const inj = [];
- [-0.8, -0.27, 0.27, 0.8].forEach(z => {
-   inj.push(stream([[4.0, -.85, z], [4.0, -1.35, z]], lowEnd ? 4 : 6, 0xf59e0b, .09));
+ box(0.7, 0.10, 0.34, steelDark, FILT_X, -0.73, 0);
+ cylX(.26, .26, .90, filtMat, FILT_X, FILT_Y, 0);
+ tor(.27, .02, steel, FILT_X, FILT_Y, 0).rotation.y = Math.PI / 2;
+ [-1, 1].forEach(s => {
+   cylX(.30, .30, .06, steelDark, FILT_X + s * 0.45, FILT_Y, 0);
+   cylX(.07, .07, .16, steel, FILT_X + s * 0.53, FILT_Y, 0);
  });
 
- let ang = 0, lastDom = 0;
+ /* ═══ FUEL RAIL, INJECTORS, GAUGE, INTAKE HEAD ════════════════════ */
+ const railMat = mat(0x9aa3b2, .85, .30, { emissive: 0x000000, emissiveIntensity: 0 });
+ cylZ(.15, .15, 2.30, railMat, RAIL_X, RAIL_Y, 0);
+ [-1, 1].forEach(s => cylZ(.17, .17, .06, steel, RAIL_X, RAIL_Y, s * 1.18));
+ cylX(.08, .08, .12, steel, RAIL_X - 0.15, RAIL_Y, 0);                 /* inlet banjo */
+
+ box(1.3, 0.6, 2.6, glass(0x64748b, .30), RAIL_X, -1.0, 0);            /* intake head (cut-away) */
+ INJ_Z.forEach(z => {
+   cyl(.075, .075, .35, steelDark, RAIL_X, -0.525, z);                 /* injector body */
+   cyl(.04, .04, .10, brass, RAIL_X, -0.74, z);                        /* nozzle, in the port */
+   box(0.10, 0.08, 0.10, rubber, RAIL_X + 0.1, -0.45, z);              /* connector */
+   cylX(.13, .13, 1.30, steel, RAIL_X, -1.05, z);                      /* intake runner */
+ });
+ cylZ(.04, .04, .14, steel, RAIL_X, -0.75, 1.37);                      /* vacuum port on the head */
+
+ /* rail test port + pressure gauge */
+ cyl(.05, .05, .24, steel, RAIL_X, 0.07, -0.55);
+ const gauge = new THREE.Group(); gauge.position.set(RAIL_X, 0.46, -0.55); gauge.rotation.y = 0.6; root.add(gauge);
+ cylZ(.27, .27, .10, steelDark, 0, 0, 0, gauge);
+ cylZ(.235, .235, .02, mat(0xe8edf5, .05, .8), 0, 0, 0.055, gauge);
+ tor(.255, .02, steel, 0, 0, 0.05, gauge);
+ const pToPhi = (p) => (135 - 270 * p / 6 + 90) * Math.PI / 180;       /* bar -> torus angle */
+ [[0, 1.8, 0xef4444], [1.8, 2.6, 0xf59e0b], [2.6, 4.6, 0x22c55e], [4.6, 6, 0xef4444]].forEach(([p1, p2, col]) => {
+   const g = new THREE.Mesh(new THREE.TorusGeometry(.185, .016, 6, 24, pToPhi(p1) - pToPhi(p2)), mat(col, .1, .6));
+   g.rotation.z = pToPhi(p2); g.position.z = 0.068; gauge.add(g);
+ });
+ for (let i = 0; i <= 6; i++) {
+   const a = pToPhi(i);
+   const t = box(.012, .05, .012, mat(0x0f172a, .1, .8), Math.cos(a) * .15, Math.sin(a) * .15, 0.068, gauge);
+   t.rotation.z = a - Math.PI / 2;
+ }
+ const needle = new THREE.Group(); needle.position.z = 0.078; gauge.add(needle);
+ box(.02, .20, .01, mat(0xdc2626, .2, .5), 0, .085, 0, needle);
+ cylZ(.03, .03, .02, steel, 0, 0, 0, needle);
+
+ /* ═══ PRESSURE REGULATOR (diaphragm + spring + seat), on the rail end ═ */
+ const regMat = mat(0xa3e635, .50, .40, { emissive: 0x000000, emissiveIntensity: 0 });
+ const regGlass = glass(0xa3e635, .26);
+ const regG = new THREE.Group(); regG.position.set(RAIL_X, RAIL_Y, 1.46); root.add(regG);
+ cylZ(.24, .24, .44, regGlass, 0, 0, 0, regG);                          /* shorter than the collars so no faces coincide */
+ cylZ(.245, .245, .07, regMat, 0, 0, -0.215, regG);                    /* fuel-side collar (touches the rail cap) */
+ cylZ(.245, .245, .07, regMat, 0, 0,  0.215, regG);                    /* vacuum-side cover */
+ tor(.07, .018, steel, 0, 0, -0.17, regG);                              /* valve seat */
+ cyl(.06, .06, .14, regMat, 0, .31, -0.06, regG);                       /* return nipple */
+ cylZ(.04, .04, .16, steel, 0, 0, .30, regG);                           /* vacuum nipple */
+ const regMove = new THREE.Group(); regG.add(regMove);
+ cylZ(.2, .2, .02, mat(0x1f2937, .2, .8), 0, 0, .05, regMove);          /* diaphragm */
+ cylZ(.018, .018, .20, steel, 0, 0, -.06, regMove);                     /* stem */
+ sph(.055, brass, 0, 0, -.14, regMove);                                 /* valve ball */
+ const spring = Parts.coilSpring({ radius: .1, length: .14, turns: 5, wire: .014, mat: steel, axis: 'z', centered: true });
+ spring.position.z = .13; regG.add(spring);
+
+ /* ═══ PUMP RELAY, on the frame rail ═══════════════════════════════ */
+ box(0.34, 0.30, 0.26, steelDark, -2.0, -0.67, 1.5);
+ const ledMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 1 });
+ sph(.035, ledMat, -2.0, -0.50, 1.58);
+
+ /* ═══ HOSES + PARTICLE STREAMS (share one path each) ══════════════ */
+ const supplyPts = rounded([[X0, .95, 0], [X0, 1.2, 0], [2.0, 1.2, 0], [2.0, FILT_Y, 0], [FILT_X - 0.61, FILT_Y, 0]], .22);
+ const toRailPts = rounded([[FILT_X + 0.61, FILT_Y, 0], [3.6, FILT_Y, 0], [3.6, RAIL_Y, 0], [RAIL_X - 0.21, RAIL_Y, 0]], .12);
+ const returnPts = rounded([[RAIL_X, .18, 1.40], [RAIL_X, 1.0, 1.40], [X0 + .24, 1.0, 1.40], [X0 + .24, 1.0, .22], [X0 + .24, .97, .22]], .22);
+ const vacPts    = rounded([[RAIL_X, RAIL_Y, 1.86], [RAIL_X, RAIL_Y, 2.0], [RAIL_X, -0.75, 2.0], [RAIL_X, -0.75, 1.44]], .14);
+ const cablePts  = rounded([[-2.0, -0.52, 1.5], [-2.0, .95, 1.5], [-2.0, .95, 0], [X0 - .28, .95, 0], [X0 - .28, .92, 0]], .18);
+ pipe(supplyPts, .07, hose);
+ pipe(toRailPts, .07, hose);
+ pipe(returnPts, .06, hose);
+ pipe(vacPts, .03, mat(0x334155, .1, .8));
+ pipe(cablePts, .03, cableRed);
+
+ const nA = lowEnd ? 10 : 18, nB = lowEnd ? 8 : 14, nC = lowEnd ? 8 : 12, nV = lowEnd ? 6 : 10;
+ const sP = stream([[X0, -0.62, 0], [X0, -0.4, 0], [X0, 0.7, 0], [X0, 0.95, 0]], lowEnd ? 5 : 8, 0xf59e0b, .10);   /* sock -> pump -> outlet */
+ const sA = stream(supplyPts, nA, 0xf59e0b, .11);
+ const sB = stream(toRailPts, nB, 0xf59e0b, .11);
+ const sC = stream(returnPts, nC, 0xf59e0b, .09);
+ const sJ = stream([[X0 + .24, .72, .22], [X0 + .24, -0.1, .22], [X0 + .24, -0.44, .22]], lowEnd ? 4 : 6, 0xf59e0b, .08);  /* jet tube refills the cup */
+ const vap = stream(supplyPts, nV, 0xf1f5f9, .10);
+ const cur = stream(cablePts, lowEnd ? 5 : 8, 0xfde68a, .07);
+ const inj = INJ_Z.map(z => stream([[RAIL_X, -0.80, z], [RAIL_X, -1.02, z]], lowEnd ? 4 : 6, 0xf59e0b, .09));
+ const streams = [sP, sA, sB, sC, sJ, vap, cur, ...inj];
+
+ let ang = 0, gaugeP = null, lightMode = null, domLast = 0;
  const tmpCol = new THREE.Color();
+ const white = new THREE.Color(0xf1f5f9), slate = new THREE.Color(0x64748b);
 
  return {
   labels: [
-    ['Fuel tank', [-1.3, .95, 1.1]],
-    ['In-tank pump', [-0.9, .75, 0]],
-    ['Fuel filter', [2.0, 1.25, 0]],
-    ['Fuel rail', [4.0, .05, 0]],
-    ['Pressure regulator', [3.2, -.20, .95]],
-    ['Return line', [1.9, -.05, .95]]
+    ['Fuel tank', [0.6, 0.35, 1.1]],
+    ['Filler neck & cap', [2.05, 1.62, -1.06]],
+    ['Pump module flange', [X0 - 0.15, 0.95, 0.25]],
+    ['In-tank pump', [X0, -0.17, 0.25]],
+    ['Sock strainer', [X0 - 0.25, -0.64, 0.35]],
+    ['Level float', [PIV[0], 0.2, PIV[2]]],
+    ['Fuel filter', [FILT_X, -0.1, 0]],
+    ['Fuel rail & injectors', [RAIL_X, -0.05, 0.85]],
+    ['Pressure gauge', [RAIL_X, 0.82, -0.55]],
+    ['Pressure regulator', [RAIL_X + 0.1, 0.35, 1.46]],
+    ['Return line', [1.2, 1.1, 1.40]],
+    ['Pump relay', [-2.0, -0.40, 1.5]]
   ],
   update(c){
    /* ── 1. inputs ─────────────────────────────────────────────── */
@@ -307,15 +474,14 @@ function build(H){
    /* ── 3. flow, demand, pressure ────────────────────────────── */
    const supply = pumpFlowLph(S.volts, filt, fault);
    const demand = fuelDemandLph(k, rpm);
-   const press  = railPressureBar(supply, demand, fault);
-   const cur    = pumpCurrentA(S.volts, supply, fault);
+   const press  = railPressureBar(supply, demand, fault, k);
+   const cur_A  = pumpCurrentA(S.volts, supply, fault);
 
    /* ── 4. tank level state ──────────────────────────────────── */
    if (dt > 0) {
      const drain = demand / 3600 / TANK_LITRES;    /* fraction per second */
      sim.level -= drain * dt * 12;                 /* x12 so the demo is watchable */
    }
-   if (fault === 'vapour' || sim.Tfuel > VAPOUR_C) sim.level = Math.max(0.05, sim.level - 0.0000);
    sim.level = clampN(sim.level, 0.03, 1.0);
 
    /* ── 5. fuel temperature state ────────────────────────────── */
@@ -335,21 +501,47 @@ function build(H){
    else                                    stateTxt = 'Normal';
 
    /* ── 7. 3D visuals ────────────────────────────────────────── */
+   const light = document.documentElement.classList.contains('light-theme');
+   if (light !== lightMode) {            /* additive glow is invisible on the light theme: use normal blending there */
+     lightMode = light;
+     streams.forEach(s => { s.mat.blending = light ? THREE.NormalBlending : THREE.AdditiveBlending; s.mat.needsUpdate = true; });
+   }
+
    const lvl = clampN(sim.level, 0.05, 1);
    fuel.scale.y = lvl;
    fuel.position.y = -0.65 + 1.3 * lvl / 2;
    fuelMat.color.copy(lc(0xf59e0b, 0xb45309, clampN((sim.Tfuel - 20) / 70, 0, 1)));
 
-   /* impeller spin follows voltage (and stops with a dead relay) */
+   /* level sender: the arm swings so the float always sits on the fuel surface */
+   const surfY = -0.65 + 1.3 * lvl;
+   const alpha = Math.asin(clampN((surfY - PIV[1]) / ARM_L, -1, 1));
+   piv.rotation.z = alpha;
+   floatMesh.rotation.z = -alpha;
+
+   /* pump: impeller + armature spin with the supply voltage; a dead relay stops them */
    const running = (fault !== 'relay') && supply > 0.5;
    const motorRpm = running ? (S.volts / V_NOM) * 3000 : 0;
    ang += (motorRpm / 60) * Math.PI * 2 * dt;
    imp.rotation.y = ang;
+   arm.rotation.y = ang;
+
+   /* relay LED: green = pump powered, red = relay failed */
+   ledMat.color.setHex(fault === 'relay' ? 0xef4444 : (S.volts < 8 ? 0xf59e0b : 0x22c55e));
+   ledMat.emissive.copy(ledMat.color);
+   ledMat.emissiveIntensity = fault === 'relay' ? 0.5 + 0.5 * Math.abs(Math.sin(c.t * 5)) : 1;
 
    /* filter / regulator / rail feedback */
    filtMat.emissive.setHex(fault === 'filter' ? 0xef4444 : 0x000000);
    filtMat.emissiveIntensity = fault === 'filter' ? 0.45 + 0.35 * Math.abs(Math.sin(c.t * 3.5)) : 0;
    filtMat.color.copy(lc(0x38bdf8, 0x1a1410, fault === 'filter' ? 0.75 : 0));
+
+   /* regulator internals: the valve opens by the surplus the pump delivers; stuck-closed / stuck-open override it */
+   const surplus = clampN(1 - demand / Math.max(1, supply), 0, 1);
+   const regOpen = !running ? 0 : (fault === 'reghigh' ? 0 : (fault === 'reglow' ? 1 : surplus));
+   const dz = regOpen * 0.06;
+   regMove.position.z = dz;
+   spring.position.z = 0.13 + dz / 2;
+   spring.scale.z = 1 - dz / 0.14;
 
    if (fault === 'reghigh' || fault === 'reglow') {
      regMat.emissive.setHex(0xef4444);
@@ -366,27 +558,41 @@ function build(H){
    railMat.emissiveIntensity = railGlow * 0.7;
    railMat.color.copy(lc(0x9aa3b2, 0xef4444, press < 1.8 ? 0.7 : 0));
 
+   /* gauge needle follows the rail pressure (smoothed) */
+   if (gaugeP === null) gaugeP = press;
+   gaugeP += (press - gaugeP) * Math.min(1, Math.max(dt, 0.016) * 9);
+   needle.rotation.z = (135 - 270 * clampN(gaugeP, 0, 6) / 6) * Math.PI / 180;
+
    /* streams */
    const flowN = clampN(supply / FLOW_NOM, 0, 1.2);
    const spd   = 0.06 + 0.42 * flowN;
    const dens  = running ? (0.18 + 0.82 * flowN) : 0;
    tmpCol.copy(lc(0xf59e0b, 0xb45309, clampN((sim.Tfuel - 20) / 70, 0, 1)));
-   if (vapouring) tmpCol.lerp(new THREE.Color(0xf1f5f9), 0.65);
+   if (vapouring) tmpCol.lerp(light ? slate : white, 0.65);
+   else if (light) tmpCol.multiplyScalar(0.8);
 
-   sA.update(c.t, spd, dens);      sA.mat.color.copy(tmpCol);
-   sB.update(c.t, spd, dens);      sB.mat.color.copy(tmpCol);
-   const retFrac = clampN(1 - demand / Math.max(1, supply), 0, 1);
-   sC.update(c.t, 0.06 + 0.35 * flowN, dens * (0.15 + 0.85 * retFrac));
+   [sP, sA, sB, sJ].forEach(s => { s.mat.color.copy(tmpCol); });
+   sP.update(c.t, spd, dens);
+   sA.update(c.t, spd, dens);
+   sB.update(c.t, spd, dens);
+   /* what comes back through the regulator: nothing when it is stuck closed, everything when stuck open */
+   const retFrac = fault === 'reghigh' ? 0 : (fault === 'reglow' ? 1 : surplus);
+   const retDens = running ? clampN(0.10 + 0.9 * retFrac, 0, 1) * (fault === 'reghigh' ? 0 : 1) : 0;
+   sC.update(c.t, 0.06 + 0.35 * flowN, retDens);
    sC.mat.color.copy(tmpCol);
+   sJ.update(c.t, 0.06 + 0.25 * flowN, retDens);
    vap.update(c.t, 0.30, vapouring ? 0.85 : 0);
+   vap.mat.color.copy(light ? slate : white);
 
    const injDens = running ? clampN(0.25 + 0.75 * k, 0, 1) : 0;
    for (let i = 0; i < inj.length; i++) {
      inj[i].update(c.t, 0.55 + 0.4 * k, injDens);
      inj[i].mat.color.copy(tmpCol);
    }
+   cur.update(c.t, 0.12 + 0.55 * clampN(cur_A / 12, 0, 1), cur_A > 0.5 ? 0.9 : 0);
+   cur.mat.color.setHex(light ? 0xb45309 : 0xfde68a);
 
-   /* ── 8. throttled DOM work (graph + warning) ──────────────── */
+   /* ── 8. throttled DOM work (trace + warning) ──────────────── */
    const now = performance.now();
    if (now - domLast > 140) {
      domLast = now;
@@ -411,7 +617,7 @@ function build(H){
    /* ── 9. readouts ──────────────────────────────────────────── */
    const pState   = press < 1.8 ? 'crit' : (press < 2.6 ? 'warn' : (press > 4.6 ? 'crit' : 'ok'));
    const supState = supply < demand ? 'warn' : 'ok';
-   const curState = cur > 8.5 ? 'warn' : (cur < 1 ? 'crit' : 'ok');
+   const curState = cur_A > 8.5 ? 'warn' : (cur_A < 1 ? 'crit' : 'ok');
    const lvlState = sim.level < 0.15 ? 'crit' : (sim.level < 0.35 ? 'warn' : 'ok');
    const tState   = sim.Tfuel > VAPOUR_C ? 'crit' : (sim.Tfuel > 50 ? 'warn' : 'ok');
    const fState   = filt > 0.4 ? 'warn' : 'ok';
@@ -429,13 +635,13 @@ function build(H){
      bar: clampN(press / 5 * 100, 0, 100),
      rows: {
        supply: supply.toFixed(0) + ' L/h',
-       cur:    cur.toFixed(1) + ' A'
+       cur:    cur_A.toFixed(1) + ' A'
      },
      ro: {
        press:  [press.toFixed(2) + ' bar', pState],
        supply: [supply.toFixed(0) + ' L/h', supState],
        demand: [demand.toFixed(0) + ' L/h', ''],
-       cur:    [cur.toFixed(1) + ' A', curState],
+       cur:    [cur_A.toFixed(1) + ' A', curState],
        lvl:    [(sim.level * 100).toFixed(0) + ' %', lvlState],
        temp:   [sim.Tfuel.toFixed(0) + ' \u00B0C', tState],
        filt:   ['-' + (filt * 100).toFixed(0) + ' % flow', fState],
