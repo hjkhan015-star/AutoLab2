@@ -79,6 +79,22 @@ export function splitOptionCells(cells, max = 4) {
   if (list.length <= cap) return { shown: list, more: [] };
   return { shown: list.slice(0, cap - 1), more: list.slice(cap - 1) };
 }
+/** Hero layout (phone portrait): compact controls (dial, pedals, clutch) sit on the left next to the transport,
+ *  everything else (a slider, the options) is stacked on the right. kinds = 'compact' | 'wide' per primary item.
+ *  Used when there are 1–2 compact controls and at most one wide one; otherwise the paged layout stays. */
+export function heroPlan(kinds) {
+  const list = Array.isArray(kinds) ? kinds : [];
+  const compact = list.filter((k) => k === 'compact').length;
+  const wide = list.length - compact;
+  const hero = compact >= 1 && compact <= 2 && wide <= 1;
+  let hi = 0;
+  return { hero, order: list.map((k) => ({ kind: k === 'compact' ? 'compact' : 'wide', heroIndex: hero && k === 'compact' ? hi++ : -1 })) };
+}
+/** Phase 9c: does a scrolling zone have more content above / below? (drives the soft fade at its edges) */
+export function scrollHint(scrollTop, clientHeight, scrollHeight, slack = 2) {
+  const top = +scrollTop || 0, view = +clientHeight || 0, total = +scrollHeight || 0;
+  return { top: top > slack, bottom: view > 0 && top + view < total - slack };
+}
 /** Segmented control with many items → a grid of rows. { cols, span } = columns and how far the last button stretches. */
 export function segGrid(n, perRow = 4) {
   const count = Math.max(0, Math.floor(+n) || 0);
@@ -321,11 +337,22 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
     root.dataset.more = String(more.length);
     if (!more.length && !sheetRoot.hidden) closeSheet(false);
   }
+  /* Phase 9c: soft fade on the edge of a vertically scrolling zone that has more to show */
+  function paintFade(el) {
+    if (!el || !el.dataset || typeof el.scrollHeight !== 'number') return;
+    const f = scrollHint(el.scrollTop, el.clientHeight, el.scrollHeight);
+    el.dataset.fadeT = f.top ? '1' : '0';
+    el.dataset.fadeB = f.bottom ? '1' : '0';
+  }
+  const paintFades = () => { paintFade(options); paintFade(sheet); };
+  options.addEventListener('scroll', () => paintFade(options), { passive: true });
+  sheet.addEventListener('scroll', () => paintFade(sheet), { passive: true });
   const sheetFocusables = () => [...sheet.querySelectorAll('button, select, input, [tabindex]')]
     .filter((el) => el.tabIndex >= 0 && !el.disabled && !el.closest('[hidden]'));
   function openSheet() {
     if (!sheetRoot.hidden) return;
     sheetRoot.hidden = false;
+    paintFade(sheet);
     moreBtn.setAttribute('aria-expanded', 'true');
     const f = sheetFocusables();
     (f[0] || sheetClose).focus();
@@ -356,8 +383,10 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
     root.dataset.mode = L.mode;
     root.dataset.state = state;
     root.dataset.pages = String(layout.pageCount);
+    root.dataset.hero = L.mode === 'portrait' && heroOn ? '1' : '0';
     layoutOptions(L.mode === 'portrait');
     root.dataset.hasOptions = String(hasOptions());
+    paintFades();
     if (L.mode === 'wide') {
       handle.setAttribute('aria-expanded', String(state !== 'slim'));
       handle.setAttribute('aria-label', state === 'slim' ? 'Show controls' : 'Hide controls');
@@ -379,15 +408,22 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
     doc.documentElement.style.setProperty('--dock-h', Math.ceil(r.height + (parseFloat(win.getComputedStyle(root).bottom) || 0)) + 'px');
   }
 
+  let heroOn = false;
   function renderPages() {
     layout = assignSlots(items.map(({ id, side }) => ({ id, side })));
     pagesEl.textContent = '';
     dots.textContent = '';
     const byId = new Map(items.map((it) => [it.id, it]));
+    const isCompact = (n) => !!n && ((n.classList && /\bctl-(dial|pedal|momentary)\b/.test(n.className || '')) || (typeof n.querySelector === 'function' && !!n.querySelector('.ctl-dial, .ctl-pedal, .ctl-momentary')));
+    const plan = heroPlan(items.map((it) => (isCompact(it.node) ? 'compact' : 'wide')));
+    const planOf = new Map(items.map((it, i) => [it.id, plan.order[i]]));
+    heroOn = plan.hero;
     layout.pages.forEach((pg, i) => {
       const pe = h(doc, 'div', 'al-dock-page', { 'data-page': String(i) });
       pg.forEach((slot) => {
         const se = h(doc, 'div', 'al-dock-slot', { 'data-side': slot.side, 'data-slot': slot.id });
+        const pl = planOf.get(slot.id);
+        if (pl) { se.dataset.kind = pl.kind; if (pl.heroIndex >= 0) se.dataset.heroI = String(pl.heroIndex); }
         se.appendChild(byId.get(slot.id).node);
         pe.appendChild(se);
       });
