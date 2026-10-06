@@ -4,13 +4,14 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { splitOptionCells, segGrid } from '../dock.js';
+import { splitOptionCells, segGrid, heroPlan, scrollHint } from '../dock.js';
 
 const rd = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 let n = 0;
 const t = async (name, fn) => { await fn(); n++; console.log('ok  ', name); };
 const css = rd('controls.css');
-const block = css.slice(css.indexOf('PHASE 9b'));
+const block = css.slice(css.indexOf('PHASE 9b'), css.indexOf('PHASE 9c'));
+const nine_c = css.slice(css.indexOf('PHASE 9c'));
 const rules = (src) => [...src.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
 
 await t('splitOptionCells: 0, 3, 4 cells all stay; 5 → 3 + 2; 10 → 3 + 7; order kept, nothing lost', () => {
@@ -71,6 +72,56 @@ await t('CSS: landscape rails, the wide rail and the desktop bar hide the chip a
   const dock = rd('dock.js');
   assert.match(dock, /export function splitOptionCells/);
   assert.match(dock, /aria-expanded/); assert.match(dock, /role: 'dialog'/); assert.match(dock, /'aria-label': 'More options'/);
+});
+
+await t('heroPlan: 1–2 compact controls and ≤ 1 wide one → hero layout; compact ones are numbered left to right', () => {
+  assert.equal(heroPlan(['compact']).hero, true);
+  assert.equal(heroPlan(['compact', 'compact']).hero, true);
+  assert.equal(heroPlan(['wide', 'compact']).hero, true);
+  assert.deepEqual(heroPlan(['wide', 'compact', 'compact']).order.map((o) => o.heroIndex), [-1, 0, 1]);
+  assert.equal(heroPlan(['wide']).hero, false);
+  assert.equal(heroPlan(['wide', 'wide']).hero, false);
+  assert.equal(heroPlan(['compact', 'wide', 'wide']).hero, false);
+  assert.equal(heroPlan(['compact', 'compact', 'compact']).hero, false);
+  assert.equal(heroPlan([]).hero, false); assert.equal(heroPlan(null).hero, false);
+});
+await t('CSS hero layout: portrait only, not slim; pedals stand up; options on the right; no sideways scroll; tokens only', () => {
+  const hero = css.slice(css.indexOf('hero layout (phone portrait'));
+  assert.match(hero, /\[data-hero="1"\]:not\(\[data-state="slim"\]\) \{\s*grid-template-columns: auto auto auto minmax\(0, 1fr\)/);
+  assert.match(hero, /> \.al-dock-options \{[^}]*grid-row: 3; grid-column: 4; display: flex/);
+  assert.match(hero, /\.ctl-pedal-pad \{[^}]*width: var\(--ctl-pad-w\)[^}]*min-height: 64px/);
+  assert.match(hero, /\.ctl-pedal-fill \{[^}]*bottom: 0[^}]*height: calc\(var\(--p\) \* 100%\)/);
+  assert.match(hero, /scrollbar-width: none; overflow: visible/);
+  assert.doesNotMatch(hero, /overflow-x:\s*auto|nowrap|#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/);
+  for (const m of hero.matchAll(/\.al-dock\[[^{]*\{/g)) assert.match(m[0], /data-mode="portrait"|data-hero="1"/);
+  assert.match(css, /--dock-primary-min: 120px/);
+});
+
+await t('scrollHint: fades only on the side that has more content', () => {
+  assert.deepEqual(scrollHint(0, 100, 100), { top: false, bottom: false });
+  assert.deepEqual(scrollHint(0, 100, 220), { top: false, bottom: true });
+  assert.deepEqual(scrollHint(60, 100, 220), { top: true, bottom: true });
+  assert.deepEqual(scrollHint(120, 100, 220), { top: true, bottom: false });
+  assert.deepEqual(scrollHint(1, 100, 101), { top: false, bottom: false });   /* rounding slack */
+  assert.deepEqual(scrollHint(undefined, 0, 0), { top: false, bottom: false });
+});
+await t('CSS 9c: tokens only; motion only under prefers-reduced-motion: no-preference; glow only in the high tier; low tier never animates', () => {
+  assert.doesNotMatch(nine_c, /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/);
+  const motionAt = (re) => [...nine_c.matchAll(re)].map((m) => m.index);
+  const open = nine_c.indexOf('@media (prefers-reduced-motion: no-preference)');
+  assert.ok(open > 0);
+  for (const i of motionAt(/transition:|animation:|@keyframes/g)) assert.ok(i > open, 'motion outside the no-preference block');
+  for (const m of nine_c.matchAll(/filter:\s*drop-shadow[^;]*;/g)) {
+    const sel = nine_c.slice(nine_c.lastIndexOf('\n', nine_c.lastIndexOf('{', m.index)), m.index);
+    assert.match(sel, /data-ui-tier="high"/);
+  }
+  assert.match(nine_c, /html\[data-ui-tier="low"\] \.al-more:not\(\[hidden\]\) \.al-more-sheet,[\s\S]*animation: none/);
+  for (const { sel, body } of rules(nine_c)) if (/data-ui-tier/.test(sel)) assert.doesNotMatch(body, /\b(width|height|padding|margin|flex|display|grid)[-\w]*:/, sel);
+});
+await t('CSS 9c: edge fades use the scale tokens and cover portrait, wide and the sheet; pressed chips shrink a little', () => {
+  assert.match(nine_c, /data-fade-b="1"\]:not\(\[data-fade-t="1"\]\)/);
+  assert.match(nine_c, /\.al-more-sheet\[data-fade-t="1"\]\[data-fade-b="1"\]/);
+  assert.match(nine_c, /:active[^{]*\{ transform: scale\(\.96\); \}/);
 });
 
 /* ── DOM (needs jsdom: set JSDOM_PATH to a dir that has it) ── */
@@ -148,6 +199,23 @@ else {
     const seg = el.querySelector('.ctl-seg'), b = seg.querySelectorAll('.ctl-seg-btn');
     assert.equal(seg.dataset.many, '1'); assert.match(seg.style.gridTemplateColumns, /repeat\(4,/);
     assert.equal(b[6].style.gridColumn, 'span 2'); assert.equal(el.dataset.span, 'full');
+  });
+  await t('DOM: a dial in portrait turns the hero layout on and its slot is flagged; a lone slider does not', () => {
+    const { doc, dock } = setup(390, 780, 2);
+    const mk = (cls) => { const w = doc.createElement('div'); w.innerHTML = '<div class="ctl ' + cls + '"></div>'; return w; };
+    dock.addPrimary({ id: 'ax-crank', side: 'right', node: mk('ctl-dial') });
+    assert.equal(dock.root.dataset.hero, '1');
+    const slot = dock.root.querySelector('[data-slot="ax-crank"]');
+    assert.equal(slot.dataset.kind, 'compact'); assert.equal(slot.dataset.heroI, '0');
+    dock.addPrimary({ id: 'ax-rpm', side: 'left', node: mk('ctl-axis') });
+    assert.equal(dock.root.dataset.hero, '1');
+    assert.equal(dock.root.querySelector('[data-slot="ax-rpm"]').dataset.kind, 'wide');
+    dock.addPrimary({ id: 'ax-load', side: 'left', node: mk('ctl-axis') });
+    assert.equal(dock.root.dataset.hero, '0');
+    const only = setup(390, 780, 0); only.dock.addPrimary({ id: 'ax-a', side: 'left', node: mk('ctl-axis') });
+    assert.equal(only.dock.root.dataset.hero, '0');
+    const land = setup(800, 360, 0); land.dock.addPrimary({ id: 'ax-c', side: 'right', node: mk('ctl-dial') });
+    assert.equal(land.dock.root.dataset.hero, '0');
   });
 }
 console.log(`\n${n} options tests passed`);
