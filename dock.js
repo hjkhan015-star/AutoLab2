@@ -83,15 +83,28 @@ export function splitOptionCells(cells, max = 4) {
  *  equalizer); the options sit in a column on the right when there is room ('side'), otherwise below, behind the swipe ('full').
  *  kinds: 'dial' | 'pedal' | 'slider' | 'other' per primary item. Anything 'other', 0 or > 4 columns → the paged layout.
  *  width = viewport width; hasOptions = the module has option cells. */
-export const CLUSTER = { colPx: { dial: 100, pedal: 64, slider: 64 }, gapPx: 4, chromePx: 96, minOptionsPx: 128, maxCols: 4 };
+export const CLUSTER = { colPx: { dial: 100, pedal: 64, slider: 64 }, slimSliderPx: 56, gapPx: 4, chromePx: 105, minOptionsPx: 124, maxCols: 4 };
+/** 3 or more sliders get slimmer columns so the options still fit beside them */
+export const sliderPx = (nSliders) => (nSliders >= 3 ? CLUSTER.slimSliderPx : CLUSTER.colPx.slider);
 export function dockPlan(kinds, width = 390, hasOptions = true) {
   const list = Array.isArray(kinds) ? kinds : [];
+  const isCol = (k) => CLUSTER.colPx[k] > 0;
+  const isCell = (k) => k === 'choice' || k === 'gate';       /* a primary choice / gear gate: it joins the option cells */
   const paged = { plan: 'paged', cols: 0, order: list.map((k) => ({ kind: k, index: -1 })) };
-  if (!list.length || list.length > CLUSTER.maxCols || !list.every((k) => CLUSTER.colPx[k] > 0)) return paged;
-  const cluster = list.reduce((a, k) => a + CLUSTER.colPx[k], 0) + CLUSTER.gapPx * (list.length - 1);
+  if (list.some((k) => !isCol(k) && !isCell(k))) return paged;
+  const cols = list.filter(isCol);
+  const cellish = list.length - cols.length;
+  if (cols.length > CLUSTER.maxCols) return paged;
+  const anyCells = !!hasOptions || cellish > 0;
+  let ci = 0;
+  const order = list.map((k) => ({ kind: k, index: isCol(k) ? ci++ : -1 }));
+  if (!cols.length) return anyCells ? { plan: 'opts', cols: 0, order } : paged;      /* no sliders: the options fill the dock */
+  const sPx = sliderPx(cols.filter((k) => k === 'slider').length);
+  const cluster = cols.reduce((a, k) => a + (k === 'slider' ? sPx : CLUSTER.colPx[k]), 0) + CLUSTER.gapPx * (cols.length - 1);
   const usable = Math.max(0, (+width || 0) - CLUSTER.chromePx);      /* 2 × dock gap + 2 × padding + transport pill + its margin */
-  const side = !!hasOptions && usable - cluster >= CLUSTER.minOptionsPx;
-  return { plan: side ? 'side' : 'full', cols: list.length, order: list.map((k, i) => ({ kind: k, index: i })) };
+  const side = anyCells && usable - cluster >= CLUSTER.minOptionsPx;
+  if (!side && cellish) return paged;                                 /* a gear selector must never hide behind the swipe */
+  return { plan: side ? 'side' : 'full', cols: cols.length, order, sliderPx: sPx };
 }
 /** Phase 9c: does a scrolling zone have more content above / below? (drives the soft fade at its edges) */
 export function scrollHint(scrollTop, clientHeight, scrollHeight, slack = 2) {
@@ -297,7 +310,9 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
   const key = dockStorageKey(moduleId);
   const items = [];               /* { id, side, node } — primary controls, in mount order */
   let layout = assignSlots([]);
-  let saved = parseDock(store && (() => { try { return store.getItem(key); } catch (_) { return null; } })(), 99);
+  const rawSaved = store ? (() => { try { return store.getItem(key); } catch (_) { return null; } })() : null;
+  const hadSaved = rawSaved != null;      /* a first visit may open the options by itself (see maybeAutoOpen) */
+  let saved = parseDock(rawSaved, 99);
   let state = saved.state, page = saved.page;
   let wantPage = saved.page;      /* the page the user last chose; controls mount one by one, so `page` is derived from it */
   let kbdHidden = false;
@@ -316,11 +331,13 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
   function tagCell(n) {
     const cls = n.classList;
     if (!cls || typeof n.querySelector !== 'function' || !n.dataset) return;   /* not a real element (unit-test doubles) */
-    n.dataset.cell = cls.contains('ctl-choice') ? 'choice' : cls.contains('ctl-action') ? 'action' : 'toggle';
+    const inner = cls.contains('ctl') ? n : (n.querySelector('.ctl') || n);       /* a primary choice arrives wrapped in .ui-widget */
+    const ic = inner.classList;
+    n.dataset.cell = ic.contains('ctl-choice') ? 'choice' : ic.contains('ctl-action') ? 'action' : 'toggle';
     const seg = n.querySelector('.ctl-seg');
     const btns = seg ? seg.querySelectorAll('.ctl-seg-btn') : [];
     const wide = btns.length >= 4 || !!n.querySelector('.ctl-select, .ctl-gate-pad');
-    if (n.dataset.cell === 'choice') n.dataset.span = wide ? 'full' : 'half'; else delete n.dataset.span;
+    if (n.dataset.cell === 'choice') n.dataset.span = n.querySelector('.ctl-gate-pad') ? 'gate' : wide ? 'full' : 'half'; else delete n.dataset.span;
     if (seg) {                       /* many items: rows of ≤ 4, never a sideways strip */
       const g = segGrid(btns.length);
       if (btns.length > 4) {
@@ -330,10 +347,30 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
       } else { delete seg.dataset.many; seg.style.gridTemplateColumns = ''; btns.forEach((b) => { b.style.gridColumn = ''; }); }
     }
   }
+  /* primary choices (gear gate, lighting switches) live in the options column when the dock is a cluster; back in their slot otherwise */
+  function placePrimaryCells(on) {
+    kinds.forEach((k) => {
+      if (k.kind !== 'choice' && k.kind !== 'gate') return;
+      const it = items.find((x) => x.id === k.id), se = slotEls.get(k.id);
+      if (!it || !it.node || !se) return;
+      const at = cells.indexOf(it.node);
+      if (on) {
+        if (at < 0) { cells.unshift(it.node); homeOf.set(it.node, flowHost); }
+      } else if (at >= 0) {
+        cells.splice(at, 1); homeOf.delete(it.node);
+        if (it.node.parentNode !== se) se.appendChild(it.node);
+      }
+    });
+  }
   function layoutOptions(portrait) {
     syncCells();
     const { shown, more } = portrait ? splitOptionCells(cells) : { shown: cells, more: [] };
     shown.forEach((n) => { const home = homeOf.get(n); if (n.parentNode !== home) home.appendChild(n); });
+    [flowHost, extras].forEach((host) => {                       /* keep cell order (a cell that came back from the sheet) without moving what is already right */
+      const want = shown.filter((n) => homeOf.get(n) === host);
+      const have = [...host.children].filter((n) => want.includes(n));
+      if (want.some((n, i) => have[i] !== n)) want.forEach((n) => host.appendChild(n));
+    });
     more.forEach((n) => { if (n.parentNode !== sheetGrid) sheetGrid.appendChild(n); });
     cells.forEach(tagCell);
     moreBtn.hidden = !more.length;
@@ -379,6 +416,13 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
     else if (!e.shiftKey && (a === last || !sheet.contains(a))) { e.preventDefault(); first.focus(); }
   });
 
+  /* First visit, phone portrait, "full" plan (3–4 columns leave no room beside them): open at the options height so the toggles
+     are visible without a swipe. Once only; a saved state or any later swipe wins. */
+  let autoTimer = null;
+  function maybeAutoOpen() {
+    if (hadSaved || state !== 'default') return;
+    if (root.dataset.mode === 'portrait' && root.dataset.plan === 'full' && hasOptions()) setState('options', false);
+  }
   function applyLayout() {
     const w = win.innerWidth, hgt = win.innerHeight;
     const safeB = parseFloat(win.getComputedStyle(doc.documentElement).getPropertyValue('--safe-b')) || 0;
@@ -388,16 +432,21 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
     root.dataset.pages = String(layout.pageCount);
     const P = dockPlan(kinds.map((k) => k.kind), w, hasOptions());
     root.dataset.plan = L.mode === 'portrait' ? P.plan : 'paged';
-    if (root.style && typeof root.style.setProperty === 'function') root.style.setProperty('--eq-cols', String(P.cols || 1));
+    if (root.style && typeof root.style.setProperty === 'function') {
+      root.style.setProperty('--eq-cols', String(P.cols || 1));
+      root.style.setProperty('--eq-col', (P.sliderPx || CLUSTER.colPx.slider) + 'px');
+    }
     kinds.forEach((k, i) => {
       const se = slotEls.get(k.id);
       if (!se || !se.dataset) return;
       se.dataset.kind = k.kind;
       if (P.order[i] && P.order[i].index >= 0) se.dataset.heroI = String(P.order[i].index); else delete se.dataset.heroI;
     });
+    placePrimaryCells(L.mode === 'portrait' && (P.plan === 'side' || P.plan === 'opts'));
     layoutOptions(L.mode === 'portrait');
     root.dataset.hasOptions = String(hasOptions());
     paintFades();
+    if (!autoTimer && !hadSaved) autoTimer = (win.setTimeout || setTimeout)(maybeAutoOpen, 0);
     if (L.mode === 'wide') {
       handle.setAttribute('aria-expanded', String(state !== 'slim'));
       handle.setAttribute('aria-label', state === 'slim' ? 'Show controls' : 'Hide controls');
@@ -431,6 +480,8 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
       if (n.querySelector('.ctl-dial')) return 'dial';
       if (n.querySelector('.ctl-pedal, .ctl-momentary')) return 'pedal';
       if (n.querySelector('.ctl-axis')) return 'slider';
+      if (n.querySelector('.ctl-gate-pad')) return 'gate';
+      if (n.querySelector('.ctl-choice')) return 'choice';
       return 'other';
     };
     kinds = items.map((it) => ({ id: it.id, kind: kindOf(it.node) }));
