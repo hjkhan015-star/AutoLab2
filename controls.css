@@ -1267,23 +1267,23 @@ html[data-ui-tier="low"] .al-more-sheet {
   grid-template-rows: var(--dock-handle) minmax(var(--dock-primary-min), 1fr) auto;
   grid-template-areas: none; column-gap: 0;
 }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) > .al-dock-handle { grid-area: auto; grid-row: 1; grid-column: 1 / -1; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) > .al-dock-transport { grid-area: auto; grid-row: 2; grid-column: 1; margin-right: var(--ctl-gap); align-self: center; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) :is(.al-dock-primary, .al-dock-pages, .al-dock-page) { display: contents; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .al-dock-dots { display: none; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) > .al-dock-handle { grid-area: auto; grid-row: 1; grid-column: 1 / -1; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) > .al-dock-transport { grid-area: auto; grid-row: 2; grid-column: 1; margin-right: var(--ctl-gap); align-self: center; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) :is(.al-dock-primary, .al-dock-pages, .al-dock-page) { display: contents; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .al-dock-dots { display: none; }
 
 /* a column: never scrolls (no stray scrollbars), never clips its own label */
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .al-dock-slot {
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .al-dock-slot {
   grid-row: 2; margin: 0; max-height: none; min-width: 0; overflow: visible; scrollbar-width: none;
   display: flex; flex-direction: column; justify-content: center; align-items: center; align-self: stretch;
 }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .al-dock-slot::-webkit-scrollbar { display: none; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .al-dock-slot[data-hero-i="0"] { grid-column: 2; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .al-dock-slot[data-hero-i="1"] { grid-column: 3; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .al-dock-slot[data-hero-i="2"] { grid-column: 4; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .al-dock-slot[data-hero-i="3"] { grid-column: 5; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .al-dock-slot > .ui-widget,
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .al-dock-slot > .ui-widget > .ui-widget-frame {
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .al-dock-slot::-webkit-scrollbar { display: none; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .al-dock-slot[data-hero-i="0"] { grid-column: 2; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .al-dock-slot[data-hero-i="1"] { grid-column: 3; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .al-dock-slot[data-hero-i="2"] { grid-column: 4; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .al-dock-slot[data-hero-i="3"] { grid-column: 5; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .al-dock-slot > .ui-widget,
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .al-dock-slot > .ui-widget > .ui-widget-frame {
   display: flex; flex: 1 1 auto; flex-direction: column; align-items: center; justify-content: center; min-height: 0; width: 100%; padding: 0;
 }
 .al-dock[data-mode="portrait"][data-plan="side"]:not([data-state="slim"]) .al-dock-slot { padding: 0 2px; }
@@ -1297,44 +1297,56 @@ html[data-ui-tier="low"] .al-more-sheet {
 }
 .al-dock[data-mode="portrait"][data-plan="full"]:not([data-state="slim"]) > .al-dock-options { grid-area: auto; grid-row: 3; grid-column: 1 / -1; }
 
+/* plan "opts": no sliders at all (or only choices): the options fill the dock next to the transport, no swipe needed */
+.al-dock[data-mode="portrait"][data-plan="opts"]:not([data-state="slim"]) {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: var(--dock-handle) minmax(0, 1fr);
+  grid-template-areas: none; column-gap: 0;
+}
+.al-dock[data-mode="portrait"][data-plan="opts"]:not([data-state="slim"]) > .al-dock-options {
+  grid-area: auto; grid-row: 2; grid-column: -2 / -1; display: flex; max-height: none; min-height: 0; align-self: stretch;
+  padding: 2px 2px var(--opt-gap) 0;
+}
+.al-dock-slot:empty { display: none; }                    /* a slot whose control moved into the options column */
+
 /* ── equalizer slider: value on top, a vertical glass groove, the name underneath ── */
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis {
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis {
   --ctl-thumb-size: 26px; --ctl-track-h: 8px;
   flex: 1 1 auto; min-width: 0; width: 100%; height: 100%; min-height: 0;
   align-items: center; gap: 4px;
 }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-label { display: contents; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-value {
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-label { display: contents; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-value {
   order: 1; max-width: 100%; text-align: center; overflow: hidden; text-overflow: ellipsis;
 }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis.is-dragging .ctl-value { visibility: visible; color: var(--ctl-accent); }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-track {
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis.is-dragging .ctl-value { visibility: visible; color: var(--ctl-accent); }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-track {
   order: 2; flex: 1 1 0; min-height: 72px; width: var(--ctl-tap); height: auto;
   container-type: size;
 }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-range {
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-range {
   position: absolute; left: 50%; top: 50%;
   width: 96px; width: 100cqh; height: var(--ctl-tap);
   transform: translate(-50%, -50%) rotate(-90deg);                /* bottom = min, top = max; the same native range, so touch / keys / a11y are unchanged */
 }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-bubble { display: none; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-name {
-  order: 3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-bubble { display: none; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-name {
+  order: 3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; -webkit-hyphens: auto; hyphens: auto;
   max-width: 100%; min-height: 0; text-align: center; font-size: var(--ctl-text); line-height: 1.15; letter-spacing: .02em; overflow-wrap: anywhere;
 }
 
 /* dial / pedals keep their phone size; pedals stand up as tall narrow pads, name over value */
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-dial { min-width: 0; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .al-dock-slot[data-kind="dial"] { align-self: center; padding: 0 var(--ctl-gap) 0 0; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) :is(.ctl-pedal, .ctl-momentary) {
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-dial { min-width: 0; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .al-dock-slot[data-kind="dial"] { align-self: center; padding: 0 var(--ctl-gap) 0 0; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) :is(.ctl-pedal, .ctl-momentary) {
   --ctl-pad-w: 60px; width: auto; min-width: 0; flex: 1 1 auto; min-height: 0; align-items: center;
 }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) :is(.ctl-pedal, .ctl-momentary) .ctl-label { flex-direction: column; align-items: center; gap: 0; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-pedal-pad { width: var(--ctl-pad-w); height: auto; flex: 1 1 auto; min-height: 64px; max-height: 150px; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-pedal-fill { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: calc(var(--p) * 100%); }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-pedal-ticks { flex-direction: column; align-items: stretch; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-pedal-ticks i { width: 9px; height: 1px; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-pedal-foot {
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) :is(.ctl-pedal, .ctl-momentary) .ctl-label { flex-direction: column; align-items: center; gap: 0; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-pedal-pad { width: var(--ctl-pad-w); height: auto; flex: 1 1 auto; min-height: 64px; max-height: 150px; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-pedal-fill { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: calc(var(--p) * 100%); }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-pedal-ticks { flex-direction: column; align-items: stretch; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-pedal-ticks i { width: 9px; height: 1px; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-pedal-foot {
   top: auto; left: 3px; right: 3px; width: auto; height: var(--ctl-foot);
   bottom: calc(3px + var(--p) * (100% - var(--ctl-foot) - 6px));
 }
@@ -1433,19 +1445,19 @@ html[data-ui-tier="high"] .al-dock-more[aria-expanded="true"] { box-shadow: 0 0 
 }
 
 /* 2. equalizer details: a short value on one line, the name wraps to three lines, the groove is a glass slot */
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-value { font-size: var(--ctl-text); letter-spacing: -.02em; white-space: nowrap; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-name { white-space: normal; text-overflow: clip; flex: none; }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-range::-webkit-slider-runnable-track {
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-value { font-size: var(--ctl-text); letter-spacing: -.02em; white-space: nowrap; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-name { white-space: normal; text-overflow: clip; flex: none; }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-range::-webkit-slider-runnable-track {
   background: linear-gradient(to right, var(--ctl-accent) calc(var(--p) * 100%), color-mix(in oklch, var(--bg) 40%, var(--ctl-track)) calc(var(--p) * 100%));
   box-shadow: inset 0 1px 2px color-mix(in oklch, var(--bg) 70%, transparent), 0 0 0 1px var(--glass-edge);
 }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-range::-moz-range-track { background: color-mix(in oklch, var(--bg) 40%, var(--ctl-track)); box-shadow: inset 0 1px 2px color-mix(in oklch, var(--bg) 70%, transparent), 0 0 0 1px var(--glass-edge); }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-range::-webkit-slider-thumb {
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-range::-moz-range-track { background: color-mix(in oklch, var(--bg) 40%, var(--ctl-track)); box-shadow: inset 0 1px 2px color-mix(in oklch, var(--bg) 70%, transparent), 0 0 0 1px var(--glass-edge); }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-range::-webkit-slider-thumb {
   background: radial-gradient(circle at 35% 30%, var(--glass-hi), var(--ctl-thumb) 62%);
   box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-sm);
 }
-:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis.is-dragging .ctl-range::-webkit-slider-thumb { border-color: var(--ctl-accent); }
-html[data-ui-tier="high"] :is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"]):not([data-state="slim"]) .ctl-axis .ctl-range::-webkit-slider-thumb { box-shadow: inset 0 1px 0 var(--glass-hi), 0 0 10px color-mix(in oklch, var(--ctl-accent) 55%, transparent); }
+:is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis.is-dragging .ctl-range::-webkit-slider-thumb { border-color: var(--ctl-accent); }
+html[data-ui-tier="high"] :is(.al-dock[data-mode="portrait"][data-plan="side"], .al-dock[data-mode="portrait"][data-plan="full"], .al-dock[data-mode="portrait"][data-plan="opts"]):not([data-state="slim"]) .ctl-axis .ctl-range::-webkit-slider-thumb { box-shadow: inset 0 1px 0 var(--glass-hi), 0 0 10px color-mix(in oklch, var(--ctl-accent) 55%, transparent); }
 
 /* 3. glass v2: the aurora gets structure (a faint floor grid) so the blur has something to frost,
       and the panel gets a diagonal sheen, a rim light in the module colour and recessed wells */
@@ -1481,3 +1493,8 @@ html[data-ui-tier="mid"] .al-dock[data-mode="portrait"] { box-shadow: inset 0 1p
 html[data-ui-tier="low"] :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) :is(.ctl-switch, .ctl-action-btn, .ui-tb-check), html[data-ui-tier="low"] .al-dock-more, html[data-ui-tier="low"] .al-more-close { background-image: none; }
 .al-more-sheet { background-image: linear-gradient(180deg, var(--glass-hi) 0, var(--glass-lo) 38%, transparent 100%); }
 html[data-ui-tier="low"] .al-more-sheet { background-image: none; }
+
+/* 4. a primary choice moved into the options column (gear gate, lighting switches) arrives wrapped in .ui-widget */
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ui-widget,
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ui-widget-frame { align-items: stretch; width: 100%; min-width: 0; padding: 0; }
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) > [data-span="gate"] { flex: 0 0 auto; }
