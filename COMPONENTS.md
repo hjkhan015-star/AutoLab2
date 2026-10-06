@@ -91,8 +91,8 @@ Choose a surface: **row** for a plain number, **trace** for a time series, **sta
 
 Built by `UI.create`. States: `slim` (56 px), `default` (24 vh), `options` (44 px row added); ceiling 30 vh. Primary zone: 1–3 controls in thumb zones, 4 or more as pages with dots. Landscape phones: two 140 px side rails. Desktop: one bar. Extra API on `ui.toolbar.dock`: `addOption(node)`, `addPrimary({ id, side, node })`, `refresh()`.
 
-### Hero layout (Phase 9b, phone portrait)
-Dial, pedals and clutch are *compact* controls. With 1–2 of them (and at most one slider) the dock becomes `[transport | compact controls | slider + options]`: pedals are vertical, options are always on the right and scroll vertically. `heroPlan(kinds)` decides; module specs do not change (their `side:` is ignored here).
+### Cluster layout and equalizer sliders (Phase 9b / 9d, phone portrait)
+Dial, pedals and sliders are *columns* next to the transport; sliders are vertical (value on top, name under, the same native range rotated). `dockPlan(kinds, width, hasOptions)` picks `data-plan`: **side** = options in a column on the right, always visible (needs ≥ 128 px left over: 2 sliders, a dial, slider + pedal); **full** = columns share the width, options below behind the swipe; **paged** = the old horizontal pairs (a non-slider primary control, or more than 4 columns). Slim and the landscape / wide / desktop layouts are unchanged. Module specs do not change (`side:` is ignored here).
 
 ### Options grid and "More" (Phase 9b)
 Phone portrait never scrolls the options sideways. `.al-dock-options` is a wrapping grid; every option is a **cell** (small label above, 44 px control below). Toggles / actions / Flow are compact chips side by side; the zone may scroll vertically, never horizontally.

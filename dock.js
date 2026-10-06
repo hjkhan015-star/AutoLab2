@@ -79,16 +79,19 @@ export function splitOptionCells(cells, max = 4) {
   if (list.length <= cap) return { shown: list, more: [] };
   return { shown: list.slice(0, cap - 1), more: list.slice(cap - 1) };
 }
-/** Hero layout (phone portrait): compact controls (dial, pedals, clutch) sit on the left next to the transport,
- *  everything else (a slider, the options) is stacked on the right. kinds = 'compact' | 'wide' per primary item.
- *  Used when there are 1–2 compact controls and at most one wide one; otherwise the paged layout stays. */
-export function heroPlan(kinds) {
+/** Cluster layout (phone portrait). Dial, pedals and sliders stand as COLUMNS on the left (sliders are vertical, like an
+ *  equalizer); the options sit in a column on the right when there is room ('side'), otherwise below, behind the swipe ('full').
+ *  kinds: 'dial' | 'pedal' | 'slider' | 'other' per primary item. Anything 'other', 0 or > 4 columns → the paged layout.
+ *  width = viewport width; hasOptions = the module has option cells. */
+export const CLUSTER = { colPx: { dial: 100, pedal: 64, slider: 64 }, gapPx: 4, chromePx: 96, minOptionsPx: 128, maxCols: 4 };
+export function dockPlan(kinds, width = 390, hasOptions = true) {
   const list = Array.isArray(kinds) ? kinds : [];
-  const compact = list.filter((k) => k === 'compact').length;
-  const wide = list.length - compact;
-  const hero = compact >= 1 && compact <= 2 && wide <= 1;
-  let hi = 0;
-  return { hero, order: list.map((k) => ({ kind: k === 'compact' ? 'compact' : 'wide', heroIndex: hero && k === 'compact' ? hi++ : -1 })) };
+  const paged = { plan: 'paged', cols: 0, order: list.map((k) => ({ kind: k, index: -1 })) };
+  if (!list.length || list.length > CLUSTER.maxCols || !list.every((k) => CLUSTER.colPx[k] > 0)) return paged;
+  const cluster = list.reduce((a, k) => a + CLUSTER.colPx[k], 0) + CLUSTER.gapPx * (list.length - 1);
+  const usable = Math.max(0, (+width || 0) - CLUSTER.chromePx);      /* 2 × dock gap + 2 × padding + transport pill + its margin */
+  const side = !!hasOptions && usable - cluster >= CLUSTER.minOptionsPx;
+  return { plan: side ? 'side' : 'full', cols: list.length, order: list.map((k, i) => ({ kind: k, index: i })) };
 }
 /** Phase 9c: does a scrolling zone have more content above / below? (drives the soft fade at its edges) */
 export function scrollHint(scrollTop, clientHeight, scrollHeight, slack = 2) {
@@ -383,7 +386,15 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
     root.dataset.mode = L.mode;
     root.dataset.state = state;
     root.dataset.pages = String(layout.pageCount);
-    root.dataset.hero = L.mode === 'portrait' && heroOn ? '1' : '0';
+    const P = dockPlan(kinds.map((k) => k.kind), w, hasOptions());
+    root.dataset.plan = L.mode === 'portrait' ? P.plan : 'paged';
+    if (root.style && typeof root.style.setProperty === 'function') root.style.setProperty('--eq-cols', String(P.cols || 1));
+    kinds.forEach((k, i) => {
+      const se = slotEls.get(k.id);
+      if (!se || !se.dataset) return;
+      se.dataset.kind = k.kind;
+      if (P.order[i] && P.order[i].index >= 0) se.dataset.heroI = String(P.order[i].index); else delete se.dataset.heroI;
+    });
     layoutOptions(L.mode === 'portrait');
     root.dataset.hasOptions = String(hasOptions());
     paintFades();
@@ -408,22 +419,27 @@ export function createDock({ doc = document, win = window, moduleId = 'module', 
     doc.documentElement.style.setProperty('--dock-h', Math.ceil(r.height + (parseFloat(win.getComputedStyle(root).bottom) || 0)) + 'px');
   }
 
-  let heroOn = false;
+  let kinds = [];                    /* [{ id, kind }] per primary item, in order */
+  const slotEls = new Map();         /* id → its slot element */
   function renderPages() {
     layout = assignSlots(items.map(({ id, side }) => ({ id, side })));
     pagesEl.textContent = '';
     dots.textContent = '';
     const byId = new Map(items.map((it) => [it.id, it]));
-    const isCompact = (n) => !!n && ((n.classList && /\bctl-(dial|pedal|momentary)\b/.test(n.className || '')) || (typeof n.querySelector === 'function' && !!n.querySelector('.ctl-dial, .ctl-pedal, .ctl-momentary')));
-    const plan = heroPlan(items.map((it) => (isCompact(it.node) ? 'compact' : 'wide')));
-    const planOf = new Map(items.map((it, i) => [it.id, plan.order[i]]));
-    heroOn = plan.hero;
+    const kindOf = (n) => {
+      if (!n || typeof n.querySelector !== 'function') return 'other';
+      if (n.querySelector('.ctl-dial')) return 'dial';
+      if (n.querySelector('.ctl-pedal, .ctl-momentary')) return 'pedal';
+      if (n.querySelector('.ctl-axis')) return 'slider';
+      return 'other';
+    };
+    kinds = items.map((it) => ({ id: it.id, kind: kindOf(it.node) }));
+    slotEls.clear();
     layout.pages.forEach((pg, i) => {
       const pe = h(doc, 'div', 'al-dock-page', { 'data-page': String(i) });
       pg.forEach((slot) => {
         const se = h(doc, 'div', 'al-dock-slot', { 'data-side': slot.side, 'data-slot': slot.id });
-        const pl = planOf.get(slot.id);
-        if (pl) { se.dataset.kind = pl.kind; if (pl.heroIndex >= 0) se.dataset.heroI = String(pl.heroIndex); }
+        slotEls.set(slot.id, se);
         se.appendChild(byId.get(slot.id).node);
         pe.appendChild(se);
       });
