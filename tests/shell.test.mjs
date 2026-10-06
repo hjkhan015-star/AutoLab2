@@ -92,4 +92,33 @@ t('new files are precached and the SW version is bumped', () => {
   assert.match(index, /<link rel="stylesheet" href="controls\.css">/);
 });
 
+t('9e: home list is alphabetical (alpha()), Roadmap keeps learning order', () => {
+  assert.match(index, /function alpha\(list\)[\s\S]*localeCompare/);
+  assert.ok(/alpha\(modules\)\.forEach/.test(index) && /alpha\(filtered\)\.forEach/.test(index), 'grid and search both sorted');
+});
+
+t('9e: leaving a module silences it - perf-guard tracks AudioContext, fades, suspends, defers resume()', () => {
+  assert.match(index, /function perfController\(\)/);
+  assert.match(index, /new Proxy\(Orig, \{/, 'AudioContext constructor wrapped');
+  assert.match(index, /perf-pause/);
+  assert.match(index, /rec\.suspend\(\)/, 'context is suspended on pause');
+  assert.match(index, /if \(paused\) \{ rec\.want = true; return Promise\.resolve\(\); \}/, 'resume() while parked is deferred');
+  assert.match(index, /fr\.classList\.add\('leaving'\);\s*fr\.classList\.remove\('active'\)/, 'close parks the module at once');
+});
+
+t('9e: theme - first-paint script in head, OS theme only saved once chosen, module themed before it is revealed', () => {
+  const head = index.slice(0, index.indexOf('</head>'));
+  assert.match(head, /autolab\.prefs[\s\S]*prefers-color-scheme: light[\s\S]*light-theme/);
+  assert.match(index, /theme: themeChosen \? state\.theme : undefined/);
+  assert.match(index, /doc\.documentElement\.classList\.add\('light-theme'\)/);
+  assert.match(index, /#module-frame-host iframe \{[\s\S]*?opacity: 0;/);
+  assert.match(index, /function revealFrame\(id\)/);
+});
+
+t('9e: smoother open / close - no full-screen blur animation, new module loads after the slide, home keeps scroll', () => {
+  assert.ok(!/#home-screen\.behind \{[^}]*filter/.test(index), 'no blur() on the receding home screen');
+  assert.match(index, /afterSlide\(function \(\) \{ if \(!wasLive\) mountFrame\(mod\); flushHome\(\); \}\)/);
+  assert.match(index, /homeMain\.scrollTop = top;/);
+});
+
 console.log(`\n${n} test groups passed`);
