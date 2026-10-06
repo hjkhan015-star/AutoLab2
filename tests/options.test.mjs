@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { splitOptionCells, segGrid, heroPlan, scrollHint } from '../dock.js';
+import { splitOptionCells, segGrid, dockPlan, CLUSTER, scrollHint } from '../dock.js';
 
 const rd = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 let n = 0;
@@ -74,27 +74,49 @@ await t('CSS: landscape rails, the wide rail and the desktop bar hide the chip a
   assert.match(dock, /aria-expanded/); assert.match(dock, /role: 'dialog'/); assert.match(dock, /'aria-label': 'More options'/);
 });
 
-await t('heroPlan: 1–2 compact controls and ≤ 1 wide one → hero layout; compact ones are numbered left to right', () => {
-  assert.equal(heroPlan(['compact']).hero, true);
-  assert.equal(heroPlan(['compact', 'compact']).hero, true);
-  assert.equal(heroPlan(['wide', 'compact']).hero, true);
-  assert.deepEqual(heroPlan(['wide', 'compact', 'compact']).order.map((o) => o.heroIndex), [-1, 0, 1]);
-  assert.equal(heroPlan(['wide']).hero, false);
-  assert.equal(heroPlan(['wide', 'wide']).hero, false);
-  assert.equal(heroPlan(['compact', 'wide', 'wide']).hero, false);
-  assert.equal(heroPlan(['compact', 'compact', 'compact']).hero, false);
-  assert.equal(heroPlan([]).hero, false); assert.equal(heroPlan(null).hero, false);
+await t('dockPlan: dial / pedals / sliders become columns; options go to the right only if there is room', () => {
+  const D = (k, w, o) => dockPlan(k, w, o);
+  assert.equal(D(['dial'], 393, true).plan, 'side');
+  assert.equal(D(['slider', 'slider'], 393, true).plan, 'side');         /* Fuel pump, Intercooler */
+  assert.equal(D(['slider', 'pedal'], 393, true).plan, 'side');          /* ABS / ESC */
+  assert.equal(D(['slider', 'slider', 'slider'], 393, true).plan, 'full');   /* too wide for a column of options */
+  assert.equal(D(['slider', 'slider'], 393, false).plan, 'full');        /* nothing to put on the right */
+  assert.equal(D(['slider', 'slider'], 320, true).plan, 'full');         /* a narrow phone keeps the options below */
+  assert.equal(D(['slider'], 393, true).cols, 1);
+  assert.deepEqual(D(['slider', 'dial', 'pedal'], 600, true).order.map((o) => o.index), [0, 1, 2]);
+  assert.equal(D(['slider', 'other'], 393, true).plan, 'paged');
+  assert.equal(D([], 393, true).plan, 'paged'); assert.equal(D(null, 393, true).plan, 'paged');
+  assert.equal(D(['slider', 'slider', 'slider', 'slider', 'slider'], 900, true).plan, 'paged');
+  /* the side column always keeps at least minOptionsPx */
+  for (const k of [['dial'], ['slider', 'slider'], ['slider', 'pedal']]) {
+    const d = D(k, 393, true); assert.equal(d.plan, 'side');
+    const cluster = k.reduce((a, x) => a + CLUSTER.colPx[x], 0) + CLUSTER.gapPx * (k.length - 1);
+    assert.ok(393 - CLUSTER.chromePx - cluster >= CLUSTER.minOptionsPx);
+  }
 });
-await t('CSS hero layout: portrait only, not slim; pedals stand up; options on the right; no sideways scroll; tokens only', () => {
-  const hero = css.slice(css.indexOf('hero layout (phone portrait'));
-  assert.match(hero, /\[data-hero="1"\]:not\(\[data-state="slim"\]\) \{\s*grid-template-columns: auto auto auto minmax\(0, 1fr\)/);
-  assert.match(hero, /> \.al-dock-options \{[^}]*grid-row: 3; grid-column: 4; display: flex/);
-  assert.match(hero, /\.ctl-pedal-pad \{[^}]*width: var\(--ctl-pad-w\)[^}]*min-height: 64px/);
-  assert.match(hero, /\.ctl-pedal-fill \{[^}]*bottom: 0[^}]*height: calc\(var\(--p\) \* 100%\)/);
-  assert.match(hero, /scrollbar-width: none; overflow: visible/);
-  assert.doesNotMatch(hero, /overflow-x:\s*auto|nowrap|#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/);
-  for (const m of hero.matchAll(/\.al-dock\[[^{]*\{/g)) assert.match(m[0], /data-mode="portrait"|data-hero="1"/);
+await t('CSS cluster layout: portrait only, not slim; sliders rotate (same native range); options on the right; no sideways scroll; tokens only', () => {
+  const cl = css.slice(css.indexOf('cluster layout (phone portrait)'), css.indexOf('PHASE 9c'));
+  assert.match(cl, /data-plan="side"\]:not\(\[data-state="slim"\]\) \{\s*grid-template-columns: auto repeat\(var\(--eq-cols, 1\), auto\) minmax\(0, 1fr\)/);
+  assert.match(cl, /data-plan="full"\]:not\(\[data-state="slim"\]\) \{\s*grid-template-columns: auto repeat\(var\(--eq-cols, 1\), minmax\(0, 1fr\)\)/);
+  assert.match(cl, /\[data-plan="side"\]:not\(\[data-state="slim"\]\) > \.al-dock-options \{[^}]*grid-column: -2 \/ -1; display: flex/);
+  assert.match(cl, /\.ctl-axis \.ctl-range \{[^}]*width: 100cqh[^}]*rotate\(-90deg\)/);
+  assert.match(cl, /\.ctl-axis \.ctl-track \{[^}]*container-type: size/);
+  assert.match(cl, /\.ctl-axis \.ctl-label \{ display: contents; \}/);
+  assert.match(cl, /\.ctl-axis \.ctl-name \{[^}]*-webkit-line-clamp: 3/);
+  assert.match(cl, /\.ctl-pedal-pad \{[^}]*width: var\(--ctl-pad-w\)[^}]*min-height: 64px/);
+  assert.match(cl, /overflow: visible; scrollbar-width: none/);
+  assert.doesNotMatch(cl, /overflow-x:\s*auto|nowrap|#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/);
+  for (const m of cl.matchAll(/^[.:][^{\n]*\{/gm)) assert.match(m[0], /data-mode="portrait"|:root|\.al-dock-slot|\.al-dock\[/, m[0]);
   assert.match(css, /--dock-primary-min: 120px/);
+});
+await t('CSS 9d: the clipping fixes are there (slot scrollbars hidden, ellipsis names, chevron clearance); glass v2 is tokens only and tiered', () => {
+  const d = css.slice(css.indexOf('PHASE 9d'));
+  assert.match(d, /\.al-dock-slot \{ scrollbar-width: none; \}/);
+  assert.match(d, /\.ctl-axis \.ctl-name \{[^}]*text-overflow: ellipsis/);
+  assert.match(d, /\.ui-monitor\.has-card \.mon-head \{ padding-right: calc\(var\(--s-3\) \+ 22px\); \}/);
+  assert.doesNotMatch(d, /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|transition:|animation:|@keyframes/);
+  assert.match(d, /html\[data-ui-tier="low"\] body:has\(\.al-dock\[data-mode="portrait"\]\)::before \{ background: var\(--bg\); \}/);
+  assert.match(d, /html\[data-ui-tier="high"\] \.al-dock\[data-mode="portrait"\] \{/);
 });
 
 await t('scrollHint: fades only on the side that has more content', () => {
@@ -200,22 +222,27 @@ else {
     assert.equal(seg.dataset.many, '1'); assert.match(seg.style.gridTemplateColumns, /repeat\(4,/);
     assert.equal(b[6].style.gridColumn, 'span 2'); assert.equal(el.dataset.span, 'full');
   });
-  await t('DOM: a dial in portrait turns the hero layout on and its slot is flagged; a lone slider does not', () => {
+  await t('DOM: portrait plan follows the controls — dial / sliders → side, a third slider → full, landscape → paged', () => {
     const { doc, dock } = setup(390, 780, 2);
     const mk = (cls) => { const w = doc.createElement('div'); w.innerHTML = '<div class="ctl ' + cls + '"></div>'; return w; };
     dock.addPrimary({ id: 'ax-crank', side: 'right', node: mk('ctl-dial') });
-    assert.equal(dock.root.dataset.hero, '1');
+    assert.equal(dock.root.dataset.plan, 'side');
     const slot = dock.root.querySelector('[data-slot="ax-crank"]');
-    assert.equal(slot.dataset.kind, 'compact'); assert.equal(slot.dataset.heroI, '0');
+    assert.equal(slot.dataset.kind, 'dial'); assert.equal(slot.dataset.heroI, '0');
     dock.addPrimary({ id: 'ax-rpm', side: 'left', node: mk('ctl-axis') });
-    assert.equal(dock.root.dataset.hero, '1');
-    assert.equal(dock.root.querySelector('[data-slot="ax-rpm"]').dataset.kind, 'wide');
-    dock.addPrimary({ id: 'ax-load', side: 'left', node: mk('ctl-axis') });
-    assert.equal(dock.root.dataset.hero, '0');
+    assert.equal(dock.root.dataset.plan, 'full');                 /* dial + slider leave < 128 px for the options on a 390 px phone */
+    assert.equal(dock.root.querySelector('[data-slot="ax-rpm"]').dataset.kind, 'slider');
+    const two = setup(390, 780, 2);
+    two.dock.addPrimary({ id: 'ax-a', side: 'left', node: mk('ctl-axis') });
+    two.dock.addPrimary({ id: 'ax-b', side: 'right', node: mk('ctl-axis') });
+    assert.equal(two.dock.root.dataset.plan, 'side');
+    assert.equal(two.dock.root.style.getPropertyValue('--eq-cols'), '2');
     const only = setup(390, 780, 0); only.dock.addPrimary({ id: 'ax-a', side: 'left', node: mk('ctl-axis') });
-    assert.equal(only.dock.root.dataset.hero, '0');
+    assert.equal(only.dock.root.dataset.plan, 'full');            /* no options yet: the column spreads */
+    const el = only.doc.createElement('div'); el.className = 'ctl ctl-toggle'; only.dock.addOption(el);
+    assert.equal(only.dock.root.dataset.plan, 'side');            /* options arrive → they take the right column */
     const land = setup(800, 360, 0); land.dock.addPrimary({ id: 'ax-c', side: 'right', node: mk('ctl-dial') });
-    assert.equal(land.dock.root.dataset.hero, '0');
+    assert.equal(land.dock.root.dataset.plan, 'paged');
   });
 }
 console.log(`\n${n} options tests passed`);
