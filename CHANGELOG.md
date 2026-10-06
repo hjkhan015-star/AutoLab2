@@ -1,8 +1,18 @@
 # Changelog
 
+## 8.9.3 - Phase 9c: visual polish (on top of 9b)
+- **"There is more" fades.** The options column, the wide rail and the More sheet fade softly at the edge that has more content (`scrollHint` in dock.js sets `data-fade-t` / `data-fade-b`); no scrollbars needed.
+- **Hero layout:** a hairline divides the dial / pedals from the column on the right.
+- **Lit states:** selected segments and "on" switches get a quiet inner highlight; the More chip's arrow flips when open.
+- **Pedals and dial:** the pedal fill is a gradient; an active pedal / dial gets an accent border (and a glow in the high tier only).
+- **Motion (only with prefers-reduced-motion: no-preference):** chips, segments and switches shrink a little when pressed and ease between states; the More sheet and its scrim rise / fade in (never in the low tier).
+- Tokens only, no layout change, no module page touched. Tests: `tests/options.test.mjs` (scroll hints, motion / glow / tier rules).
+
 ## 8.9.3 - Phase 9b: options grid + "More" sheet
 - **No more sideways options.** Phone portrait: `.al-dock-options` is a wrapping grid; each option is a cell with a small caps label above its control, segmented controls fill the cell, toggles / actions / Flow are compact glass chips side by side. The zone scrolls vertically only when it must.
 - **"More" chip.** More than 4 option cells → first 3 plus a 44 px More chip that opens a glass sheet (same grid, `--z-menu`, scrim, Esc / Done close, focus trap, focus returns to the chip, `aria-expanded`, `role="dialog"`). Pure rule: `splitOptionCells(cells, max = 4)` in dock.js. Cells move between the dock and the sheet on rotation / resize.
+- **Hero layout (phone portrait).** A dial (engine crank, steering wheel) or pedals / clutch (throttle, brake) now sit on the LEFT next to the transport; a slider (if the module has one) and the options are stacked on the RIGHT, always visible (no swipe needed; the right column scrolls vertically). Pedals stand up as tall narrow pads, name over value. Rule: 1–2 compact controls and at most one other primary control (`heroPlan` in dock.js, tagged `data-hero` / `data-kind` / `data-hero-i`); otherwise the paged layout stays. Slim, landscape and desktop are unchanged. The `side:` hint of a hero control is ignored in this layout.
+- **Fixes seen on device:** the transport pill overlapped the options (primary floor 108 → 120 px); a stray scrollbar showed next to the dial (slots no longer scroll in the hero layout).
 - **Many-item choices** (> 4 segments) wrap into rows of up to 4 (`segGrid`) instead of a strip.
 - Primary zone keeps a 108 px floor in the options state; `.al-dock-options` gets the remaining height. `dockHeightPx` (24 vh / 30 vh) unchanged. Landscape rails and the desktop bar keep their layout. Option tap targets are 44 px (was 40 in portrait).
 - **Wide screens (from the 8.10.0 branch, merged into 9b): side panel in landscape devices.** `layoutMode` has a `'wide'` mode (not a phone, width ≥ 1024): no bottom bar, the dock is a left rail (280 px, 320 px from 1600 px) with transport, sliders / dials / pedals, then options; the Monitor is a docked right column that never folds to an orb; the ‹ handle folds the rail to a 56 px strip (saved per module). 721–1023 px keeps the bottom bar; phones are unchanged. `--dock-rail` became `--dock-rail-l` / `--dock-rail-r` (the `#canvas-wrap` / labels inset rules, `app.css` stage canvases and sensors.html follow; this is the one place 9b touches those rules, on request). Options in the rail use the 9b cell look (label above, chips side by side, a choice takes a full row, no More chip: the rail scrolls vertically). sensors.html keeps its 232 px gutter only for 721–1023 px.

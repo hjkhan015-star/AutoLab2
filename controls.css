@@ -1145,7 +1145,7 @@ html.light-theme .al-dock-transport #btn-play:hover { color: var(--paper); }
    More than 4 cells → first 3 + a "More" chip; the rest sit in a glass sheet that uses the same grid.
    Layout and tap sizes do not depend on data-ui-tier; only paint does (below).
    ═══════════════════════════════════════════════════════════════════════ */
-:root { --dock-primary-min: 108px; --opt-gap: 6px; }
+:root { --dock-primary-min: 120px; --opt-gap: 6px; }   /* ≥ the transport pill (≈ 116 px) so it never overlaps the options */
 
 .al-dock[data-mode="portrait"] { grid-template-rows: var(--dock-handle) minmax(var(--dock-primary-min), 1fr) auto; }
 .al-dock[data-mode="portrait"][data-state="slim"] { grid-template-rows: 12px minmax(0, 1fr) 0; }
@@ -1247,3 +1247,139 @@ html[data-ui-tier="low"] .al-more-sheet {
 .al-more-head { display: flex; align-items: center; justify-content: space-between; gap: var(--ctl-gap); margin-bottom: var(--ctl-gap); }
 .al-more-title { font-size: var(--ctl-text); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-mute); }
 .al-more-grid { padding: 0; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 9b — hero layout (phone portrait, dial / pedals / clutch)
+   [ transport | dial or vertical pedals | slider (if any) + options ]. The options are always on the right, no swipe needed.
+   Slim keeps the old one-line layout. Everything is CSS grid on the dock; slots are flattened with display: contents.
+   ═══════════════════════════════════════════════════════════════════════ */
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) {
+  grid-template-columns: auto auto auto minmax(0, 1fr);
+  grid-template-rows: var(--dock-handle) auto minmax(0, 1fr);
+  grid-template-areas: none;
+  column-gap: 0;
+}
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) > .al-dock-handle { grid-area: auto; grid-row: 1; grid-column: 1 / -1; }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) > .al-dock-transport { grid-area: auto; grid-row: 2 / 4; grid-column: 1; margin-right: var(--ctl-gap); align-self: center; }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .al-dock-primary,
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .al-dock-pages,
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .al-dock-page { display: contents; }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .al-dock-dots { display: none; }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .al-dock-slot {
+  margin: 0; max-height: none; min-width: 0; scrollbar-width: none; overflow: visible;     /* no stray scrollbar next to the dial */
+}
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .al-dock-slot[data-kind="compact"] {
+  grid-row: 2 / 4; margin-right: var(--ctl-gap); align-self: stretch;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .al-dock-slot[data-hero-i="0"] { grid-column: 2; }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .al-dock-slot[data-hero-i="1"] { grid-column: 3; }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .al-dock-slot[data-kind="wide"] { grid-row: 2; grid-column: 4; padding-bottom: var(--opt-gap); }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .al-dock-slot[data-kind="wide"] > * { width: 100%; min-width: 0; }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) > .al-dock-options {
+  grid-area: auto; grid-row: 3; grid-column: 4; display: flex; max-height: none; min-height: 0; padding: 2px 2px var(--opt-gap) 0;
+}
+/* the dial keeps its phone size; pedals stand up: a tall narrow pad, label above (name, then value) */
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .ctl-dial { min-width: 0; }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .ctl-pedal,
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .ctl-momentary {
+  --ctl-pad-w: 60px; width: auto; min-width: 0; flex: 1 1 auto; min-height: 0; align-items: center;
+}
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .ctl-pedal .ctl-label,
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .ctl-momentary .ctl-label { flex-direction: column; align-items: center; gap: 0; }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .ctl-pedal-pad {
+  width: var(--ctl-pad-w); height: auto; flex: 1 1 auto; min-height: 64px; max-height: 150px;
+}
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .ctl-pedal-fill {
+  top: auto; left: 0; right: 0; bottom: 0; width: auto; height: calc(var(--p) * 100%);
+}
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .ctl-pedal-ticks { flex-direction: column; align-items: stretch; }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .ctl-pedal-ticks i { width: 9px; height: 1px; }
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .ctl-pedal-foot {
+  top: auto; left: 3px; right: 3px; width: auto; height: var(--ctl-foot);
+  bottom: calc(3px + var(--p) * (100% - var(--ctl-foot) - 6px));
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 9c — visual polish. Tokens only. Motion only inside prefers-reduced-motion: no-preference;
+   glow only in the high tier (data-ui-tier is paint, never layout).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* 1. a soft fade on the edge of a zone that scrolls vertically (options column, rail, More sheet): "there is more" */
+.al-dock[data-mode="portrait"] .al-dock-options[data-fade-b="1"]:not([data-fade-t="1"]),
+.al-dock[data-mode="wide"] .al-dock-options[data-fade-b="1"]:not([data-fade-t="1"]),
+.al-more-sheet[data-fade-b="1"]:not([data-fade-t="1"]) {
+  -webkit-mask-image: linear-gradient(to bottom, var(--text) calc(100% - 22px), transparent);
+          mask-image: linear-gradient(to bottom, var(--text) calc(100% - 22px), transparent);
+}
+.al-dock[data-mode="portrait"] .al-dock-options[data-fade-t="1"]:not([data-fade-b="1"]),
+.al-dock[data-mode="wide"] .al-dock-options[data-fade-t="1"]:not([data-fade-b="1"]),
+.al-more-sheet[data-fade-t="1"]:not([data-fade-b="1"]) {
+  -webkit-mask-image: linear-gradient(to top, var(--text) calc(100% - 22px), transparent);
+          mask-image: linear-gradient(to top, var(--text) calc(100% - 22px), transparent);
+}
+.al-dock[data-mode="portrait"] .al-dock-options[data-fade-t="1"][data-fade-b="1"],
+.al-dock[data-mode="wide"] .al-dock-options[data-fade-t="1"][data-fade-b="1"],
+.al-more-sheet[data-fade-t="1"][data-fade-b="1"] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, var(--text) 18px, var(--text) calc(100% - 22px), transparent);
+          mask-image: linear-gradient(to bottom, transparent, var(--text) 18px, var(--text) calc(100% - 22px), transparent);
+}
+
+/* 2. hero layout: a hairline between the dial / pedals and the column on the right */
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .al-dock-slot[data-kind="wide"],
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) > .al-dock-options {
+  border-left: 1px solid color-mix(in oklch, var(--glass-edge) 70%, transparent);
+  padding-left: var(--ctl-gap);
+}
+
+/* 3. selected / on states: a quiet inner highlight so they read as lit, not just recoloured */
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-seg-btn[aria-checked="true"],
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-switch[aria-checked="true"] {
+  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--paper, var(--text)) 35%, transparent);
+}
+.al-dock-more[aria-expanded="true"] svg { transform: rotate(180deg); }
+:is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-seg[data-many] .ctl-seg-btn[aria-checked="true"] {
+  box-shadow: inset -1px -1px 0 var(--glass-edge), inset 0 1px 0 color-mix(in oklch, var(--paper, var(--text)) 35%, transparent);
+}
+
+/* 4. pedals and dial */
+.ctl-pedal-fill {
+  background: linear-gradient(to top, color-mix(in srgb, var(--ctl-accent) 62%, transparent), color-mix(in srgb, var(--ctl-accent) 22%, transparent));
+}
+.al-dock[data-mode="portrait"][data-hero="1"]:not([data-state="slim"]) .ctl-pedal-fill {
+  background: linear-gradient(to top, color-mix(in srgb, var(--ctl-accent) 62%, transparent), color-mix(in srgb, var(--ctl-accent) 22%, transparent));
+}
+.ctl-pedal-pad.is-active { border-color: var(--ctl-accent); }
+.ctl-dial-pad.is-active .ctl-dial-rim { stroke: color-mix(in oklch, var(--ctl-accent) 45%, transparent); }
+.ctl-dial-pad.is-active .ctl-dial-bg { stroke: var(--ctl-accent); }
+
+/* 5. glow (high tier only) */
+html[data-ui-tier="high"] .ctl-dial-pointer, html[data-ui-tier="high"] .ctl-dial-marker { filter: drop-shadow(0 0 4px var(--ctl-accent)); }
+html[data-ui-tier="high"] .ctl-pedal-pad.is-active, html[data-ui-tier="high"] .ctl-dial-pad.is-active { filter: drop-shadow(0 0 8px color-mix(in oklch, var(--ctl-accent) 55%, transparent)); }
+html[data-ui-tier="high"] .al-dock-more[aria-expanded="true"] { box-shadow: 0 0 12px color-mix(in oklch, var(--ctl-fill) 40%, transparent); }
+
+/* 6. motion: press feedback, smooth state changes, the More sheet rising in */
+@media (prefers-reduced-motion: no-preference) {
+  :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-switch,
+  :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-action-btn,
+  :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ui-tb-check,
+  :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-seg-btn,
+  .al-dock-more, .al-more-close {
+    transition: transform .1s ease-out, background-color .14s ease-out, border-color .14s ease-out, box-shadow .14s ease-out;
+  }
+  :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-switch:active,
+  :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-action-btn:active,
+  :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ui-tb-check:active,
+  :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ctl-seg-btn:active,
+  .al-dock-more:active, .al-more-close:active { transform: scale(.96); }
+  .al-dock-more svg { transition: transform .16s ease-out; }
+  .ctl-pedal-pad, .ctl-dial-pad { transition: border-color .14s ease-out; }
+  @keyframes al-more-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes al-more-fade { from { opacity: 0; } to { opacity: 1; } }
+  .al-more:not([hidden]) .al-more-sheet { animation: al-more-rise .18s ease-out; }
+  .al-more:not([hidden]) .al-more-scrim { animation: al-more-fade .18s ease-out; }
+  html[data-ui-tier="low"] .al-more:not([hidden]) .al-more-sheet,
+  html[data-ui-tier="low"] .al-more:not([hidden]) .al-more-scrim { animation: none; }
+}
