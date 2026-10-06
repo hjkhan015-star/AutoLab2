@@ -1,5 +1,14 @@
 # Changelog
 
+## 8.9.3 - Phase 9d: equalizer sliders, no clipping, glass v2 (on top of 9b / 9c)
+Built from nine phone screenshots (Intercooler, Fuel pump, Valvetrain, MPFI, Crankshaft).
+- **Vertical sliders (equalizer).** In phone portrait the primary controls are COLUMNS: value on top, a vertical glass groove, the name underneath (up to 3 lines). The same native `<input type=range>` is rotated, so touch, keys and a11y are unchanged. Dial and pedals are columns too (`dockPlan` in dock.js replaces `heroPlan`; slots get `data-kind` = dial | pedal | slider and `data-hero-i`).
+- **Options on the right, no swipe.** If the columns leave ≥ 128 px (2 sliders, a dial, slider + pedal) the options sit in a column on the right, always visible (`data-plan="side"`). Otherwise (3–4 columns, a narrow phone, no options) the columns share the width and the options stay below behind the swipe as before (`data-plan="full"`). More than 5 controls or a non-slider control keeps the paged layout.
+- **Fixed from the screenshots:** clipped labels and values ("EHICLE", "MBIENT", "km/", "+20°": names now ellipsize, values never shrink); the grey bar under paired sliders (it was the slot's horizontal scrollbar: hidden everywhere); status text running into the ⌄ of the monitor strip (the strip keeps 22 px clear).
+- **Glass v2.** The aurora behind the dock now carries a faint floor grid and stronger accent blooms, so the blur has structure to frost; high tier adds a diagonal sheen and a rim light in the module colour; the segmented tracks and selects are recessed wells, switches / actions / More are raised chips; the equalizer groove and thumb are glass. Mid keeps the rim light, low stays solid. Tokens only; no layout depends on the tier.
+- The scene is still not drawn under the dock (the canvas ends at the dock top); showing the model through the glass needs the canvas to extend beneath it, a separate change.
+- No module page changed. Tests: `dockPlan`, cluster / equalizer CSS, 9d CSS, DOM plan switching.
+
 ## 8.9.3 - Phase 9c: visual polish (on top of 9b)
 - **"There is more" fades.** The options column, the wide rail and the More sheet fade softly at the edge that has more content (`scrollHint` in dock.js sets `data-fade-t` / `data-fade-b`); no scrollbars needed.
 - **Hero layout:** a hairline divides the dial / pedals from the column on the right.
