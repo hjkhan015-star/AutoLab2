@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { splitOptionCells, segGrid, dockPlan, CLUSTER, scrollHint } from '../dock.js';
+import { splitOptionCells, segGrid, dockPlan, CLUSTER, sliderPx, scrollHint } from '../dock.js';
 
 const rd = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 let n = 0;
@@ -79,18 +79,28 @@ await t('dockPlan: dial / pedals / sliders become columns; options go to the rig
   assert.equal(D(['dial'], 393, true).plan, 'side');
   assert.equal(D(['slider', 'slider'], 393, true).plan, 'side');         /* Fuel pump, Intercooler */
   assert.equal(D(['slider', 'pedal'], 393, true).plan, 'side');          /* ABS / ESC */
-  assert.equal(D(['slider', 'slider', 'slider'], 393, true).plan, 'full');   /* too wide for a column of options */
+  assert.equal(D(['slider', 'slider', 'slider'], 393, true).plan, 'full');   /* three columns leave < 124 px beside them (Fuel pump, EGR…) */
+  assert.equal(D(['slider', 'slider', 'slider'], 412, true).plan, 'side');   /* …but a wide phone has room for slim columns */
+  assert.equal(D(['slider', 'slider', 'slider'], 412, true).sliderPx, 56);
+  assert.equal(sliderPx(2), 64); assert.equal(sliderPx(3), 56);
+  assert.equal(D(['slider', 'slider', 'slider'], 360, true).plan, 'full');   /* a narrow phone: options behind the swipe */
+  assert.equal(D(['slider', 'slider', 'slider', 'slider'], 393, true).plan, 'full');   /* Intercooler, Radiator… */
   assert.equal(D(['slider', 'slider'], 393, false).plan, 'full');        /* nothing to put on the right */
   assert.equal(D(['slider', 'slider'], 320, true).plan, 'full');         /* a narrow phone keeps the options below */
   assert.equal(D(['slider'], 393, true).cols, 1);
   assert.deepEqual(D(['slider', 'dial', 'pedal'], 600, true).order.map((o) => o.index), [0, 1, 2]);
   assert.equal(D(['slider', 'other'], 393, true).plan, 'paged');
-  assert.equal(D([], 393, true).plan, 'paged'); assert.equal(D(null, 393, true).plan, 'paged');
+  assert.equal(D([], 393, true).plan, 'opts');                            /* no sliders (Wiring, Starting system…): the options fill the dock */
+  assert.equal(D([], 393, false).plan, 'paged'); assert.equal(D(null, 393, false).plan, 'paged');
+  assert.equal(D(['choice', 'choice'], 393, true).plan, 'opts');          /* Lighting: two primary switches */
+  assert.equal(D(['gate'], 393, true).plan, 'opts');                      /* Gearbox */
+  assert.equal(D(['pedal', 'choice'], 393, true).plan, 'side');           /* Automatic: throttle + gear selector */
+  assert.equal(D(['slider', 'slider', 'slider', 'slider', 'choice'], 393, true).plan, 'paged');   /* a selector never hides behind the swipe */
   assert.equal(D(['slider', 'slider', 'slider', 'slider', 'slider'], 900, true).plan, 'paged');
   /* the side column always keeps at least minOptionsPx */
   for (const k of [['dial'], ['slider', 'slider'], ['slider', 'pedal']]) {
     const d = D(k, 393, true); assert.equal(d.plan, 'side');
-    const cluster = k.reduce((a, x) => a + CLUSTER.colPx[x], 0) + CLUSTER.gapPx * (k.length - 1);
+    const cluster = k.reduce((a, x) => a + (x === 'slider' ? sliderPx(k.filter((y) => y === 'slider').length) : CLUSTER.colPx[x]), 0) + CLUSTER.gapPx * (k.length - 1);
     assert.ok(393 - CLUSTER.chromePx - cluster >= CLUSTER.minOptionsPx);
   }
 });
@@ -230,7 +240,7 @@ else {
     const slot = dock.root.querySelector('[data-slot="ax-crank"]');
     assert.equal(slot.dataset.kind, 'dial'); assert.equal(slot.dataset.heroI, '0');
     dock.addPrimary({ id: 'ax-rpm', side: 'left', node: mk('ctl-axis') });
-    assert.equal(dock.root.dataset.plan, 'full');                 /* dial + slider leave < 128 px for the options on a 390 px phone */
+    assert.equal(dock.root.dataset.plan, 'full');                 /* dial + slider leave < 124 px for the options on a 390 px phone */
     assert.equal(dock.root.querySelector('[data-slot="ax-rpm"]').dataset.kind, 'slider');
     const two = setup(390, 780, 2);
     two.dock.addPrimary({ id: 'ax-a', side: 'left', node: mk('ctl-axis') });
@@ -243,6 +253,39 @@ else {
     assert.equal(only.dock.root.dataset.plan, 'side');            /* options arrive → they take the right column */
     const land = setup(800, 360, 0); land.dock.addPrimary({ id: 'ax-c', side: 'right', node: mk('ctl-dial') });
     assert.equal(land.dock.root.dataset.plan, 'paged');
+  });
+  await t('DOM: "full" plan on a first visit opens at the options height by itself, once; a saved state wins', async () => {
+    const mk = (doc, cls) => { const w = doc.createElement('div'); w.innerHTML = '<div class="ctl ' + cls + '"></div>'; return w; };
+    const first = setup(390, 780, 2);
+    for (const id of ['a', 'b', 'c']) first.dock.addPrimary({ id: 'ax-' + id, side: 'left', node: mk(first.doc, 'ctl-axis') });
+    assert.equal(first.dock.root.dataset.plan, 'full');
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(first.dock.root.dataset.state, 'options');
+    const side = setup(390, 780, 2);                                  /* 'side' plan: the options are already visible, no change */
+    side.dock.addPrimary({ id: 'ax-a', side: 'left', node: mk(side.doc, 'ctl-axis') });
+    await new Promise((r) => setTimeout(r, 20));
+    assert.notEqual(side.dock.root.dataset.state, 'options');
+  });
+  await t('DOM: a primary choice (gear selector) joins the options column first, and goes back to its slot in landscape', () => {
+    const { win, doc, dock } = setup(390, 780, 1);
+    const mk = (cls) => { const w = doc.createElement('div'); w.className = 'ui-widget'; w.innerHTML = '<div class="ctl ctl-choice ' + cls + '"></div>'; return w; };
+    const pedal = doc.createElement('div'); pedal.innerHTML = '<div class="ctl ctl-pedal"></div>';
+    dock.addPrimary({ id: 'ax-thr', side: 'left', node: pedal });
+    const gear = mk('');
+    dock.addPrimary({ id: 'ax-gear', side: 'right', node: gear });
+    assert.equal(dock.root.dataset.plan, 'side');
+    assert.equal(gear.parentNode, dock.flow);                       /* in the options column… */
+    assert.equal(dock.flow.firstElementChild, gear);                 /* …as its first cell */
+    assert.equal(gear.dataset.cell, 'choice');
+    Object.defineProperty(win, 'innerWidth', { value: 800, configurable: true }); Object.defineProperty(win, 'innerHeight', { value: 360, configurable: true });
+    dock.refresh();
+    assert.equal(dock.root.dataset.plan, 'paged');
+    assert.equal(gear.parentNode, dock.root.querySelector('[data-slot="ax-gear"]'));
+    const none = setup(390, 780, 0);                                  /* no sliders at all: the gate alone fills the dock */
+    const gate = doc.createElement('div'); gate.className = 'ui-widget'; gate.innerHTML = '<div class="ctl ctl-choice"><div class="ctl-gate-pad"></div></div>';
+    none.dock.addPrimary({ id: 'ax-g', side: 'right', node: gate });
+    assert.equal(none.dock.root.dataset.plan, 'opts');
+    assert.equal(gate.dataset.span, 'gate');
   });
 }
 console.log(`\n${n} options tests passed`);
