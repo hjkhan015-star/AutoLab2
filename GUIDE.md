@@ -1,4 +1,4 @@
-# Auto Lab v8.9.3 — Build Guide
+# Auto Lab v8.9.4 — Build Guide
 
 How a module page is put together, how to add one, and the rules the tests enforce.
 Reference tables (every control spec, every Monitor channel) are in `COMPONENTS.md`.

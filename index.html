@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0d13">
+<script>/* first-paint theme: saved choice, else the OS setting (kept in step with applyShellTheme) */
+(function(){try{var p=JSON.parse(localStorage.getItem('autolab.prefs')||'{}');
+var l=p.theme?p.theme==='light':!!(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches);
+if(l){document.documentElement.classList.add('light-theme');
+document.querySelector('meta[name="theme-color"]').setAttribute('content','#e8ecf3');}}catch(e){}})();</script>
 <meta name="description" content="Interactive 3D automotive learning lab.">
 <meta name="author" content="Hassan J Khan">
 <meta name="mobile-web-app-capable" content="yes">
@@ -69,14 +74,12 @@
     z-index: var(--z-stage);
     overflow: hidden;
     transition: transform var(--dur-slow) var(--ease-in-out),
-                opacity var(--dur-slow) var(--ease-in-out),
-                filter var(--dur-slow) var(--ease-in-out);
+                opacity var(--dur-slow) var(--ease-in-out);
     transform-origin: center top;
   }
   #home-screen.behind {
-    transform: scale(.94) translateY(8px);
+    transform: scale(.95) translateY(8px);
     opacity: 0;
-    filter: blur(10px);
     pointer-events: none;
   }
 
@@ -558,8 +561,24 @@
     border: 0;
     background: var(--bg);
     display: none;
+    opacity: 0;                                   /* revealed once the module is ready and themed */
+    transition: opacity var(--dur-base) var(--ease-out);
   }
-  #module-frame-host iframe.active { display: block; }
+  #module-frame-host iframe.active,
+  #module-frame-host iframe.leaving { display: block; }   /* .leaving keeps the picture on screen during the slide-out */
+  #module-frame-host iframe.ready { opacity: 1; }
+  #module-loading {
+    position: absolute; inset: 0; z-index: var(--z-labels);
+    display: grid; place-items: center;
+    background: var(--bg);
+    transition: opacity var(--dur-base) var(--ease-out);
+    pointer-events: none;
+  }
+  #module-loading.hidden { opacity: 0; }
+  #module-loading .boot-ring { border-top-color: var(--al-accent, var(--accent)); }
+  @media (prefers-reduced-motion: reduce) {
+    #module-frame-host iframe, #module-loading { transition: none; }
+  }
 
   /* ── Boot loader ── */
   #boot-loader {
@@ -911,7 +930,7 @@
 </div>
 
 <div id="module-screen" aria-hidden="true">
-  <div id="module-frame-host"></div>
+  <div id="module-frame-host"><div id="module-loading" class="hidden" aria-hidden="true"><div class="boot-ring"></div></div></div>
 </div>
 
 <script src="modules.js"></script>
@@ -924,45 +943,99 @@
   'use strict';
   var HOST_ID = 'module-frame-host';
 
-  var CONTROLLER = [
-    '(function () {',
-    '  if (document.documentElement.dataset.perfGuard) return;',
-    '  document.documentElement.dataset.perfGuard = "1";',
-    '  var raf = window.requestAnimationFrame.bind(window);',
-    '  var caf = window.cancelAnimationFrame.bind(window);',
-    '  var paused = false;',
-    '  var parked = new Map();',
-    '  var uid = 1000000000;',
-    '  window.requestAnimationFrame = function (cb) {',
-    '    if (!paused) return raf(cb);',
-    '    var id = ++uid;',
-    '    parked.set(id, cb);',
-    '    return id;',
-    '  };',
-    '  window.cancelAnimationFrame = function (id) {',
-    '    if (parked.has(id)) { parked.delete(id); return; }',
-    '    return caf(id);',
-    '  };',
-    '  function resume() {',
-    '    if (!paused) return;',
-    '    paused = false;',
-    '    var cbs = [];',
-    '    parked.forEach(function (cb) { cbs.push(cb); });',
-    '    parked.clear();',
-    '    for (var i = 0; i < cbs.length; i++) raf(cbs[i]);',
-    '  }',
-    '  window.addEventListener("message", function (e) {',
-    '    var d = e.data;',
-    '    if (!d || d.source !== "auto-shell") return;',
-    '    if (d.action === "perf-pause")  { paused = true; return; }',
-    '    if (d.action === "perf-resume") { resume(); }',
-    '  });',
-    '  try {',
-    '    window.parent.postMessage(',
-    '      { source: "auto-module-perf", action: "perf-ready" }, "*");',
-    '  } catch (_) {}',
-    '})();'
-  ].join('\n');
+  /* Runs INSIDE each module iframe (injected as text: it must not close over anything here).
+     While the module is off-screen it parks requestAnimationFrame AND silences Web Audio:
+     every AudioContext is tracked, routed through one gain node, faded out and suspended on
+     perf-pause, and resumed on perf-resume. A resume() the module asks for while parked is
+     remembered and only honoured when the module comes back. */
+  function perfController() {
+    var root = document.documentElement;
+    if (root.dataset.perfGuard) return;
+    root.dataset.perfGuard = '1';
+    var raf = window.requestAnimationFrame.bind(window);
+    var caf = window.cancelAnimationFrame.bind(window);
+    var paused = false, parked = new Map(), uid = 1000000000;
+    var recs = [], FADE = 0.03, FADE_MS = 160;
+
+    window.requestAnimationFrame = function (cb) {
+      if (!paused) return raf(cb);
+      var id = ++uid; parked.set(id, cb); return id;
+    };
+    window.cancelAnimationFrame = function (id) {
+      if (parked.has(id)) { parked.delete(id); return; }
+      return caf(id);
+    };
+
+    function track(c) {
+      var rec = { c: c, out: null, want: false, timer: 0 };
+      var origResume = c.resume.bind(c), origSuspend = c.suspend.bind(c);
+      rec.resume = origResume; rec.suspend = origSuspend;
+      try {
+        var real = c.destination, out = c.createGain();
+        out.connect(real);
+        Object.defineProperty(c, 'destination', { get: function () { return out; }, configurable: true });
+        rec.out = out;
+      } catch (_) {}
+      c.resume = function () {
+        if (paused) { rec.want = true; return Promise.resolve(); }
+        return origResume();
+      };
+      recs.push(rec);
+      if (paused) silence(rec);
+    }
+    function silence(rec) {
+      var c = rec.c;
+      if (c.state === 'closed') return;
+      if (c.state === 'running') rec.want = true;
+      clearTimeout(rec.timer);
+      try { if (rec.out) { var t = c.currentTime; rec.out.gain.cancelScheduledValues(t); rec.out.gain.setTargetAtTime(0, t, FADE); } } catch (_) {}
+      rec.timer = setTimeout(function () {
+        if (paused && c.state === 'running') rec.suspend().catch(function () {});
+      }, rec.out ? FADE_MS : 0);
+    }
+    function revive(rec) {
+      var c = rec.c;
+      clearTimeout(rec.timer);
+      if (c.state === 'closed') return;
+      var go = function () {
+        try { if (rec.out) { var t = c.currentTime; rec.out.gain.cancelScheduledValues(t); rec.out.gain.setValueAtTime(rec.out.gain.value, t); rec.out.gain.linearRampToValueAtTime(1, t + 0.08); } } catch (_) {}
+      };
+      if (rec.want && c.state === 'suspended') { rec.want = false; rec.resume().then(go, function () {}); }
+      else { rec.want = false; go(); }
+    }
+    ['AudioContext', 'webkitAudioContext'].forEach(function (name) {
+      var Orig = window[name];
+      if (typeof Orig !== 'function') return;
+      window[name] = new Proxy(Orig, {
+        construct: function (target, args, nt) { var c = Reflect.construct(target, args, nt); try { track(c); } catch (_) {} return c; }
+      });
+    });
+
+    function pause() {
+      if (paused) return;
+      paused = true;
+      recs = recs.filter(function (r) { return r.c.state !== 'closed'; });
+      recs.forEach(silence);
+      try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (_) {}
+    }
+    function resume() {
+      if (!paused) return;
+      paused = false;
+      var cbs = [];
+      parked.forEach(function (cb) { cbs.push(cb); });
+      parked.clear();
+      for (var i = 0; i < cbs.length; i++) raf(cbs[i]);
+      recs.forEach(revive);
+    }
+    window.addEventListener('message', function (e) {
+      var d = e.data;
+      if (!d || d.source !== 'auto-shell') return;
+      if (d.action === 'perf-pause') pause();
+      else if (d.action === 'perf-resume') resume();
+    });
+    try { window.parent.postMessage({ source: 'auto-module-perf', action: 'perf-ready' }, '*'); } catch (_) {}
+  }
+  var CONTROLLER = '(' + perfController.toString() + ')();';
 
   function inject(iframe) {
     var doc;
@@ -974,6 +1047,7 @@
       s.id = 'autolab-perf-guard';
       s.textContent = CONTROLLER;
       (doc.head || doc.documentElement).appendChild(s);
+      try { if (document.documentElement.classList.contains('light-theme')) doc.documentElement.classList.add('light-theme'); } catch (_) {}
       return true;
     } catch (_) { return false; }
   }
@@ -1071,6 +1145,7 @@ import { createKeyRouter, installKeys } from './keys.js';
     return 'dark';
   }
   var savedPrefs = loadPrefs() || {};
+  var themeChosen = savedPrefs.theme === 'light' || savedPrefs.theme === 'dark';   /* until the person picks one, follow the OS */
 
   var state = {
     tab: 'home', sys: null, dom: 'All',
@@ -1093,7 +1168,7 @@ import { createKeyRouter, installKeys } from './keys.js';
   function savePrefs() {
     try {
       localStorage.setItem(PREF_KEY, JSON.stringify({
-        theme: state.theme,
+        theme: themeChosen ? state.theme : undefined,
         wireframe: state.wireframe,
         xray: state.xray,
         view: state.view
@@ -1274,6 +1349,14 @@ import { createKeyRouter, installKeys } from './keys.js';
     return card;
   }
 
+  /* Alphabetical by the name shown on the card (the Roadmap view keeps the learning order). */
+  function alpha(list) {
+    var key = function (m) { return (m.label || m.title || '').trim(); };
+    return list.slice().sort(function (a, b) {
+      return key(a).localeCompare(key(b), undefined, { sensitivity: 'base', numeric: true });
+    });
+  }
+
   function renderAllModules() {
     var q = (searchInput.value || '').trim().toLowerCase();
     var filtered = q
@@ -1295,7 +1378,7 @@ import { createKeyRouter, installKeys } from './keys.js';
       }
       var grid = document.createElement('div');
       grid.className = 'module-grid';
-      filtered.forEach(function (m) { grid.appendChild(buildCard(m)); });
+      alpha(filtered).forEach(function (m) { grid.appendChild(buildCard(m)); });
       homeMain.appendChild(grid);
       return;
     }
@@ -1334,7 +1417,7 @@ import { createKeyRouter, installKeys } from './keys.js';
     tr.appendChild(fl); pr.appendChild(tr); homeMain.appendChild(pr);
     homeMain.appendChild(el('div', 'section-title', 'All modules'));
     var grid = el('div', 'module-grid');
-    modules.forEach(function (m) { grid.appendChild(buildCard(m)); });
+    alpha(modules).forEach(function (m) { grid.appendChild(buildCard(m)); });
     homeMain.appendChild(grid);
   }
 
@@ -1561,12 +1644,18 @@ import { createKeyRouter, installKeys } from './keys.js';
     try { document.querySelector('meta[name="theme-color"]').setAttribute('content', isLight ? '#e8ecf3' : '#0a0d13'); } catch (_) {}
     if (menu) menu.update({ theme: state.theme });
   }
-  function setTheme(t) {
+  function setTheme(t, auto) {
     state.theme = (t === 'light') ? 'light' : 'dark';
+    if (!auto) themeChosen = true;
     applyShellTheme();
     savePrefs();
     if (state.active) postTo(state.active, { type: 'command', action: 'setTheme', value: state.theme });
   }
+  try {
+    var mqLight = window.matchMedia('(prefers-color-scheme: light)');
+    var onOs = function (e) { if (!themeChosen) setTheme(e.matches ? 'light' : 'dark', true); };
+    if (mqLight.addEventListener) mqLight.addEventListener('change', onOs); else if (mqLight.addListener) mqLight.addListener(onOs);
+  } catch (_) {}
   function setWireframe(v) {
     v = !!v;
     if (v === state.wireframe) return;
@@ -1593,20 +1682,77 @@ import { createKeyRouter, installKeys } from './keys.js';
   }
 
   /* ─── Open / close module ─── */
+  var loadEl = document.getElementById('module-loading');
+  var homeDirty = false;
+
+  /* run fn once the module screen has finished sliding (or after a safety timeout) */
+  function afterSlide(fn) {
+    var done = false;
+    function go() {
+      if (done) return;
+      done = true;
+      moduleScreen.removeEventListener('transitionend', on);
+      fn();
+    }
+    function on(e) { if (e.target === moduleScreen && e.propertyName === 'transform') go(); }
+    moduleScreen.addEventListener('transitionend', on);
+    setTimeout(go, 520);
+  }
+
+  /* Rebuild the home grid (explored ticks, Jump back in) while it is hidden, keeping the scroll place. */
+  function flushHome() {
+    if (!homeDirty) return;
+    homeDirty = false;
+    if (state.tab === 'home' && state.view === 'modules' && !state.sys) {
+      var top = homeMain.scrollTop, sb = homeMain.style.scrollBehavior;
+      homeMain.style.scrollBehavior = 'auto';
+      try { renderHome('home'); } catch (_) {}
+      homeMain.scrollTop = top;
+      homeMain.style.scrollBehavior = sb;
+    }
+  }
+
+  function revealFrame(id) {
+    var fr = iframes[id];
+    if (!fr || fr.classList.contains('ready')) return;
+    /* two frames so the module's theme / first layout land before it fades in */
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      fr.classList.add('ready');
+      if (state.active === id && loadEl) loadEl.classList.add('hidden');
+    }); });
+  }
+
+  /* create (first time) and show the module's iframe. The slide finishes BEFORE a new module starts
+     loading, so the animation never competes with script compilation / WebGL set-up. */
+  function mountFrame(mod) {
+    if (state.active !== mod.id) return;       /* the person already went back */
+    var fresh = !iframes[mod.id];
+    var fr = ensureIframe(mod);
+    if (fresh) {
+      fr.addEventListener('load', function () { setTimeout(function () { revealFrame(mod.id); }, 1200); }, { once: true });
+      setTimeout(function () { revealFrame(mod.id); }, 9000);
+    }
+    touchLru(mod.id);
+    evictOld(mod.id);
+    for (var k2 in iframes) iframes[k2].classList.toggle('active', k2 === mod.id);
+    if (fr.classList.contains('ready') && loadEl) loadEl.classList.add('hidden');
+    setTimeout(function () {
+      try { fr.contentWindow.dispatchEvent(new Event('resize')); } catch (_) {}
+      try { if (fr.contentWindow.document) fr.contentWindow.document.dispatchEvent(new Event('resize')); } catch (_) {}
+    }, 60);
+  }
+
   function openModule(id) {
     var mod = modules.find(function (m) { return m.id === id; });
     if (!mod) return;
     state.active = id;
     if (menu) menu.setHidden(menuHidden[id] || []);
     pushRecent(id);
+    homeDirty = true;
     for (var k in iframes) {
       if (k !== id) postTo(k, { type: 'command', action: 'setPlaying', value: false });
     }
     var wasLive = !!iframes[id];
-    ensureIframe(mod);
-    touchLru(id);
-    evictOld(id);
-    for (var k2 in iframes) iframes[k2].classList.toggle('active', k2 === id);
     moduleScreen.classList.add('active');
     moduleScreen.setAttribute('aria-hidden', 'false');
     homeScreen.classList.add('behind');
@@ -1614,20 +1760,16 @@ import { createKeyRouter, installKeys } from './keys.js';
     moduleScreen.style.setProperty('--al-accent', mod.color || 'var(--accent)');   /* header + ⋯ menu share the module accent */
     document.title = mod.title + ' — Auto Lab';
     try { if (location.hash.slice(1) !== id) history.pushState({ mod: id }, '', '#' + id); } catch (_) {}
+    if (loadEl) loadEl.classList.toggle('hidden', wasLive && iframes[id].classList.contains('ready'));
     if (wasLive) {
+      mountFrame(mod);                         /* already loaded: instant */
       postTo(id, { type: 'command', action: 'setPlaying',   value: state.playing });
       postTo(id, { type: 'command', action: 'setTheme',     value: state.theme });
       postTo(id, { type: 'command', action: 'setWireframe', value: state.wireframe });
       postTo(id, { type: 'command', action: 'setXRay',      value: state.xray });
       if (modSpeed[id] != null) { state.speed = modSpeed[id]; menu.update({ speed: state.speed }); }
     }
-    var fr = iframes[id];
-    if (fr && fr.contentWindow) {
-      setTimeout(function () {
-        try { fr.contentWindow.dispatchEvent(new Event('resize')); } catch (_) {}
-        try { if (fr.contentWindow.document) fr.contentWindow.document.dispatchEvent(new Event('resize')); } catch (_) {}
-      }, 60);
-    }
+    afterSlide(function () { if (!wasLive) mountFrame(mod); flushHome(); });
     menu.close(false);
   }
 
@@ -1635,12 +1777,19 @@ import { createKeyRouter, installKeys } from './keys.js';
     if (!state.active) return;
     var id = state.active;
     postTo(id, { type: 'command', action: 'setPlaying', value: false });
-    if (iframes[id]) iframes[id].classList.remove('active');
+    var fr = iframes[id];
+    if (fr) {
+      /* losing .active parks the module at once (frames AND sound, see perf-guard);
+         .leaving keeps its picture on screen while the screen slides away */
+      fr.classList.add('leaving');
+      fr.classList.remove('active');
+      setTimeout(function () { fr.classList.remove('leaving'); }, 520);
+    }
     moduleScreen.classList.remove('active');
     moduleScreen.setAttribute('aria-hidden', 'true');
     homeScreen.classList.remove('behind');
     state.active = null;
-    if (state.tab === 'home' && state.view === 'modules' && typeof renderHome === 'function') { try { renderHome('home'); } catch (_) {} }
+    flushHome();                                /* normally already done during the open slide */
     document.title = 'Auto Lab';
     try { if (location.hash) history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
     menu.close(false);
@@ -1689,6 +1838,7 @@ import { createKeyRouter, installKeys } from './keys.js';
       menuHidden[d.moduleId] = Array.isArray(d.menuHide) ? d.menuHide : [];
       if (d.moduleId === state.active) menu.setHidden(menuHidden[d.moduleId]);
       sendAllCommands(d.moduleId);
+      revealFrame(d.moduleId);
     } else if (d.type === 'key') {
       /* a shell-owned key pressed while focus is inside the module iframe */
       if (d.moduleId === state.active) keyRouter.incoming(d.action);

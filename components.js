@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   components.js — Auto Lab shared components (v8.9.3)
+   components.js — Auto Lab shared components (v8.9.4)
 
    ONE place for the parts every module used to copy-paste, so all modules
    look and behave the same.
