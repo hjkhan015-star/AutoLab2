@@ -1,4 +1,4 @@
-# Auto Lab v8.9.3 — Components and Control Reference
+# Auto Lab v8.9.4 — Components and Control Reference
 
 The building blocks. How to put them together: `GUIDE.md`.
 

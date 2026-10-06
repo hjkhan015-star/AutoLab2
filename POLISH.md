@@ -34,3 +34,9 @@ Source: **code** = read in the source, **sandbox** = seen in a headless-Chromium
 15. `QA.md` counts 42 module pages; earlier docs said 44 modules (44 is the page count including `index.html` and `404.html`).
 16. **ignition: the 720° cycle bar and firing-order row are gone from the panel** (see CHANGELOG). If you want a cycle indicator back, build it as a stage canvas or a Monitor trace, not panel markup.
 17. **Not seen rendered:** differential, thermostat, awd, catalytic, dpf, egr, fuelpump, ecu and ignition are your edits plus the Phase 8 token conversion; open each in both themes before release.
+
+## Phase 9e (open)
+
+18. **Sound fade and slide timing are untested on a phone.** Checked in headless Chromium only: Web Audio contexts fade out (~30 ms) and suspend on Back, resume on return. Listen to exhaustsystem, starting-system and lighting on a real device, and confirm iOS Safari resumes after reopening (it may need a tap).
+19. **New modules now start loading after the 420 ms slide**, with a spinner meanwhile. If that feels slow on a fast phone, mount at ~60% of the slide instead (`afterSlide` in index.html).
+20. **setInterval / setTimeout loops** in a hidden module are not paused by perf-guard (only `requestAnimationFrame` and audio are). Check the 2D modules for timer-driven simulations.
