@@ -116,7 +116,7 @@ for (const f of jsFiles) {
    (1) no stray files: only the allowlisted names may sit in the root, tests/ and icons/
    (2) no console.log / debug / info and no debugger statement in shipped code (console.warn / error are real diagnostics)
    (3) no dead code: a top-level function / const that is declared and never referenced again in its own script */
-const ROOT_FILES = new Set(['404.html', '_headers', 'robots.txt', 'manifest.webmanifest', 'package.json', 'sw.js', 'README.md', 'GUIDE.md', 'COMPONENTS.md', 'CHANGELOG.md', 'MONITOR-MAP.md', 'QA.md', 'POLISH.md']);
+const ROOT_FILES = new Set(['404.html', '_headers', 'robots.txt', 'manifest.webmanifest', 'package.json', 'sw.js', 'README.md', 'GUIDE.md', 'COMPONENTS.md', 'CHANGELOG.md', 'MONITOR-MAP.md', 'QA.md', 'POLISH.md', 'DECISIONS-WA.md']);
 for (const f of readdirSync(root, { withFileTypes: true })) {
   if (f.name.startsWith('.') || f.name === 'node_modules') continue;
   if (f.isDirectory()) { if (!['tests', 'icons'].includes(f.name)) fail(`stray directory: ${f.name}/`); continue; }
