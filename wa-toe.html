@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Toe-in / Toe-out — Wheel Alignment — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #14b8a6; }
+html.light-theme { --al-accent: color-mix(in oklch, #14b8a6 62%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+import { controls } from './controls.js';
+import { fromReal } from './controls-core.js';
+import { buildToeScene } from './wa-toe-scene.js';
+import { makeState, getPreset, setAxleTotal, setWheelToe, toeToSpec, toeToZero, applyToePreset, randomToeFault, formatToe,
+  TOE_PRESETS, EXAGGERATIONS, DEFAULT_EXAGGERATION, TOE_SNAP, WA_PAGES } from './alignment-model.js';
+
+const PRESET = 'hatchback';
+const SPEC = getPreset(PRESET).spec, R = getPreset(PRESET).tyreRadius;
+/* S is the session the scene reads; the controls below write it. */
+const S = { st: makeState(PRESET), exag: DEFAULT_EXAGGERATION, unit: 'deg', cam: 'top', ver: 0,
+  flags: { lasers: true, ghost: true, wear: true, tint: false, auto: false } };
+let syncing = false;
+
+const FRONT_TOTAL = [SPEC.frontToe[0] * 2, SPEC.frontToe[1] * 2], REAR_TOTAL = [SPEC.rearToe[0] * 2, SPEC.rearToe[1] * 2];
+const toeText = (v) => formatToe(v, S.unit, R);
+const FADERS = {
+  toeF: { label: 'Front toe', total: 'F', band: FRONT_TOTAL, range: 1.2, def: S.st.FL.toe + S.st.FR.toe },
+  toeR: { label: 'Rear toe', total: 'R', band: REAR_TOTAL, range: 1.2, def: S.st.RL.toe + S.st.RR.toe },
+  toeFL: { label: 'Front-left toe', corner: 'FL', band: SPEC.frontToe, range: 0.6, def: S.st.FL.toe },
+  toeFR: { label: 'Front-right toe', corner: 'FR', band: SPEC.frontToe, range: 0.6, def: S.st.FR.toe },
+  toeRL: { label: 'Rear-left toe', corner: 'RL', band: SPEC.rearToe, range: 0.6, def: S.st.RL.toe },
+  toeRR: { label: 'Rear-right toe', corner: 'RR', band: SPEC.rearToe, range: 0.6, def: S.st.RR.toe }
+};
+const realOf = (id) => { const f = FADERS[id]; return f.total ? S.st[f.total + 'L'].toe + S.st[f.total + 'R'].toe : S.st[f.corner].toe; };
+/* write the model's values back into every fader (the one being dragged is already there) */
+function sync() {
+  syncing = true;
+  for (const id in FADERS) controls.set(id, fromReal(realOf(id), controls.spec(id)));
+  syncing = false; S.ver++;
+}
+/* the fader text depends on the unit: nudge each fader one step and back so it repaints */
+function repaint() {
+  syncing = true;
+  for (const id in FADERS) { const n = controls.get(id); controls.set(id, n > 0.5 ? n - 0.01 : n + 0.01); controls.set(id, n); }
+  syncing = false;
+}
+function showMode(mode) {
+  for (const id in FADERS) controls.setHidden(id, mode === 'total' ? !FADERS[id].total : !!FADERS[id].total);
+}
+
+const CFG = {
+  moduleId: 'wa-toe',
+  title: 'Toe-in / Toe-out',
+  kicker: 'Wheel Alignment',
+  accent: '#14b8a6',
+  badge: 'Toe',
+  camPos: [0, 8.5, 0.5],
+  target: [0, 0, 0.1],
+  floorY: 0,
+  ctl: null,
+  chipLabel: 'Total toe (front)',
+  rows: [],
+  ro: [
+    ['toeFL', 'Front-left toe', { spec: { min: -0.6, max: 0.6, lo: SPEC.frontToe[0], hi: SPEC.frontToe[1] } }],
+    ['toeFR', 'Front-right toe', { spec: { min: -0.6, max: 0.6, lo: SPEC.frontToe[0], hi: SPEC.frontToe[1] } }],
+    ['toeRL', 'Rear-left toe', { spec: { min: -0.6, max: 0.6, lo: SPEC.rearToe[0], hi: SPEC.rearToe[1] } }],
+    ['toeRR', 'Rear-right toe', { spec: { min: -0.6, max: 0.6, lo: SPEC.rearToe[0], hi: SPEC.rearToe[1] } }],
+    ['dev', 'Deviation from spec'],
+    ['life', 'Tyre life vs perfect'],
+    ['pull', 'Pull'],
+    ['steer', 'Steering wheel offset'],
+    ['fuel', 'Fuel penalty (indicative)']
+  ],
+  legend: [['var(--c-green)', 'Spec band'], ['var(--c-orange)', 'Scrub arrow'], ['var(--c-red)', 'Thrust line']],
+  overview: '<div class="al-sec"><h4>Toe</h4><p>Toe is how far the fronts of a wheel pair point towards (toe-in, +) or away from (toe-out, −) each other. 0.1° is only about 1 mm across a tyre, so the picture is drawn larger: the <b>Visual ×</b> option scales the drawing, never the numbers.</p><p>Drag a fader to move the wheels. Yellow lines continue each tyre forward, the red line is the thrust line, the blue line the geometric centre line, and green ghosts show the spec position.</p></div>',
+  faults: [
+    ['Feathered tyre ribs', 'Saw-tooth edges on the tread ribs.', 'Check toe on both axles, then tie-rod ends.'],
+    ['Steering wheel off-centre', 'Straight road, crooked wheel.', 'Equalise left and right front toe.'],
+    ['Pulls to one side', 'Drifts on a flat road.', 'Check rear toe symmetry (thrust angle), camber and caster.']
+  ],
+  quiz: [
+    ['Toe-in means…', ['Fronts of the tyres point together', 'Fronts point apart', 'Tops lean inwards'], 0, 'Positive toe is toe-in.'],
+    ['Too much toe-in mainly wears…', ['The outer shoulders', 'The centre', 'Nothing'], 0, 'Toe-in scrubs the outer edges.'],
+    ['0.1° of toe on a 620 mm tyre is about…', ['1 mm', '10 mm', '0.1 mm'], 0, '620 mm × tan 0.1° ≈ 1.1 mm.'],
+    ['Unequal rear toe changes the…', ['Thrust angle', 'Tyre pressure', 'Caster'], 0, 'The rear axle then pushes the car slightly sideways.']
+  ],
+  onReset: () => { S.st = makeState(PRESET); sync(); }
+};
+
+CFG.ctls = Object.keys(FADERS).map((id) => {
+  const f = FADERS[id];
+  return { id, look: 'equalizer', label: f.label, ariaLabel: f.label + ': negative is toe-out, positive is toe-in', min: -f.range, max: f.range, step: 0.01, decimals: 2, def: f.def,
+    detent: TOE_SNAP, band: f.band, tickEvery: 0.05, ends: ['− Toe-out', 'Toe-in +'], format: toeText,
+    onChange: (v) => { if (syncing) return; if (f.total) setAxleTotal(S.st, f.total, v); else setWheelToe(S.st, f.corner, v); sync(); } };
+});
+const flag = (id, label, def) => ({ id, type: 'toggle', label, def, onChange: (on) => { S.flags[id] = !!on; } });
+CFG.options = [
+  { id: 'mode', type: 'choice', layout: 'segmented', label: 'Adjust', def: 'total', onChange: showMode,
+    options: [{ id: 'total', label: 'Total' }, { id: 'individual', label: 'Individual' }] },
+  { id: 'exag', type: 'choice', layout: 'segmented', label: 'Visual ×', def: String(DEFAULT_EXAGGERATION), onChange: (id) => { S.exag = Number(id); },
+    options: EXAGGERATIONS.map((e) => ({ id: String(e), label: e + '×' })) },
+  { id: 'tpreset', type: 'choice', layout: 'select', label: 'Preset', def: 'perfect', onChange: (id) => { applyToePreset(S.st, id); sync(); },
+    options: TOE_PRESETS },
+  { id: 'cam', type: 'choice', layout: 'segmented', label: 'Camera', def: 'top', onChange: (id) => { S.cam = id; },
+    options: [{ id: 'top', label: 'Top' }, { id: 'axle', label: 'Axle' }, { id: 'patch', label: 'Patch' }, { id: 'orbit', label: 'Orbit' }] },
+  flag('lasers', 'Laser lines', true), flag('ghost', 'Spec ghost', true), flag('wear', 'Tyre wear overlay', true), flag('tint', 'Wheel tint', false), flag('auto', 'Auto-drive test', false),
+  { id: 'toSpec', type: 'action', label: 'Reset to spec', onAction: () => { toeToSpec(S.st); sync(); } },
+  { id: 'toZero', type: 'action', label: 'Set to 0', onAction: () => { toeToZero(S.st); sync(); } },
+  { id: 'fault', type: 'action', label: 'Randomise fault', onAction: () => { randomToeFault(S.st); sync(); } },
+  { id: 'unit', type: 'choice', layout: 'segmented', label: 'Units', def: 'deg', onChange: (id) => { S.unit = id; repaint(); },
+    options: [{ id: 'deg', label: 'deg' }, { id: 'mm', label: 'mm' }, { id: 'arcmin', label: 'arc-min' }] },
+  { id: 'page', type: 'choice', layout: 'segmented', label: 'Page', def: 'toe',
+    onChange: (id) => { const pg = WA_PAGES.find((x) => x.id === id); if (pg && !location.pathname.endsWith(pg.file)) location.href = pg.file; },
+    options: WA_PAGES.map((x) => ({ id: x.id, label: x.label })) }
+];
+
+runGuidedModule(CFG, (H) => buildToeScene(H, S));
+showMode('total');
+</script>
+</body>
+</html>

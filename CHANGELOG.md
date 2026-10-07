@@ -1,5 +1,13 @@
 # Changelog
 
+## 8.10.0 - Wheel Alignment, Phase 0: module shell, equalizer slider, segmented-spec bar
+- **New module `wheel-alignment`** (Chassis): shell scene (reference car on a floor), vehicle presets, ride-height control, live Monitor rows from the model.
+- **`alignment-model.js`** (pure): units (deg / arc-min / mm), three presets, thrust angle, cross-camber / cross-caster, included angle, trail, tracking, spec status and the effects engine (wear map, feathering, pull, steering offset, stability, self-centring torque, effort, camber gain, fuel penalty).
+- **Equalizer slider** = `axis` with `look: 'equalizer'`: spec band, ticks, centre mark, detent snap, Home / Shift+arrow keys, `ariaLabel`.
+- **Segmented-spec Monitor row**: `[id, label, { spec: { min, max, lo, hi } }]`, patched with `[text, tone, number]`.
+- **Phase 1 — Toe page `wa-toe.html`**: equalizer faders (total / individual), laser lines, spec ghost, tyre wear overlay, scrub arrows, auto-drive pull, camera presets, units, practice presets and fault; page switcher on both pages.
+- Tests: `tests/alignment.test.mjs` (27 groups). Cache `autolab-v8.10.0`.
+
 ## 8.9.4 - Phase 9e: alphabetical home, theme without flash, sound stops on Back, smoother open / close
 - **Alphabetical.** Home "All modules" and search results are sorted A-Z by the name on the card (`alpha()`, locale-aware). The Roadmap view keeps the learning order; Recents stays most-recent first.
 - **Sound stops when you leave a module.** perf-guard used to park only `requestAnimationFrame`; Web Audio kept playing in the hidden iframe (exhaustsystem, starting-system, lighting). The controller injected into every module now tracks each `AudioContext`, routes it through one gain node, fades it out (about 30 ms) and suspends it on `perf-pause`; it resumes (fade in) on `perf-resume`. A `resume()` the module asks for while it is parked is remembered, not honoured. No module page changed. Also cancels speech synthesis. Closing no longer waits for the slide: `.active` is removed at once, the picture stays up through `.leaving`.

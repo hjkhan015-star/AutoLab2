@@ -9,7 +9,7 @@
    Modules use ui.monitor.set / ui.monitor.update (kit.js); they never import this file.
    ════════════════════════════════════════════════════ */
 import {
-  TEXT_HZ, TRACE_HZ, barPercent, gaugeAngle, formatNumber, normalizeRowValue, normalizeStatus,
+  TEXT_HZ, TRACE_HZ, barPercent, gaugeAngle, formatNumber, normalizeRowValue, specBar, normalizeStatus,
   createRolling, createRateLimiter, validateMonitorConfig, traceRange, mergeValue,
 } from './monitor-core.js';
 
@@ -86,6 +86,12 @@ export function createMonitor({ mount, doc = document, moduleId = 'module' } = {
     cfg.rows.forEach((r) => {
       const row = el('div', 'mon-row'); row.dataset.row = r.id; const k = el('span', 'mon-row-k', r.label); const val = el('b', 'mon-row-v');
       row.append(k, val); rowsEl.appendChild(row); rowNodes[r.id] = { row, val, key: k };
+      if (r.spec) {
+        const sb = specBar(r.spec, r.spec.min); row.classList.add('has-spec');
+        const bar = el('span', 'mon-spec'); bar.style.setProperty('--lo', sb.lo); bar.style.setProperty('--hi', sb.hi);
+        bar.append(el('i', 'mon-spec-band'), el('i', 'mon-spec-m')); row.appendChild(bar);
+        rowNodes[r.id].bar = bar; rowNodes[r.id].spec = r.spec;
+      }
     });
     rowsEl.style.display = cfg.rows.length ? '' : 'none';
 
@@ -203,8 +209,11 @@ export function createMonitor({ mount, doc = document, moduleId = 'module' } = {
     }
     if (p.rows) for (const id in p.rows) {
       const n = rowNodes[id]; if (!n) continue;
-      const { text, tone } = normalizeRowValue(p.rows[id]); const key = tone + '|' + text;
-      if (last.rows[id] !== key) { n.val.textContent = text; n.val.dataset.tone = tone; last.rows[id] = key; stats.textWrites++; }
+      const { text, tone, num } = normalizeRowValue(p.rows[id]); const key = tone + '|' + text + '|' + num;
+      if (last.rows[id] !== key) {
+        n.val.textContent = text; n.val.dataset.tone = tone; last.rows[id] = key; stats.textWrites++;
+        if (n.bar && num != null) { n.bar.style.setProperty('--pos', specBar(n.spec, num).pos); n.bar.dataset.tone = tone; }
+      }
     }
     if (p.gauge !== undefined && gaugeNodes) {
       const g = gaugeNodes.cfg; const gv = Array.isArray(p.gauge) ? p.gauge[0] : p.gauge;

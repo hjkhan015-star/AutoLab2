@@ -1,10 +1,10 @@
 /* Auto Lab service worker — offline cache */
-const VERSION = 'autolab-v8.9.4';
+const VERSION = 'autolab-v8.10.0';
 const CORE    = VERSION + '-core';
 const RUNTIME = VERSION + '-runtime';
 
 const CORE_ASSETS = [
-  './', './index.html', './app.css', './kit.js', './labels.js', './components.js', './components.css', './controls-core.js', './controls.js', './controls.css', './monitor-core.js', './monitor.js', './chrome.js', './keys.js', './dock.js', './modules.js', './guard.js', './404.html',
+  './', './index.html', './app.css', './kit.js', './labels.js', './components.js', './components.css', './controls-core.js', './controls.js', './controls.css', './monitor-core.js', './monitor.js', './chrome.js', './keys.js', './dock.js', './modules.js', './alignment-model.js', './alignment-parts.js', './wa-toe-scene.js', './guard.js', './404.html',
   './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-512-maskable.png',
   './icons/apple-touch-icon.png', './icons/favicon-32.png',
   /* Module HTMLs — missing files are tolerated (each fetched individually) */
@@ -49,7 +49,9 @@ const CORE_ASSETS = [
   './suspension.html',
   './braking.html',
   './abs-esc.html',
-  './tyres.html'
+  './tyres.html',
+  './wheel-alignment.html',
+  './wa-toe.html'
 ];
 
 self.addEventListener('install', (event) => {

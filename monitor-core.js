@@ -38,7 +38,14 @@ export function mergeValue(a, b) {
   return Object.assign({}, o(a), o(b));
 }
 /* normalise a row payload: 'text' | ['text', tone] → { text, tone } (unknown tones fall back to '') */
+/** Segmented-spec geometry: band start / end and marker position as 0..1 fractions of the bar, plus whether the value is inside the band. */
+export function specBar(spec, value) {
+  const f = (v) => clamp((v - spec.min) / (spec.max - spec.min), 0, 1);
+  const lo = Math.min(spec.lo, spec.hi), hi = Math.max(spec.lo, spec.hi);
+  return { lo: f(lo), hi: f(hi), pos: f(value), inBand: value >= lo - 1e-9 && value <= hi + 1e-9 };
+}
 export function normalizeRowValue(v) {
+  if (Array.isArray(v) && Number.isFinite(v[2])) return { text: v[0] == null ? '' : String(v[0]), tone: TONES.includes(v[1]) ? v[1] : '', num: v[2] };
   if (Array.isArray(v)) return { text: v[0] == null ? '' : String(v[0]), tone: TONES.includes(v[1]) ? v[1] : '' };
   return { text: v == null ? '' : String(v), tone: '' };
 }
@@ -103,7 +110,14 @@ export function validateMonitorConfig(cfg) {
   }
   (cfg.rows || []).forEach((r, i) => {
     const id = Array.isArray(r) ? r[0] : r && r.id, label = Array.isArray(r) ? r[1] : r && r.label;
-    if (claim(id, `rows[${i}]`)) out.rows.push({ id, label: label == null ? id : String(label) });
+    if (!claim(id, `rows[${i}]`)) return;
+    const row = { id, label: label == null ? id : String(label) };
+    const sp = Array.isArray(r) ? r[2] && r[2].spec : r && r.spec;      /* segmented-spec bar: value vs the green band */
+    if (sp) {
+      if (![sp.min, sp.max, sp.lo, sp.hi].every(Number.isFinite) || !(sp.max > sp.min)) errors.push(`rows[${i}]: spec needs finite min < max, lo, hi`);
+      else row.spec = { min: sp.min, max: sp.max, lo: sp.lo, hi: sp.hi };
+    }
+    out.rows.push(row);
   });
   (cfg.traces || []).forEach((t, i) => {
     if (!t || !claim(t.id, `traces[${i}]`)) { if (!t) errors.push(`traces[${i}]: must be an object`); return; }

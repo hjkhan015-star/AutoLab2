@@ -118,6 +118,33 @@ export function fromReal(value, spec) {
   return snapNormalized(normalize(value, s.min, s.max), s);
 }
 
+/* ── equalizer look (axis look:'equalizer'): a bipolar fader with a centre detent and a spec band ── */
+/** Snap to the centre when the real value is within spec.detent of spec.zero (default 0). Returns a normalised value. */
+export function detentSnap(n, spec) {
+  const s = resolveSpec(spec);
+  const d = Number(s.detent) > 0 ? Number(s.detent) : 0;
+  if (!d) return n;
+  const z = Number.isFinite(s.zero) ? s.zero : 0;
+  const real = s.min + clamp(Number.isFinite(n) ? n : 0, 0, 1) * (s.max - s.min);
+  return Math.abs(real - z) <= d + 1e-9 ? snapNormalized(normalize(z, s.min, s.max), s) : n;
+}
+/** Fractions 0..1 along the track for the zero mark, the spec band and the tick spacing. */
+export function eqGeometry(spec) {
+  const s = resolveSpec(spec);
+  const span = s.max - s.min;
+  const f = (v) => clamp((v - s.min) / span, 0, 1);
+  const band = Array.isArray(s.band) && s.band.length === 2 ? [f(Math.min(...s.band)), f(Math.max(...s.band))] : null;
+  const every = Number(s.tickEvery) > 0 ? Number(s.tickEvery) : span / 20;
+  return { zero: f(Number.isFinite(s.zero) ? s.zero : 0), band, ticks: Math.max(1, Math.round(span / every)) };
+}
+/** Keyboard intent for the equalizer: Home = centre, Shift+arrow = ten steps, plain arrows stay native (one step). */
+export function eqKeyIntent(ev) {
+  if (ev.key === 'Home') return { to: 'zero' };
+  if (ev.shiftKey && (ev.key === 'ArrowLeft' || ev.key === 'ArrowDown')) return { steps: -10 };
+  if (ev.shiftKey && (ev.key === 'ArrowRight' || ev.key === 'ArrowUp')) return { steps: 10 };
+  return null;
+}
+
 /* ── formatting ───────────────────────────────────────────────────────── */
 /** Format a real value: format(13.5,{unit:'V',decimals:1}) -> "13.5 V" */
 export function format(value, opts = {}) {

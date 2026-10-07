@@ -45,6 +45,8 @@ Legend: **7a-1** = done in part 1; **7a-2** = done in part 2 (both in this zip) 
 | transmission | bespoke | chip; 12 ui.chip calls | - | chip → Monitor via wrapper (works, unchanged) | - | 7b done |
 | turbocharger | bespoke | chip; 7 ui.chip calls; 1 setRpmLabel; badge | - | chip → Monitor via wrapper (works, unchanged) | 7a done: row `rpm` 'Engine speed' (the `drive` row is turbine rpm, a different quantity) | 7b done |
 | tyres | guided | big+bar (Contact patch); 2 chip rows; 7 ro rows (grid→rows); no canvas | big value = ro row patch (dropped from rows); chip rows share ro ids: patch,wear | 7a-1 done: big/bar/status/rows/ro → ui.monitor | - | 7b done |
+| wheel-alignment | guided | big (Total toe, front); 5 ro rows, 4 with a segmented-spec bar; no canvas | spec rows patch [text, tone, number] | 7b done: big/status/ro → ui.monitor | - | 7b done |
+| wa-toe | guided | big (Total toe, front); 9 ro rows, 4 with a segmented-spec bar; no canvas | spec rows patch [text, tone, number] | 7b done: big/status/ro → ui.monitor | - | 7b done |
 | valvetrain | bespoke | chip; 5 ui.chip calls; 9 ro-* ids | - | chip → Monitor via wrapper (works, unchanged) | - | 7b done |
 | wiring | guided | big+bar (Current); 2 chip rows; 7 ro rows (grid→rows); no canvas | big value = ro row amps (dropped from rows); chip rows share ro ids: fuse,temp | 7a-1 done: big/bar/status/rows/ro → ui.monitor | - | 7b done |
 

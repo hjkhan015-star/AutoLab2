@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   components.js — Auto Lab shared components (v8.9.4)
+   components.js — Auto Lab shared components (v8.10.0)
 
    ONE place for the parts every module used to copy-paste, so all modules
    look and behave the same.
@@ -195,7 +195,7 @@ const TABS = {
    duplicate a `ro` id share the one row. See MONITOR-MAP.md. */
 const _lbl = (t) => String(t || '').trim().toLowerCase();
 const _roIds = new Set(CFG.ro.map((r) => r[0]));
-const MON_ROWS = CFG.ro.filter((r) => _lbl(r[1]) !== _lbl(CFG.chipLabel)).map((r) => [r[0], r[1]]);
+const MON_ROWS = CFG.ro.filter((r) => _lbl(r[1]) !== _lbl(CFG.chipLabel)).map((r) => r.slice(0, 3));      /* r[2] = { spec } turns the row into a segmented-spec bar */
 CFG.rows.forEach((r) => { if (!_roIds.has(r[0]) && _lbl(r[1]) !== _lbl(CFG.chipLabel)) MON_ROWS.push([r[0], r[1]]); });
 
 const ui = Base.UI.create({
@@ -237,7 +237,7 @@ function apply(o) {
   if (o.rows || o.ro) {
     p.rows = {};
     if (o.rows) for (const id in o.rows) p.rows[id] = o.rows[id];
-    if (o.ro) for (const id in o.ro) p.rows[id] = [o.ro[id][0], o.ro[id][1] || ''];
+    if (o.ro) for (const id in o.ro) p.rows[id] = [o.ro[id][0], o.ro[id][1] || '', o.ro[id][2]];
   }
   if (o.status) p.status = [o.status[0], o.status[1], o.status[2] || ''];
   ui.monitor.update(p);
