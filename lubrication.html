@@ -28,6 +28,49 @@
     border: 1px solid color-mix(in oklch, var(--c-red) 35%, transparent);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   }
+
+  /* ═══ OIL GRADE LAB — grade picker + viscosity equalizer ═══ */
+  #gl { position: fixed; left: 12px; top: 64px; z-index: 40; width: min(344px, calc(100vw - 24px));
+    max-height: calc(100% - 150px); overflow: auto; font: 12px/1.45 var(--font-ui, system-ui, sans-serif);
+    color: var(--text, #e6ebf5); background: color-mix(in oklch, var(--bg, #0a0d13) 82%, transparent);
+    border: 1px solid color-mix(in oklch, var(--text, #fff) 14%, transparent); border-radius: 12px;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  #gl.min { width: auto; overflow: visible; }
+  #gl.min .gl-body { display: none; }
+  #gl-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase; font-size: 11px; background: none; border: 0; color: inherit; width: 100%; }
+  #gl-head .caret { margin-left: auto; opacity: .6; transition: transform .2s; }
+  #gl.min #gl-head .caret { transform: rotate(180deg); }
+  .gl-body { padding: 0 12px 12px; }
+  .gl-row { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+  .gl-chip { flex: 1 1 auto; padding: 7px 8px; min-height: 36px; border-radius: 8px; cursor: pointer; font: inherit; font-weight: 700;
+    color: inherit; background: color-mix(in oklch, var(--text, #fff) 7%, transparent);
+    border: 1px solid color-mix(in oklch, var(--text, #fff) 14%, transparent); }
+  .gl-chip small { display: block; font-weight: 500; opacity: .6; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+  .gl-chip[aria-pressed=true] { border-color: #f59e0b; background: color-mix(in oklch, #f59e0b 22%, transparent); }
+  .gl-tabs .gl-chip { min-height: 30px; }
+  .gl-read { display: flex; justify-content: space-between; align-items: baseline; margin: 8px 0 2px; font-family: var(--font-mono, monospace); }
+  .gl-read b { font-size: 20px; }
+  .gl-zone { font-weight: 800; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+  #eq { display: flex; align-items: flex-end; gap: 3px; height: 128px; padding: 4px 0 0; border-bottom: 1px solid color-mix(in oklch, var(--text, #fff) 20%, transparent); position: relative; }
+  .eq-b { flex: 1; position: relative; height: 100%; display: flex; align-items: flex-end; }
+  .eq-b > span { display: block; width: 100%; border-radius: 3px 3px 0 0; min-height: 3px; transition: height .45s cubic-bezier(.3,.9,.3,1), background .3s;
+    background-image: repeating-linear-gradient(to top, transparent 0 5px, rgba(0,0,0,.55) 5px 6px); }
+  .eq-b > i { position: absolute; left: -1px; right: -1px; height: 0; border-top: 2px dashed #fff; opacity: .8; transition: bottom .45s; }
+  .eq-b.cur > span { outline: 2px solid #fff; outline-offset: 1px; }
+  .eq-b.live { flex: 1.5; margin-right: 6px; }
+  .eq-b.live > span { transition: height .15s linear, background .15s; }
+  .eq-t { display: flex; gap: 3px; font: 9px var(--font-mono, monospace); opacity: .65; margin-top: 2px; }
+  .eq-t span { flex: 1; text-align: center; } .eq-t span.live { flex: 1.5; margin-right: 6px; }
+  .gl-leg { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 10px; opacity: .85; margin-top: 6px; }
+  .gl-leg i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .gl-info table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+  .gl-info th, .gl-info td { text-align: left; padding: 4px 6px; vertical-align: top; border-top: 1px solid color-mix(in oklch, var(--text, #fff) 12%, transparent); }
+  .gl-info th { width: 26%; opacity: .7; font-weight: 600; }
+  .gl-info p { margin: 6px 0; }
+  .gl-go { width: 100%; margin-top: 8px; }
+  @media (max-width: 700px) { #gl { top: 56px; } .eq-b > span { transition-duration: .3s; } }
+  @media (prefers-reduced-motion: reduce) { .eq-b > span, .eq-b > i { transition: none; } }
   #status-flash.on { opacity: 1; animation: flashPulse 1.1s infinite; }
   @keyframes flashPulse { 50% { opacity: .55; } }
 </style>
@@ -35,6 +78,7 @@
 <body>
   <div id="canvas-wrap"></div>
   <div id="status-flash"></div>
+  <div id="gl" class="min"><button id="gl-head" aria-expanded="false" aria-controls="gl-body">🛢 Oil Grade Lab <span class="caret">▾</span></button><div class="gl-body" id="gl-body"></div></div>
   <div id="labels-root"></div>
 
   <script src="guard.js"></script>
@@ -832,11 +876,11 @@ import { Parts } from './components.js';
     },
 
     monitor: {
-      config: { label: 'Bearing temperature', value: { label: 'Bearing temperature', unit: '°C', max: 100, bar: true }, rows: [['pres', 'Oil pressure'], ['oil', 'Oil temp'], ['brg', 'Bearing temp'], ['fric', 'Friction'], ['dmain', 'Main bearings'], ['drod', 'Rod bearings'], ['dcyl', 'Cylinder walls'], ['dcam', 'Cam lobes'], ['dring', 'Piston rings']],
+      config: { label: 'Bearing temperature', value: { label: 'Bearing temperature', unit: '°C', max: 100, bar: true }, rows: [['pres', 'Oil pressure'], ['visc', 'Oil viscosity'], ['oil', 'Oil temp'], ['brg', 'Bearing temp'], ['fric', 'Friction'], ['dmain', 'Main bearings'], ['drod', 'Rod bearings'], ['dcyl', 'Cylinder walls'], ['dcam', 'Cam lobes'], ['dring', 'Piston rings']],
         traces: [{ id: 'temps', label: 'Temperatures (°C)', min: 20, max: 500, length: 240,
                    series: [{ id: 'oil', label: 'Oil', color: 'var(--accent)' }, { id: 'brg', label: 'Bearing', color: 'var(--crit)' }, { id: 'wall', label: 'Wall', color: 'var(--warn)' }] }],
         status: { text: 'Normal' } },
-      initial: { value: { text: '95', unit: '°C' }, rows: { pres: '3.50 bar', oil: '90 °C', brg: '95 °C', fric: '0.08 µ', dmain: '0%', drod: '0%', dcyl: '0%', dcam: '0%', dring: '0%' }, status: ['Normal', true] }
+      initial: { value: { text: '95', unit: '°C' }, rows: { pres: '3.50 bar', visc: '15 cSt', oil: '90 °C', brg: '95 °C', fric: '0.08 µ', dmain: '0%', drod: '0%', dcyl: '0%', dcam: '0%', dring: '0%' }, status: ['Normal', true] }
     },
 
     toolbar: {
@@ -880,6 +924,8 @@ import { Parts } from './components.js';
      ═══════════════════════════════════════════════════════════ */
   const sim = {
     oilOn: true,
+    grade: '10W-40',
+    cold: false,
     oilFilm: 1,
     oilTemp: 90,
     bearingTemp: 95,
@@ -913,12 +959,14 @@ import { Parts } from './components.js';
     const rpmNorm = (state.speedMul || 0.85) / 0.85;
 
     if (sim.oilOn) {
-      sim.oilTemp     += (90 - sim.oilTemp)     * 0.55 * dt;
-      sim.bearingTemp += (95 - sim.bearingTemp) * 0.65 * dt;
-      sim.wallTemp    += (95 - sim.wallTemp)    * 0.65 * dt;
-      sim.camTemp     += (88 - sim.camTemp)     * 0.55 * dt;
-      sim.oilPressure += (3.5 - sim.oilPressure) * 1.5 * dt;
-      sim.friction    += (0.08 - sim.friction)  * 1.5 * dt;
+      const wr = sim.cold ? 0.12 : 0.55;                      /* cold start warms slowly */
+      sim.oilTemp     += (90 - sim.oilTemp)     * wr * dt;
+      sim.bearingTemp += (95 - sim.bearingTemp) * wr * 1.2 * dt;
+      sim.wallTemp    += (95 - sim.wallTemp)    * wr * 1.2 * dt;
+      sim.camTemp     += (88 - sim.camTemp)     * wr * dt;
+      const vr = viscNow() / 14;                              /* thick oil -> higher pressure (relief valve caps it), thin -> lower */
+      sim.oilPressure += (Math.min(5.2, 3.5 * Math.min(1.6, Math.max(0.55, Math.pow(vr, 0.3)))) - sim.oilPressure) * 1.5 * dt;
+      sim.friction    += (0.07 + 0.012 * Math.abs(Math.log(vr)) - sim.friction) * 1.5 * dt;
     } else {
       const heatRate = (18 + rpmNorm * 26);
       sim.oilTemp     += heatRate * 0.65 * dt;
@@ -1036,7 +1084,7 @@ import { Parts } from './components.js';
     ui.monitor.update({
       value: { text: String(Math.round(sim.bearingTemp)), unit: '°C', color: bCol || '', bar: Math.min(100, (sim.bearingTemp - 20) / 3.8), barColor: bCol },
       rows: {
-        pres: sim.oilPressure.toFixed(2) + ' bar', fric: sim.friction.toFixed(2) + ' µ',
+        pres: sim.oilPressure.toFixed(2) + ' bar', visc: viscNow().toFixed(viscNow() < 100 ? 1 : 0) + ' cSt', fric: sim.friction.toFixed(2) + ' µ',
         oil: Math.round(sim.oilTemp) + ' °C', brg: Math.round(sim.bearingTemp) + ' °C',
         dmain: dmgRow(sim.damage.main), drod: dmgRow(sim.damage.rod), dcyl: dmgRow(sim.damage.cyl), dcam: dmgRow(sim.damage.cam), dring: dmgRow(sim.damage.ring)
       }
@@ -1113,11 +1161,120 @@ import { Parts } from './components.js';
     });
   }
 
+
+  /* ═══════════════════════════════════════════════════════════
+     OIL GRADE LAB — single vs multigrade, viscosity equalizer
+     Viscosity from a 3-anchor Walther fit: ln ln(v+0.7) vs ln T[K]
+     anchors = kinematic viscosity (cSt) at -20 / 40 / 100 °C (approximate, illustrative)
+     ═══════════════════════════════════════════════════════════ */
+  const GRADES = {
+    'SAE 30':  { kind: 'single', v: [9000, 100, 11],  sub: 'single' },
+    'SAE 40':  { kind: 'single', v: [14000, 140, 14], sub: 'single' },
+    '10W-40':  { kind: 'multi',  v: [3000, 90, 14.5], sub: 'multi' },
+    '5W-30':   { kind: 'multi',  v: [1600, 64, 10.5], sub: 'multi' },
+    '0W-20':   { kind: 'multi',  v: [700, 45, 8.5],   sub: 'multi' }
+  };
+  const ANCH = [-20, 40, 100];
+  const wx = (T) => Math.log(T + 273.15), wy = (v) => Math.log(Math.log(v + 0.7));
+  function visc(g, T) {
+    const a = GRADES[g].v, i = T < 40 ? 0 : 1;
+    const x0 = wx(ANCH[i]), x1 = wx(ANCH[i + 1]), y0 = wy(a[i]), y1 = wy(a[i + 1]);
+    return Math.max(1.5, Math.exp(Math.exp(y0 + (y1 - y0) * (wx(T) - x0) / (x1 - x0))) - 0.7);
+  }
+  function viscNow() { return visc(sim.grade, sim.oilTemp); }
+  const ZONES = [[400, '#60a5fa', 'Too thick'], [60, '#fbbf24', 'Thick'], [7, '#4ade80', 'Protective'], [0, '#f87171', 'Too thin']];
+  const zoneOf = (v) => ZONES.find(z => v >= z[0]);
+  const hPct = (v) => Math.min(100, Math.max(2, Math.log10(v / 1.5) / Math.log10(16000 / 1.5) * 100));
+  const TEMPS = [-20, -10, 0, 10, 20, 30, 40, 60, 80, 100, 120, 140];
+
+  const glBody = document.getElementById('gl-body'), glEl = document.getElementById('gl');
+  const INFO = `<div class="gl-info"><p><b>Viscosity grade (SAE J300)</b> = how thick the oil is. Thick enough to keep a film
+    between metal parts when hot, thin enough to flow when cold.</p>
+    <table>
+    <tr><th>Single grade<br>SAE 30 / 40</th><td>One number, rated at <b>100 °C</b>. No polymer additives, so it thins out
+      fast as it warms and is <b>very thick when cold</b>.<br><b>Use:</b> warm climates, stationary/constant-temperature work
+      (generators, lawnmowers, air-cooled small engines), vintage engines with wide clearances, long run times.</td></tr>
+    <tr><th>Multigrade<br>10W-40 etc.</th><td><b>Two numbers.</b> <b>10W</b> = winter (cold) rating, lower flows better at start-up.
+      <b>40</b> = hot rating at 100 °C. Viscosity-index improver polymers uncoil with heat, so the oil thins far less.<br>
+      <b>Use:</b> modern cars, changing seasons, frequent cold starts. 0W-20 / 5W-30 for tight clearances and fuel economy.</td></tr>
+    </table>
+    <p><b>Why it matters:</b> most engine wear happens in the first seconds after a cold start. Oil that is too thick
+    starves bearings and the cam while it creeps through the galleries; oil that is too thin when hot lets the film break
+    (metal contact, lower pressure). The sweet spot is the green band. Always follow the manufacturer's grade.</p></div>`;
+  glBody.innerHTML = `
+    <div class="gl-row gl-chips" role="group" aria-label="Oil grade">${Object.keys(GRADES).map(g =>
+      `<button class="gl-chip" data-g="${g}" aria-pressed="false">${g}<small>${GRADES[g].sub}</small></button>`).join('')}</div>
+    <div class="gl-view">
+      <div class="gl-read"><span>Now <b id="gl-v">–</b> cSt @ <span id="gl-t">–</span>°C</span><span class="gl-zone" id="gl-z"></span></div>
+      <div id="eq" role="img" aria-label="Viscosity equalizer: bars show oil viscosity at each temperature"></div>
+      <div class="eq-t" id="eq-t"></div>
+      <div class="gl-leg" id="gl-leg"></div>
+      <button class="gl-chip gl-go" id="gl-cold">❄ Cold start (watch oil warm up)</button>
+    </div>
+    <div class="gl-row gl-tabs" style="margin-top:10px"><button class="gl-chip" id="tab-v" aria-pressed="true">Viscosity</button><button class="gl-chip" id="tab-i" aria-pressed="false">Single vs Multi</button></div>
+    <div id="gl-info" hidden>${INFO}</div>`;
+
+  const eqEl = document.getElementById('eq'), eqT = document.getElementById('eq-t');
+  eqEl.innerHTML = '<div class="eq-b live"><span></span></div>' + TEMPS.map(() => '<div class="eq-b"><span></span><i></i></div>').join('');
+  eqT.innerHTML = '<span class="live">LIVE</span>' + TEMPS.map(t => `<span>${t}</span>`).join('');
+  document.getElementById('gl-leg').innerHTML = ZONES.slice().reverse().map(z => `<span><i style="background:${z[1]}"></i>${z[2]}</span>`).join('') +
+    '<span id="gl-ref"></span>';
+  const bars = [...eqEl.children];
+
+  function renderEQ() {
+    const g = sim.grade, ref = GRADES[g].kind === 'single' ? '10W-40' : 'SAE 30';
+    document.getElementById('gl-ref').textContent = '┄ ' + ref + ' (compare)';
+    TEMPS.forEach((T, i) => {
+      const v = visc(g, T), z = zoneOf(v), b = bars[i + 1];
+      b.firstChild.style.height = hPct(v) + '%'; b.firstChild.style.backgroundColor = z[1];
+      b.lastChild.style.bottom = hPct(visc(ref, T)) + '%';
+      b.title = `${g} @ ${T}°C: ${v.toFixed(v < 100 ? 1 : 0)} cSt (${z[2]})`;
+    });
+    glBody.querySelectorAll('.gl-chips .gl-chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.g === g)));
+  }
+  function liveEQ(t) {
+    const v = viscNow(), z = zoneOf(v), T = sim.oilTemp;
+    const jig = (state.playing && sim.oilOn) ? Math.sin(t * 9) * 2.2 : 0;     /* equalizer bounce while the pump runs */
+    bars[0].firstChild.style.height = Math.max(2, hPct(v) + jig) + '%';
+    bars[0].firstChild.style.backgroundColor = z[1];
+    let near = 0; TEMPS.forEach((x, i) => { if (Math.abs(x - T) < Math.abs(TEMPS[near] - T)) near = i; });
+    bars.forEach((b, i) => b.classList.toggle('cur', i === near + 1));
+    document.getElementById('gl-v').textContent = v.toFixed(v < 100 ? 1 : 0);
+    document.getElementById('gl-t').textContent = Math.round(T);
+    const zz = document.getElementById('gl-z'); zz.textContent = z[2]; zz.style.color = z[1];
+  }
+  function setGrade(g) {
+    if (!GRADES[g] || g === sim.grade) return;
+    sim.grade = g; renderEQ();
+    showFlash(g + (GRADES[g].kind === 'single' ? ' · single grade' : ' · multigrade'), 1.2, '#f59e0b');
+  }
+  glBody.querySelectorAll('.gl-chips .gl-chip').forEach(c => c.addEventListener('click', () => setGrade(c.dataset.g)));
+  document.getElementById('gl-cold').addEventListener('click', () => {
+    sim.seized = false; sim.cold = true; sim.oilOn = true; ui.controls.set('oil', true);
+    sim.oilTemp = sim.bearingTemp = sim.wallTemp = sim.camTemp = 8; sim.oilPressure = 5;
+    showFlash('❄ COLD START · 8 °C', 1.6, '#60a5fa');
+  });
+  const setTab = (info) => {
+    document.querySelector('#gl .gl-view').hidden = info; document.getElementById('gl-info').hidden = !info;
+    document.getElementById('tab-v').setAttribute('aria-pressed', String(!info)); document.getElementById('tab-i').setAttribute('aria-pressed', String(info));
+  };
+  document.getElementById('tab-v').onclick = () => setTab(false); document.getElementById('tab-i').onclick = () => setTab(true);
+  document.getElementById('gl-head').onclick = () => {
+    const m = glEl.classList.toggle('min'); document.getElementById('gl-head').setAttribute('aria-expanded', String(!m));
+  };
+  if (innerWidth > 700) document.getElementById('gl-head').click();            /* open by default on desktop */
+  renderEQ();
+  setInterval(() => {                                                          /* ~15 Hz equalizer refresh */
+    if (sim.cold && sim.oilTemp >= 86) sim.cold = false;
+    liveEQ(performance.now() / 1000);
+  }, 66);
+
   /* ═══════════════════════════════════════════════════════════
      RESET
      ═══════════════════════════════════════════════════════════ */
   function resetAll() {
     sim.oilOn = true;
+    sim.cold = false;
     sim.oilFilm = 1;
     sim.oilTemp = 90;
     sim.bearingTemp = 95;
