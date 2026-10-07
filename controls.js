@@ -30,7 +30,7 @@
      { id, type:'toggle', label, ariaLabel, def:false, onChange(bool) }   registry 0 / 1; value(id) = boolean
      { id, type:'action', label, ariaLabel, tone:'normal'|'crit', onAction() }   no stored value; clicking calls onAction
    ═══════════════════════════════════════════════════════════════════════ */
-import {
+import { detentSnap, eqGeometry, eqKeyIntent,
   registry, resolveSpec, defaultNormalized, keyToIntent, axisValueText,
   realValue, rawValue, fromReal, snapNormalized, stepCount, format as fmt, clamp,
   createPedalModel, pedalIntent, pedalUpIntent, DEFAULT_PEDAL_K,
@@ -163,6 +163,20 @@ function installShift(doc) {
 let uid = 0;
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+/* axis look:'equalizer' — decoration behind the native range: spec band, ticks, centre mark, bipolar fill.
+   spec: band [lo, hi] (real units), zero (0), detent (snap radius), tickEvery, ends ['− Toe-out', 'Toe-in +'] */
+function eqDecor(spec) {
+  if (spec.look !== 'equalizer') return '';
+  const g = eqGeometry(spec);
+  const band = g.band ? `<i class="ctl-eq-band" style="--lo:${g.band[0]};--hi:${g.band[1]}"></i>` : '';
+  return `<span class="ctl-eq-rail" aria-hidden="true" style="--z0:${g.zero};--ticks:${g.ticks}">` +
+    `${band}<i class="ctl-eq-ticks"></i><i class="ctl-eq-fill"></i><i class="ctl-eq-zero"></i></span>`;
+}
+function eqEnds(spec) {
+  if (spec.look !== 'equalizer' || !Array.isArray(spec.ends)) return '';
+  return `<div class="ctl-eq-ends" aria-hidden="true"><span>${esc(spec.ends[0])}</span><span>${esc(spec.zeroLabel || '0')}</span><span>${esc(spec.ends[1])}</span></div>`;
+}
+
 /**
  * createAxis(spec) -> instance
  *   instance.el            the ONE root node (append it where it belongs)
@@ -202,10 +216,11 @@ export function createAxis(rawSpec, opts = {}) {
   el.innerHTML =
     `<label class="ctl-label" for="${domId}"><span class="ctl-name">${esc(label)}</span>` +
     `<output class="ctl-value" for="${domId}"></output></label>` +
-    `<div class="ctl-track">` +
-      `<input id="${domId}" class="ctl-range" type="range" min="0" max="${count}" step="1" value="0" aria-label="${esc(label)}">` +
+    `<div class="ctl-track">` + eqDecor(spec) +
+      `<input id="${domId}" class="ctl-range" type="range" min="0" max="${count}" step="1" value="0" aria-label="${esc(spec.ariaLabel || label)}">` +
       `<span class="ctl-bubble" aria-hidden="true"></span>` +
-    `</div>`;
+    `</div>` + eqEnds(spec);
+  if (spec.look === 'equalizer') el.classList.add('ctl-eq');
   const input = el.querySelector('.ctl-range');
   const outEl = el.querySelector('.ctl-value');
   const bubble = el.querySelector('.ctl-bubble');
@@ -235,7 +250,7 @@ export function createAxis(rawSpec, opts = {}) {
   }
 
   function set(n) {
-    const v = registry.set(id, snapNormalized(n, spec));   /* fires listeners only on change */
+    const v = registry.set(id, detentSnap(snapNormalized(n, spec), spec));   /* fires listeners only on change */
     paint();
     return v;
   }
@@ -245,6 +260,14 @@ export function createAxis(rawSpec, opts = {}) {
 
   /* keyboard: ↑/↓ step the axis (R5). ←/→ stay native (1 step) for a11y. */
   input.addEventListener('keydown', (ev) => {
+    if (spec.look === 'equalizer') {
+      const eq = eqKeyIntent(ev);
+      if (eq) {
+        ev.preventDefault(); ev.stopPropagation();
+        set(eq.to === 'zero' ? fromReal(Number.isFinite(spec.zero) ? spec.zero : 0, spec) : registry.get(id) + eq.steps / count);
+        return;
+      }
+    }
     const intent = keyToIntent('axis', ev, spec);
     if (!intent) return;
     ev.preventDefault();

@@ -199,7 +199,7 @@ const SYSTEMS = [
     color: "#a855f7",
     blurb: "Directing the vehicle, absorbing the road and bringing it safely to a stop.",
     icon: "<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"2.5\"/><line x1=\"12\" y1=\"3\" x2=\"12\" y2=\"9.5\"/><line x1=\"4.5\" y1=\"16.5\" x2=\"9.9\" y2=\"13.2\"/><line x1=\"19.5\" y1=\"16.5\" x2=\"14.1\" y2=\"13.2\"/>",
-    flow: ["Driver", "Steering|steering", "Suspension|suspension", "Tyres|tyres", "Brakes|braking", "ABS|absesc"],
+    flow: ["Driver", "Steering|steering", "Suspension|suspension", "Tyres|tyres", "Alignment|wheel-alignment", "Brakes|braking", "ABS|absesc"],
     soon: [],
     related: ["drive"],
     modules: [
@@ -207,7 +207,8 @@ const SYSTEMS = [
       {"id": "suspension", "label": "Suspension", "title": "Suspension System", "subtitle": "Chassis · Springs & Dampers", "file": "suspension.html", "color": "#ec4899", "level": "Basic", "min": 12, "mode": "3D", "icon": "<path d=\"M7 3h10M7 21h10M6 3c0 3 12 3 12 6s-12 3-12 6 12 3 12 6\"/>"},
       {"id": "braking", "label": "Brakes", "title": "Hydraulic Braking System", "subtitle": "Chassis · Disc & Drum", "file": "braking.html", "color": "#ef4444", "level": "Intermediate", "min": 14, "mode": "3D", "icon": "<circle cx=\"11\" cy=\"12\" r=\"7\"/><circle cx=\"11\" cy=\"12\" r=\"2.5\"/><rect x=\"16\" y=\"8\" width=\"4\" height=\"8\" rx=\"1\"/>"},
       {"id": "absesc", "label": "ABS & ESC", "title": "ABS & Electronic Stability Control", "subtitle": "Chassis · Wheel Speed, Slip & Yaw Control", "file": "abs-esc.html", "color": "#f43f5e", "level": "Advanced", "min": 15, "mode": "3D", "icon": "<circle cx=\"11\" cy=\"12\" r=\"7\"/><circle cx=\"11\" cy=\"12\" r=\"2.5\"/><rect x=\"16\" y=\"8\" width=\"4\" height=\"8\" rx=\"1\"/><path d=\"M18 4l1.5 2h-3z\"/>"},
-      {"id": "tyres", "label": "Wheels & Tyres", "title": "Wheels & Tyres", "subtitle": "Chassis · Pressure, Contact Patch & Wear", "file": "tyres.html", "color": "#64748b", "level": "Basic", "min": 11, "mode": "3D", "icon": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 3v5M12 16v5M3 12h5M16 12h5\"/>"}
+      {"id": "tyres", "label": "Wheels & Tyres", "title": "Wheels & Tyres", "subtitle": "Chassis · Pressure, Contact Patch & Wear", "file": "tyres.html", "color": "#64748b", "level": "Basic", "min": 11, "mode": "3D", "icon": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 3v5M12 16v5M3 12h5M16 12h5\"/>"},
+      {"id": "wheel-alignment", "label": "Wheel Alignment", "title": "Wheel Alignment", "subtitle": "Chassis · Toe, Camber & Caster", "file": "wheel-alignment.html", "color": "#14b8a6", "level": "Intermediate", "min": 15, "mode": "3D", "icon": "<circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 4v16M5 12h14\"/><path d=\"M8 6l-2 12M16 6l2 12\"/>"}
     ]
   }
 ];

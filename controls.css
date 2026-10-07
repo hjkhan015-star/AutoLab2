@@ -1498,3 +1498,52 @@ html[data-ui-tier="low"] .al-more-sheet { background-image: none; }
 :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ui-widget,
 :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) .ui-widget-frame { align-items: stretch; width: 100%; min-width: 0; padding: 0; }
 :is(.al-dock[data-mode="portrait"] .al-dock-options, .al-dock[data-mode="wide"] .al-dock-options, .al-more-grid) > [data-span="gate"] { flex: 0 0 auto; }
+
+/* ── axis look:'equalizer' — bipolar fader: spec band, ticks, centre detent mark, fill from the centre ── */
+.ctl-eq .ctl-eq-rail {
+  position: absolute; left: calc(var(--ctl-thumb-size) / 2); right: calc(var(--ctl-thumb-size) / 2);
+  top: 50%; height: var(--ctl-track-h); transform: translateY(-50%); pointer-events: none;
+  border-radius: var(--ctl-track-h); background: var(--ctl-track);
+}
+.ctl-eq .ctl-eq-band {
+  position: absolute; top: -3px; bottom: -3px; left: calc(var(--lo) * 100%); width: calc((var(--hi) - var(--lo)) * 100%);
+  min-width: 4px; border-radius: 3px; background: color-mix(in srgb, var(--ok) 38%, transparent); box-shadow: inset 0 0 0 1px var(--ok);
+}
+.ctl-eq .ctl-eq-ticks {
+  position: absolute; left: 0; right: 0; top: calc(100% + 3px); height: 5px; opacity: .7;
+  background: repeating-linear-gradient(to right, var(--text-mute, var(--text-dim)) 0 1px, transparent 1px calc(100% / var(--ticks)));
+}
+.ctl-eq .ctl-eq-fill {
+  position: absolute; top: 0; bottom: 0; border-radius: var(--ctl-track-h); background: var(--ctl-accent);
+  left: calc(min(var(--z0), var(--p)) * 100%); width: calc(abs(var(--p) - var(--z0)) * 100%);
+}
+.ctl-eq .ctl-eq-zero {
+  position: absolute; left: calc(var(--z0) * 100%); top: -7px; bottom: -7px; width: 3px; margin-left: -1.5px;
+  border-radius: 2px; background: var(--text);
+}
+.ctl-eq .ctl-range::-webkit-slider-runnable-track { background: transparent; }
+.ctl-eq .ctl-range::-moz-range-track { background: transparent; }
+.ctl-eq .ctl-range::-moz-range-progress { background: transparent; }
+.ctl-eq .ctl-range { position: relative; }
+.ctl-eq .ctl-eq-ends {
+  display: flex; justify-content: space-between; font-size: var(--ctl-text); line-height: 1.1; color: var(--text-mute, var(--text-dim));
+  margin-top: -2px; letter-spacing: .02em;
+}
+
+/* ── monitor row with a spec bar (row config [id, label, { spec: { min, max, lo, hi } }]; patch [text, tone, number]) ── */
+.ui-monitor .mon-row.has-spec { flex-wrap: wrap; row-gap: 3px; }
+.ui-monitor .mon-spec {
+  position: relative; flex: 1 0 100%; height: 6px; border-radius: 3px; background: var(--surface-3, var(--surface-2));
+  --pos: .5;
+}
+.ui-monitor .mon-spec-band {
+  position: absolute; top: 0; bottom: 0; left: calc(var(--lo) * 100%); width: calc((var(--hi) - var(--lo)) * 100%);
+  border-radius: 3px; background: color-mix(in srgb, var(--ok) 55%, transparent);
+}
+.ui-monitor .mon-spec-m {
+  position: absolute; top: -2px; bottom: -2px; width: 4px; margin-left: -2px; left: calc(var(--pos) * 100%);
+  border-radius: 2px; background: var(--text);
+}
+.ui-monitor .mon-spec[data-tone="warn"] .mon-spec-m { background: var(--warn); }
+.ui-monitor .mon-spec[data-tone="crit"] .mon-spec-m { background: var(--crit); }
+.ctl-axis[hidden] { display: none; }      /* controls.setHidden(id, true): e.g. the total-toe fader while the Individual mode shows two */
