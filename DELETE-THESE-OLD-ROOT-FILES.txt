@@ -1,0 +1,13 @@
+These files were MOVED into the "Wheel alignment" folder. Delete the old copies from the repo root:
+
+DECISIONS-WA.md
+alignment-model.js
+alignment-parts.js
+wa-camber-scene.js
+wa-camber.html
+wa-caster-scene.js
+wa-caster.html
+wa-toe-scene.js
+wa-toe.html
+wheel-alignment.html
+tests/alignment.test.mjs

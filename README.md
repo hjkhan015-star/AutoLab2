@@ -1,4 +1,4 @@
-# AutoLab2 (Auto Lab v8.10.0)
+# AutoLab2 (Auto Lab v8.10.2)
 
 Interactive 3D automotive learning lab (44 modules, installable offline PWA). Static site — no build step.
 
@@ -29,3 +29,5 @@ Upload the folder root to any static host (Netlify, Cloudflare Pages, GitHub Pag
 Three.js 0.160.0 loads from unpkg (cached by the service worker after first visit). For a fully self-hosted build, download `three.module.js` and `examples/jsm/` into `/vendor/three/` and change the import map URLs (`three`, `three/addons/`) in each module, plus the `modulepreload` links and CSP/`sw.js` host rule in `index.html`.
 
 See `GUIDE.md` and `COMPONENTS.md` for module authoring.
+
+**Wheel alignment** (overview, toe, camber, caster, their model, scenes, rack and tests) lives in the `Wheel alignment/` folder.
