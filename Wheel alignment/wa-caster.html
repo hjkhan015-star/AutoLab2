@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Caster — Wheel Alignment — Auto Lab</title>
+<link rel="stylesheet" href="../app.css">
+<link rel="stylesheet" href="../controls.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+:root { --al-accent: #14b8a6; }
+html.light-theme { --al-accent: color-mix(in oklch, #14b8a6 62%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="../guard.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from '../components.js';
+import { RACK_H } from './alignment-rack.js';
+import { controls } from '../controls.js';
+import { fromReal, degToDial } from '../controls-core.js';
+import { buildCasterScene } from './wa-caster-scene.js';
+import { makeState, getPreset, setCaster, applyCasterPreset, steerFromDial, dialFromSteer,
+  CASTER_MIN, CASTER_MAX, CASTER_PRESETS, CASTER_EXAGGERATIONS, DEFAULT_CASTER_EXAGGERATION, WA_PAGES } from './alignment-model.js';
+
+const PRESET = 'hatchback';
+const SPEC = getPreset(PRESET).spec;
+let busy = false;                         /* true while this page drives the steering dial itself (release test, swing) */
+/* S is the session the scene reads; the controls below write it. */
+const S = { st: makeState(PRESET), exag: DEFAULT_CASTER_EXAGGERATION, cam: 'side', ver: 0, steer: 0, mode: null, rel: { theta: 0, omega: 0 },
+  flags: { axis: true, trail: true, drive: false, swing: false },
+  pushSteer: (deg) => { busy = true; controls.set('steer', degToDial(dialFromSteer(deg), controls.spec('steer'))); busy = false; } };
+let syncing = false;
+
+const FADERS = { casterL: { side: 'L', corner: 'FL', label: 'Left caster' }, casterR: { side: 'R', corner: 'FR', label: 'Right caster' } };
+const deg1 = (v) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1) + '°';
+function sync() {
+  syncing = true;
+  for (const id in FADERS) controls.set(id, fromReal(S.st[FADERS[id].corner].caster, controls.spec(id)));
+  syncing = false; S.ver++;
+}
+const spec = (lo, hi, min, max) => ({ spec: { min, max, lo, hi } });
+
+const CFG = {
+  moduleId: 'wa-caster',
+  title: 'Caster',
+  kicker: 'Wheel Alignment',
+  accent: '#14b8a6',
+  badge: 'Caster',
+  camPos: [4.6, 0.6, 1.3],
+  target: [0.8, 0.45, 1.3],
+  floorY: -RACK_H,   /* shared kit floor sits one rack-height below the tyres */
+  ctl: null,
+  chipLabel: 'Caster (front mean)',
+  rows: [],
+  ro: [
+    ['casL', 'Left caster', spec(SPEC.caster[0], SPEC.caster[1], CASTER_MIN, CASTER_MAX)],
+    ['casR', 'Right caster', spec(SPEC.caster[0], SPEC.caster[1], CASTER_MIN, CASTER_MAX)],
+    ['cross', 'Cross-caster', spec(-SPEC.maxCasterDiff, SPEC.maxCasterDiff, -2, 2)],
+    ['trail', 'Mechanical trail L / R'],
+    ['torque', 'Restoring torque'],
+    ['effort', 'Steering effort'],
+    ['pull', 'Pull'],
+    ['gain', 'Camber gain'],
+    ['swing', 'Swing ±20° Δcamber → caster']
+  ],
+  legend: [['var(--c-teal)', 'Left axis / trail'], ['var(--c-orange)', 'Right axis / trail'], ['var(--c-red)', 'Pull']],
+  overview: '<div class="al-sec"><h4>Caster</h4><p>Caster is the fore-aft tilt of the steering axis seen from the side. Positive caster tilts the top rearward, so the axis meets the road <b>ahead</b> of the contact patch. That gap is the <b>trail</b>: like a shopping-trolley wheel, the tyre is dragged behind the pivot, which straightens it. The <b>Visual ×</b> option scales the drawn angle only.</p><p>Turn the steering wheel to see camber gain, press <b>Hands-off release</b> to watch the wheel self-centre, or switch on <b>Road test</b> after setting a left/right mismatch: the car pulls toward the side with less caster.</p></div>',
+  faults: [
+    ['Pulls to one side', 'Drifts on a flat road, steering wheel straight.', 'Compare left and right caster: the car pulls toward the lower side.'],
+    ['Wheel does not self-centre', 'The wheel stays turned after a corner.', 'Low caster, binding joints or low tyre pressure.'],
+    ['Heavy steering at parking speed', 'Hard to turn, very stable at speed.', 'Caster above spec: check set-up and any accident damage.']
+  ],
+  quiz: [
+    ['Positive caster tilts the top of the steering axis…', ['Rearward', 'Forward', 'Inward'], 0, 'The top leans toward the rear of the car.'],
+    ['Trail is the distance between…', ['Axis intercept and contact patch', 'Left and right wheels', 'Hub and brake disc'], 0, 'It is measured along the road.'],
+    ['A car pulls toward the side with…', ['Less caster', 'More caster', 'More toe'], 0, 'The lower-caster side has less self-centring force.'],
+    ['With positive caster the outside wheel gains…', ['Negative camber', 'Positive camber', 'No camber change'], 0, 'This helps cornering grip.']
+  ],
+  onReset: () => { S.st = makeState(PRESET); S.mode = null; S.flags.swing = false; sync(); }
+};
+
+CFG.ctls = Object.keys(FADERS).map((id) => {
+  const f = FADERS[id];
+  return { id, look: 'equalizer', label: f.label, ariaLabel: f.label + ': negative tilts the top forward, positive tilts it rearward', min: CASTER_MIN, max: CASTER_MAX, step: 0.1, decimals: 1,
+    def: S.st[f.corner].caster, detent: 0.1, band: SPEC.caster, tickEvery: 0.5, ends: ['− Negative', 'Positive +'], format: deg1,
+    onChange: (v) => { if (syncing) return; setCaster(S.st, f.side, v); S.ver++; } };
+});
+CFG.ctls.push({ id: 'steer', type: 'dial', look: 'wheel', label: 'Steering', ariaLabel: 'Steering wheel angle', range: 720, wrap: false, def: 0,
+  onChange: (deg) => { if (busy) return; S.steer = steerFromDial(deg); S.mode = null; } });
+const flag = (id, label, def) => ({ id, type: 'toggle', label, def, onChange: (on) => { S.flags[id] = !!on; if (id === 'swing' && !on) S.steer = 0; } });
+CFG.options = [
+  { id: 'cpreset', type: 'choice', layout: 'select', label: 'Preset', def: 'spec', onChange: (id) => { applyCasterPreset(S.st, id); sync(); }, options: CASTER_PRESETS },
+  { id: 'exag', type: 'choice', layout: 'segmented', label: 'Visual ×', def: String(DEFAULT_CASTER_EXAGGERATION), onChange: (id) => { S.exag = Number(id); },
+    options: CASTER_EXAGGERATIONS.map((e) => ({ id: String(e), label: e + '×' })) },
+  { id: 'cam', type: 'choice', layout: 'segmented', label: 'Camera', def: 'side', onChange: (id) => { S.cam = id; },
+    options: [{ id: 'side', label: 'Side' }, { id: 'front', label: 'Front' }, { id: 'top', label: 'Top' }, { id: 'orbit', label: 'Orbit' }] },
+  flag('axis', 'Show kingpin axis', true), flag('trail', 'Show trail', true), flag('drive', 'Road test (pull)', false), flag('swing', 'Caster-swing demo (±20°)', false),
+  { id: 'release', type: 'action', label: 'Hands-off release', onAction: () => { S.flags.swing = false; S.rel = { theta: S.steer || 15, omega: 0 }; S.mode = 'release'; } },
+  { id: 'page', type: 'choice', layout: 'segmented', label: 'Page', def: 'caster',
+    onChange: (id) => { const pg = WA_PAGES.find((x) => x.id === id); if (pg && !location.pathname.endsWith(pg.file)) location.href = pg.file; },
+    options: WA_PAGES.map((x) => ({ id: x.id, label: x.label })) }
+];
+
+runGuidedModule(CFG, (H) => buildCasterScene(H, S));
+</script>
+</body>
+</html>

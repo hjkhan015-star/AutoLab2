@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wheel Alignment — Auto Lab</title>
+<link rel="stylesheet" href="../app.css">
+<link rel="stylesheet" href="../controls.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+:root { --al-accent: #14b8a6; }
+html.light-theme { --al-accent: color-mix(in oklch, #14b8a6 62%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="../guard.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from '../components.js';
+import { RACK_H, buildRack } from './alignment-rack.js';
+import { PRESETS, PRESET_IDS, WA_PAGES, getPreset, makeState, derive, specStatus } from './alignment-model.js';
+import { buildCar } from './alignment-parts.js';
+
+/* Written by the dock controls (read by build().update). */
+const EXT = { ride: 0, preset: 'hatchback' };
+
+const CFG = {
+  moduleId: 'wheel-alignment',
+  title: 'Wheel Alignment',
+  kicker: 'Steering, Suspension & Brakes',
+  accent: '#14b8a6',
+  badge: 'Toe · Camber · Caster',
+  camPos: [6.4, 3.4, 8.0],
+  target: [0.5, 0.2, 0.9],
+  floorY: -RACK_H,   /* shared kit floor sits one rack-height below the tyres */
+  ctl: null,
+  chipLabel: 'Total toe (front)',
+  rows: [],
+  ro: [
+    ['toeR', 'Total toe (rear)', { spec: { min: -0.6, max: 0.8, lo: 0.1, hi: 0.4 } }],
+    ['thrust', 'Thrust angle', { spec: { min: -0.5, max: 0.5, lo: -0.15, hi: 0.15 } }],
+    ['ccam', 'Cross-camber', { spec: { min: -1.5, max: 1.5, lo: -0.5, hi: 0.5 } }],
+    ['ccas', 'Cross-caster', { spec: { min: -1.5, max: 1.5, lo: -0.5, hi: 0.5 } }],
+    ['trail', 'Mechanical trail', null]
+  ].map((r) => (r[2] ? r : r.slice(0, 2))),
+  legend: [['var(--c-green)', 'Spec band'], ['var(--c-orange)', 'Out of spec']],
+  overview: '<div class="al-sec"><h4>Aligning the wheels</h4><p>Toe, camber and caster set how each tyre meets the road. The angles are tiny (0.1° of toe is about 1 mm across a tyre) yet decide tyre life, pull and steering feel. This workshop builds up one angle at a time.</p></div>',
+  faults: [
+    ['Uneven tyre wear', 'Feathered ribs or one worn shoulder.', 'Check toe and camber, then the suspension joints.'],
+    ['Pulls to one side', 'The car drifts on a flat road.', 'Compare left and right camber and caster, then the thrust angle.']
+  ],
+  quiz: [
+    ['Positive toe means…', ['Toe-in: fronts of the tyres point together', 'Toe-out', 'Top of the wheel leans in'], 0, 'Positive toe is toe-in.'],
+    ['Negative camber means…', ['Top of the wheel leans inwards', 'Top leans outwards', 'Wheel points inwards'], 0, 'Negative camber tilts the top of the wheel towards the car.'],
+    ['A car pulls toward the side with…', ['Less caster', 'More caster', 'More toe'], 0, 'Unequal caster pulls the car to the side with less caster.']
+  ]
+};
+
+CFG.ctls = [
+  { id: 'ctl', preset: 'percent', label: 'Ride height', unit: 'mm', min: -40, max: 40, step: 1, def: 0, onChange: (v) => { EXT.ride = v; } }
+];
+CFG.options = [
+  { id: 'preset', type: 'choice', layout: 'segmented', label: 'Vehicle', def: 'hatchback', onChange: (id) => { EXT.preset = id; },
+    options: PRESET_IDS.map((id) => ({ id, label: PRESETS[id].label.split(' (')[0] })) },
+  { id: 'page', type: 'choice', layout: 'segmented', label: 'Page', def: 'scene',
+    onChange: (id) => { const pg = WA_PAGES.find((x) => x.id === id); if (pg && !location.pathname.endsWith(pg.file)) location.href = pg.file; },
+    options: WA_PAGES.map((x) => ({ id: x.id, label: x.label })) }
+];
+
+function build(H) {
+  const THREE = H.THREE;
+  const mats = {
+    rubber: new THREE.MeshStandardMaterial({ color: 0x1c1f25, roughness: 0.92 }),
+    rim: new THREE.MeshStandardMaterial({ color: 0xccd3db, metalness: 0.9, roughness: 0.3 }),
+    body: new THREE.MeshStandardMaterial({ color: 0x2b6cb0, metalness: 0.4, roughness: 0.45 }),
+    glass: new THREE.MeshStandardMaterial({ color: 0x9fb4c7, metalness: 0.2, roughness: 0.15, transparent: true, opacity: 0.7 })
+  };
+  const rack = buildRack(THREE, H.root);                        /* platform + aligner console; the ground is the shared kit floor */
+
+  let car = null, shown = null, baseBodyY = 0;
+  const mount = (id) => {
+    if (car) { H.root.remove(car.group); car.dispose(); }
+    rack.setPreset(id); car = buildCar(THREE, id, mats); rack.mountTargets(car); H.root.add(car.group); baseBodyY = car.body.position.y; shown = id;
+  };
+  mount(EXT.preset);
+
+  return {
+    labels: [['Body', [0, 1.1, 0]], ['Front axle', [0, 0.35, 1.3]], ['Rear axle', [0, 0.35, -1.3]], ['Alignment rack', [0.9, 0.05, -2.4]], ['HJK 3D aligner', [2.0, 1.9, 3.2]]],
+    update() {
+      if (shown !== EXT.preset) mount(EXT.preset);
+      car.body.position.y = baseBodyY + EXT.ride / 1000;
+      const p = getPreset(EXT.preset), st = makeState(EXT.preset), d = derive(st), s = p.spec;
+      const tone = (v, r) => (specStatus(v, r) === 'ok' ? 'ok' : specStatus(v, r) === 'warn' ? 'warn' : 'crit');
+      const f2 = (v) => (v >= 0 ? '+' : '') + v.toFixed(2) + '°';
+      const front = [s.frontToe[0] * 2, s.frontToe[1] * 2], rear = [s.rearToe[0] * 2, s.rearToe[1] * 2];
+      const out = {
+        big: f2(d.totalToeF), unit: '', bar: 50,
+        ro: {
+          toeR: [f2(d.totalToeR), tone(d.totalToeR, rear), d.totalToeR],
+          thrust: [f2(d.thrust), tone(d.thrust, s.thrust), d.thrust],
+          ccam: [f2(d.crossCamberF), tone(Math.abs(d.crossCamberF), [0, s.maxCamberDiff]), d.crossCamberF],
+          ccas: [f2(d.crossCaster), tone(Math.abs(d.crossCaster), [0, s.maxCasterDiff]), d.crossCaster],
+          trail: [d.trailL.toFixed(0) + ' mm', 'hi']
+        },
+        status: [tone(d.totalToeF, front) === 'ok' ? 'Reference car at spec' : 'Front toe out of spec', false],
+        ctl: (EXT.ride >= 0 ? '+' : '') + EXT.ride + ' mm'
+      };
+      rack.show('OVERVIEW', [['Toe front', [out.big, 'hi']], ['Toe rear', out.ro.toeR], ['Thrust', out.ro.thrust], ['X-camber', out.ro.ccam]], out.status[0]);
+      return out;
+    }
+  };
+}
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>
