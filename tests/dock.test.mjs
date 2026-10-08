@@ -394,7 +394,7 @@ t('fixed-position audit: no module page adds a fixed element beyond the document
   /* dock / header / monitor strip / info sheet / 3D stage live in controls.css + app.css (checked above).
      These are MODULE-LOCAL panels, listed honestly; each is a Phase 3+ item (see the Phase 2 report). */
   const allowed = { 'awd.html': 1, 'catalytic.html': 1, 'commonrail.html': 1, 'cooling.html': 6, 'differential.html': 4, 'dpf.html': 1, 'driveshaft.html': 1,
-    'egr.html': 1, 'fuelpump.html': 1, 'intercooler.html': 1, 'lubrication.html': 1, 'oilpump.html': 1, 'radiator.html': 1, 'sparkplug.html': 2,
+    'egr.html': 1, 'fuelpump.html': 1, 'intercooler.html': 1, 'lubrication.html': 1, 'obd2.html': 1, 'oilpump.html': 1, 'radiator.html': 1, 'sparkplug.html': 2,
     'suspension.html': 3, 'thermostat.html': 2, 'tyres.html': 2, 'wiring.html': 4 };
   for (const f of readdirSync(new URL('../', import.meta.url)).filter((x) => x.endsWith('.html') && !['index.html', '404.html'].includes(x))) {
     const c = (rd(f).match(/position:\s*fixed/g) || []).length;
