@@ -115,7 +115,7 @@ export function buildToeScene(H, S) {
       /* auto-drive: the road scrolls, the car drifts sideways by the pull */
       if (S.flags.auto) {
         grid.position.z = (grid.position.z - dt * 3) % 0.5;
-        driftX += rep.pull.value * dt * 0.25; if (Math.abs(driftX) > 1.2) driftX = 0;
+        driftX -= rep.pull.value * dt * 0.25;      /* + pull = to the car's right = −x */ if (Math.abs(driftX) > 1.2) driftX = 0;
       } else driftX = 0;
       rig.position.x = driftX;
       /* camera presets glide, then hand back to the orbit controls */

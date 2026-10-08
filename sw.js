@@ -4,7 +4,7 @@ const CORE    = VERSION + '-core';
 const RUNTIME = VERSION + '-runtime';
 
 const CORE_ASSETS = [
-  './', './index.html', './app.css', './kit.js', './labels.js', './components.js', './components.css', './controls-core.js', './controls.js', './controls.css', './monitor-core.js', './monitor.js', './chrome.js', './keys.js', './dock.js', './modules.js', './alignment-model.js', './alignment-parts.js', './wa-toe-scene.js', './guard.js', './404.html',
+  './', './index.html', './app.css', './kit.js', './labels.js', './components.js', './components.css', './controls-core.js', './controls.js', './controls.css', './monitor-core.js', './monitor.js', './chrome.js', './keys.js', './dock.js', './modules.js', './alignment-model.js', './alignment-parts.js', './wa-toe-scene.js', './wa-camber-scene.js', './wa-caster-scene.js', './guard.js', './404.html',
   './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-512-maskable.png',
   './icons/apple-touch-icon.png', './icons/favicon-32.png',
   /* Module HTMLs — missing files are tolerated (each fetched individually) */
@@ -51,7 +51,9 @@ const CORE_ASSETS = [
   './abs-esc.html',
   './tyres.html',
   './wheel-alignment.html',
-  './wa-toe.html'
+  './wa-toe.html',
+  './wa-camber.html',
+  './wa-caster.html'
 ];
 
 self.addEventListener('install', (event) => {

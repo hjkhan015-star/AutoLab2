@@ -6,7 +6,10 @@
 - **Equalizer slider** = `axis` with `look: 'equalizer'`: spec band, ticks, centre mark, detent snap, Home / Shift+arrow keys, `ariaLabel`.
 - **Segmented-spec Monitor row**: `[id, label, { spec: { min, max, lo, hi } }]`, patched with `[text, tone, number]`.
 - **Phase 1 — Toe page `wa-toe.html`**: equalizer faders (total / individual), laser lines, spec ghost, tyre wear overlay, scrub arrows, auto-drive pull, camera presets, units, practice presets and fault; page switcher on both pages.
-- Tests: `tests/alignment.test.mjs` (27 groups). Cache `autolab-v8.10.0`.
+- **Phase 2 — Camber page `wa-camber.html`**: axle / individual faders, wheel tilt about the contact patch, plumb and wheel-plane lines, contact-patch pressure heat-map, load transfer in a turn, wear overlay, presets, fault, camera presets.
+- **Phase 3 — Caster page `wa-caster.html`**: left / right caster faders, steering dial, steering axis and trail, hands-off release, camber gain while steering, pull from mismatch, caster-swing demo. Fix: auto-drive drift direction on the Toe page.
+- **Realistic car** for every alignment page: shaped body with arches, glass, lamps, detailed tyres / rims / brakes and visible suspension hardware.
+- Tests: `tests/alignment.test.mjs` (44 groups). Cache `autolab-v8.10.0`.
 
 ## 8.9.4 - Phase 9e: alphabetical home, theme without flash, sound stops on Back, smoother open / close
 - **Alphabetical.** Home "All modules" and search results are sorted A-Z by the name on the card (`alpha()`, locale-aware). The Roadmap view keeps the learning order; Recents stays most-recent first.
