@@ -101,7 +101,7 @@ const SYSTEMS = [
     soon: [],
     related: ["cooling", "engine"],
     modules: [
-      {"id": "lubrication", "label": "Lubrication", "title": "Lubrication System", "subtitle": "Engine · Oil & Wear", "file": "lubrication.html", "color": "#84cc16", "level": "Basic", "min": 10, "mode": "3D", "icon": "<path d=\"M12 3c-2 3-5 7-5 10a5 5 0 0 0 10 0c0-3-3-7-5-10z\"/><circle cx=\"12\" cy=\"14\" r=\"2\"/>"},
+      {"id": "lubrication", "label": "Lubrication", "title": "Lubrication System", "subtitle": "Engine · Oil Grades & Wear", "file": "lubrication.html", "color": "#84cc16", "level": "Basic", "min": 10, "mode": "3D", "icon": "<path d=\"M12 3c-2 3-5 7-5 10a5 5 0 0 0 10 0c0-3-3-7-5-10z\"/><circle cx=\"12\" cy=\"14\" r=\"2\"/>"},
       {"id": "oilpump", "label": "Oil Pump", "title": "Oil Pump Types", "subtitle": "Lubrication · Gear Pump & Relief Valve", "file": "oilpump.html", "color": "#84cc16", "level": "Intermediate", "min": 12, "mode": "3D", "icon": "<circle cx=\"9\" cy=\"12\" r=\"4\"/><circle cx=\"16\" cy=\"12\" r=\"4\"/><path d=\"M12 3v4M12 17v4\"/>"},
       {"id": "oilfilter", "label": "Oil Filter", "title": "Oil Filters", "subtitle": "Lubrication · Element & Bypass Valve", "file": "oilfilter.html", "color": "#eab308", "level": "Basic", "min": 10, "mode": "3D", "icon": "<rect x=\"7\" y=\"4\" width=\"10\" height=\"16\" rx=\"3\"/><path d=\"M7 9h10M7 14h10\"/>"}
     ]
@@ -169,7 +169,7 @@ const SYSTEMS = [
     modules: [
       {"id": "sensors", "label": "Sensors", "title": "Sensors & Wiring", "subtitle": "Electrical · Sensing & Control", "file": "sensors.html", "color": "#22c55e", "level": "Intermediate", "min": 15, "mode": "2D + 3D", "icon": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M6 12a6 6 0 0 1 12 0M3 12a9 9 0 0 1 18 0\"/>"},
       {"id": "ecu", "label": "ECU", "title": "Engine Control Unit", "subtitle": "Sensors & Control · Inputs → Maps → Outputs", "file": "ecu.html", "color": "#a855f7", "level": "Advanced", "min": 15, "mode": "3D", "icon": "<rect x=\"4\" y=\"6\" width=\"16\" height=\"12\" rx=\"2\"/><rect x=\"8\" y=\"9\" width=\"8\" height=\"6\" rx=\"1\"/><line x1=\"2\" y1=\"10\" x2=\"4\" y2=\"10\"/><line x1=\"2\" y1=\"14\" x2=\"4\" y2=\"14\"/><line x1=\"20\" y1=\"10\" x2=\"22\" y2=\"10\"/><line x1=\"20\" y1=\"14\" x2=\"22\" y2=\"14\"/>"},
-      {"id": "obd2", "label": "OBD-II", "title": "OBD-II Diagnostics", "subtitle": "Sensors & Control · DLC, Codes & Live Data", "file": "obd2.html", "color": "#22d3ee", "level": "Intermediate", "min": 12, "mode": "3D", "icon": "<rect x=\"3\" y=\"8\" width=\"18\" height=\"8\" rx=\"2\"/><circle cx=\"8\" cy=\"12\" r=\"1\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/><circle cx=\"16\" cy=\"12\" r=\"1\"/>"}
+      {"id": "obd2", "label": "OBD-II", "title": "OBD-II Diagnostics", "subtitle": "Sensors & Control · Scan Tool, Faults & Live Data", "file": "obd2.html", "color": "#22d3ee", "level": "Intermediate", "min": 12, "mode": "3D", "icon": "<rect x=\"3\" y=\"8\" width=\"18\" height=\"8\" rx=\"2\"/><circle cx=\"8\" cy=\"12\" r=\"1\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/><circle cx=\"16\" cy=\"12\" r=\"1\"/>"}
     ]
   },
   {
@@ -208,7 +208,7 @@ const SYSTEMS = [
       {"id": "braking", "label": "Brakes", "title": "Hydraulic Braking System", "subtitle": "Chassis · Disc & Drum", "file": "braking.html", "color": "#ef4444", "level": "Intermediate", "min": 14, "mode": "3D", "icon": "<circle cx=\"11\" cy=\"12\" r=\"7\"/><circle cx=\"11\" cy=\"12\" r=\"2.5\"/><rect x=\"16\" y=\"8\" width=\"4\" height=\"8\" rx=\"1\"/>"},
       {"id": "absesc", "label": "ABS & ESC", "title": "ABS & Electronic Stability Control", "subtitle": "Chassis · Wheel Speed, Slip & Yaw Control", "file": "abs-esc.html", "color": "#f43f5e", "level": "Advanced", "min": 15, "mode": "3D", "icon": "<circle cx=\"11\" cy=\"12\" r=\"7\"/><circle cx=\"11\" cy=\"12\" r=\"2.5\"/><rect x=\"16\" y=\"8\" width=\"4\" height=\"8\" rx=\"1\"/><path d=\"M18 4l1.5 2h-3z\"/>"},
       {"id": "tyres", "label": "Wheels & Tyres", "title": "Wheels & Tyres", "subtitle": "Chassis · Pressure, Contact Patch & Wear", "file": "tyres.html", "color": "#64748b", "level": "Basic", "min": 11, "mode": "3D", "icon": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 3v5M12 16v5M3 12h5M16 12h5\"/>"},
-      {"id": "wheel-alignment", "label": "Wheel Alignment", "title": "Wheel Alignment", "subtitle": "Chassis · Toe, Camber & Caster", "file": "wheel-alignment.html", "color": "#14b8a6", "level": "Intermediate", "min": 15, "mode": "3D", "icon": "<circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 4v16M5 12h14\"/><path d=\"M8 6l-2 12M16 6l2 12\"/>"}
+      {"id": "wheel-alignment", "label": "Wheel Alignment", "title": "Wheel Alignment", "subtitle": "Chassis · Toe, Camber & Caster", "file": "Wheel alignment/wheel-alignment.html", "color": "#14b8a6", "level": "Intermediate", "min": 15, "mode": "3D", "icon": "<circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 4v16M5 12h14\"/><path d=\"M8 6l-2 12M16 6l2 12\"/>"}
     ]
   }
 ];

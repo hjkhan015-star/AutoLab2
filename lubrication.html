@@ -7,6 +7,7 @@
 <title>Lubrication System — Auto Lab</title>
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="components.css">
 <style>
 
   /* ═══════════════════════════════════════════════════════════
@@ -29,47 +30,25 @@
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   }
 
-  /* ═══ OIL GRADE LAB — grade picker + viscosity equalizer ═══ */
-  #gl { position: fixed; left: 12px; top: 64px; z-index: 40; width: min(344px, calc(100vw - 24px));
-    max-height: calc(100% - 150px); overflow: auto; font: 12px/1.45 var(--font-ui, system-ui, sans-serif);
-    color: var(--text, #e6ebf5); background: color-mix(in oklch, var(--bg, #0a0d13) 82%, transparent);
-    border: 1px solid color-mix(in oklch, var(--text, #fff) 14%, transparent); border-radius: 12px;
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-  #gl.min { width: auto; overflow: visible; }
-  #gl.min .gl-body { display: none; }
-  #gl-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; font-weight: 700;
-    letter-spacing: .08em; text-transform: uppercase; font-size: 11px; background: none; border: 0; color: inherit; width: 100%; }
-  #gl-head .caret { margin-left: auto; opacity: .6; transition: transform .2s; }
-  #gl.min #gl-head .caret { transform: rotate(180deg); }
-  .gl-body { padding: 0 12px 12px; }
-  .gl-row { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
-  .gl-chip { flex: 1 1 auto; padding: 7px 8px; min-height: 36px; border-radius: 8px; cursor: pointer; font: inherit; font-weight: 700;
-    color: inherit; background: color-mix(in oklch, var(--text, #fff) 7%, transparent);
-    border: 1px solid color-mix(in oklch, var(--text, #fff) 14%, transparent); }
-  .gl-chip small { display: block; font-weight: 500; opacity: .6; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
-  .gl-chip[aria-pressed=true] { border-color: #f59e0b; background: color-mix(in oklch, #f59e0b 22%, transparent); }
-  .gl-tabs .gl-chip { min-height: 30px; }
-  .gl-read { display: flex; justify-content: space-between; align-items: baseline; margin: 8px 0 2px; font-family: var(--font-mono, monospace); }
-  .gl-read b { font-size: 20px; }
+  /* ═══ OIL GRADE LAB — viscosity equalizer (lives in the shared panel; tokens only) ═══ */
+  .gl-read { display: flex; justify-content: space-between; align-items: baseline; margin: 2px 0 6px; font-family: var(--font-mono); color: var(--text-dim); }
+  .gl-read b { font-size: 18px; color: var(--text); }
   .gl-zone { font-weight: 800; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
-  #eq { display: flex; align-items: flex-end; gap: 3px; height: 128px; padding: 4px 0 0; border-bottom: 1px solid color-mix(in oklch, var(--text, #fff) 20%, transparent); position: relative; }
+  #eq { display: flex; align-items: flex-end; gap: 3px; height: 120px; padding-top: 4px; border-bottom: 1px solid var(--border); }
   .eq-b { flex: 1; position: relative; height: 100%; display: flex; align-items: flex-end; }
-  .eq-b > span { display: block; width: 100%; border-radius: 3px 3px 0 0; min-height: 3px; transition: height .45s cubic-bezier(.3,.9,.3,1), background .3s;
-    background-image: repeating-linear-gradient(to top, transparent 0 5px, rgba(0,0,0,.55) 5px 6px); }
-  .eq-b > i { position: absolute; left: -1px; right: -1px; height: 0; border-top: 2px dashed #fff; opacity: .8; transition: bottom .45s; }
-  .eq-b.cur > span { outline: 2px solid #fff; outline-offset: 1px; }
+  .eq-b > span { display: block; width: 100%; min-height: 3px; border-radius: 3px 3px 0 0; transition: height .45s cubic-bezier(.3,.9,.3,1), background .3s;
+    background-image: repeating-linear-gradient(to top, transparent 0 5px, color-mix(in oklch, var(--bg) 70%, transparent) 5px 6px); }
+  .eq-b > i { position: absolute; left: -1px; right: -1px; height: 0; border-top: 2px dashed var(--text); opacity: .8; transition: bottom .45s; }
+  .eq-b.cur > span { outline: 2px solid var(--text); outline-offset: 1px; }
   .eq-b.live { flex: 1.5; margin-right: 6px; }
   .eq-b.live > span { transition: height .15s linear, background .15s; }
-  .eq-t { display: flex; gap: 3px; font: 9px var(--font-mono, monospace); opacity: .65; margin-top: 2px; }
+  .eq-t { display: flex; gap: 3px; font: 9px var(--font-mono); color: var(--text-mute); margin-top: 2px; }
   .eq-t span { flex: 1; text-align: center; } .eq-t span.live { flex: 1.5; margin-right: 6px; }
-  .gl-leg { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 10px; opacity: .85; margin-top: 6px; }
+  .gl-leg { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 10px; color: var(--text-dim); margin-top: 6px; }
   .gl-leg i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-  .gl-info table { width: 100%; border-collapse: collapse; margin: 6px 0; }
-  .gl-info th, .gl-info td { text-align: left; padding: 4px 6px; vertical-align: top; border-top: 1px solid color-mix(in oklch, var(--text, #fff) 12%, transparent); }
-  .gl-info th { width: 26%; opacity: .7; font-weight: 600; }
-  .gl-info p { margin: 6px 0; }
-  .gl-go { width: 100%; margin-top: 8px; }
-  @media (max-width: 700px) { #gl { top: 56px; } .eq-b > span { transition-duration: .3s; } }
+  .gl-info table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 11px; color: var(--text-dim); }
+  .gl-info th, .gl-info td { text-align: left; padding: 4px 6px; vertical-align: top; border-top: 1px solid var(--border); }
+  .gl-info th { width: 26%; color: var(--text); } .gl-info p { margin: 6px 0; font-size: 11px; color: var(--text-dim); }
   @media (prefers-reduced-motion: reduce) { .eq-b > span, .eq-b > i { transition: none; } }
   #status-flash.on { opacity: 1; animation: flashPulse 1.1s infinite; }
   @keyframes flashPulse { 50% { opacity: .55; } }
@@ -78,7 +57,6 @@
 <body>
   <div id="canvas-wrap"></div>
   <div id="status-flash"></div>
-  <div id="gl" class="min"><button id="gl-head" aria-expanded="false" aria-controls="gl-body">🛢 Oil Grade Lab <span class="caret">▾</span></button><div class="gl-body" id="gl-body"></div></div>
   <div id="labels-root"></div>
 
   <script src="guard.js"></script>
@@ -897,14 +875,18 @@ import { Parts } from './components.js';
           sim.oilOn = on;
           if (!on) showFlash('⚠ LUBRICATION LOST');
           else showFlash('OIL RESTORED', 1.4, '#4ade80');
-        } }
+        } },
+      { id: 'grade', type: 'choice', layout: 'select', label: 'Oil grade', ariaLabel: 'Oil viscosity grade', def: '10W-40',
+        options: [{ id: 'SAE 30', label: 'SAE 30 · single' }, { id: 'SAE 40', label: 'SAE 40 · single' }, { id: '10W-40', label: '10W-40 · multi' }, { id: '5W-30', label: '5W-30 · multi' }, { id: '0W-20', label: '0W-20 · multi' }],
+        onChange: (id) => setGrade(id) },
+      { id: 'cold', type: 'action', label: 'Cold start', onAction: () => coldStart() }
     ]
   });
 
   /* ═══════════════════════════════════════════════════════════
      UI REFS
      ═══════════════════════════════════════════════════════════ */
-  ui.panel.remeasure();                       /* the panel lost its readout (now Monitor rows + the trace 'temps') */
+  /* the panel lost its readout (now Monitor rows + the trace 'temps') */
   const flashEl = document.getElementById('status-flash');
 
   let flashTimer = 0;
@@ -1187,7 +1169,7 @@ import { Parts } from './components.js';
   const hPct = (v) => Math.min(100, Math.max(2, Math.log10(v / 1.5) / Math.log10(16000 / 1.5) * 100));
   const TEMPS = [-20, -10, 0, 10, 20, 30, 40, 60, 80, 100, 120, 140];
 
-  const glBody = document.getElementById('gl-body'), glEl = document.getElementById('gl');
+  const glBody = document.createElement('div'); ui.panel.body.appendChild(glBody);
   const INFO = `<div class="gl-info"><p><b>Viscosity grade (SAE J300)</b> = how thick the oil is. Thick enough to keep a film
     between metal parts when hot, thin enough to flow when cold.</p>
     <table>
@@ -1201,18 +1183,12 @@ import { Parts } from './components.js';
     <p><b>Why it matters:</b> most engine wear happens in the first seconds after a cold start. Oil that is too thick
     starves bearings and the cam while it creeps through the galleries; oil that is too thin when hot lets the film break
     (metal contact, lower pressure). The sweet spot is the green band. Always follow the manufacturer's grade.</p></div>`;
-  glBody.innerHTML = `
-    <div class="gl-row gl-chips" role="group" aria-label="Oil grade">${Object.keys(GRADES).map(g =>
-      `<button class="gl-chip" data-g="${g}" aria-pressed="false">${g}<small>${GRADES[g].sub}</small></button>`).join('')}</div>
-    <div class="gl-view">
+  glBody.innerHTML = `<div class="al-sec"><h4>Viscosity equalizer</h4>
       <div class="gl-read"><span>Now <b id="gl-v">–</b> cSt @ <span id="gl-t">–</span>°C</span><span class="gl-zone" id="gl-z"></span></div>
       <div id="eq" role="img" aria-label="Viscosity equalizer: bars show oil viscosity at each temperature"></div>
-      <div class="eq-t" id="eq-t"></div>
-      <div class="gl-leg" id="gl-leg"></div>
-      <button class="gl-chip gl-go" id="gl-cold">❄ Cold start (watch oil warm up)</button>
-    </div>
-    <div class="gl-row gl-tabs" style="margin-top:10px"><button class="gl-chip" id="tab-v" aria-pressed="true">Viscosity</button><button class="gl-chip" id="tab-i" aria-pressed="false">Single vs Multi</button></div>
-    <div id="gl-info" hidden>${INFO}</div>`;
+      <div class="eq-t" id="eq-t"></div><div class="gl-leg" id="gl-leg"></div>
+      <p>Pick the grade with <b>Oil grade</b> in the dock; <b>Cold start</b> restarts the engine at 8 °C.</p></div>
+    <div class="al-sec"><h4>Single vs multigrade</h4>${INFO}</div>`;
 
   const eqEl = document.getElementById('eq'), eqT = document.getElementById('eq-t');
   eqEl.innerHTML = '<div class="eq-b live"><span></span></div>' + TEMPS.map(() => '<div class="eq-b"><span></span><i></i></div>').join('');
@@ -1230,7 +1206,6 @@ import { Parts } from './components.js';
       b.lastChild.style.bottom = hPct(visc(ref, T)) + '%';
       b.title = `${g} @ ${T}°C: ${v.toFixed(v < 100 ? 1 : 0)} cSt (${z[2]})`;
     });
-    glBody.querySelectorAll('.gl-chips .gl-chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.g === g)));
   }
   function liveEQ(t) {
     const v = viscNow(), z = zoneOf(v), T = sim.oilTemp;
@@ -1248,22 +1223,12 @@ import { Parts } from './components.js';
     sim.grade = g; renderEQ();
     showFlash(g + (GRADES[g].kind === 'single' ? ' · single grade' : ' · multigrade'), 1.2, '#f59e0b');
   }
-  glBody.querySelectorAll('.gl-chips .gl-chip').forEach(c => c.addEventListener('click', () => setGrade(c.dataset.g)));
-  document.getElementById('gl-cold').addEventListener('click', () => {
+  function coldStart() {
     sim.seized = false; sim.cold = true; sim.oilOn = true; ui.controls.set('oil', true);
     sim.oilTemp = sim.bearingTemp = sim.wallTemp = sim.camTemp = 8; sim.oilPressure = 5;
     showFlash('❄ COLD START · 8 °C', 1.6, '#60a5fa');
-  });
-  const setTab = (info) => {
-    document.querySelector('#gl .gl-view').hidden = info; document.getElementById('gl-info').hidden = !info;
-    document.getElementById('tab-v').setAttribute('aria-pressed', String(!info)); document.getElementById('tab-i').setAttribute('aria-pressed', String(info));
-  };
-  document.getElementById('tab-v').onclick = () => setTab(false); document.getElementById('tab-i').onclick = () => setTab(true);
-  document.getElementById('gl-head').onclick = () => {
-    const m = glEl.classList.toggle('min'); document.getElementById('gl-head').setAttribute('aria-expanded', String(!m));
-  };
-  if (innerWidth > 700) document.getElementById('gl-head').click();            /* open by default on desktop */
-  renderEQ();
+  }
+  renderEQ(); ui.panel.remeasure();
   setInterval(() => {                                                          /* ~15 Hz equalizer refresh */
     if (sim.cold && sim.oilTemp >= 86) sim.cold = false;
     liveEQ(performance.now() / 1000);

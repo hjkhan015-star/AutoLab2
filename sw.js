@@ -1,10 +1,10 @@
 /* Auto Lab service worker — offline cache */
-const VERSION = 'autolab-v8.10.0';
+const VERSION = 'autolab-v8.10.2';
 const CORE    = VERSION + '-core';
 const RUNTIME = VERSION + '-runtime';
 
 const CORE_ASSETS = [
-  './', './index.html', './app.css', './kit.js', './labels.js', './components.js', './components.css', './controls-core.js', './controls.js', './controls.css', './monitor-core.js', './monitor.js', './chrome.js', './keys.js', './dock.js', './modules.js', './alignment-model.js', './alignment-parts.js', './wa-toe-scene.js', './wa-camber-scene.js', './wa-caster-scene.js', './guard.js', './404.html',
+  './', './index.html', './app.css', './kit.js', './labels.js', './components.js', './components.css', './controls-core.js', './controls.js', './controls.css', './monitor-core.js', './monitor.js', './chrome.js', './keys.js', './dock.js', './modules.js', './guard.js', './404.html',
   './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-512-maskable.png',
   './icons/apple-touch-icon.png', './icons/favicon-32.png',
   /* Module HTMLs — missing files are tolerated (each fetched individually) */
@@ -50,10 +50,16 @@ const CORE_ASSETS = [
   './braking.html',
   './abs-esc.html',
   './tyres.html',
-  './wheel-alignment.html',
-  './wa-toe.html',
-  './wa-camber.html',
-  './wa-caster.html'
+  './Wheel alignment/wheel-alignment.html',
+  './Wheel alignment/wa-toe.html',
+  './Wheel alignment/wa-camber.html',
+  './Wheel alignment/wa-caster.html',
+  './Wheel alignment/alignment-model.js',
+  './Wheel alignment/alignment-parts.js',
+  './Wheel alignment/alignment-rack.js',
+  './Wheel alignment/wa-toe-scene.js',
+  './Wheel alignment/wa-camber-scene.js',
+  './Wheel alignment/wa-caster-scene.js'
 ];
 
 self.addEventListener('install', (event) => {

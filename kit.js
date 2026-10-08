@@ -584,7 +584,7 @@ export const UI = {
   create(cfg) { return new UIKit(cfg); }
 };
 
-const HOME_URL = 'index.html';
+const HOME_URL = new URL('./index.html', import.meta.url).href;   /* absolute: module pages may live in a sub-folder (Wheel alignment/) */
 
 class UIKit {
   constructor(cfg) {
@@ -655,7 +655,7 @@ class UIKit {
     const apply = () => {
       const list = window.AUTO_MODULES || [];
       const file = location.pathname.split('/').pop();
-      const m = list.find((x) => x.id === this.moduleId) || list.find((x) => x.file === file);
+      const m = list.find((x) => x.id === this.moduleId) || list.find((x) => String(x.file).split('/').pop() === file);
       if (m) { this._header.setTitle(m.title || m.label); this._header.setColor(m.color); }
     };
     if (window.AUTO_MODULES) apply();

@@ -15,29 +15,17 @@ html.light-theme { --al-accent: #0891b2; }
 .al-pins .d{color:var(--text-dim);}
 .ui-tb-btn.active{outline:2px solid var(--al-accent);color:var(--al-accent);}
 
-#st{position:fixed;left:12px;top:64px;z-index:40;width:min(350px,calc(100vw - 24px));max-height:calc(100% - 150px);overflow:auto;font:12px/1.45 var(--font-ui,system-ui,sans-serif);color:var(--text,#e6ebf5);background:color-mix(in oklch,var(--bg,#0a0d13) 84%,transparent);border:1px solid color-mix(in oklch,var(--text,#fff) 14%,transparent);border-radius:12px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-#st.min{width:auto;overflow:visible}#st.min #st-body{display:none}
-#st-head{display:flex;gap:8px;align-items:center;width:100%;padding:9px 12px;background:none;border:0;color:inherit;font:700 11px var(--font-ui,sans-serif);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
-#st-head .dot{width:9px;height:9px;border-radius:50%;background:#6b7280}
-#st-body{padding:0 12px 12px}
-.st-tabs{display:flex;gap:4px;margin-bottom:8px}.st-tabs button,.st-btn{flex:1;min-height:34px;padding:6px;border-radius:8px;font:inherit;font-weight:700;color:inherit;cursor:pointer;background:color-mix(in oklch,var(--text,#fff) 7%,transparent);border:1px solid color-mix(in oklch,var(--text,#fff) 14%,transparent)}
-.st-tabs button{font-size:10px;padding:6px 1px;min-width:0}.st-tabs button[aria-pressed=true]{border-color:var(--al-accent);color:var(--al-accent)}
-.st-btn.go{border-color:#22c55e;background:color-mix(in oklch,#22c55e 20%,transparent);margin-top:6px;width:100%}
-.st-msg{padding:12px;border-radius:8px;background:color-mix(in oklch,var(--text,#fff) 6%,transparent)}
-.st-dtc{border-left:3px solid #f59e0b;padding:6px 8px;margin:6px 0;background:color-mix(in oklch,var(--text,#fff) 5%,transparent);border-radius:0 8px 8px 0}
-.st-dtc b.c{font:800 15px var(--font-mono,monospace)}.st-dtc ol{margin:4px 0 0 16px;padding:0}.st-dtc .tag{float:right;font-size:10px;font-weight:800;text-transform:uppercase;color:#f59e0b}
-.st-r{display:grid;grid-template-columns:1fr auto;gap:0 8px;padding:3px 0;font-family:var(--font-mono,monospace)}
-.st-r .bar{grid-column:1/3;height:3px;border-radius:2px;background:#22d3ee33}.st-r .bar i{display:block;height:100%;background:#22d3ee;border-radius:2px}
-.st-r.bad b{color:#f87171}.st-r.bad .bar i{background:#f87171}
-#st-toast{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:60;padding:8px 16px;border-radius:8px;font:800 12px var(--font-mono,monospace);letter-spacing:.08em;background:#000b;pointer-events:none;opacity:0;transition:opacity .25s}
-#st-toast.on{opacity:1}
-@media (max-width:700px){#st{top:56px}}
+.al-kv{display:flex;justify-content:space-between;gap:8px;font:500 11px/1.6 var(--font-mono);color:var(--text-dim);}
+.al-kv b{color:var(--text);font-weight:700;}.al-kv.bad b{color:var(--crit);}.al-kv.ok b{color:var(--ok);}
+.al-fault .c ol{margin:4px 0 0;padding-left:16px;}.al-fault .tag{float:right;font-size:10px;font-weight:800;text-transform:uppercase;color:var(--warn);}
+#status-flash{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:60;padding:8px 16px;border-radius:8px;font:800 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;background:color-mix(in oklch,var(--bg) 72%,transparent);border:1px solid var(--border);pointer-events:none;opacity:0;transition:opacity var(--dur-fast,.25s);max-width:90vw;text-align:center;}
+#status-flash.on{opacity:1;}
 </style>
 </head>
 <body>
 <div id="canvas-wrap"></div>
 <div id="labels-root"></div>
-<div id="st" class="min"><button id="st-head" aria-expanded="false"><span class="dot"></span>Scan Tool <span id="st-state" style="opacity:.7;margin-left:auto">not connected</span></button><div id="st-body"></div></div><div id="st-toast"></div>
+<div id="status-flash"></div>
 
 <script src="guard.js"></script>
   <script type="importmap">
@@ -308,6 +296,8 @@ const TABS = {
       Readiness monitors report whether the self-tests have completed since the last clear —
       they must be "ready" before an emissions test.</p>
     </div>`,
+  scan: () => scanHtml(),
+  probe: () => probeHtml(),
   faults: () => `
     <div class="al-sec"><h4>Working with codes</h4></div>
     <div class="al-fault">
@@ -332,75 +322,7 @@ const TABS = {
     </div>`,
   quiz: () => Widgets.quiz({ quiz: [["Which pins carry the CAN bus on a standard OBD-II socket?", ["Pins 2 and 10", "Pins 6 and 14", "Pins 4 and 5"], 1, "CAN-H is pin 6, CAN-L is pin 14. Pins 4 and 5 are the two grounds."], ["What does a P1xxx code tell you?", ["It is a body code", "It is a network code", "It is a manufacturer-specific powertrain code"], 2, "The letter gives the system (P = powertrain); the first digit 1 means the definition is set by the manufacturer rather than by the standard."], ["What is freeze-frame data?", ["A snapshot of sensor values captured when the fault was set", "The ECU's permanent memory of the last service", "A live stream of every sensor at once"], 0, "Freeze frame records rpm, load, speed, temperature and fuel trim at the moment the DTC was stored — it is the single most useful diagnostic clue."]] })};
 
-/* 7b3: the module legend is the Monitor footer */
-const LEGEND = '<div class="mon-legend"><span><i style="background:var(--c-cyan)"></i>Request frame</span><span><i style="background:var(--c-cyan)"></i>Response frame</span><span><i style="background:var(--c-orange)"></i>CAN-L</span><span><i style="background:var(--c-red)"></i>Battery +</span></div>';
-
-const ui = Base.UI.create({
-  moduleId: CFG.moduleId,
-  panel: {
-    kicker: 'Sensors & Control',
-    title:  'OBD-II diagnostics',
-    tabs: [
-      { id: 'overview', label: 'Overview' },
-      { id: 'faults',   label: 'Codes' },
-      { id: 'quiz',     label: 'Self-check' }
-    ],
-    onTab: renderTab,
-    badge: { text: 'No codes', color: CFG.accent }
-  },
-  monitor: {
-    config: { label: 'Bus', value: { label: 'Bus', unit: ' kbit/s', max: 100, bar: true }, rows: [['dtc', 'DTCs'], ['mil', 'MIL'], ['proto', 'Protocol'], ['mods', 'Modules online'], ['code', 'Active code'], ['frpm', 'Freeze rpm'], ['fcool', 'Freeze coolant']], footer: LEGEND, status: { text: 'Connected' } },
-    initial: { value: { text: '—', unit: ' kbit/s' }, rows: { dtc: '—', mil: '—', proto: '—', mods: '—', code: '—', frpm: '—', fcool: '—' }, status: ['Connected', false] }
-  },
-  toolbar: {
-    play: true,
-    reset: true,
-    speed: { label: 'Bus rate', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
-    labels: true
-  },
-
-  /* Phase 6: the stored code is a controls.js choice and Clear codes an action, both in the dock options row */
-  options: [
-    { id: 'plug', type: 'toggle', label: 'Tool plugged', ariaLabel: 'Plug the scan tool into the DLC', def: false, onChange: (on) => setPlug(on) },
-    { id: 'key', type: 'choice', layout: 'segmented', label: 'Ignition', ariaLabel: 'Ignition state', def: 'off',
-      options: [{ id: 'off', label: 'Off' }, { id: 'on', label: 'On' }, { id: 'run', label: 'Run' }],
-      onChange: (id) => { if (id !== sim.key) { sim.key = id; tool.t = Math.min(tool.t, 1); toast('IGNITION ' + id.toUpperCase(), '#22d3ee'); } } },
-    { id: 'sel', type: 'choice', layout: 'select', label: 'Fail', ariaLabel: 'Part to fail', def: 'ect',
-      options: Object.keys(SENS).map(k => ({ id: k, label: SENS[k].n })).concat([{ id: 'fuse', label: 'DLC fuse (pin 16)' }, { id: 'can', label: 'CAN wire break' }]),
-      onChange: (id) => { sim.sel = id; } },
-    { id: 'ftype', type: 'choice', layout: 'segmented', label: 'Fault', ariaLabel: 'Fault type', def: 'open',
-      options: [{ id: 'open', label: 'Open' }, { id: 'short', label: 'Short' }, { id: 'stuck', label: 'Stuck' }], onChange: (id) => { sim.ftype = id; } },
-    { id: 'thr', type: 'choice', layout: 'segmented', label: 'Throttle', ariaLabel: 'Throttle position', def: 'auto',
-      options: [{ id: 'auto', label: 'Auto' }, { id: 'idle', label: 'Idle' }, { id: 'mid', label: '50%' }, { id: 'wot', label: 'WOT' }], onChange: (id) => { sim.thr = id; } },
-    { id: 'mystery', type: 'action', label: 'Mystery fault', tone: 'crit', onAction: () => mystery() },
-    { id: 'inject', type: 'action', label: 'Inject fault', tone: 'crit', onAction: () => inject(sim.sel) },
-    { id: 'clear', type: 'action', label: 'Clear codes', onAction: () => clearCodes() }
-  ]
-});
-
-const tabHost = document.createElement('div');
-tabHost.id = 'al-tabs';
-tabHost.className = 'al-tabs';
-ui.panel.body.appendChild(tabHost);
-
-Widgets.wireQuiz(tabHost);
-
-function renderTab(id) {
-  tabHost.innerHTML = (TABS[id] || TABS.overview)();
-}
-renderTab('overview');
-
-function clearCodes(force) {
-  if (!force && tool.phase !== 'ready') { toast('CONNECT THE TOOL FIRST', '#fbbf24'); return; }
-  sim.codes = []; sim.freeze = null; sim.ready = 0; sim.milKm = 0; sim.sinceClear = 0;
-  Object.values(sim.faults).forEach(f => { f.age = 0; });              /* a live fault will set the code again */
-  syncDtc(); toast(force ? 'RESET' : 'CODES CLEARED · MIL OFF', '#4ade80');
-  if (sim.ch && sim.ch.fixed && !force && !Object.keys(sim.faults).length) { toast('✔ SOLVED · wrong parts: ' + sim.ch.wrong, '#4ade80'); sim.ch = null; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   OBD SIMULATOR — vehicle model, fault injection, ECU diagnostics, plug-in
-   ═══════════════════════════════════════════════════════════════════════ */
+/* ── simulation data model (declared BEFORE the UI so the dock options can read it) ── */
 const SENS = {
   ect: { n: 'Coolant temp (ECT)', part: 'ECT sensor', u: '°C', min: -40, max: 215, bad: { open: -40, short: 215, stuck: 60 }, trim: -14,
     c: { open: ['P0118', 'ECT circuit high input'], short: ['P0117', 'ECT circuit low input'], stuck: ['P0116', 'ECT range/performance'] },
@@ -428,6 +350,81 @@ const HINT = { open: 'Open circuit: look for a broken wire or an unplugged conne
 const sim = { key: 'off', sel: 'ect', ftype: 'open', plug: 0, plugOn: false, faults: {}, conn: { fuse: false, can: false }, codes: [], freeze: null,
   T: 0, uS: 0, thr: 'auto', probe: 'ect', ch: null, milKm: 0, sinceClear: 0, ect: 20, ready: 0, tab: 'codes', v: {} };
 const tool = { t: 0, phase: 'off' };
+
+/* 7b3: the module legend is the Monitor footer */
+const LEGEND = '<div class="mon-legend"><span><i style="background:var(--c-cyan)"></i>Request frame</span><span><i style="background:var(--c-cyan)"></i>Response frame</span><span><i style="background:var(--c-orange)"></i>CAN-L</span><span><i style="background:var(--c-red)"></i>Battery +</span></div>';
+
+const ui = Base.UI.create({
+  moduleId: CFG.moduleId,
+  panel: {
+    kicker: 'Sensors & Control',
+    title:  'OBD-II diagnostics',
+    tabs: [
+      { id: 'overview', label: 'Overview' },
+      { id: 'scan',     label: 'Scan tool' },
+      { id: 'probe',    label: 'Probe' },
+      { id: 'faults',   label: 'Help' },
+      { id: 'quiz',     label: 'Self-check' }
+    ],
+    onTab: renderTab,
+    badge: { text: 'No codes', color: CFG.accent }
+  },
+  monitor: {
+    config: { label: 'Bus', value: { label: 'Bus', unit: ' kbit/s', max: 100, bar: true }, rows: [['dtc', 'DTCs'], ['mil', 'MIL'], ['proto', 'Protocol'], ['mods', 'Modules online'], ['code', 'Active code'], ['frpm', 'Freeze rpm'], ['fcool', 'Freeze coolant'], ['rpm', 'Engine speed'], ['spd', 'Vehicle speed'], ['ect', 'Coolant temp'], ['iat', 'Intake temp'], ['maf', 'MAF'], ['map', 'MAP'], ['tps', 'Throttle'], ['o2', 'O2 B1S1'], ['stft', 'Fuel trim'], ['loop', 'Fuel loop'], ['batt', 'Battery']], footer: LEGEND, status: { text: 'Connected' } },
+    initial: { value: { text: '—', unit: ' kbit/s' }, rows: { dtc: '—', mil: '—', proto: '—', mods: '—', code: '—', frpm: '—', fcool: '—', rpm: '—', spd: '—', ect: '—', iat: '—', maf: '—', map: '—', tps: '—', o2: '—', stft: '—', loop: '—', batt: '—' }, status: ['Connected', false] }
+  },
+  toolbar: {
+    play: true,
+    reset: true,
+    speed: { label: 'Bus rate', min: 0.15, max: 2.5, step: 0.05, value: 0.85 },
+    labels: true
+  },
+
+  /* Phase 6: the stored code is a controls.js choice and Clear codes an action, both in the dock options row */
+  options: [
+    { id: 'plug', type: 'toggle', label: 'Tool plugged', ariaLabel: 'Plug the scan tool into the DLC', def: false, onChange: (on) => setPlug(on) },
+    { id: 'key', type: 'choice', layout: 'segmented', label: 'Ignition', ariaLabel: 'Ignition state', def: 'off',
+      options: [{ id: 'off', label: 'Off' }, { id: 'on', label: 'On' }, { id: 'run', label: 'Run' }],
+      onChange: (id) => { if (id !== sim.key) { sim.key = id; tool.t = Math.min(tool.t, 1); toast('IGNITION ' + id.toUpperCase(), '#22d3ee'); } } },
+    { id: 'sel', type: 'choice', layout: 'select', label: 'Part', ariaLabel: 'Part to fail, probe or replace', def: 'ect',
+      options: Object.keys(SENS).map(k => ({ id: k, label: SENS[k].n })).concat([{ id: 'fuse', label: 'DLC fuse (pin 16)' }, { id: 'can', label: 'CAN wire break' }]),
+      onChange: (id) => { sim.sel = id; } },
+    { id: 'ftype', type: 'choice', layout: 'segmented', label: 'Fault', ariaLabel: 'Fault type', def: 'open',
+      options: [{ id: 'open', label: 'Open' }, { id: 'short', label: 'Short' }, { id: 'stuck', label: 'Stuck' }], onChange: (id) => { sim.ftype = id; } },
+    { id: 'thr', type: 'choice', layout: 'segmented', label: 'Throttle', ariaLabel: 'Throttle position', def: 'auto',
+      options: [{ id: 'auto', label: 'Auto' }, { id: 'idle', label: 'Idle' }, { id: 'mid', label: '50%' }, { id: 'wot', label: 'WOT' }], onChange: (id) => { sim.thr = id; } },
+    { id: 'mystery', type: 'action', label: 'Mystery fault', tone: 'crit', onAction: () => mystery() },
+    { id: 'inject', type: 'action', label: 'Inject fault', tone: 'crit', onAction: () => inject(sim.sel) },
+    { id: 'replace', type: 'action', label: 'Replace part', onAction: () => partFix(sim.sel) },
+    { id: 'clear', type: 'action', label: 'Clear codes', onAction: () => clearCodes() }
+  ]
+});
+
+const tabHost = document.createElement('div');
+tabHost.id = 'al-tabs';
+tabHost.className = 'al-tabs';
+ui.panel.body.appendChild(tabHost);
+
+Widgets.wireQuiz(tabHost);
+
+var curTab = 'overview';
+function renderTab(id) {
+  curTab = id; sim._html = '';
+  tabHost.innerHTML = (TABS[id] || TABS.overview)();
+}
+renderTab('overview');
+
+function clearCodes(force) {
+  if (!force && tool.phase !== 'ready') { toast('CONNECT THE TOOL FIRST', '#fbbf24'); return; }
+  sim.codes = []; sim.freeze = null; sim.ready = 0; sim.milKm = 0; sim.sinceClear = 0;
+  Object.values(sim.faults).forEach(f => { f.age = 0; });              /* a live fault will set the code again */
+  syncDtc(); toast(force ? 'RESET' : 'CODES CLEARED · MIL OFF', '#4ade80');
+  if (sim.ch && sim.ch.fixed && !force && !Object.keys(sim.faults).length) { toast('✔ SOLVED · wrong parts: ' + sim.ch.wrong, '#4ade80'); sim.ch = null; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   OBD SIMULATOR — vehicle model, fault injection, ECU diagnostics, plug-in
+   ═══════════════════════════════════════════════════════════════════════ */
 
 /* — sensor nodes (click one to fail it) — */
 const sensorMeshes = [], leds = {};
@@ -459,8 +456,9 @@ placePlug();
 function setPlug(on) { sim.plugOn = on; if (on) toast('PUSH IN · ALIGN KEY', '#22d3ee'); ui.controls.set('plug', on); }
 
 /* — toast + click handling — */
-const toastEl = document.getElementById('st-toast'); let toastT = 0;
-function toast(m, c) { if (c === '#f87171' || c === '#f59e0b') beep(330, 0.16, 'sawtooth'); toastEl.textContent = m; toastEl.style.color = c || '#e6ebf5'; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 1600); }
+const toastEl = document.getElementById('status-flash'); let toastT = 0;
+function toast(m, c) { if (c === '#f87171' || c === '#f59e0b') beep(330, 0.16, 'sawtooth');
+  toastEl.textContent = m; toastEl.style.color = c || 'var(--accent)'; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 1700); }
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
 renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
 renderer.domElement.addEventListener('pointerup', e => {
@@ -547,79 +545,60 @@ function meter(id, f) {
   return { sig: on ? sig : 0, ohm };
 }
 const fmtR = (o) => o === null ? '—' : o === Infinity ? 'OL (open)' : o < 1 ? '0.0 Ω' : o >= 1000 ? (o / 1000).toFixed(2) + ' kΩ' : Math.round(o) + ' Ω';
-function probeHtml() {
-  const id = sim.probe, f = sim.faults[id], m = meter(id, f), e = meter(id, null), on = sim.key !== 'off';
-  const vb = on && Math.abs(m.sig - e.sig) > 0.4, rb = m.ohm !== null && (m.ohm === Infinity || e.ohm === Infinity ? m.ohm !== e.ohm : Math.abs(m.ohm - e.ohm) > Math.max(60, e.ohm * 0.25));
-  const row = (l, a, b, bad) => `<div class="st-r${bad ? ' bad' : ''}"><span>${l}</span><b>${a} <span style="opacity:.55;font-weight:400">(exp ${b})</span></b></div>`;
-  return `<div class="st-msg" style="margin-bottom:6px">🔌 Multimeter on the sensor plug. Pick a sensor:</div><div class="st-tabs" style="flex-wrap:wrap">${Object.keys(SENS).map(k => `<button data-probe="${k}" aria-pressed="${k === id}">${k.toUpperCase()}</button>`).join('')}</div>` +
-    row('Signal', m.sig.toFixed(2) + (id === 'ckp' ? ' Vp-p' : ' V'), e.sig.toFixed(2), vb) + row('5 V reference', on ? '5.00 V' : '0.00 V', on ? '5.00' : '0.00') + row('Ground', '0.00 V', '0.00') +
-    row('Resistance', fmtR(m.ohm), fmtR(e.ohm), rb) +
-    `<div class="st-msg" style="margin-top:6px">${!on ? 'Ignition is off: sensors are unpowered, so only resistance is meaningful. Turn it ON for voltages.' : vb || rb ? '⚠ Out of spec. ' + (f ? HINT[f.type] : '') : '✔ Within spec.'}</div>`;
-}
-function partsHtml() {
-  const all = Object.keys(SENS).map(k => [k, SENS[k].part]).concat([['fuse', 'DLC fuse'], ['can', 'CAN wiring']]);
-  return `<div class="st-msg">Challenge: find the fault, replace the right part, then Clear codes. Wrong parts so far: <b>${sim.ch.wrong}</b></div>` +
-    all.map(([k, l]) => `<div class="st-r"><span>${l}</span><button class="st-btn" style="flex:none;min-height:28px;padding:2px 10px" data-part="${k}">Replace</button></div>`).join('');
-}
-function infoHtml() {
-  const rows = [['VIN', 'AUTALAB26Y0000042'], ['Calibration ID', 'AL26-CAL-0142'], ['Protocol', 'ISO 15765-4 CAN 500k / 11-bit'], ['OBD standard', 'OBD-II (CARB / EPA)'],
-    ['Distance with MIL on', sim.milKm.toFixed(1) + ' km'], ['Run time since cleared', Math.floor(sim.sinceClear / 60) + ' min ' + Math.floor(sim.sinceClear % 60) + ' s']];
-  return rows.map(([a, b]) => `<div class="st-r"><span>${a}</span><b>${b}</b></div>`).join('');
-}
 function partFix(id) {
-  if (!sim.ch) { repair(id); return; }
+  if (!sim.ch) { if (id === 'fuse' || id === 'can' ? sim.conn[id] : sim.faults[id]) repair(id); else toast('NOTHING WRONG WITH THIS PART', '#fbbf24'); return; }
   const bad = id === 'fuse' || id === 'can' ? sim.conn[id] : !!sim.faults[id];
   if (bad) { repair(id); if (id === sim.ch.id) sim.ch.fixed = true; } else { sim.ch.wrong++; toast('WRONG PART · it was fine (+1)', '#f87171'); }
 }
 function mystery() {
   const ids = Object.keys(SENS), id = ids[Math.floor(Math.random() * ids.length)], type = ['open', 'short', 'stuck'][Math.floor(Math.random() * 3)];
   sim.faults = {}; sim.conn = { fuse: false, can: false }; sim.codes = []; sim.freeze = null; sim.faults[id] = { type, age: 0 };
-  sim.ch = { id, wrong: 0, fixed: false }; sim.tab = 'codes'; syncDtc(); toast('MYSTERY FAULT · diagnose it', '#f59e0b');
+  sim.ch = { id, wrong: 0, fixed: false }; syncDtc(); toast('MYSTERY FAULT · diagnose it', '#f59e0b');
 }
 
-/* — scan tool UI — */
-const stBody = document.getElementById('st-body'), stEl = document.getElementById('st');
-document.getElementById('st-head').onclick = () => { const m = stEl.classList.toggle('min'); document.getElementById('st-head').setAttribute('aria-expanded', String(!m)); };
-if (innerWidth > 700) document.getElementById('st-head').click();
-stBody.addEventListener('click', e => {
-  const t = e.target.closest('[data-tab],[data-fix],[data-probe],[data-part]'); if (!t) return;
-  if (t.dataset.tab) sim.tab = t.dataset.tab; else if (t.dataset.probe) sim.probe = t.dataset.probe; else if (t.dataset.part) partFix(t.dataset.part); else repair(t.dataset.fix);
-  sim._html = ''; renderTool();
-});
+/* — scan tool + multimeter render into the shared panel tabs (no custom controls) — */
 const MSG = {
-  off: 'Scan tool not connected. Seat the J1962 plug in the DLC: use <b>Tool plugged</b> or tap the plug in the 3D view.',
+  off: 'Scan tool not connected. Seat the J1962 plug in the DLC: use <b>Tool plugged</b> in the dock, or tap the plug in the 3D view.',
   boot: 'Tool powering up from pin 16…', search: 'Searching protocols (ISO 15765-4 CAN on pins 6 and 14)…',
-  nokey: '<b>Linked, but the ECU is asleep.</b> Turn the ignition to <b>ON</b> (or Run).',
-  nopower: '<b>Tool is dead.</b> Pin 16 has no battery power. Check the 10–15 A DLC/cigar-lighter fuse in the fuse box and test pin 16 for 12 V.<button class="st-btn go" data-fix="fuse">🔧 Replace fuse</button>',
-  fail: '<b>UNABLE TO CONNECT TO ECU.</b> Pins 16/4/5 are fine but there is no CAN traffic. Check about 60 Ω between pins 6 and 14 and look for a broken CAN wire.<button class="st-btn go" data-fix="can">🔧 Repair CAN wiring</button>'
+  nokey: '<b>Linked, but the ECU is asleep.</b> Turn the ignition to <b>On</b> (or Run).',
+  nopower: '<b>Tool is dead.</b> Pin 16 has no battery power. Check the 10–15 A DLC fuse and test pin 16 for 12 V. Then set <b>Part = DLC fuse</b> and press <b>Replace part</b>.',
+  fail: '<b>Unable to connect to ECU.</b> Pins 16/4/5 are fine but there is no CAN traffic. Check about 60 Ω between pins 6 and 14 and look for a broken CAN wire. Then set <b>Part = CAN wire</b> and press <b>Replace part</b>.'
 };
-function renderTool() {
-  const P = tool.phase, st = document.getElementById('st-state'), dot = document.querySelector('#st-head .dot');
-  st.textContent = { off: 'not connected', nopower: 'no power', boot: 'booting', search: 'searching', nokey: 'ignition off', fail: 'no ECU', ready: 'connected' }[P];
-  dot.style.background = P === 'ready' ? '#22c55e' : P === 'off' ? '#6b7280' : ['nopower', 'fail'].includes(P) ? '#ef4444' : '#f59e0b';
-  const TB = [['codes', 'Codes'], ['live', 'Live'], ['freeze', 'Freeze'], ['ready', 'Ready'], ['info', 'Info'], ['probe', 'Probe']].concat(sim.ch ? [['parts', 'Parts']] : []);
-  const tabs = `<div class="st-tabs">${TB.map(([k, l]) => `<button data-tab="${k}" aria-pressed="${sim.tab === k}">${l}</button>`).join('')}</div>`;
-  const tab = sim.tab; let h;
-  if (tab === 'probe') h = tabs + probeHtml();
-  else if (tab === 'parts' && sim.ch) h = tabs + partsHtml();
-  else if (P !== 'ready') h = tabs + `<div class="st-msg">${MSG[P]}</div>`;
-  else {
-    const r = readings();
-    if (tab === 'codes') h = tabs + (sim.codes.length ? sim.codes.map(c => { const S = SENS[c.id];
-      return `<div class="st-dtc"><span class="tag">${c.status}</span><b class="c">${c.code}</b><br>${c.name}<br><i style="opacity:.8">${HINT[c.type]}</i><ol><li>Inspect the connector for corrosion, bent pins or chafed wires.</li><li>${S.test}</li><li>Still wrong? Replace the ${S.part}.</li></ol>${sim.ch && sim.faults[c.id] ? '<i>Confirm with the Probe tab, then replace the faulty part on the Parts tab.</i>' : sim.faults[c.id] ? `<button class="st-btn go" data-fix="${c.id}">🔧 Replace ${S.part}</button>` : '<b style="color:#4ade80">Part replaced. Use Clear codes, then drive to verify.</b>'}</div>`; }).join('') : '<div class="st-msg">No codes stored. MIL off.</div>');
-    else if (tab === 'live') {
-      const row = (l, val, u, pct, bad) => `<div class="st-r${bad ? ' bad' : ''}"><span>${l}</span><b>${val} ${u}</b><div class="bar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div></div>`;
-      h = tabs + row('Engine speed', Math.round(r.rpm), 'rpm', r.rpm / 80, !!sim.faults.ckp) + row('Vehicle speed', Math.round(r.speed), 'km/h', r.speed / 1.8) +
-        Object.keys(SENS).filter(k => k !== 'ckp').map(k => { const S = SENS[k], x = r[k]; return row(S.n, x.toFixed(S.u === 'V' ? 2 : S.u === 'g/s' || S.u === '°C' ? 1 : 0), S.u, (x - S.min) / (Math.min(S.max, k === 'maf' ? 80 : S.max) - S.min) * 100, !!sim.faults[k]); }).join('') +
-        row('Short-term fuel trim', (r.stft > 0 ? '+' : '') + r.stft.toFixed(1), '%', 50 + r.stft * 2, Math.abs(r.stft) > 10) +
-        `<div class="st-r"><span>Fuel system</span><b>${r.loop}</b></div>` + row('Battery', r.batt.toFixed(1), 'V', (r.batt - 10) * 25);
-    } else if (tab === 'info') h = tabs + infoHtml();
-    else if (tab === 'freeze') h = tabs + (sim.freeze ? `<div class="st-r"><span>DTC that set it</span><b>${sim.freeze.code}</b></div><div class="st-r"><span>Engine speed</span><b>${Math.round(sim.freeze.rpm)} rpm</b></div><div class="st-r"><span>Coolant</span><b>${Math.round(sim.freeze.ect)} °C</b></div><div class="st-r"><span>Vehicle speed</span><b>${Math.round(sim.freeze.speed)} km/h</b></div>` : '<div class="st-msg">No freeze frame stored.</div>');
-    else h = tabs + `<div class="st-msg">After a clear, monitors must complete a drive cycle (engine running, no faults) before an emissions test.</div>` + ['Misfire', 'Fuel system', 'Oxygen sensor', 'Catalyst'].map((m, i) => { const d = sim.ready > 6 + i * 3; return `<div class="st-r"><span>${m}</span><b style="color:${d ? '#4ade80' : '#fbbf24'}">${d ? 'Ready' : 'Not ready'}</b></div>`; }).join('');
-  }
-  if (h !== sim._html) { sim._html = h; stBody.innerHTML = h; }
+const STATE_TXT = { off: 'not connected', nopower: 'no power', boot: 'booting', search: 'searching', nokey: 'ignition off', fail: 'no ECU', ready: 'connected' };
+const kv = (l, v, cls) => `<div class="al-kv ${cls || ''}"><span>${l}</span><b>${v}</b></div>`;
+function scanHtml() {
+  const P = tool.phase;
+  if (P !== 'ready') return `<div class="al-sec"><h4>Scan tool · ${STATE_TXT[P]}</h4><p>${MSG[P]}</p></div>`;
+  const codes = sim.codes.length ? sim.codes.map(c => { const S = SENS[c.id], live = sim.faults[c.id];
+    const todo = sim.ch && live ? 'Confirm with the Probe tab, then replace the faulty part.' : live ? `Set <b>Part = ${S.n}</b> and press <b>Replace part</b>.` : '<b>Part replaced.</b> Use <b>Clear codes</b>, then drive to verify.';
+    return `<div class="al-fault"><span class="tag">${c.status}</span><div class="t">${c.code} · ${c.name}</div><div class="s">${HINT[c.type]}</div><div class="c"><ol><li>Inspect the connector for corrosion, bent pins or chafed wires.</li><li>${S.test}</li><li>Still wrong? Replace the ${S.part}.</li></ol>${todo}</div></div>`; }).join('')
+    : '<p>No codes stored. MIL off.</p>';
+  const fz = sim.freeze ? kv('DTC that set it', sim.freeze.code) + kv('Engine speed', Math.round(sim.freeze.rpm) + ' rpm') + kv('Coolant', Math.round(sim.freeze.ect) + ' °C') : '<p>No freeze frame stored.</p>';
+  const rdy = ['Misfire', 'Fuel system', 'Oxygen sensor', 'Catalyst'].map((m, i) => { const d = sim.ready > 6 + i * 3; return kv(m, d ? 'Ready' : 'Not ready', d ? 'ok' : ''); }).join('');
+  const info = kv('VIN', 'AUTALAB26Y0000042') + kv('Calibration ID', 'AL26-CAL-0142') + kv('Distance with MIL on', sim.milKm.toFixed(1) + ' km') + kv('Run time since cleared', Math.floor(sim.sinceClear / 60) + ' min ' + Math.floor(sim.sinceClear % 60) + ' s');
+  return `<div class="al-sec"><h4>Stored codes (Mode 03)</h4>${codes}</div><div class="al-sec"><h4>Freeze frame</h4>${fz}</div><div class="al-sec"><h4>Readiness monitors</h4>${rdy}</div><div class="al-sec"><h4>Vehicle info (Mode 09)</h4>${info}</div>`;
 }
-setInterval(() => { renderTool(); updateReadouts(); }, 250);
+function probeHtml() {
+  const id = sim.sel, on = sim.key !== 'off', head = '<div class="al-sec"><h4>Multimeter · probing: ' + (SENS[id] ? SENS[id].n : id === 'fuse' ? 'DLC fuse / pin 16' : 'CAN pins 6 and 14') + '</h4><p>Choose the part with <b>Part</b> in the dock.</p>';
+  if (id === 'fuse') return head + kv('Pin 16 to ground', sim.conn.fuse ? '0.0 V' : '12.4 V', sim.conn.fuse ? 'bad' : 'ok') + kv('Expected', '12.4 V') + '</div>';
+  if (id === 'can') return head + kv('Pin 6 to pin 14', sim.conn.can ? 'OL (open)' : '60 Ω', sim.conn.can ? 'bad' : 'ok') + kv('Expected', '60 Ω') + '</div>';
+  const f = sim.faults[id], m = meter(id, f), e = meter(id, null);
+  const vb = on && Math.abs(m.sig - e.sig) > 0.4, rb = m.ohm !== null && (m.ohm === Infinity || e.ohm === Infinity ? m.ohm !== e.ohm : Math.abs(m.ohm - e.ohm) > Math.max(60, e.ohm * 0.25));
+  const x = (a, b) => `${a} <span style="opacity:.55;font-weight:400">(exp ${b})</span>`;
+  return head + kv('Signal', x(m.sig.toFixed(2) + (id === 'ckp' ? ' Vp-p' : ' V'), e.sig.toFixed(2)), vb ? 'bad' : '') + kv('5 V reference', on ? '5.00 V' : '0.00 V') + kv('Ground', '0.00 V') + kv('Resistance', x(fmtR(m.ohm), fmtR(e.ohm)), rb ? 'bad' : '') +
+    `<p>${!on ? 'Ignition is off: sensors are unpowered, so only resistance is meaningful. Turn it On for voltages.' : vb || rb ? '⚠ Out of spec. ' + (f ? HINT[f.type] : '') : '✔ Within spec.'}</p></div>`;
+}
+function liveRows() {
+  const ok = tool.phase === 'ready', r = readings(), f = (v, d) => ok ? v.toFixed(d) : '—';
+  return { rpm: ok ? [Math.round(r.rpm) + ' rpm', sim.key === 'run' && r.rpm === 0 ? 'crit' : ''] : '—', spd: ok ? Math.round(r.speed) + ' km/h' : '—',
+    ect: ok ? f(r.ect, 1) + ' °C' : '—', iat: ok ? f(r.iat, 1) + ' °C' : '—', maf: ok ? f(r.maf, 1) + ' g/s' : '—', map: ok ? Math.round(r.map) + ' kPa' : '—',
+    tps: ok ? f(r.tps, 0) + ' %' : '—', o2: ok ? f(r.o2, 2) + ' V' : '—', stft: ok ? [(r.stft > 0 ? '+' : '') + r.stft.toFixed(1) + ' %', Math.abs(r.stft) > 10 ? 'warn' : ''] : '—',
+    loop: ok ? r.loop : '—', batt: ok ? f(r.batt, 1) + ' V' : '—' };
+}
+setInterval(() => {
+  ui.monitor.update({ rows: liveRows() }); updateReadouts();
+  if (curTab === 'scan' || curTab === 'probe') { const h = TABS[curTab](); if (h !== sim._html) { sim._html = h; tabHost.innerHTML = h; } }
+}, 250);
 
 /* ═══════════════════════════════════════════════════════════════════════
    CODE VISUALS
