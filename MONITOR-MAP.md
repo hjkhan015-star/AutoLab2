@@ -47,6 +47,8 @@ Legend: **7a-1** = done in part 1; **7a-2** = done in part 2 (both in this zip) 
 | tyres | guided | big+bar (Contact patch); 2 chip rows; 7 ro rows (grid→rows); no canvas | big value = ro row patch (dropped from rows); chip rows share ro ids: patch,wear | 7a-1 done: big/bar/status/rows/ro → ui.monitor | - | 7b done |
 | wheel-alignment | guided | big (Total toe, front); 5 ro rows, 4 with a segmented-spec bar; no canvas | spec rows patch [text, tone, number] | 7b done: big/status/ro → ui.monitor | - | 7b done |
 | wa-toe | guided | big (Total toe, front); 9 ro rows, 4 with a segmented-spec bar; no canvas | spec rows patch [text, tone, number] | 7b done: big/status/ro → ui.monitor | - | 7b done |
+| wa-camber | guided | big (Camber, front); 10 ro rows, 5 with a segmented-spec bar; no canvas | spec rows patch [text, tone, number] | 7b done: big/status/ro → ui.monitor | - | 7b done |
+| wa-caster | guided | big (Caster, front mean); 9 ro rows, 3 with a segmented-spec bar; no canvas | spec rows patch [text, tone, number] | 7b done: big/status/ro → ui.monitor | - | 7b done |
 | valvetrain | bespoke | chip; 5 ui.chip calls; 9 ro-* ids | - | chip → Monitor via wrapper (works, unchanged) | - | 7b done |
 | wiring | guided | big+bar (Current); 2 chip rows; 7 ro rows (grid→rows); no canvas | big value = ro row amps (dropped from rows); chip rows share ro ids: fuse,temp | 7a-1 done: big/bar/status/rows/ro → ui.monitor | - | 7b done |
 
