@@ -171,10 +171,10 @@ class Gen {
     this.geometry = a[0] && a[0].setAttribute ? a[0] : { dispose() {}, attributes: {}, rotateZ() {}, setAttribute() {} };
   }
   setAttribute(k, v) { this.attributes[k] = v; } rotateZ() {} add(...c) { this.children.push(...c); } remove() {} traverse(f) { f(this); this.children.forEach((c) => c.traverse && c.traverse(f)); }
-  dispose() {} setDirection() {} setLength() {}
+  dispose() {} setDirection() {} setLength() {} translate() {} rotateY() {} rotateX() {} moveTo() {} lineTo() {} absarc() {} closePath() {} clone() { return this; }
 }
 const THREE_STUB = new Proxy({}, { get: (_, k) => (k === 'Vector3' ? Vec : k === 'BufferAttribute' ? class { constructor(a) { this.array = a; } } : Gen) });
-const ctxStub = new Proxy({}, { get: () => () => {}, set: () => true });
+const ctxStub = new Proxy({}, { get: (_, k) => (k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : () => {}), set: () => true });
 globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => ctxStub }) };
 const { buildToeScene, paintTread, CAMERAS } = await import('../wa-toe-scene.js');
 const mkSession = () => ({ st: M.makeState('hatchback'), exag: 8, unit: 'deg', cam: 'top', ver: 0, flags: { lasers: true, ghost: true, wear: true, tint: true, auto: true } });
@@ -224,5 +224,152 @@ t('toe page wiring: registered, precached, equalizer faders and no duplicate con
   const ids = [...page.matchAll(/\bid: '([a-zA-Z]+)'/g)].map((m) => m[1]); const dup = ids.filter((x, i) => ids.indexOf(x) !== i);
   assert.deepEqual(dup, [], 'no control id twice');
   assert.match(rd('wheel-alignment.html'), /id: 'page'/); assert.match(page, /id: 'page'/);
+});
+
+/* ═══ Phase 2: camber ═══ */
+t('camber: axle ↔ individual mapping keeps the left/right difference', () => {
+  const st = M.makeState('hatchback'); st.FL.camber = -0.2; st.FR.camber = -1.0;
+  M.setAxleCamber(st, 'F', -2); near(M.axleCamber(st, 'F'), -2); near(st.FL.camber - st.FR.camber, 0.8);
+  M.setWheelCamber(st, 'RL', 0.3); near(st.RL.camber, 0.3);
+  M.camberToZero(st); assert.ok(M.CORNERS.every((c) => st[c].camber === 0));
+  M.camberToSpec(st); near(st.FL.camber, -0.5); near(st.RL.camber, -1.0);
+});
+t('camber: tilt about the contact patch', () => {
+  near(M.tiltAboutContact(310, 0).dx, 0); near(M.tiltAboutContact(310, 0).dy, 310);
+  const a = M.tiltAboutContact(310, 3); near(a.dx, 310 * Math.sin(3 * Math.PI / 180)); near(Math.hypot(a.dx, a.dy), 310);
+  near(M.tiltAboutContact(310, -3).dx, -a.dx);
+});
+t('camber: pressure profile sums to 1, shifts toward the loaded shoulder, even at the optimum', () => {
+  for (const c of [-3, -0.5, 0, 2]) near(M.pressureProfile(c).reduce((x, y) => x + y, 0), 1);
+  near(M.pressureBias(-0.5).inner, 50);
+  mono((c) => -M.pressureBias(c).inner, [-3, -2, -1, -0.5, 0, 1, 3]);
+  assert.ok(M.pressureBias(-3).inner > 60 && M.pressureBias(3).inner < 40);
+  const p = M.pressureProfile(-3); assert.ok(p[0] > p[8]);
+});
+t('camber: dynamic camber, roll and grip indices', () => {
+  assert.ok(M.dynamicCamber(-1, 3, 'macpherson', true) > -1 && M.dynamicCamber(-1, 3, 'macpherson', false) < -1);
+  assert.ok(M.dynamicCamber(-1, 3, 'wishbone', true) < M.dynamicCamber(-1, 3, 'macpherson', true), 'wishbone follows roll less');
+  near(M.dynamicCamber(-1, 0, 'wishbone', true), -1); near(M.rollAngle(0, 'wishbone'), 0); assert.ok(M.rollAngle(1, 'macpherson') > M.rollAngle(1, 'wishbone'));
+  assert.equal(M.corneringGrip(-1.5), 1); assert.equal(M.brakingGrip(0), 1);
+  mono((c) => -M.corneringGrip(c), [-1.5, -1, 0, 1, 3]); mono((c) => -M.corneringGrip(c), [-1.5, -2, -3, -4]); mono((c) => -M.brakingGrip(Math.abs(c)), [0, 1, 2, 3]);
+});
+t('camberReport: in spec reads clean; presets and faults read worse; monotonic life', () => {
+  const r0 = M.camberReport(M.makeState('hatchback'));
+  assert.equal(r0.pull.value, 0); near(r0.life, 100); assert.equal(r0.ccStat, 'ok'); assert.ok(M.CORNERS.every((c) => r0.status[c] === 'ok')); assert.match(r0.explain, /in spec/);
+  const race = M.applyCamberPreset(M.makeState('hatchback'), 'race'), rr = M.camberReport(race);
+  assert.ok(rr.life < 100 && rr.bias.FL.inner > 60 && rr.wear.FL.inner > rr.wear.FL.outer); assert.match(rr.explain, /inner/i);
+  const sag = M.camberReport(M.applyCamberPreset(M.makeState('hatchback'), 'sag')); assert.ok(sag.wear.FL.outer > sag.wear.FL.inner && sag.bias.FL.inner < 50);
+  const bent = M.camberReport(M.applyCamberPreset(M.makeState('hatchback'), 'bent')); assert.ok(bent.pull.value > 0 && Math.abs(bent.drift) > 0, 'right wheel more positive: pulls right');
+  const life = (k) => { const s2 = M.makeState('hatchback'); M.setAxleCamber(s2, 'F', -0.5 + k); return -M.camberReport(s2).life; };
+  mono(life, [0, 0.5, 1, 2, 3]);
+  let k2 = 0; const f = M.randomCamberFault(M.makeState('hatchback'), () => [0.9, 0.5, 0.1, 0.5][k2++ % 4]); assert.ok(M.CORNERS.every((c) => Math.abs(f[c].camber) <= M.CAMBER_LIMIT));
+  assert.deepEqual(M.CAMBER_PRESETS.map((x) => x.id), ['spec', 'race', 'sag', 'bent']);
+});
+const { buildCamberScene, paintFootprint, CAMBER_CAMERAS } = await import('../wa-camber-scene.js');
+const mkCam = () => ({ st: M.makeState('hatchback'), exag: 8, cam: 'front', ver: 0, flags: { plumb: true, heat: true, wear: true, tint: true, turn: false } });
+t('camber scene: wheels pivot about the contact patch and tilt the right way', () => {
+  const S = mkCam(), H = mkH(), sc = buildCamberScene(H, S);
+  const rig = H.root.children[H.root.children.length - 1], ln = () => rig.children.filter((c) => c.geometry && c.geometry.attributes.position && c.geometry.attributes.position.array.length === 6);
+  M.setAxleCamber(S.st, 'F', -2); S.ver++; const o = sc.update({ t: 0 });
+  const L = ln(), arr = (i) => L[i].geometry.attributes.position.array;       /* order: plumb FL, plane FL, plumb FR, plane FR … */
+  assert.ok(arr(1)[3] < arr(1)[0], 'left wheel, negative camber: top leans toward the car (−x)'); assert.ok(arr(3)[3] > arr(3)[0], 'right wheel: top leans toward +x');
+  near(arr(0)[3], arr(0)[0]); near(arr(1)[0], arr(0)[0], 1e-9);                 /* both lines start at the contact patch */
+  assert.equal(o.big, '−2.00°'); assert.equal(o.ro.camFL.length, 3); assert.ok(Array.isArray(o.ro.grip));
+  S.exag = 20; S.ver++; assert.equal(sc.update({ t: 0.02 }).big, '−2.00°', 'readouts ignore the exaggeration');
+  M.setAxleCamber(S.st, 'F', 0); S.ver++; sc.update({ t: 0.04 }); near(arr(1)[3], arr(1)[0]);
+  sc.dispose();
+});
+t('camber scene: load transfer rolls the body and changes camber over time; cameras glide', () => {
+  const S = mkCam(), H = mkH(), sc = buildCamberScene(H, S); S.flags.turn = true; S.cam = 'close';
+  for (let i = 0; i < 200; i++) { sc.update({ t: i / 60 }); }
+  const rig = H.root.children[H.root.children.length - 1]; assert.ok(rig.children.length > 8);
+  near(H.camera.position.x, CAMBER_CAMERAS.close.pos[0], 0.1); sc.dispose();
+});
+t('footprint painter: one column per pixel; page wiring', () => {
+  let n2 = 0; paintFootprint({ fillRect: () => { n2++; }, set fillStyle(v) {} }, 128, 8, M.pressureProfile(-2), true); assert.equal(n2, 128);
+  const page = rd('wa-camber.html'), sw = rd('sw.js');
+  for (const f of ['wa-camber.html', 'wa-camber-scene.js']) assert.ok(sw.includes(`'./${f}'`), f);
+  assert.equal((page.match(/look: 'equalizer'/g) || []).length, 1);
+  const ids = [...page.matchAll(/\bid: '([a-zA-Z]+)'/g)].map((m) => m[1]); assert.deepEqual(ids.filter((x, i) => ids.indexOf(x) !== i), []);
+});
+
+/* ═══ Phase 3: caster ═══ */
+t('caster: trail, presets, setters, steering-ratio round trip', () => {
+  const st = M.makeState('hatchback'); M.applyCasterPreset(st, 'mismatch'); near(M.crossCaster(st), 1.8);
+  M.applyCasterPreset(st, 'low'); near(st.FL.caster, 1); M.applyCasterPreset(st, 'spec'); near(st.FR.caster, 4);
+  M.setCaster(st, 'L', 20); near(st.FL.caster, M.CASTER_MAX); M.setCaster(st, 'R', -9); near(st.FR.caster, M.CASTER_MIN);
+  near(M.derive(M.applyCasterPreset(M.makeState('hatchback'), 'spec')).trailL, 310 * Math.tan(4 * Math.PI / 180));
+  assert.ok(M.mechanicalTrail(310, -2) < 0, 'negative caster gives negative trail');
+  near(M.steerFromDial(M.dialFromSteer(12)), 12); near(M.steerFromDial(-140), 10, 1e-9); assert.equal(M.steerFromDial(0), 0);
+  assert.deepEqual(M.CASTER_PRESETS.map((x) => x.id), ['spec', 'low', 'mismatch']);
+});
+t('caster: camber gain sign (outside negative, inside positive) and magnitude', () => {
+  const g = M.camberGainWheel(4, 10, 'L'); near(g, 4 * Math.sin(10 * Math.PI / 180));
+  assert.ok(M.camberGainWheel(4, 10, 'L') > 0 && M.camberGainWheel(4, 10, 'R') < 0, 'left turn: left wheel is inside (+), right wheel outside (−)');
+  assert.ok(M.camberGainWheel(4, -10, 'L') < 0 && M.camberGainWheel(4, -10, 'R') > 0, 'right turn mirrors it');
+  near(M.camberGainWheel(0, 20, 'L'), 0); near(M.camberGainWheel(4, 0, 'R'), 0);
+  assert.ok(Math.abs(M.camberGainWheel(8, 10, 'L')) > Math.abs(M.camberGainWheel(4, 10, 'L')));
+  mono((a) => M.camberGainWheel(4, a, 'L'), [0, 5, 10, 20, 30]);
+});
+t('caster swing method recovers the caster', () => {
+  for (const c of [0, 2, 4, 6, 8]) near(M.casterFromSwing(M.swingDelta(c)), c, 1e-9);
+  assert.ok(M.swingDelta(6) > M.swingDelta(3));
+});
+t('caster: restoring torque monotonic; release settles faster with more caster', () => {
+  const T = (c) => M.selfCentringTorque(310, c, 12, 10); mono(T, [0, 1, 2, 4, 8]); assert.ok(T(8) < 4 * T(4) + 1);
+  const p = (c) => ({ tyreRadius: 310, casterDeg: c, scrub: 12 });
+  let s = { theta: 15, omega: 0 }, prev = 15;
+  for (let i = 0; i < 400; i++) { s = M.releaseStep(s, 0.005, p(4)); if (i > 20) assert.ok(Math.abs(s.theta) <= Math.abs(prev) + 1.5, 'no wild oscillation'); prev = s.theta; }
+  assert.ok(Math.abs(s.theta) < 1, 'returns to centre');
+  assert.ok(M.settleTime(p(6)) < M.settleTime(p(2)), 'more caster settles sooner'); assert.ok(M.settleTime(p(4), -15) > 0);
+  assert.ok(M.settleTime(p(4), 5) <= M.settleTime(p(4), 25) + 0.5);
+});
+t('casterReport: spec reads clean; mismatch pulls toward the LOWER caster; low caster is light', () => {
+  const r0 = M.casterReport(M.applyCasterPreset(M.makeState('hatchback'), 'spec'));
+  assert.equal(r0.status.L, 'ok'); assert.equal(r0.ccStat, 'ok'); assert.equal(r0.pull.value, 0); assert.ok(r0.atRef && r0.torque > 0); near(r0.swingCaster, 4);
+  const mm = M.casterReport(M.applyCasterPreset(M.makeState('hatchback'), 'mismatch'));
+  assert.ok(mm.pull.value > 0 && mm.drift > 0, 'left 5°, right 3.2°: less caster on the right pulls right'); assert.equal(mm.ccStat, 'crit'); assert.match(mm.explain, /less caster/);
+  const mr = M.applyCasterPreset(M.makeState('hatchback'), 'mismatch'); [mr.FL.caster, mr.FR.caster] = [3.2, 5]; assert.ok(M.casterReport(mr).pull.value < 0, 'mirrored mismatch pulls left');
+  const low = M.casterReport(M.applyCasterPreset(M.makeState('hatchback'), 'low')); assert.ok(low.effort.value < r0.effort.value && low.torque < r0.torque); assert.match(low.explain, /Low caster/);
+  assert.ok(M.casterReport(M.makeState('hatchback'), 12).atRef === false);
+  mono((k) => M.casterReport(((x) => { M.setCaster(x, 'L', 2 + k); M.setCaster(x, 'R', 2 + k); return x; })(M.makeState('hatchback'))).torque, [0, 1, 2, 4, 6]);
+});
+const { buildCasterScene, CASTER_CAMERAS } = await import('../wa-caster-scene.js');
+const mkCas = () => { const S = { st: M.makeState('hatchback'), exag: 2, cam: 'side', ver: 0, steer: 0, mode: null, rel: { theta: 0, omega: 0 }, flags: { axis: true, trail: true, drive: false, swing: false }, pushed: [] }; S.pushSteer = (d) => S.pushed.push(d); return S; };
+t('caster scene: steering axis tilts rearward at the top; trail follows the angle', () => {
+  const S = mkCas(), H = mkH(), sc = buildCasterScene(H, S); M.applyCasterPreset(S.st, 'spec'); S.ver++; const o = sc.update({ t: 0 });
+  const rig = H.root.children[H.root.children.length - 1], ln = rig.children.filter((c) => c.geometry && c.geometry.attributes.position && c.geometry.attributes.position.array.length === 6);
+  const a = ln[0].geometry.attributes.position.array;                       /* left axis: [ground x,y,z, top x,y,z] */
+  assert.ok(a[5] < a[2], 'top is further back (−z) than the ground intercept: positive caster'); near(a[4], 0.31 + 0.55, 0.3); near(a[0], a[3]);
+  const k = Math.tan(4 * 2 * Math.PI / 180); near(a[2] - 1.3, 0.31 * k, 1e-3);
+  assert.equal(o.big, '+4.0°'); assert.equal(o.ro.casL.length, 3); assert.match(o.ro.swing[0], /→/);
+  S.exag = 3; S.ver++; assert.equal(sc.update({ t: 0.02 }).big, '+4.0°', 'readouts ignore the exaggeration');
+  M.setCaster(S.st, 'L', 0); S.ver++; sc.update({ t: 0.04 }); near(a[2], a[5] + 0.55 * 0 + 0, 1e-6);
+  sc.dispose();
+});
+t('caster scene: hands-off release returns to zero and drives the dial; swing demo sweeps ±20°; pull drifts the car the right way', () => {
+  const S = mkCas(), H = mkH(), sc = buildCasterScene(H, S);
+  S.steer = 15; S.rel = { theta: 15, omega: 0 }; S.mode = 'release'; let t0 = 0; for (let i = 0; i < 600 && S.mode; i++) { t0 += 1 / 60; sc.update({ t: t0 }); }
+  assert.equal(S.mode, null, 'release finished'); assert.equal(S.steer, 0); assert.ok(S.pushed.length > 5 && S.pushed.some((d) => d > 1) && S.pushed.at(-1) === 0);
+  S.pushed.length = 0; S.flags.swing = true; let hi = -99, lo = 99; for (let i = 0; i < 300; i++) { sc.update({ t: 10 + i / 60 }); hi = Math.max(hi, S.steer); lo = Math.min(lo, S.steer); }
+  assert.ok(hi > 19 && lo < -19 && hi <= 20.001, 'sweeps ±20°');
+  S.flags.swing = false; S.steer = 0; M.applyCasterPreset(S.st, 'mismatch'); S.flags.drive = true; S.ver++;
+  for (let i = 0; i < 120; i++) sc.update({ t: 20 + i / 60 });
+  const rig = H.root.children[H.root.children.length - 1]; assert.ok(rig.position.x < 0, 'pull to the right moves the car to −x (its right)');
+  S.cam = 'front'; for (let i = 0; i < 90; i++) sc.update({ t: 30 + i / 60 }); near(H.camera.position.z, CASTER_CAMERAS.front.pos[2], 0.2); sc.dispose();
+});
+t('caster page wiring: dial steering, equalizer per side, registered', () => {
+  const page = rd('wa-caster.html'), sw = rd('sw.js');
+  for (const f of ['wa-caster.html', 'wa-caster-scene.js']) assert.ok(sw.includes(`'./${f}'`), f);
+  assert.equal((page.match(/look: 'equalizer'/g) || []).length, 1); assert.match(page, /type: 'dial', look: 'wheel'/);
+  const ids = [...page.matchAll(/\bid: '([a-zA-Z]+)'/g)].map((m) => m[1]); assert.deepEqual(ids.filter((x, i) => ids.indexOf(x) !== i), []);
+  assert.deepEqual(M.WA_PAGES.map((x) => x.id), ['scene', 'toe', 'camber', 'caster']);
+});
+t('toe scene: auto-drive moves a right-pulling car to its right (−x), a left-pulling one to +x', () => {
+  for (const [toe, sign] of [[0.5, -1], [-0.5, 1]]) {
+    const S = mkSession(), H = mkH(), sc = buildToeScene(H, S); S.st.RL.toe = 0.2 + toe; S.st.RR.toe = 0.2 - toe; S.ver++;
+    for (let i = 0; i < 120; i++) sc.update({ t: i / 60 });
+    assert.ok(H.root.children[H.root.children.length - 1].position.x * sign > 0, `toe ${toe}`); sc.dispose();
+  }
 });
 console.log(`${n} alignment tests passed`);
