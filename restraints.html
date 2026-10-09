@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Seatbelts &amp; Airbags — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #ef4444; }
+html.light-theme { --al-accent: color-mix(in oklch, #ef4444 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId":"restraints","title":"Seatbelts & Airbags","kicker":"Body, Safety & Comfort","accent":"#ef4444","badge":"Passive safety · Restraints","camPos":[0.9,0.5,4.4],"target":[0.2,-0.1,0],"floorY":-1.05,"ctl":{"label":"Crash time","val":35,"caption":"0 – 150 ms"},"chipLabel":"Occupant load","rows":[],"ro":[["t","Time into crash"],["pre","Belt pretensioner"],["bag","Airbag"],["fwd","Head forward travel"],["peak","Peak load so far"],["hit","Head hits wheel"]],"legend":[["var(--c-red)","Seat belt"],["var(--c-slate)","Airbag"],["var(--c-amber)","Sensor / inflator firing"]],"overview":"<div class=\"al-sec\"><h4>A race of milliseconds<\/h4><p>In a 56 km/h frontal crash the car stops in about 80 ms. A crash sensor tells the airbag ECU within a few milliseconds; the <b>belt pretensioner<\/b> pulls the slack out first (about 8 ms), then the inflator fires and the airbag is full by about 45 ms, just before your head arrives.<\/p><\/div><div class=\"al-sec\"><h4>Belt + airbag = one system<\/h4><p>The belt holds the body in the seat so it rides down with the car. A <b>force limiter<\/b> lets the webbing pay out a little to cap the chest load. The airbag spreads the remaining load over the head and chest and vents gas so it deflates as you sink in. An airbag alone is a <i>supplement<\/i> (SRS), not a replacement for the belt.<\/p><\/div><div class=\"al-sec\"><h4>Try it<\/h4><p>Drag <b>Crash time<\/b> to scrub through the 150 ms crash, or press <b>Replay<\/b>. Change <b>Restraint<\/b> between none, belt only and belt plus airbag and compare the peak load and the head-strike.<\/p><\/div><div class=\"al-sec\"><h4>Illustrative model<\/h4><p>A simple one-body occupant model with a half-sine 31 g car pulse (56 km/h). The numbers show the idea, not a dummy-test result.<\/p><\/div>","faults":[["SRS / airbag warning light","Light stays on; airbags may be disabled.","Read SRS codes with a scan tool. Never probe airbag connectors: they can fire."],["Belt will not retract or stays locked","Webbing slow to return, belt jams.","Check for twisted or dirty webbing and a weak retractor spring."],["Recalled or aged inflator","Recall notice; cracked or corroded module.","Check the VIN for open recalls and replace inflators after any deployment."]],"quiz":[["What fires first in a crash?",["Belt pretensioner","Airbag fully inflated","Airbag vents"],0,"The pretensioner removes belt slack at about 8 ms, before the airbag is full."],["What does the belt force limiter do?",["Locks the belt","Lets the belt pay out to cap chest load","Fires the airbag"],1,"It reduces the peak force on the chest."],["An airbag without the belt is…",["Enough","A supplement only; the belt is still needed","Better than the belt"],1,"SRS means Supplemental Restraint System."]]};
+
+/* ── module state + dock options ─────────────────────────────────── */
+const S = { mode: 'bag', rp: null, hold: null, k: 0, now: 0 };
+CFG.options = [
+  { id: 'mode', type: 'choice', layout: 'segmented', label: 'Restraint', options: [{ id: 'none', label: 'None' }, { id: 'belt', label: 'Belt' }, { id: 'bag', label: 'Belt + bag' }], def: 'bag', onChange: (id) => { S.mode = id; } },
+  { id: 'replay', type: 'action', label: 'Replay', onAction: () => { S.rp = S.now; S.hold = null; } }
+];
+CFG.onReset = () => { S.rp = null; S.hold = null; };
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H) {
+    const { box, cyl, sph, tor, mat, glass, glow, clamp, THREE } = H;
+    const P = { m: 55, kb: 90000, lim: 9000, ka: 90000, ca: 900, stroke: .34 }, v0 = 15.6, T = .08, ap = v0 * Math.PI / (2 * T);
+    const run = (mode) => {
+      const out = []; let s = 0, w = 0, hv = 0, hit = false, pk = 0;
+      for (let i = 0; i <= 150; i++) {
+        const t = i / 1000, ac = t < T ? ap * Math.sin(Math.PI * t / T) : 0; let F = 0;
+        if (mode !== 'none' && t > .008) { F += Math.min(P.kb * s, P.lim) + 300 * Math.max(0, w); F = Math.min(F, P.lim * 1.1); }
+        if (mode === 'bag' && t > .03) { const up = Math.min(1, (t - .03) / .012); if (s > .08) F += up * (P.ka * (s - .08) + P.ca * Math.max(0, w)); }
+        if (s > P.stroke) { if (!hit) { hit = true; hv = w; } F += 400000 * (s - P.stroke) + 3000 * Math.max(0, w); }
+        w += (ac - F / P.m) * .001; s += w * .001; if (s < 0) { s = 0; if (w < 0) w = 0; }
+        pk = Math.max(pk, F / P.m / 9.81);
+        out.push({ s, g: F / P.m / 9.81, pk, hit, hv });
+      }
+      return out;
+    };
+    const SIM = { none: run('none'), belt: run('belt'), bag: run('bag') };
+    const dark = mat(0x1f2937, .2, .8), skin = mat(0xe2e8f0, .1, .7), cloth = mat(0x6366f1, .1, .8), seatm = mat(0x334155, .2, .8), beltM = mat(0xef4444, .1, .8);
+    box(3.4, .1, 1.4, dark, .3, -1.0, 0); box(.72, .14, .6, seatm, -.1, -.62, 0);
+    const back = box(.14, 1.0, .6, seatm, -.42, -.15, 0); back.rotation.z = .12;
+    const pelvis = box(.32, .22, .34, cloth, .1, -.45, 0), torso = box(.26, .6, .36, cloth, 0, 0, 0), head = sph(.12, skin, 0, 0, 0);
+    box(.5, .16, .3, cloth, .38, -.5, 0);
+    const rim = tor(.2, .025, dark, .72, .1, 0); rim.rotation.y = Math.PI / 2;
+    const col = cyl(.04, .04, .7, dark, 1.0, -.15, 0); col.rotation.z = 1.2;
+    box(.5, .5, 1.3, dark, 1.25, -.4, 0);
+    const bagM = glass(0xf8fafc, .78), bag = sph(.3, bagM, .62, .1, 0);
+    const ecuM = glow(0x22c55e, .15), squibM = glow(0xf97316, 0), preM = glow(0xf97316, 0);
+    box(.14, .1, .2, ecuM, 1.0, .0, .45); sph(.05, squibM, .72, .1, 0); cyl(.06, .06, .16, preM, -.45, -.62, .32);
+    const b1 = box(1, .04, .07, beltM, 0, 0, 0), b2 = box(1, .04, .07, beltM, 0, 0, 0);
+    const X = new THREE.Vector3(1, 0, 0), D = new THREE.Vector3();
+    const link = (m, a, b) => {
+      D.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]); const len = D.length() || 1e-6;
+      m.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2); m.scale.x = len; m.quaternion.setFromUnitVectors(X, D.divideScalar(len));
+    };
+    return {
+      labels: [['Seat belt', [-.2, .75, .3]], ['Airbag', [.85, .55, 0]], ['Crash sensor / ECU', [1.0, .2, .5]], ['Pretensioner', [-.45, -.85, .4]], ['Steering wheel', [.72, .5, 0]]],
+      update(c) {
+        S.now = c.t;
+        let ms;
+        if (S.rp != null) { ms = Math.min(150, (c.t - S.rp) / 4 * 150); if (ms >= 150) { S.rp = null; S.hold = 150; } S.k = c.k; }
+        else if (S.hold != null && Math.abs(c.k - S.k) < 1e-3) ms = S.hold;
+        else { S.hold = null; S.k = c.k; ms = 150 * c.k; }
+        const i = clamp(Math.round(ms), 0, 150), r = SIM[S.mode][i], fin = SIM[S.mode][150], s = r.s;
+        const px = .1 + s * .25, py = -.45, phi = -s * 1.5, sn = Math.sin(phi), cs = Math.cos(phi);
+        pelvis.position.x = px; torso.position.set(px - .34 * sn, py + .34 * cs, 0); torso.rotation.z = phi; head.position.set(px - .82 * sn, py + .82 * cs, 0);
+        const bagOn = S.mode === 'bag', up = bagOn ? clamp((ms - 30) / 12) * (1 - .5 * clamp((ms - 90) / 60)) : 0;
+        bag.scale.setScalar(Math.max(.001, up)); bag.position.x = .62 - .08 * up;
+        const A = [-.38, .65, .24], Cx = [torso.position.x + .15 * cs - .18 * sn, torso.position.y + .15 * sn + .18 * cs, .22], Lp = [.12, -.52, .22];
+        const worn = S.mode !== 'none', slack = ms < 8 ? .04 : 0;
+        b1.visible = b2.visible = worn;
+        Cx[0] += slack; link(b1, A, Cx); link(b2, Cx, Lp);
+        const sens = ms > 12, fire = ms > 30 && bagOn;
+        ecuM.emissiveIntensity = sens ? 1.4 : .15; squibM.emissiveIntensity = fire && ms < 48 ? 3 : 0; preM.emissiveIntensity = worn && ms > 8 && ms < 30 ? 3 : 0;
+        const bs = !bagOn ? 'Not fitted' : ms < 30 ? 'Waiting' : ms < 45 ? 'Inflating' : ms < 90 ? 'Full' : 'Venting';
+        return {
+          big: r.g.toFixed(0), unit: ' g', bar: Math.min(100, r.g / 110 * 100),
+          ro: { t: [ms.toFixed(0) + ' ms', ''], pre: [!worn ? 'No belt' : ms < 8 ? 'Waiting' : 'Fired', worn && ms >= 8 ? 'ok' : ''], bag: [bs, bagOn && ms >= 30 && ms < 90 ? 'ok' : ''], fwd: [(s * 100).toFixed(0) + ' cm', ''], peak: [r.pk.toFixed(0) + ' g', r.pk > 60 ? 'crit' : r.pk > 45 ? 'warn' : 'ok'], hit: [r.hit ? 'Yes, ' + r.hv.toFixed(1) + ' m/s' : 'No', r.hit ? 'crit' : 'ok'] },
+          status: [fin.hit ? 'Head strike' : 'Occupant protected', !fin.hit], ctl: ms.toFixed(0) + ' ms'
+        };
+      }
+    };
+  }
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Heater, Blower &amp; Air Distribution — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #f97316; }
+html.light-theme { --al-accent: color-mix(in oklch, #f97316 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId":"hvacflow","title":"Heater, Blower & Air Distribution","kicker":"Climate Control (HVAC)","accent":"#f97316","badge":"Blend door · Heater core · Modes","camPos":[0.6,0.6,8.4],"target":[0.4,0.2,0],"floorY":-2,"ctl":{"label":"Temperature","val":50,"caption":"Cold to hot"},"chipLabel":"Outlet air","rows":[],"ro":[["cold","After evaporator"],["hot","After heater core"],["cool","Engine coolant"],["flow","Airflow"],["fog","Windscreen fog"]],"legend":[["var(--c-sky)","Cold air"],["var(--c-orange)","Heated air"],["var(--c-slate)","Doors / flaps"]],"overview":"<div class=\"al-sec\"><h4>One box, two radiators<\/h4><p>Behind the dashboard a blower pushes air through a cabin filter and the <b>evaporator<\/b> (cooling and drying), then splits it. A <b>blend door<\/b> decides how much goes through the <b>heater core<\/b>, a small radiator fed with hot engine coolant, and how much bypasses it. The two streams mix to the temperature you set.<\/p><\/div><div class=\"al-sec\"><h4>Doors<\/h4><ul><li><b>Air-source flap<\/b> – fresh air or recirculation of cabin air.<\/li><li><b>Blend door<\/b> – temperature.<\/li><li><b>Mode doors<\/b> – face, feet or windscreen (defrost).<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Why A/C clears a misted screen<\/h4><p>The cold evaporator removes moisture from the air. Dry air, warmed by the heater core, clears fog quickly. Recirculation with the A/C off traps the breath moisture and the screen fogs.<\/p><\/div><div class=\"al-sec\"><h4>Try it<\/h4><p>Press <b>Cold start<\/b> and set <b>Temperature<\/b> to hot: the heater blows cool air until the coolant warms up. Switch <b>Mode<\/b> to Defrost and compare fog with A/C on and off, fresh air and recirculation.<\/p><\/div>","faults":[["Heater blows cold","Cold air with a hot engine; temperature gauge normal.","Check coolant level, air lock, a stuck blend door actuator or a blocked heater core."],["Weak airflow","Little air even at full fan.","Replace the cabin filter, check the blower motor, resistor and ducts."],["Misted windscreen / damp smell","Fog that returns, musty odour.","Use A/C and fresh air; replace the cabin filter; clear the evaporator drain."],["Clicking behind the dash","Ticking when changing temperature or mode.","A broken door or gear in an actuator; scan for actuator calibration codes."]],"quiz":[["What controls the outlet temperature?",["Mode door","Blend door","Air-source flap"],1,"The blend door splits air between the heater core and the bypass."],["What heats the heater core?",["Engine coolant","Exhaust gas","Electric wire only"],0,"Hot coolant flows through it like a small radiator."],["To clear fog fastest use…",["Recirculation, A/C off","Fresh air, A/C on, defrost","Feet mode"],1,"A/C dries the air; fresh air removes the damp cabin air."]]};
+
+/* ── module state + dock options ─────────────────────────────────── */
+const S = { mode: 'defrost', src: 'fresh', ac: true, fan: 2, cool: 85, fog: .6 };
+CFG.ctls = [
+  { id: 'ctl', preset: 'percent', label: 'Temperature', unit: '°C', min: 16, max: 30, step: .5, def: 23 },
+  { id: 'fan', preset: 'percent', label: 'Blower speed', unit: '', min: 0, max: 4, step: 1, def: 2, onChange: (v) => { S.fan = v; } }
+];
+CFG.options = [
+  { id: 'mode', type: 'choice', layout: 'segmented', label: 'Mode', options: [{ id: 'face', label: 'Face' }, { id: 'foot', label: 'Feet' }, { id: 'defrost', label: 'Defrost' }], def: 'defrost', onChange: (id) => { S.mode = id; } },
+  { id: 'src', type: 'choice', layout: 'segmented', label: 'Air source', options: [{ id: 'fresh', label: 'Fresh' }, { id: 'recirc', label: 'Recirc' }], def: 'fresh', onChange: (id) => { S.src = id; } },
+  { id: 'ac', type: 'toggle', label: 'A/C', def: true, onChange: (on) => { S.ac = !!on; } },
+  { id: 'cold', type: 'action', label: 'Cold start', onAction: () => { S.cool = 20; } }
+];
+CFG.onReset = () => { S.cool = 85; S.fog = .6; };
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H) {
+    const { box, cyl, cylZ, mat, glass, stream, lc, clamp, THREE, root } = H;
+    const dark = mat(0x1f2937, .3, .6), duct = glass(0x94a3b8, .16), ev = mat(0x38bdf8, .3, .6), hc = mat(0xf97316, .3, .6), flap = mat(0xcbd5e1, .5, .4);
+    box(5.6, 2.6, 1.5, duct, -.2, 0, 0);
+    box(.3, 1.6, 1.2, ev, -.7, 0, 0); box(.35, .9, 1.2, hc, .9, -.5, 0); box(.15, 1.2, 1.1, mat(0xe2e8f0, .1, .9), -1.5, 0, 0);
+    cylZ(.7, .7, .9, dark, -2.4, 0, 0);
+    const blow = new THREE.Group(); root.add(blow); blow.position.set(-2.4, 0, .5);
+    for (let i = 0; i < 6; i++) { const b = box(.6, .1, .08, flap, 0, 0, 0, blow); b.rotation.z = i * Math.PI / 6; }
+    const door = new THREE.Group(); root.add(door); door.position.set(.05, -.05, 0); box(.9, .05, 1.2, flap, .45, 0, 0, door);
+    const src = new THREE.Group(); root.add(src); src.position.set(-3.1, .9, 0); box(.9, .05, 1.2, flap, .45, 0, 0, src);
+    const outs = {
+      face: cyl(.2, .2, .25, mat(0x22c55e, .2, .6), 2.5, .95, 0), foot: cyl(.2, .2, .25, mat(0x22c55e, .2, .6), 2.35, -1.1, 0), defrost: cyl(.2, .2, .25, mat(0x22c55e, .2, .6), 1.9, 1.3, 0)
+    };
+    const scr = box(.06, 2.2, 1.7, glass(0x94a3b8, .25), 3.7, .6, 0); scr.rotation.z = -.35;
+    const fogM = mat(0xf1f5f9, .0, .95, { transparent: true, opacity: .5, depthWrite: false }), fogP = box(.05, 2.1, 1.6, fogM, 3.62, .6, 0); fogP.rotation.z = -.35;
+    const path = {
+      inn: [[-3.4, .5, 0], [-2.4, 0, 0], [-1.5, 0, 0], [-.9, 0, 0]], cold: [[-.5, 0, 0], [0, .55, 0], [1.0, .6, 0], [1.7, .3, 0]], hot: [[-.5, 0, 0], [0, -.45, 0], [.9, -.5, 0], [1.7, -.2, 0]],
+      face: [[1.8, .1, 0], [2.4, .7, 0], [3.0, 1.1, 0], [3.6, 1.2, 0]], foot: [[1.8, -.1, 0], [2.2, -.8, 0], [2.6, -1.2, 0], [3.3, -1.7, 0]], defrost: [[1.8, .2, 0], [2.0, .9, 0], [2.6, 1.5, 0], [3.5, 1.5, 0]]
+    };
+    const st = {};
+    Object.keys(path).forEach((k) => { st[k] = stream(path[k], 16, 0x7dd3fc, .13); });
+    return {
+      labels: [['Blower', [-2.4, 1.0, 0]], ['Cabin filter', [-1.5, 1.35, 0]], ['Evaporator', [-.7, 1.35, 0]], ['Heater core', [.9, -1.25, 0]], ['Blend door', [.5, .35, 0]], ['Air-source flap', [-3.2, 1.35, 0]], ['Windscreen', [3.6, 1.8, 0]]],
+      update(c) {
+        const dt = c.dt || 0, blend = c.k, flow = S.fan / 4, tin = S.src === 'recirc' ? 24 : 12;
+        if (S.cool < 85) S.cool = Math.min(85, S.cool + 6 * dt);
+        const Tcold = S.ac ? 5 + (tin - 12) * .1 : tin, Thot = Tcold + .65 * (S.cool - Tcold) / (1 + .12 * S.fan);
+        const Tout = Tcold * (1 - blend) + Thot * blend;
+        const addF = (S.src === 'recirc' ? .05 : .02) * (S.fan > 0 ? 1 : 1.2), clr = (S.mode === 'defrost' ? .12 : S.mode === 'face' ? .03 : .015) * flow * (S.ac ? 1 : .3) * (.6 + .4 * blend);
+        S.fog = clamp(S.fog + (addF - clr) * dt);
+        blow.rotation.z -= dt * 18 * flow; door.rotation.z = -.9 + 1.6 * blend; src.rotation.z = S.src === 'fresh' ? .5 : -.5;
+        fogM.opacity = .55 * S.fog;
+        ['face', 'foot', 'defrost'].forEach((m) => { outs[m].material.color.setHex(m === S.mode ? 0x22c55e : 0x475569); });
+        const cs = lc(0x7dd3fc, 0xfb923c, clamp((Tout - 5) / 50));
+        st.inn.mat.color.setHex(S.src === 'recirc' ? 0xfca5a5 : 0x7dd3fc); st.cold.mat.color.setHex(0x7dd3fc); st.hot.mat.color.copy(lc(0x7dd3fc, 0xfb923c, clamp((Thot - 5) / 60)));
+        ['face', 'foot', 'defrost'].forEach((m) => st[m].mat.color.copy(cs));
+        const sp = .06 + .32 * flow;
+        st.inn.update(c.t, sp, flow > 0 ? 1 : 0); st.cold.update(c.t, sp, flow > 0 ? 1 - blend : 0); st.hot.update(c.t, sp, flow > 0 ? blend : 0);
+        ['face', 'foot', 'defrost'].forEach((m) => st[m].update(c.t, sp, m === S.mode && flow > 0 ? 1 : 0));
+        const warm = S.cool > 50;
+        return {
+          big: Tout.toFixed(0), unit: ' °C', bar: clamp((Tout - 5) / 50) * 100,
+          ro: { cold: [Tcold.toFixed(0) + ' °C', ''], hot: [Thot.toFixed(0) + ' °C', blend > .6 && !warm ? 'warn' : ''], cool: [S.cool.toFixed(0) + ' °C', warm ? 'ok' : 'warn'], flow: [S.fan === 0 ? 'Off' : S.fan + ' / 4', ''], fog: [(S.fog * 100).toFixed(0) + ' %', S.fog > .4 ? 'warn' : 'ok'] },
+          status: [blend > .6 && !warm ? 'Waiting for engine heat' : S.fog > .4 ? 'Screen misted' : 'Comfortable', S.fog <= .4], ctl: (16 + 14 * blend).toFixed(1) + ' °C'
+        };
+      }
+    };
+  }
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

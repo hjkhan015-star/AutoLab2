@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A/C Refrigeration Cycle — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #06b6d4; }
+html.light-theme { --al-accent: color-mix(in oklch, #06b6d4 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId":"accycle","title":"A/C Refrigeration Cycle","kicker":"Climate Control (HVAC)","accent":"#06b6d4","badge":"Compressor · Condenser · Evaporator","camPos":[0,1.2,9.4],"target":[0,-0.1,0],"floorY":-2.4,"ctl":{"label":"Compressor speed","val":40,"caption":"rpm"},"chipLabel":"Vent air","rows":[],"ro":[["hi","High side (gauge)"],["lo","Low side (gauge)"],["ev","Evaporator temp"],["cond","Condenser temp"],["clutch","Compressor clutch"],["diag","Gauge diagnosis"]],"legend":[["var(--c-red)","Hot high-pressure gas"],["var(--c-orange)","Warm liquid"],["var(--c-sky)","Cold low-pressure mix"],["var(--c-cyan)","Cool vapour"]],"overview":"<div class=\"al-sec\"><h4>Moving heat out of the cabin<\/h4><p>An A/C does not make cold, it moves heat. A refrigerant (R-134a or R-1234yf) boils at a very low temperature when its pressure is low, soaking up heat from the cabin air, then is compressed and condensed to dump that heat outside.<\/p><\/div><div class=\"al-sec\"><h4>The four steps<\/h4><ul><li><b>Compressor<\/b> – squeezes the vapour; it leaves hot and at high pressure.<\/li><li><b>Condenser<\/b> – in front of the radiator; air cools the gas until it turns to liquid.<\/li><li><b>Expansion valve<\/b> – a small restriction; pressure drops and the liquid turns cold.<\/li><li><b>Evaporator<\/b> – behind the dash; the cold liquid boils, absorbing cabin heat and drying the air.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Try it<\/h4><p>Change <b>Compressor speed<\/b> and <b>Outside temp<\/b> and watch the two gauges and the vent air. Then pick a fault in the options row and read the gauges the way a technician does: the pair of readings tells you what is wrong.<\/p><\/div><div class=\"al-sec\"><h4>Safety and service<\/h4><p>Refrigerant must be recovered with a machine, never vented. The system is dried with a vacuum before recharging, because moisture freezes and forms acid.<\/p><\/div>","faults":[["Low refrigerant (leak)","Warm vent air, both gauges low, clutch cycles rapidly.","Leak-test with UV dye or a sniffer, repair, evacuate and recharge by weight."],["Overcharge","High pressures, poor cooling, compressor strain.","Recover the charge and refill to the exact specified weight."],["Blocked expansion valve / orifice tube","Low side near vacuum, frost on the valve, high side normal.","Replace the valve or tube and the receiver-drier; flush debris."],["Condenser fan not working","High side very high at idle, better at speed.","Check fan relay, fuse and motor; clean the condenser fins."],["Weak compressor","Low side too high and high side too low.","Check the clutch gap, then replace the compressor and flush the system."]],"quiz":[["Where does the refrigerant boil and absorb heat?",["Condenser","Evaporator","Compressor"],1,"The evaporator boils the refrigerant, taking heat from the cabin air."],["Which part causes the pressure drop that makes it cold?",["Expansion valve","Compressor","Receiver-drier"],0,"The restriction drops the pressure so the liquid flashes and chills."],["Both gauges low and warm air suggests…",["Overcharge","Low refrigerant","Good system"],1,"Too little refrigerant gives low pressures and weak cooling."]]};
+
+/* ── module state + dock options ─────────────────────────────────── */
+const S = { amb: 32, fault: 'ok' };
+CFG.ctls = [
+  { id: 'ctl', preset: 'percent', label: 'Compressor speed', unit: 'rpm', min: 800, max: 4500, step: 50, def: 1800 },
+  { id: 'amb', preset: 'percent', label: 'Outside temp', unit: '°C', min: 15, max: 45, step: 1, def: 32, onChange: (v) => { S.amb = v; } }
+];
+CFG.options = [
+  { id: 'fault', type: 'choice', layout: 'select', label: 'Fault', options: [{ id: 'ok', label: 'Normal' }, { id: 'low', label: 'Low refrigerant' }, { id: 'over', label: 'Overcharged' }, { id: 'clog', label: 'Blocked expansion valve' }, { id: 'fan', label: 'Condenser fan failed' }, { id: 'comp', label: 'Weak compressor' }], def: 'ok', onChange: (id) => { S.fault = id; } }
+];
+CFG.onReset = () => { S.amb = 32; S.fault = 'ok'; };
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H) {
+    const { box, cyl, cylZ, mat, glow, pipe, stream, lc, clamp, THREE, root } = H;
+    const SAT = [[-10, 201], [0, 293], [10, 414], [20, 572], [30, 770], [40, 1017], [50, 1319], [60, 1682], [70, 2117]];
+    const psat = (T) => { for (let i = 1; i < SAT.length; i++) if (T <= SAT[i][0]) { const a = SAT[i - 1], b = SAT[i]; return Math.max(60, a[1] + (b[1] - a[1]) * (T - a[0]) / (b[0] - a[0])); } return SAT[SAT.length - 1][1]; };
+    const steel = mat(0x94a3b8, .6, .4), dark = mat(0x1f2937, .3, .6), fin = mat(0x64748b, .5, .5);
+    cylZ(.5, .5, .8, steel, -2.7, 1.1, 0); cylZ(.62, .62, .14, dark, -2.7, 1.1, .5);
+    const clutchM = glow(0x22c55e, 0); cylZ(.66, .66, .05, clutchM, -2.7, 1.1, .6);
+    box(1.4, 1.0, 1.3, fin, 2.7, 1.1, 0); box(1.4, .9, 1.2, fin, -2.7, -1.1, 0);
+    const evM = mat(0x38bdf8, .3, .6); box(1.3, .8, 1.1, evM, -2.7, -1.1, 0);
+    const frost = mat(0xf8fafc, .1, .9), vlv = cyl(0, .22, .5, mat(0xfbbf24, .5, .4), 2.9, -1.1, 0); vlv.rotation.z = Math.PI / 2;
+    const tip = box(.2, .2, .2, frost, 2.7, -1.1, 0);
+    cyl(.14, .14, .6, steel, 3.75, -.1, 0);
+    const lines = [
+      [[[-2.2, 1.4, 0], [0, 1.6, 0], [2.0, 1.4, 0]], 0xef4444], [[[3.4, .8, 0], [3.75, .6, 0], [3.75, -.4, 0], [3.5, -1.1, 0]], 0xfb923c],
+      [[[2.5, -1.1, 0], [0, -1.3, 0], [-2.0, -1.1, 0]], 0x38bdf8], [[[-3.4, -.8, 0], [-3.85, -.5, 0], [-3.85, .9, 0], [-3.2, 1.1, 0]], 0x67e8f9]
+    ];
+    lines.forEach((l) => pipe(l[0], .07, mat(l[1], .3, .5)));
+    const flows = lines.map((l) => stream(l[0], 18, l[1], .13));
+    const fan = new THREE.Group(); root.add(fan); fan.position.set(2.7, 1.1, .85);
+    for (let i = 0; i < 4; i++) { const b = box(.9, .12, .04, dark, 0, 0, 0, fan); b.rotation.z = i * Math.PI / 4; }
+    const airC = [stream([[2.7, 1.1, -2.2], [2.7, 1.1, -.7]], 14, 0xbae6fd, .1), stream([[2.7, 1.1, .7], [2.7, 1.1, 2.2]], 14, 0xfb923c, .1)];
+    const airE = [stream([[-2.7, -1.1, -2.2], [-2.7, -1.1, -.6]], 14, 0xfca5a5, .1), stream([[-2.7, -1.1, .6], [-2.7, -1.1, 2.2]], 14, 0x7dd3fc, .1)];
+    const gauge = (x, col) => {
+      cylZ(.55, .55, .06, dark, x, .05, 0); cylZ(.5, .5, .02, mat(col, .1, .6), x, .05, .04);
+      const g = new THREE.Group(); root.add(g); g.position.set(x, .05, .09); box(.42, .04, .03, mat(0xf8fafc, .1, .6), .18, 0, 0, g); return g;
+    };
+    const gLo = gauge(-.75, 0x2563eb), gHi = gauge(.75, 0xdc2626);
+    const needle = (g, f) => { g.rotation.z = (225 - 270 * clamp(f)) * Math.PI / 180; };
+    return {
+      labels: [['Compressor', [-2.7, 1.9, 0]], ['Condenser', [2.7, 1.85, 0]], ['Receiver-drier', [3.75, .5, .0]], ['Expansion valve', [2.9, -1.7, 0]], ['Evaporator', [-2.7, -2.0, 0]], ['Low / high gauges', [0, .8, 0]]],
+      update(c) {
+        const rpm = 800 + 3700 * c.k, amb = S.amb, f = S.fault;
+        const Tev0 = clamp(8 - 8 * c.k + (amb - 32) * .12, 1, 14), Tc0 = amb + 12 + 14 * c.k;
+        const ph0 = psat(Tc0) - 101, pl0 = psat(Tev0) - 101;
+        let Tc = Tc0, pH = ph0, pL = pl0, cap = .96, fl = 1;
+        if (f === 'low') { pH *= .62; pL -= 90; cap = .42; fl = .6; }
+        if (f === 'over') { pH += 450; pL += 60; cap = .62; }
+        if (f === 'clog') { pL = Math.max(-60, pL - 260); pH *= .92; cap = .22; fl = .15; }
+        if (f === 'fan') { Tc += 30 - 22 * c.k; pH = psat(Tc) - 101; cap = .72; }
+        if (f === 'comp') { pL += 180; pH *= .62; cap = .35; fl = .5; }
+        const Tev = clamp(Tev0 + (cap < .5 ? 3 : 0), 1, 20), Tv = Tev + 2 + (1 - cap) * (amb - Tev - 2);
+        const cyc = Tev0 <= 1.5 && f === 'ok';
+        const sp = (.1 + .3 * c.k) * fl;
+        flows.forEach((s, i) => s.update(c.t, sp, i === 2 && f === 'clog' ? .25 : 1));
+        fan.rotation.z = -c.t * (f === 'fan' ? 0 : 14); airC.forEach((s) => s.update(c.t, f === 'fan' ? .05 : .3, 1)); airE.forEach((s) => s.update(c.t, .3, 1));
+        clutchM.emissiveIntensity = cyc ? (Math.sin(c.t * 5) > 0 ? 2.5 : 0) : 2.5;
+        evM.color.copy(lc(0x38bdf8, 0xf8fafc, f === 'clog' ? .6 : 0)); tip.visible = f === 'clog';
+        needle(gLo, (pL + 60) / 560); needle(gHi, pH / 2500);
+        const dH = (pH - ph0) / ph0, dL = (pL - pl0) / Math.max(60, pl0 + 100);
+        const diag = { ok: 'Normal', low: 'Both low: low charge', over: 'Both high: overcharge', clog: 'Low vacuum, high ok: blockage', fan: 'High side high: condenser airflow', comp: 'Low high, high low: weak compressor' }[f];
+        return {
+          big: Tv.toFixed(1), unit: ' °C', bar: clamp((35 - Tv) / 35) * 100,
+          ro: { hi: [pH.toFixed(0) + ' kPa · ' + (pH * .145).toFixed(0) + ' psi', Math.abs(dH) > .35 ? 'crit' : Math.abs(dH) > .15 ? 'warn' : 'ok'], lo: [pL.toFixed(0) + ' kPa · ' + (pL * .145).toFixed(0) + ' psi', Math.abs(dL) > .8 ? 'crit' : Math.abs(dL) > .3 ? 'warn' : 'ok'], ev: [Tev.toFixed(1) + ' °C', ''], cond: [Tc.toFixed(0) + ' °C', Tc > 70 ? 'crit' : ''], clutch: [cyc ? 'Cycling' : 'Engaged', ''], diag: [diag, f === 'ok' ? 'ok' : 'warn'] },
+          status: [f === 'ok' ? 'Cooling' : 'Fault: ' + diag, f === 'ok'], ctl: rpm.toFixed(0) + ' rpm'
+        };
+      }
+    };
+  }
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

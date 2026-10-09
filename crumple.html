@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crumple Zones &amp; Crash Energy — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #f59e0b; }
+html.light-theme { --al-accent: color-mix(in oklch, #f59e0b 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId":"crumple","title":"Crumple Zones & Crash Energy","kicker":"Body, Safety & Comfort","accent":"#f59e0b","badge":"Passive safety · Structure","camPos":[0.5,2.8,11],"target":[0,-0.1,0],"floorY":-1,"ctl":{"label":"Impact speed","val":40,"caption":"Barrier speed"},"chipLabel":"Mean deceleration","rows":[],"ro":[["spd","Impact speed"],["en","Crash energy"],["crush","Front crush"],["intr","Cabin intrusion"],["dur","Crash duration"],["str","Front structure"]],"legend":[["var(--c-sky)","Crumple zone"],["var(--c-red)","Crushed / loaded"],["var(--c-amber)","Safety cell"]],"overview":"<div class=\"al-sec\"><h4>Spread the stop<\/h4><p>A car stopping from speed must lose all its energy (½mv²). Force × distance = energy, so a longer stopping distance means a smaller force on the people inside. A crumple zone is a structure designed to collapse in a controlled way and use up that distance.<\/p><\/div><div class=\"al-sec\"><h4>Stiff cell, soft ends<\/h4><p>The passenger compartment (safety cell) is made of very strong steel so it keeps its shape. The front and rear are built to fold progressively, absorbing energy while the cell stays intact. This is the opposite of an old rigid car, which stopped in a few centimetres.<\/p><\/div><div class=\"al-sec\"><h4>Try it<\/h4><p>Drag <b>Impact speed<\/b> and watch the front crush. Switch to <b>Rigid front<\/b> to see the deceleration jump about five times. At very high speed even a crumple zone runs out and the cabin starts to intrude. Press <b>Crash<\/b> to replay.<\/p><\/div><div class=\"al-sec\"><h4>Illustrative numbers<\/h4><p>A 1,400 kg car and simple constant-force models are used, so values show the idea, not a real test. The belts and airbags (next module) work together with the structure.<\/p><\/div>","faults":[["Poorly repaired crush zone","Uneven panel gaps, overspray, different seam sealer, airbag light after a repair.","Compare gaps left and right, inspect welds and sealer, ask for repair records."],["Stiff aftermarket bull bar","Changes how the front folds and when crash sensors trigger.","Fit only accessories approved for the model."],["Corroded rail or sub-frame ends","Rust at the crush rails reduces energy absorption.","Inspect front and rear rail ends and under-body mounts for corrosion."]],"quiz":[["Why does a longer stopping distance reduce force?",["Energy is the same, spread over more distance","It lowers the car mass","It increases speed"],0,"Work = force × distance, so more distance gives less average force."],["The safety cell should be…",["Soft and crushable","Very strong and rigid","Open at the front"],1,"The cell keeps survival space; the ends do the crushing."],["A rigid front with no crumple zone gives…",["Lower deceleration","Much higher deceleration","No change"],1,"The car stops in a very short distance so the force is huge."]]};
+
+/* ── module state + dock options ─────────────────────────────────── */
+const S = { mode: 'crumple', t0: 0, now: 0 };
+CFG.options = [
+  { id: 'mode', type: 'choice', layout: 'segmented', label: 'Front structure', options: [{ id: 'crumple', label: 'Crumple zone' }, { id: 'rigid', label: 'Rigid front' }], def: 'crumple', onChange: (id) => { S.mode = id; } },
+  { id: 'crash', type: 'action', label: 'Crash', onAction: () => { S.t0 = S.now; } }
+];
+CFG.onReset = () => { S.t0 = S.now; };
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H) {
+    const { box, cylZ, mat, glass, lc, clamp, sph, glow } = H;
+    const ease = (u) => u * u * (3 - 2 * u);
+    const wall = box(.3, 2.4, 3.4, mat(0x64748b, .3, .7), 3.15, .2, 0);
+    wall.castShadow = false;
+    const front = box(1.3, .62, 1.6, mat(0x38bdf8, .3, .5), 0, -.45, 0), fm = front.material;
+    const cell = box(1.5, 1.0, 1.55, glass(0xf59e0b, .32), 0, .05, 0);
+    const cage = box(1.52, .08, 1.57, mat(0xf59e0b, .5, .4), 0, .6, 0);
+    const rear = box(1.2, .7, 1.6, mat(0x94a3b8, .3, .6), 0, -.42, 0);
+    const dummy = sph(.17, mat(0xe2e8f0, .1, .7), 0, .3, 0), seat = box(.3, .5, .4, mat(0x334155, .2, .8), 0, -.05, 0);
+    const eng = box(.6, .4, .8, glow(0xf97316, .35), 0, -.4, 0);
+    const wh = [[0, 1], [0, -1], [1, 1], [1, -1]].map((w) => cylZ(.32, .32, .25, mat(0x111827, .1, .9), 0, -.68, w[1] * .88));
+    let ph = 0;
+    return {
+      labels: [['Crumple zone', [2.3, 1.0, 0]], ['Safety cell', [.6, 1.35, 0]], ['Barrier', [3.15, 1.6, 0]]],
+      showLabel: () => ph > 2.2,
+      update(c) {
+        S.now = c.t;
+        const kmh = 20 + 80 * c.k, v = kmh / 3.6, m = 1400, E = .5 * m * v * v / 1000;
+        const crumple_ = S.mode === 'crumple', Fk = crumple_ ? 220 : 1100, dmax = crumple_ ? .75 : .12;
+        const cr = Math.min(dmax, E / Fk), intr = Math.min(1, Math.max(0, E - Fk * dmax) / 700), stop = cr + intr;
+        const g = v * v / (2 * Math.max(.02, stop)) / 9.81, dur = 2 * stop / v * 1000;
+        const p = (c.t - S.t0) % 6.5; ph = p;
+        const u = ease(clamp((p - 2.2) / 1.0)), crush = cr * u, ins = intr * u;
+        const xF = p < 2.2 ? -1 + 4 * clamp(p / 2.2) : 3.0;
+        const lf = 1.3 - crush, lc2 = 1.5 - ins, xc = xF - lf;
+        front.scale.x = lf / 1.3; front.position.x = xF - lf / 2;
+        cell.scale.x = lc2 / 1.5; cell.position.x = xc - lc2 / 2; cage.scale.x = lc2 / 1.5; cage.position.x = xc - lc2 / 2;
+        rear.position.x = xc - lc2 - .6; eng.position.x = xc + .3 + (lf - .55) * .2;
+        dummy.position.x = xc - lc2 / 2 - .15; seat.position.x = xc - lc2 / 2 - .4;
+        wh[0].position.x = wh[1].position.x = xc + .55; wh[2].position.x = wh[3].position.x = xc - lc2 - .35;
+        fm.color.copy(lc(crumple_ ? 0x38bdf8 : 0x94a3b8, 0xef4444, cr > 0 ? u * Math.min(1, cr / dmax) : 0));
+        const ok = g < 25 && intr < .05, bad = g > 45 || intr > .3;
+        return {
+          big: g.toFixed(0), unit: ' g', bar: Math.min(100, g / 80 * 100),
+          ro: { spd: [kmh.toFixed(0) + ' km/h', ''], en: [E.toFixed(0) + ' kJ', 'hi'], crush: [(cr * 100).toFixed(0) + ' cm', ''], intr: [(intr * 100).toFixed(0) + ' cm', intr > .05 ? 'crit' : 'ok'], dur: [dur.toFixed(0) + ' ms', ''], str: [crumple_ ? 'Crumple zone' : 'Rigid', crumple_ ? 'ok' : 'warn'] },
+          status: [ok ? 'Cell intact' : bad ? 'Severe crash' : 'Heavy load', ok], ctl: kmh.toFixed(0) + ' km/h'
+        };
+      }
+    };
+  }
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

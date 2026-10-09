@@ -618,6 +618,36 @@ document.querySelector('meta[name="theme-color"]').setAttribute('content','#e8ec
   }
 }
 
+
+  /* ── Roadmap view: journey hero + stage cards ── */
+  .rm-hero{margin:0 var(--s-5) var(--s-3);padding:var(--s-4);border-radius:var(--r-lg);background:linear-gradient(140deg,color-mix(in oklch,var(--accent) 18%,var(--surface-2)),var(--surface-2));border:1px solid color-mix(in oklch,var(--accent) 30%,var(--border))}
+  .rm-kick{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent)}
+  .rm-big{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:2px 0 10px}
+  .rm-help{font-size:12.5px;line-height:1.5;color:var(--text-dim);margin:10px 0 0}
+  .rm-go{display:flex;flex-direction:column;align-items:flex-start;width:100%;margin-top:12px;padding:12px 14px;border-radius:var(--r-md);text-align:left;color:var(--text);background:color-mix(in oklch,var(--c) 22%,var(--surface-2));border:1.5px solid color-mix(in oklch,var(--c) 55%,transparent)}
+  .rm-go:active{transform:scale(.98)}
+  .rm-go-k{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim)}
+  .rm-go-t{font-size:16px;font-weight:800}
+  .rm-done{margin-top:12px;font-size:13px;font-weight:600;color:var(--ok)}
+  .rm-list{display:flex;flex-direction:column;gap:var(--s-3);padding:0 var(--s-5) var(--s-6);position:relative}
+  .rm-stage{border-radius:var(--r-lg);background:var(--surface-2);border:1px solid var(--border);overflow:hidden}
+  .rm-stage.open{border-color:color-mix(in oklch,var(--c) 50%,transparent)}
+  .rm-stage.done .rm-num{background:var(--ok);color:var(--bg)}
+  .rm-head{display:flex;align-items:center;gap:var(--s-3);width:100%;padding:var(--s-3) var(--s-4);text-align:left;color:var(--text)}
+  .rm-num{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:800 13px var(--font-mono);color:var(--c);background:color-mix(in oklch,var(--c) 18%,transparent);border:1.5px solid color-mix(in oklch,var(--c) 55%,transparent)}
+  .rm-ht{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .rm-title{font-size:14.5px;font-weight:800;letter-spacing:-.01em}
+  .rm-ask{font-size:11.5px;line-height:1.35;color:var(--text-mute)}
+  .rm-count{flex:none;font:700 11px var(--font-mono);color:var(--text-mute)}
+  .rm-body{padding:0 0 var(--s-3)}
+  .rm-why{margin:0;padding:0 var(--s-4) var(--s-3);font-size:12.5px;line-height:1.5;color:var(--text-dim)}
+  .rm-mods{padding-bottom:var(--s-3)}
+  .rm-mods .mod-row{position:relative}
+  .rm-mods .mod-row.seen{border-color:color-mix(in oklch,var(--ok) 40%,var(--border))}
+  .rm-tick{position:absolute;top:8px;right:10px;font-size:12px;font-weight:800;color:var(--ok)}
+  .rm-check{margin:0 var(--s-4);padding:var(--s-3);border-radius:var(--r-md);font-size:12.5px;line-height:1.5;color:var(--text-dim);background:color-mix(in oklch,var(--accent) 10%,transparent);border:1px dashed color-mix(in oklch,var(--accent) 40%,transparent)}
+  .rm-check b{color:var(--text)}
+
   /* ── Systems layer (domain → system → modules) ── */
   .dom-tabs{display:flex;gap:var(--s-2);overflow-x:auto;padding:0 var(--s-5) var(--s-3);scrollbar-width:none}
   .dom-tabs::-webkit-scrollbar{display:none}
@@ -883,6 +913,7 @@ document.querySelector('meta[name="theme-color"]').setAttribute('content','#e8ec
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-wire" viewBox="0 0 24 24"><path d="M12 3l9 5v8l-9 5-9-5V8l9-5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M3 8l9 5 9-5M12 13v9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" opacity=".55"/></symbol>
     <symbol id="i-xray" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+    <symbol id="i-systems" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" stroke-width="1.9"/><circle cx="5.5" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.9"/><circle cx="18.5" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.9"/><circle cx="5.5" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.9"/><circle cx="18.5" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M7 7.3l3.3 2.8M17 7.3l-3.3 2.8M7 16.7l3.3-2.8M17 16.7l-3.3-2.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
     <symbol id="i-roadmap" viewBox="0 0 24 24"><path d="M4 6h3M11 6h9M4 12h3M11 12h9M4 18h3M11 18h9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="6.5" cy="6" r="1.4" fill="currentColor"/><circle cx="6.5" cy="12" r="1.4" fill="currentColor"/><circle cx="6.5" cy="18" r="1.4" fill="currentColor"/></symbol>
     <symbol id="i-apps" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.9"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.9"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.9"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.9"/></symbol>
   </defs>
@@ -915,6 +946,9 @@ document.querySelector('meta[name="theme-color"]').setAttribute('content','#e8ec
     <div class="view-toggle" role="tablist" aria-label="Home view">
       <button class="view-toggle-btn" data-view="modules" role="tab" aria-selected="true">
         <svg><use href="#i-apps"/></svg><span>Modules</span>
+      </button>
+      <button class="view-toggle-btn" data-view="systems" role="tab" aria-selected="false">
+        <svg><use href="#i-systems"/></svg><span>Systems</span>
       </button>
       <button class="view-toggle-btn" data-view="roadmap" role="tab" aria-selected="false">
         <svg><use href="#i-roadmap"/></svg><span>Roadmap</span>
@@ -1147,9 +1181,12 @@ import { createKeyRouter, installKeys } from './keys.js';
   var savedPrefs = loadPrefs() || {};
   var themeChosen = savedPrefs.theme === 'light' || savedPrefs.theme === 'dark';   /* until the person picks one, follow the OS */
 
+  var VIEWS = ['modules', 'systems', 'roadmap'];
   var state = {
     tab: 'home', sys: null, dom: 'All',
-    view: savedPrefs.view === 'roadmap' ? 'roadmap' : 'modules',
+    view: VIEWS.indexOf(savedPrefs.view) !== -1 ? savedPrefs.view : 'modules',
+    path: savedPrefs.path === 'basics' ? 'basics' : 'all',
+    open: null,
     active: null,
     playing: true,
     speed: SPEED.def,
@@ -1171,7 +1208,8 @@ import { createKeyRouter, installKeys } from './keys.js';
         theme: themeChosen ? state.theme : undefined,
         wireframe: state.wireframe,
         xray: state.xray,
-        view: state.view
+        view: state.view,
+        path: state.path
       }));
     } catch (_) {}
   }
@@ -1289,7 +1327,7 @@ import { createKeyRouter, installKeys } from './keys.js';
     });
   }
   function setView(v) {
-    if (v !== 'modules' && v !== 'roadmap') return;
+    if (VIEWS.indexOf(v) === -1) return;
     if (state.view === v) return;
     state.view = v;
     state.sys = null;
@@ -1305,7 +1343,8 @@ import { createKeyRouter, installKeys } from './keys.js';
     });
     viewToggleEl.addEventListener('keydown', function (e) {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      var next = state.view === 'roadmap' ? 'modules' : 'roadmap';
+      var at = VIEWS.indexOf(state.view);
+      var next = VIEWS[(at + (e.key === 'ArrowRight' ? 1 : VIEWS.length - 1)) % VIEWS.length];
       setView(next);
       var target = viewToggleEl.querySelector('[data-view="' + next + '"]');
       if (target) target.focus();
@@ -1385,6 +1424,7 @@ import { createKeyRouter, installKeys } from './keys.js';
 
     if (state.sys) { renderSystem(state.sys); return; }
     if (state.view === 'modules') { renderModulesHome(); return; }
+    if (state.view === 'roadmap') { renderRoadmap(); return; }
     renderSystems();
   }
 
@@ -1457,7 +1497,8 @@ import { createKeyRouter, installKeys } from './keys.js';
         c.appendChild(el('div', 'sys-name', s.title));
         c.appendChild(el('div', 'sys-desc', s.blurb));
         var n = s.modules.length;
-        c.appendChild(el('div', 'sys-foot', n + (n === 1 ? ' module' : ' modules') + (s.soon.length ? ' · ' + s.soon.length + ' coming soon' : '')));
+        var seen = s.modules.filter(function (i) { return visited.indexOf(i) !== -1; }).length;
+        c.appendChild(el('div', 'sys-foot', n + (n === 1 ? ' module' : ' modules') + ' · ' + seen + ' explored' + (s.soon.length ? ' · ' + s.soon.length + ' coming soon' : '')));
         c.onclick = function () { goSys(s.id); };
         g.appendChild(c);
       });
@@ -1519,6 +1560,87 @@ import { createKeyRouter, installKeys } from './keys.js';
       rel.forEach(function (x) { var b = el('button', 'dom-tab', x.title); b.onclick = function () { goSys(x.id); }; rw.appendChild(b); });
       homeMain.appendChild(rw);
     }
+  }
+
+
+  /* ─── Roadmap view: the step-by-step student path through the whole car ─── */
+  var ROADMAP = window.AUTO_ROADMAP || [];
+  function stageMods(st) {
+    return st.ids.map(byId).filter(function (m) { return m && (state.path !== 'basics' || (META[m.id] || ['Basic'])[0] === 'Basic'); });
+  }
+  function isSeen(m) { return visited.indexOf(m.id) !== -1; }
+  function nextUnseen() {
+    for (var i = 0; i < ROADMAP.length; i++) {
+      var l = stageMods(ROADMAP[i]);
+      for (var j = 0; j < l.length; j++) if (!isSeen(l[j])) return { stage: i, mod: l[j] };
+    }
+    return null;
+  }
+  function renderRoadmap() {
+    var all = [], doneN = 0;
+    ROADMAP.forEach(function (st) { stageMods(st).forEach(function (m) { all.push(m); if (isSeen(m)) doneN++; }); });
+    var nxt = nextUnseen();
+    var hero = el('div', 'rm-hero');
+    hero.appendChild(el('div', 'rm-kick', 'Your journey through the car'));
+    hero.appendChild(el('div', 'rm-big', doneN + ' of ' + all.length + ' steps done'));
+    var tr = el('div', 'progress-track'), fl = el('div', 'progress-fill');
+    fl.style.width = (all.length ? Math.round(doneN / all.length * 100) : 0) + '%';
+    tr.appendChild(fl); hero.appendChild(tr);
+    hero.appendChild(el('p', 'rm-help', 'Follow the stages from top to bottom. Open each step, play with the sliders, then try the Self-check tab before you move on.'));
+    if (nxt) {
+      var go = el('button', 'rm-go'); go.style.setProperty('--c', nxt.mod.color || 'var(--accent)');
+      go.appendChild(el('span', 'rm-go-k', doneN ? 'Continue with' : 'Start here'));
+      go.appendChild(el('span', 'rm-go-t', nxt.mod.title));
+      go.onclick = function () { openModule(nxt.mod.id); };
+      hero.appendChild(go);
+    } else if (all.length) {
+      hero.appendChild(el('div', 'rm-done', 'You have walked the whole car. Revisit any stage to go deeper.'));
+    }
+    homeMain.appendChild(hero);
+    var pick = el('div', 'dom-tabs');
+    [['all', 'Full path'], ['basics', 'Basics only']].forEach(function (o) {
+      var b = el('button', 'dom-tab' + (state.path === o[0] ? ' on' : ''), o[1]);
+      b.onclick = function () { state.path = o[0]; state.open = null; savePrefs(); renderHome('home'); };
+      pick.appendChild(b);
+    });
+    homeMain.appendChild(pick);
+    var openIdx = state.open != null ? state.open : (nxt ? nxt.stage : -1);
+    var list = el('div', 'rm-list');
+    ROADMAP.forEach(function (st, si) {
+      var mods = stageMods(st);
+      if (!mods.length) return;
+      var seen = mods.filter(isSeen).length, full = seen === mods.length, isOpen = si === openIdx;
+      var card = el('div', 'rm-stage' + (full ? ' done' : '') + (isOpen ? ' open' : ''));
+      card.style.setProperty('--c', (mods[0].color) || 'var(--accent)');
+      var head = el('button', 'rm-head');
+      head.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      head.appendChild(el('span', 'rm-num', full ? '✓' : String(si + 1)));
+      var t = el('span', 'rm-ht');
+      t.appendChild(el('span', 'rm-title', st.title));
+      t.appendChild(el('span', 'rm-ask', st.ask));
+      head.appendChild(t);
+      head.appendChild(el('span', 'rm-count', seen + '/' + mods.length));
+      head.onclick = function () { state.open = isOpen ? -1 : si; renderHome('home'); };
+      card.appendChild(head);
+      if (isOpen) {
+        var body = el('div', 'rm-body');
+        body.appendChild(el('p', 'rm-why', st.why));
+        var ml = el('div', 'mod-list rm-mods');
+        mods.forEach(function (m, i) {
+          var r = modRow(m, i, { color: m.color });
+          if (isSeen(m)) { r.classList.add('seen'); r.appendChild(el('span', 'rm-tick', '✓')); }
+          ml.appendChild(r);
+        });
+        body.appendChild(ml);
+        var ck = el('div', 'rm-check');
+        ck.appendChild(el('b', null, 'Checkpoint. '));
+        ck.appendChild(document.createTextNode('Move on when you can: ' + st.check.charAt(0).toLowerCase() + st.check.slice(1)));
+        body.appendChild(ck);
+        card.appendChild(body);
+      }
+      list.appendChild(card);
+    });
+    homeMain.appendChild(list);
   }
 
   /* ─── Apps grid view (mobile launcher style) ─── */
@@ -1597,7 +1719,7 @@ import { createKeyRouter, installKeys } from './keys.js';
       '<div class="about-card">',
       '  <h3>How to use</h3>',
       '  <p><strong>Tap any module</strong> to open it. Inside, drag the 3D view to orbit, pinch to zoom, and use the floating controls at the bottom.</p>',
-      '  <p>Switch between <strong>Modules</strong> and <strong>Roadmap</strong> with the toggle above — Modules shows every lesson as a card; Roadmap groups them by system and shows how each one connects.</p>',
+      '  <p>Use the toggle above: <strong>Modules</strong> lists every lesson as a card; <strong>Systems</strong> groups them into the car\'s five groups and 18 systems; <strong>Roadmap</strong> is the step-by-step path for a beginner, from how an engine makes power to the connected car.</p>',
       '  <p>Tap the <strong>info chip</strong> at the top-left to expand module details. View toggles — theme, wireframe, x-ray — live in the <strong>...</strong> menu and are remembered between sessions.</p>',
       '</div>',
       '<div class="maker-card">',

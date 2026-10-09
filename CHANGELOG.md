@@ -1,5 +1,12 @@
 # Changelog
 
+## 8.12.0 - Whole-car coverage: 8 new modules, Systems view, student Roadmap
+- **Home has three views: Modules, Systems, Roadmap.** *Systems* (new, between the two) groups the lab into the five car groups and 18 systems from the course outline: Powertrain & Engine, Drivetrain & Transmission, Control & Handling, Electrical & Electronics, Body / Safety / Comfort. Each card shows how many of its modules you have explored.
+- **Roadmap rebuilt for beginners.** 12 stages, each with the question it answers, why it comes now, its modules in order (with done ticks) and a *Checkpoint* self-test. A *Start here / Continue with* button opens the next unexplored step; *Basics only* shows the Basic-level path first. `ROADMAP` lives in `modules.js`.
+- **8 new modules** fill the gaps in the outline (all built on `runGuidedModule`, Phase 1 versions to be deepened): `bodyframe` (ladder vs unibody twist), `crumple` (crumple zone vs rigid, crash energy), `restraints` (belt, pretensioner, airbag in 150 ms), `traction` (TCS on slippery roads), `accycle` (refrigeration cycle with gauge diagnosis), `hvacflow` (blend door, heater core, defrost and fog), `headunit` (infotainment, speed-compensated volume, lock-out), `gpsnav` (satellites, HDOP, dead reckoning).
+- Registry regrouped into 18 systems (was 12) and a fifth domain *Body, Safety & Comfort*. Module ids and files are unchanged, so saved progress and recents survive.
+- `tests/roadmap.test.mjs`: every module is in exactly one roadmap stage and one system, ids and files exist, the five domains and 18 systems are present, new modules use only shared controls. `sw.js` precache and version 8.12.0.
+
 ## 8.11.0 - Wheel Balancing module (own folder, built in phases)
 - **New folder `Wheel balancing/`**, modelled on the MANATEC DL-65 Premium: red cabinet, weight tray, display on a stalk, side shaft, black safety hood. Chassis system, after Alignment (`wheel-balancing`); the flow strip gets a Balancing step.
 - **Phase 0 - Overview (`wheel-balancing.html`)**: the machine with a wheel on the shaft, hood (lower it to spin), live display, true heavy spots in red, wheel types (steel 15, alloy 16, SUV 17), imbalance presets, hand-turn crank, road-speed vibration test.

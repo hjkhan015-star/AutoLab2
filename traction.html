@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Traction Control (TCS) — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #8b5cf6; }
+html.light-theme { --al-accent: color-mix(in oklch, #8b5cf6 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId":"traction","title":"Traction Control (TCS)","kicker":"Body, Safety & Comfort","accent":"#8b5cf6","badge":"Active safety · Wheel spin","camPos":[1.6,2.2,7.4],"target":[0,-0.4,0],"floorY":-1.05,"ctl":{"label":"Throttle","val":60,"caption":"Accelerator"},"chipLabel":"Wheel slip","rows":[],"ro":[["req","Torque requested"],["del","Torque delivered"],["acc","Acceleration"],["tcs","TCS intervention"],["mu","Road grip (µ)"],["spd","Vehicle speed"]],"legend":[["var(--c-red)","Spinning wheel"],["var(--c-orange)","Brake applied by TCS"],["var(--c-slate)","Smoke / spin"]],"overview":"<div class=\"al-sec\"><h4>What it fixes<\/h4><p>When you ask for more torque than the tyre can grip, the driven wheels spin faster than the car moves. A spinning tyre has <i>less<\/i> grip than a rolling one, so you accelerate worse and a front-drive car can wander.<\/p><\/div><div class=\"al-sec\"><h4>How TCS reacts<\/h4><p>The ABS wheel-speed sensors compare the driven wheels with the non-driven wheels. If slip rises past about 10 to 15 %, the ECU cuts engine torque (throttle, ignition, fuel) and can brake the spinning wheel so the other wheel gets the torque. The result is the most grip the road offers.<\/p><\/div><div class=\"al-sec\"><h4>Try it<\/h4><p>Choose <b>Snow<\/b> or <b>Ice<\/b>, push the <b>Throttle<\/b> up and switch TCS off and on in the options row. Compare slip, acceleration and the torque that is actually delivered. On dry road TCS rarely has to act.<\/p><\/div><div class=\"al-sec\"><h4>Related systems<\/h4><p>TCS shares its sensors and hydraulic unit with <b>ABS &amp; ESC<\/b> (stopping and stability). Newer driver aids (ADAS) such as emergency braking and lane keeping add radar and cameras on top of this.<\/p><\/div>","faults":[["TCS light on / system off","Warning light, TCS or ESC disabled.","Check wheel-speed sensors, their rings and wiring; wheel-speed faults disable TCS and ABS together."],["TCS acts on dry road","Power cut when accelerating, flashing light.","Check mismatched tyre sizes, a flat tyre or a failing wheel-speed sensor."],["Spin with TCS off","Wheelspin, smoke, poor acceleration on slippery roads.","Make sure the TCS switch is on and the system is not disabled by a fault code."]],"quiz":[["Wheel slip means…",["Wheel speed equals car speed","Wheel turns faster than the car is moving","The tyre is flat"],1,"Slip is the difference between wheel speed and vehicle speed."],["How does TCS reduce wheel spin?",["Adds more power","Cuts engine torque and brakes the spinning wheel","Raises tyre pressure"],1,"It limits torque to what the road can carry."],["Which sensors does TCS reuse?",["ABS wheel-speed sensors","Oxygen sensors","Airbag sensors"],0,"It compares driven and non-driven wheel speeds."]]};
+
+/* ── module state + dock options ─────────────────────────────────── */
+const S = { surface: 'snow', tc: true, slip: 0, v: 0, odo: 0, ang: 0, angR: 0 };
+const MU = { dry: 1.0, wet: .55, snow: .3, ice: .12 }, ROAD = { dry: 0x2b303b, wet: 0x1e3a5f, snow: 0xe2e8f0, ice: 0x9bd4f5 };
+CFG.options = [
+  { id: 'surface', type: 'choice', layout: 'segmented', label: 'Surface', options: [{ id: 'dry', label: 'Dry' }, { id: 'wet', label: 'Wet' }, { id: 'snow', label: 'Snow' }, { id: 'ice', label: 'Ice' }], def: 'snow', onChange: (id) => { S.surface = id; } },
+  { id: 'tc', type: 'toggle', label: 'Traction control', def: true, onChange: (on) => { S.tc = !!on; } }
+];
+CFG.onReset = () => { S.v = 0; S.slip = 0; };
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H) {
+    const { box, cylZ, mat, glow, lc, clamp, stream, THREE, root } = H;
+    const roadM = mat(0x2b303b, .1, .9);
+    box(16, .06, 3.6, roadM, 0, -1.02, 0);
+    const dash = [];
+    for (let i = 0; i < 16; i++) dash.push(box(.8, .02, .1, mat(0xf8fafc, .1, .9), 0, -.98, 0));
+    box(3.4, .5, 1.5, mat(0x8b5cf6, .5, .4), 0, -.35, 0); box(1.7, .5, 1.3, mat(0x94a3b8, .1, .2, { transparent: true, opacity: .45 }), -.2, .1, 0);
+    const tire = mat(0x111827, .1, .9), rimM = mat(0xcbd5e1, .8, .3), rimR = mat(0xcbd5e1, .8, .3);
+    const wheel = (x, z, rm) => {
+      const g = new THREE.Group(); root.add(g); g.position.set(x, -.66, z);
+      cylZ(.36, .36, .28, tire, 0, 0, 0, g);
+      for (let i = 0; i < 5; i++) { const sp = box(.55, .06, .07, rm, 0, 0, z > 0 ? .15 : -.15, g); sp.rotation.z = i * Math.PI / 5; }
+      return g;
+    };
+    const wf = [wheel(1.1, .85, rimM), wheel(1.1, -.85, rimM)], wr = [wheel(-1.1, .85, rimR), wheel(-1.1, -.85, rimR)];
+    const calM = glow(0xf97316, 0); [.7, -.7].forEach((z) => box(.14, .24, .08, calM, 1.1 + .28, -.5, z));
+    const sm = [stream([[.8, -.9, .95], [-.3, -.85, 1.2], [-1.6, -.6, 1.5]], 24, 0xd1d5db, .22), stream([[.8, -.9, -.95], [-.3, -.85, -1.2], [-1.6, -.6, -1.5]], 24, 0xd1d5db, .22)];
+    return {
+      labels: [['Driven (front) wheels', [1.1, .1, 1.0]], ['Free-rolling rear wheels', [-1.1, .1, 1.0]], ['Brake caliper (TCS)', [1.4, -.9, .7]], ['Road surface', [-3, -1, 1.6]]],
+      update(c) {
+        const mu = MU[S.surface], N = 1400 * 9.81 * .62, Fmax = mu * N, Freq = c.k * 5200, dt = c.dt || 0;
+        let F, tgt;
+        if (S.tc) { if (Freq > Fmax * .97) { F = Fmax * .97; tgt = .1; } else { F = Freq; tgt = .03 + .06 * Freq / Fmax; } }
+        else if (Freq <= Fmax) { F = Freq; tgt = .03 + .07 * Freq / Fmax; }
+        else { F = Fmax * .78; tgt = clamp(.12 + .8 * (Freq / Fmax - 1), .12, .95); }
+        S.slip += (tgt - S.slip) * clamp(dt * 6);
+        const inter = Freq > 1 ? clamp(1 - F / Freq) : 0, brk = S.tc ? clamp(inter * 1.5) : 0;
+        const a = Math.max(0, F / 1400 - (.12 + .0004 * S.v * S.v));
+        S.v += a * dt; if (S.v > 30) S.v = 0;
+        S.odo += S.v * dt;
+        const vw = Math.max(S.v / (1 - Math.min(.95, S.slip)), S.slip * 14);
+        S.ang -= vw / .36 * dt; S.angR -= S.v / .36 * dt;
+        wf.forEach((g) => { g.rotation.z = S.ang; }); wr.forEach((g) => { g.rotation.z = S.angR; });
+        rimM.color.copy(lc(0xcbd5e1, 0xef4444, S.slip / .4)); calM.emissiveIntensity = brk * 3;
+        roadM.color.setHex(ROAD[S.surface]);
+        dash.forEach((d, i) => { d.position.x = (((i - S.odo) % 16) + 16) % 16 - 8; });
+        const smk = clamp((S.slip - .15) / .5);
+        sm.forEach((s) => s.update(c.t, .5, smk));
+        const tone = S.slip < .12 ? 'ok' : S.slip < .25 ? 'warn' : 'crit';
+        return {
+          big: (S.slip * 100).toFixed(0), unit: ' %', bar: S.slip * 100,
+          ro: { req: [(Freq * .32).toFixed(0) + ' N·m', ''], del: [(F * .32).toFixed(0) + ' N·m', S.tc && inter > .02 ? 'warn' : ''], acc: [a.toFixed(2) + ' m/s²', ''], tcs: [S.tc ? (inter * 100).toFixed(0) + ' %' : 'Off', S.tc && inter > .02 ? 'hi' : ''], mu: [mu.toFixed(2), mu < .35 ? 'warn' : 'ok'], spd: [(S.v * 3.6).toFixed(0) + ' km/h', ''] },
+          status: [!S.tc && S.slip > .25 ? 'Wheelspin' : S.tc && inter > .02 ? 'TCS active' : 'Grip OK', tone === 'ok' || S.tc], ctl: (c.k * 100).toFixed(0) + ' %'
+        };
+      }
+    };
+  }
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
-# AutoLab2 (Auto Lab v8.11.0)
+# AutoLab2 (Auto Lab v8.12.0)
 
-Interactive 3D automotive learning lab (44 modules, installable offline PWA). Static site — no build step.
+Interactive 3D automotive learning lab (52 modules, installable offline PWA). Static site — no build step.
 
 ## Publish on GitHub
 1. Create a new repo named `AutoLab2` and push this folder to `main`.
