@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GPS Navigation — Auto Lab</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="components.css">
+<style>
+:root { --al-accent: #22c55e; }
+html.light-theme { --al-accent: color-mix(in oklch, #22c55e 68%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="guard.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from './components.js';
+
+/* ── CONFIG (module content) ─────────────────────────────────────── */
+const CFG = {"moduleId":"gpsnav","title":"GPS Navigation","kicker":"Infotainment & Navigation","accent":"#22c55e","badge":"Satellites · Fix · Dead reckoning","camPos":[7,3.6,8.4],"target":[0,1.1,0],"floorY":-1,"ctl":{"label":"Satellites tracked","val":75,"caption":"Receiver channels"},"chipLabel":"Position error","rows":[],"ro":[["sats","Satellites used"],["hdop","HDOP (geometry)"],["fix","Fix type"],["dr","Dead-reckoning drift"],["env","Sky view"]],"legend":[["var(--c-green)","Signal in use"],["var(--c-red)","Signal blocked"],["var(--c-sky)","Reported position"]],"overview":"<div class=\"al-sec\"><h4>Position from timing<\/h4><p>Each GPS satellite broadcasts its position and the exact time. The receiver measures how long each signal took, multiplies by the speed of light and gets a distance to each satellite. Where those distances meet is the car.<\/p><\/div><div class=\"al-sec\"><h4>Why four satellites<\/h4><p>Three distances fix a point in 3D, but the car’s clock is cheap and wrong, so a fourth satellite is needed to solve for the clock error. More satellites spread across the sky give better geometry (a lower <b>HDOP<\/b>) and a smaller error.<\/p><\/div><div class=\"al-sec\"><h4>When the sky is blocked<\/h4><p>In an urban canyon low satellites are hidden and reflected signals (multipath) add error. In a tunnel there is no signal, so the unit uses <b>dead reckoning<\/b>: wheel-speed and gyro data carry the position forward, drifting slowly until satellites return.<\/p><\/div><div class=\"al-sec\"><h4>Then the map<\/h4><p>Map matching snaps the position to the road, and a route planner (like A* on the road graph) gives turn-by-turn directions. Try the sliders and the environment option.<\/p><\/div>","faults":[["No GPS fix / long first fix","Stuck on searching, wrong position for minutes.","Check the antenna cable and connector; parking under cover delays a cold start."],["Position jumps in a city","Car appears on the next street.","Multipath from tall buildings; an updated map and dead reckoning help."],["Drifts in tunnels","Position lags or stops after a tunnel.","Check wheel-speed and gyro inputs; calibration may be needed."],["Wrong map or routing","New roads missing, strange routes.","Update the map data and check the route options."]],"quiz":[["How many satellites for a 3D position and clock fix?",["Two","Four","Twelve"],1,"Three give position, the fourth removes the receiver clock error."],["What does a low HDOP mean?",["Poor geometry","Good satellite geometry","No signal"],1,"Satellites well spread across the sky give a low HDOP."],["What carries the car through a tunnel?",["Dead reckoning","More satellites","The radio"],0,"Wheel-speed and gyro data continue the position."]]};
+
+/* ── module state + dock options ─────────────────────────────────── */
+const S = { env: 'sky', dr: true, err: 0, jx: 0, jz: 0 };
+CFG.ctls = [{ id: 'ctl', preset: 'percent', label: 'Satellites tracked', unit: '', min: 0, max: 12, step: 1, def: 9 }];
+CFG.options = [
+  { id: 'env', type: 'choice', layout: 'segmented', label: 'Sky view', options: [{ id: 'sky', label: 'Open sky' }, { id: 'urban', label: 'Urban' }, { id: 'tunnel', label: 'Tunnel' }], def: 'sky', onChange: (id) => { S.env = id; } },
+  { id: 'dr', type: 'toggle', label: 'Dead reckoning', def: true, onChange: (on) => { S.dr = !!on; } }
+];
+CFG.onReset = () => { S.err = 0; };
+
+/* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
+function build(H) {
+    const { box, cyl, sph, mat, glass, glow, clamp, THREE } = H;
+    const EL = [78, 62, 55, 48, 42, 36, 30, 26, 22, 18, 14, 10], AZ0 = [0, 130, 250, 60, 190, 310, 20, 110, 220, 280, 160, 340], R = 5.4;
+    const ok = glow(0x22c55e, .9), bad = glass(0xef4444, .35), body = mat(0xe2e8f0, .6, .4), pan = mat(0x2563eb, .5, .4);
+    const X = new THREE.Vector3(1, 0, 0), D = new THREE.Vector3();
+    const sats = EL.map(() => {
+      const g = new THREE.Group(); H.root.add(g);
+      box(.3, .3, .3, body, 0, 0, 0, g); box(.7, .05, .3, pan, .5, 0, 0, g); box(.7, .05, .3, pan, -.5, 0, 0, g);
+      return { g, ray: box(1, .03, .03, ok, 0, 0, 0) };
+    });
+    box(8, .04, 1.6, mat(0x2b303b, .1, .9), 0, -.98, 0);
+    box(1.5, .4, .8, mat(0x22c55e, .5, .4), 0, -.7, 0); box(.9, .3, .7, glass(0x94a3b8, .4), -.1, -.35, 0); const rcv = sph(.07, glow(0x38bdf8, 1), 0, -.12, 0);
+    const disk = cyl(1, 1, .02, glass(0x38bdf8, .3), 0, -.95, 0), mark = sph(.12, glow(0x38bdf8, 1.2), 0, -.85, 0);
+    const bl = [box(1.4, 3.4, 1.6, mat(0x475569, .2, .8), -2.6, .7, 1.4), box(1.4, 4.2, 1.6, mat(0x475569, .2, .8), 2.6, 1.1, -1.4), box(1.4, 3.0, 1.6, mat(0x475569, .2, .8), 2.6, .5, 1.4), box(1.4, 3.8, 1.6, mat(0x475569, .2, .8), -2.6, .9, -1.4)];
+    const tun = [box(8, .3, 3.2, mat(0x64748b, .2, .8), 0, 1.0, 0), box(.3, 2, 3.2, mat(0x64748b, .2, .8), -3.9, 0, 0), box(.3, 2, 3.2, mat(0x64748b, .2, .8), 3.9, 0, 0)];
+    return {
+      labels: [['GPS satellites', [0, 5.0, 0]], ['Receiver (car)', [0, .35, 0]], ['Error circle', [2.0, -.9, 0]]],
+      update(c) {
+        const dt = c.dt || 0, tracked = Math.round(c.k * 12);
+        let n = 0;
+        sats.forEach((s, i) => {
+          const el = EL[i] * Math.PI / 180, az = AZ0[i] * Math.PI / 180 + c.t * .06;
+          const x = R * Math.cos(el) * Math.cos(az), y = -1 + R * Math.sin(el), z = R * Math.cos(el) * Math.sin(az);
+          s.g.position.set(x, y, z); s.g.rotation.y = -az;
+          const on = i < tracked, blocked = S.env === 'tunnel' || (S.env === 'urban' && EL[i] < 35);
+          s.ray.visible = on;
+          if (on) {
+            if (!blocked) n++;
+            s.ray.material = blocked ? bad : ok;
+            D.set(-x, -.12 - y, -z); const len = D.length(); s.ray.position.set(x / 2, (y - .12) / 2, z / 2); s.ray.scale.x = len; s.ray.quaternion.setFromUnitVectors(X, D.divideScalar(len));
+          }
+        });
+        bl.forEach((b) => { b.visible = S.env === 'urban'; }); tun.forEach((t) => { t.visible = S.env === 'tunnel'; });
+        const fix = n >= 4 ? '3D fix' : n === 3 ? '2D fix' : 'No fix', hdop = n >= 4 ? 3 / Math.sqrt(n - 2) : n === 3 ? 4 : 99, mp = S.env === 'urban' ? 12 : 0;
+        if (n >= 3) S.err = Math.max(0, S.err - dt * 15); else S.err += dt * (S.dr ? .8 : 3);
+        const base = n >= 3 ? hdop * 4.5 + mp : 0, err = base + S.err;
+        const r = clamp(err * .22, .15, 3.2);
+        disk.scale.set(r, 1, r);
+        const a = c.t * 1.7, drift = n >= 3 ? 0 : S.err * .22;
+        mark.position.set(r * .6 * Math.sin(a) + drift, -.85, r * .6 * Math.cos(a * 1.3));
+        rcv.material.emissiveIntensity = n >= 3 ? 1.5 : .2;
+        return {
+          big: err.toFixed(1), unit: ' m', bar: clamp(err / 60) * 100,
+          ro: { sats: [n + ' of ' + tracked, n >= 4 ? 'ok' : 'warn'], hdop: [n >= 3 ? hdop.toFixed(1) : '—', hdop <= 2 ? 'ok' : 'warn'], fix: [fix, n >= 4 ? 'ok' : n === 3 ? 'warn' : 'crit'], dr: [S.err.toFixed(0) + ' m', S.err > 5 ? 'warn' : ''], env: [S.env === 'sky' ? 'Open sky' : S.env === 'urban' ? 'Urban canyon' : 'Tunnel', ''] },
+          status: [n >= 4 ? 'Position fixed' : n === 3 ? '2D fix only' : S.dr ? 'Dead reckoning' : 'Position lost', n >= 4], ctl: tracked + ' tracked'
+        };
+      }
+    };
+  }
+
+runGuidedModule(CFG, build);
+</script>
+</body>
+</html>

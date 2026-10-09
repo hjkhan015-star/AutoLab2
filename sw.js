@@ -1,5 +1,5 @@
 /* Auto Lab service worker — offline cache */
-const VERSION = 'autolab-v8.11.0';
+const VERSION = 'autolab-v8.12.0';
 const CORE    = VERSION + '-core';
 const RUNTIME = VERSION + '-runtime';
 
@@ -44,6 +44,14 @@ const CORE_ASSETS = [
   './automatic.html',
   './differential.html',
   './driveshaft.html',
+  './bodyframe.html',
+  './crumple.html',
+  './restraints.html',
+  './traction.html',
+  './accycle.html',
+  './hvacflow.html',
+  './headunit.html',
+  './gpsnav.html',
   './awd.html',
   './steering.html',
   './suspension.html',
