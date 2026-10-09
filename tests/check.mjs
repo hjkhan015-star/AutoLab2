@@ -8,7 +8,7 @@ const root = new URL('..', import.meta.url).pathname;
 let fails = 0;
 const fail = (m) => { console.error('FAIL', m); fails++; };
 /* module families that live in their own folder (checked exactly like the root files; paths are relative to the repo root) */
-const SUBDIRS = ['Wheel alignment'];
+const SUBDIRS = ['Wheel alignment', 'Wheel balancing'];
 const inSub = (re) => SUBDIRS.flatMap((d) => readdirSync(root + d).filter((f) => re.test(f)).map((f) => d + '/' + f));
 const html = readdirSync(root).filter((f) => f.endsWith('.html')).concat(inSub(/\.html$/));
 const sw = readFileSync(root + 'sw.js', 'utf8');
@@ -122,7 +122,7 @@ for (const f of jsFiles) {
 const ROOT_FILES = new Set(['404.html', '_headers', 'robots.txt', 'manifest.webmanifest', 'package.json', 'sw.js', 'README.md', 'GUIDE.md', 'COMPONENTS.md', 'CHANGELOG.md', 'MONITOR-MAP.md', 'QA.md', 'POLISH.md']);
 for (const f of readdirSync(root, { withFileTypes: true })) {
   if (f.name.startsWith('.') || f.name === 'node_modules') continue;
-  if (f.isDirectory()) { if (!['tests', 'icons', ...SUBDIRS].includes(f.name)) fail(`stray directory: ${f.name}/`); continue; }
+  if (f.isDirectory()) { if (!['tests', 'icons', 'vendor', ...SUBDIRS].includes(f.name)) fail(`stray directory: ${f.name}/`); continue; }
   if (!/\.(html|js|css)$/.test(f.name) && !ROOT_FILES.has(f.name)) fail(`stray file in the root: ${f.name} (logs, scratch and process notes do not ship)`);
 }
 for (const f of readdirSync(root + 'tests')) if (!/\.(test\.)?mjs$/.test(f)) fail(`stray file in tests/: ${f}`);
