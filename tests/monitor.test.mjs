@@ -123,7 +123,7 @@ t('guided modules: no module reaches around the Monitor for a readout (no ro- id
   for (const f of guided) { const s = strip(rd(f)); assert.ok(!/ui\.chip\./.test(s), `${f}: ui.chip`); assert.ok(!/getElementById\(['"]ro-/.test(s), `${f}: ro-* element`); }
 });
 t('sw.js: monitor.js + monitor-core.js precached, cache bumped', () => {
-  assert.match(sw, /'\.\/monitor\.js'/); assert.match(sw, /'\.\/monitor-core\.js'/); assert.match(sw, /VERSION = 'autolab-v8\.([6-9]|10)(\.\d+)?'/);
+  assert.match(sw, /'\.\/monitor\.js'/); assert.match(sw, /'\.\/monitor-core\.js'/); assert.match(sw, /VERSION = 'autolab-v8\.([6-9]|[1-9]\d)(\.\d+)?'/);
 });
 t('controls.css: Monitor styles use tokens only (no hard-coded colours) and a reduced-motion block', () => {
   const block = css.slice(css.indexOf('Monitor (Phase 7a)'));

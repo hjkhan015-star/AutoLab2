@@ -88,7 +88,7 @@ t('Space is no longer a pedal in braking / clutch / turbocharger', () => {
 
 t('new files are precached and the SW version is bumped', () => {
   for (const a of ['chrome.js', 'keys.js', 'controls.css', 'controls-core.js']) assert.ok(sw.includes(`'./${a}'`), a);
-  assert.match(sw, /const VERSION = 'autolab-v8\.([6-9]|10)(\.\d+)?'/);
+  assert.match(sw, /const VERSION = 'autolab-v8\.([6-9]|[1-9]\d)(\.\d+)?'/);
   assert.match(index, /<link rel="stylesheet" href="controls\.css">/);
 });
 
