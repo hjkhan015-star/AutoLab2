@@ -1,5 +1,5 @@
 /* Auto Lab service worker — offline cache */
-const VERSION = 'autolab-v8.10.2';
+const VERSION = 'autolab-v8.11.0';
 const CORE    = VERSION + '-core';
 const RUNTIME = VERSION + '-runtime';
 
@@ -59,7 +59,16 @@ const CORE_ASSETS = [
   './Wheel alignment/alignment-rack.js',
   './Wheel alignment/wa-toe-scene.js',
   './Wheel alignment/wa-camber-scene.js',
-  './Wheel alignment/wa-caster-scene.js'
+  './Wheel alignment/wa-caster-scene.js',
+  './Wheel balancing/wheel-balancing.html',
+  './Wheel balancing/wb-static.html',
+  './Wheel balancing/wb-dynamic.html',
+  './Wheel balancing/wb-procedure.html',
+  './Wheel balancing/wb-split.html',
+  './Wheel balancing/balancing-model.js',
+  './Wheel balancing/balancer-machine.js',
+  './Wheel balancing/wb-scene.js',
+  './Wheel balancing/wb-page.js'
 ];
 
 self.addEventListener('install', (event) => {

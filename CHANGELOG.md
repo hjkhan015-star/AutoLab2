@@ -1,5 +1,14 @@
 # Changelog
 
+## 8.11.0 - Wheel Balancing module (own folder, built in phases)
+- **New folder `Wheel balancing/`**, modelled on the MANATEC DL-65 Premium: red cabinet, weight tray, display on a stalk, side shaft, black safety hood. Chassis system, after Alignment (`wheel-balancing`); the flow strip gets a Balancing step.
+- **Phase 0 - Overview (`wheel-balancing.html`)**: the machine with a wheel on the shaft, hood (lower it to spin), live display, true heavy spots in red, wheel types (steel 15, alloy 16, SUV 17), imbalance presets, hand-turn crank, road-speed vibration test.
+- **Phase 1 - Static (`wb-static.html`)**: one heavy spot makes the wheel hop; one weight in the middle cures it, but not a couple.
+- **Phase 2 - Dynamic (`wb-dynamic.html`)**: opposite spots on two planes give zero static and a large couple (shimmy); inner and outer weights from the read-out, or Auto-balance.
+- **Phase 3 - Procedure (`wb-procedure.html`)**: enter the rim diameter (a wrong value gives wrong weights), pick a plane, turn the wheel to the mark, fit the weight at 12 o'clock, spin again to check.
+- **Phase 4 - Hidden weight (`wb-split.html`)**: when the correction falls behind one of the five spokes, the weight is split into two smaller ones either side (sine-rule vector split); the Monitor says whether the spot is hidden. 4 more test groups.
+- Files: `balancing-model.js` (pure physics), `balancer-machine.js` (machine + wheel), `wb-scene.js` (shared scene), `wb-page.js` (shared controls), `balancing.test.mjs` (15 groups). `sw.js` precache, `tests/check.mjs` sub-folder list and the `npm test` script updated. Version 8.11.0.
+
 ## 8.10.2 - Wheel Alignment: platform, aligner console, shared ground, own folder
 - **Platform.** A drive-on alignment rack under the car: two runways with diamond-plate tops, hazard edge lines, rear approach ramps, front wheel stops, front **turn plates** with a degree scale and locking pins, rear **slip plates**, cross-members. It re-fits each preset (wheelbase / track) and is shared by all four pages (`Wheel alignment/alignment-rack.js`).
 - **HJK 3D aligner** in front of the car (modelled on the reference unit): black cabinet on orange casters with an orange drawer and a graphic panel, keyboard tray, monitor with a live screen (the page's own readings, tone-coloured, HJK header), aluminium column with the HJK head and a camera beam with two camera pods that look at the car. Four **dot-grid wheel targets** on clamp rings are mounted on the car's wheels and follow toe, camber and steer.
