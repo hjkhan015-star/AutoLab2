@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wheel Balancing — Wheel Balancing — Auto Lab</title>
+<link rel="stylesheet" href="../app.css">
+<link rel="stylesheet" href="../controls.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+:root { --al-accent: #ef4444; }
+html.light-theme { --al-accent: color-mix(in oklch, #ef4444 62%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="../guard.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from '../components.js';
+import { buildBalanceScene } from './wb-scene.js';
+import { makeSession, commonCtls, commonOptions, ROWS, actDynamic, actClear } from './wb-page.js';
+import { applyFault } from './balancing-model.js';
+const S = makeSession('scene', 'mixed');
+
+const CFG = {
+  moduleId: 'wheel-balancing',
+  title: 'Wheel Balancing',
+  kicker: 'Wheel Balancing',
+  accent: '#ef4444',
+  badge: 'Static · Dynamic',
+  camPos: [2.2, 1.2, 2.8],
+  target: [0, 0.6, 0],
+  ctl: null,
+  chipLabel: 'Largest correction',
+  rows: [],
+  ro: [ROWS.inner, ROWS.outer, ROWS.stat, ROWS.couple, ROWS.rpm, ROWS.feel],
+  legend: [['var(--c-green)', 'Balanced'], ['var(--c-orange)', 'Out of balance'], ['var(--c-red)', 'True heavy spot']],
+  overview: '<div class="al-sec"><h4>Why wheels are balanced</h4><p>No tyre and wheel is perfectly even. A heavy spot of only 20 g, spinning at 100 km/h, throws a force of several kilograms and shakes the steering wheel. The balancer finds each heavy spot, then tells you where to stick a small weight on the <b>opposite</b> side.</p><p>This workshop follows the MANATEC DL-65 style machine: <b>Static</b> (one plane), <b>Dynamic</b> (two planes) and the full <b>Procedure</b>. Lower the hood to spin the wheel.</p></div>',
+  faults: [['Steering wheel shakes at 80–110 km/h', 'Rhythmic shimmy that comes and goes with speed.', 'Balance the front wheels on a dynamic balancer.'], ['Whole car vibrates, seat and floor', 'Hop felt in the body, often from the rear.', 'Check static balance and tyre / rim run-out.'], ['Cupped, scalloped tread', 'Bouncing wheel wears patches.', 'Balance, then check shocks and alignment.']],
+  quiz: [['A balancing weight goes…', ['Opposite the heavy spot', 'On the heavy spot', 'At the valve'], 0, 'The weight is stuck 180° from the heavy spot.'], ['Static imbalance causes…', ['Up-down hop', 'Side-to-side wobble only', 'Nothing'], 0, 'A single heavy spot makes the wheel hop.'], ['Dynamic imbalance needs…', ['Weights on both planes', 'One centre weight', 'No weight'], 0, 'A couple needs an inner and an outer weight.']],
+  onReset: () => { applyFault(S.wheel, 'mixed'); S.hasSpun = false; S.rot = 0; S.ver++; }
+};
+
+CFG.ctls = commonCtls(S);
+CFG.options = commonOptions(S, 'scene', [actDynamic(S), actClear(S)]);
+
+runGuidedModule(CFG, (H) => buildBalanceScene(H, S));
+</script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Balancing procedure — Wheel Balancing — Auto Lab</title>
+<link rel="stylesheet" href="../app.css">
+<link rel="stylesheet" href="../controls.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+:root { --al-accent: #ef4444; }
+html.light-theme { --al-accent: color-mix(in oklch, #ef4444 62%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="../guard.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from '../components.js';
+import { buildBalanceScene } from './wb-scene.js';
+import { makeSession, commonCtls, commonOptions, ROWS, fitAtTop } from './wb-page.js';
+import { applyFault, rotToTop, offTop, correction, STEPS } from './balancing-model.js';
+const S = makeSession('procedure', 'mixed');
+
+const CFG = {
+  moduleId: 'wb-procedure',
+  title: 'Balancing Procedure',
+  kicker: 'Wheel Balancing',
+  accent: '#ef4444',
+  badge: 'Step by step',
+  camPos: [2.2, 1.2, 2.8],
+  target: [0, 0.6, 0],
+  ctl: null,
+  chipLabel: 'Largest correction',
+  rows: [],
+  ro: [ROWS.inner, ROWS.outer, ['align', 'Mark vs 12 o\'clock'], ROWS.rpm, ROWS.feel],
+  legend: [['var(--c-green)', 'Balanced'], ['var(--c-orange)', 'Out of balance'], ['var(--c-red)', 'True heavy spot']],
+  overview: '<div class="al-sec"><h4>The balancing procedure</h4><ol>' + STEPS.map((x) => '<li>' + x + '</li>').join('') + '</ol><p>Pick a plane, turn the wheel by hand until the mark is at 12 o\'clock (the <b>Mark vs 12 o\'clock</b> row reads 0°), then <b>Fit weight at 12 o\'clock</b>. Lower the hood to spin again. Type a wrong rim diameter and see the weights go wrong.</p></div>',
+  faults: [['Weights come out wrong', 'Rim diameter or width typed in incorrectly.', 'Measure the rim and re-enter before spinning.'], ['Still shakes after balancing', 'Weight stuck on the wrong plane or angle.', 'Re-spin: the machine shows what is left.']],
+  quiz: [['The correction weight is stuck at…', ['12 o\'clock when the machine says turn-to-mark', 'The valve', 'Anywhere on the tyre'], 0, 'The machine stops the wheel with the correct spot at the top.'], ['After fitting weights you should…', ['Spin again to check', 'Drive off', 'Add more weight'], 0, 'A check spin proves the result.']],
+  onReset: () => { applyFault(S.wheel, 'mixed'); S.hasSpun = false; S.rot = 0; S.ver++; }
+};
+
+CFG.ctls = commonCtls(S);
+CFG.options = commonOptions(S, 'procedure', [{ id: 'dia', type: 'choice', layout: 'select', label: 'Diameter entered', def: '16', onChange: (id) => { S.typedDia = Number(id); S.ver++; }, options: [13, 14, 15, 16, 17, 18].map((d) => ({ id: String(d), label: d + ' in' })) },
+  { id: 'plane', type: 'choice', layout: 'segmented', label: 'Plane', def: 'inner', onChange: (id) => { S.plane = id; }, options: [{ id: 'inner', label: 'Inner' }, { id: 'outer', label: 'Outer' }] },
+  { id: 'toMark', type: 'action', label: 'Turn wheel to mark', onAction: () => { S.rot = rotToTop(correction(S.wheel)[S.plane].a); } },
+  { id: 'fit', type: 'action', label: 'Fit weight at 12 o\'clock', onAction: () => { S.msg = fitAtTop(S, S.plane); } }]);
+
+S.plane = 'inner';
+runGuidedModule(CFG, (H) => {
+  const api = buildBalanceScene(H, S), u0 = api.update;
+  api.update = (c) => {
+    const o = u0(c), d = offTop(correction(S.wheel)[S.plane].a, S.rot);
+    o.ro.align = [(d >= 0 ? '+' : '−') + Math.abs(d).toFixed(0) + '°', Math.abs(d) <= 6 ? 'ok' : 'warn', d];
+    if (S.rpmNow >= 90) S.msg = '';
+    if (S.msg) o.status = [S.msg, true];
+    return o;
+  };
+  return api;
+});
+</script>
+</body>
+</html>

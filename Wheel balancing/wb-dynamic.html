@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dynamic balance — Wheel Balancing — Auto Lab</title>
+<link rel="stylesheet" href="../app.css">
+<link rel="stylesheet" href="../controls.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+:root { --al-accent: #ef4444; }
+html.light-theme { --al-accent: color-mix(in oklch, #ef4444 62%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="../guard.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from '../components.js';
+import { buildBalanceScene } from './wb-scene.js';
+import { makeSession, commonCtls, commonOptions, ROWS, actDynamic, actStatic, actClear } from './wb-page.js';
+import { applyFault } from './balancing-model.js';
+const S = makeSession('dynamic', 'dynamic');
+
+const CFG = {
+  moduleId: 'wb-dynamic',
+  title: 'Dynamic Balance',
+  kicker: 'Wheel Balancing',
+  accent: '#ef4444',
+  badge: 'Dynamic · 2 planes',
+  camPos: [2.2, 1.2, 2.8],
+  target: [0, 0.6, 0],
+  ctl: null,
+  chipLabel: 'Largest correction',
+  rows: [],
+  ro: [ROWS.inner, ROWS.outer, ROWS.couple, ROWS.stat, ROWS.shim, ROWS.hop, ROWS.feel, ROWS.hI, ROWS.hO],
+  legend: [['var(--c-green)', 'Balanced'], ['var(--c-orange)', 'Out of balance'], ['var(--c-red)', 'True heavy spot']],
+  overview: '<div class="al-sec"><h4>Dynamic balance</h4><p>A wheel has width. Two equal heavy spots on <b>opposite sides and different planes</b> cancel when it sits still (statically balanced) but form a <b>couple</b> that makes the wheel wobble when it spins: the steering wheel <b>shimmies</b>.</p><p>The balancer measures the inner and outer plane separately and asks for a weight on each. Choose <b>Dynamic: opposite spots</b>: the static reading is zero but the couple is large. <b>Fit one static weight</b> does nothing; <b>Auto-balance</b> clears it.</p></div>',
+  faults: [['Shimmy with zero static imbalance', 'Spots on opposite planes cancel at rest.', 'Balance on both planes.'], ['Shimmy after fitting a tyre', 'Inner and outer weights are different.', 'Re-balance with the correct rim width and diameter.']],
+  quiz: [['Two opposite spots on different planes give…', ['A couple (wobble)', 'Hop only', 'Perfect balance'], 0, 'Zero static, large dynamic imbalance.'], ['Dynamic balancing uses…', ['Two planes', 'One plane', 'No weights'], 0, 'Inner and outer weights are placed separately.']],
+  onReset: () => { applyFault(S.wheel, 'dynamic'); S.hasSpun = false; S.rot = 0; S.ver++; }
+};
+
+CFG.ctls = commonCtls(S);
+CFG.options = commonOptions(S, 'dynamic', [actDynamic(S), actStatic(S), actClear(S)]);
+
+runGuidedModule(CFG, (H) => buildBalanceScene(H, S));
+</script>
+</body>
+</html>

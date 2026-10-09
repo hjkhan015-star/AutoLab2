@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Static balance — Wheel Balancing — Auto Lab</title>
+<link rel="stylesheet" href="../app.css">
+<link rel="stylesheet" href="../controls.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+:root { --al-accent: #ef4444; }
+html.light-theme { --al-accent: color-mix(in oklch, #ef4444 62%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="../guard.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from '../components.js';
+import { buildBalanceScene } from './wb-scene.js';
+import { makeSession, commonCtls, commonOptions, ROWS, actStatic, actClear } from './wb-page.js';
+import { applyFault } from './balancing-model.js';
+const S = makeSession('static', 'static');
+
+const CFG = {
+  moduleId: 'wb-static',
+  title: 'Static Balance',
+  kicker: 'Wheel Balancing',
+  accent: '#ef4444',
+  badge: 'Static · 1 plane',
+  camPos: [2.2, 1.2, 2.8],
+  target: [0, 0.6, 0],
+  ctl: null,
+  chipLabel: 'Static imbalance',
+  rows: [],
+  ro: [ROWS.stat, ROWS.hop, ROWS.couple, ROWS.shim, ROWS.feel, ROWS.hI, ROWS.hO],
+  legend: [['var(--c-green)', 'Balanced'], ['var(--c-orange)', 'Out of balance'], ['var(--c-red)', 'True heavy spot']],
+  overview: '<div class="al-sec"><h4>Static balance</h4><p>If the heavy spot is in one place, the wheel is out of balance even when it is <b>not spinning</b>: left free, it rolls until the heavy spot hangs at the bottom. Spinning, that single spot makes the wheel <b>hop</b> up and down.</p><p>One weight, opposite the spot, in the middle of the wheel cures it. Try <b>Fit one static weight</b> on the Static imbalance preset, then on the Dynamic one: hop goes, shimmy stays.</p></div>',
+  faults: [['Wheel hops at speed', 'Up-down bounce from one heavy spot.', 'Fit one correcting weight opposite the spot.'], ['Wheel rolls to the same spot', 'Free wheel always stops with one place down.', 'That place is the heavy spot.']],
+  quiz: [['A free wheel with static imbalance stops with the heavy spot…', ['At the bottom', 'At the top', 'Anywhere'], 0, 'Gravity pulls the heavy spot down.'], ['One central weight fixes…', ['Hop (static)', 'Shimmy (couple)', 'Both always'], 0, 'It cancels the force, not the couple.']],
+  onReset: () => { applyFault(S.wheel, 'static'); S.hasSpun = false; S.rot = 0; S.ver++; }
+};
+
+CFG.ctls = commonCtls(S);
+CFG.options = commonOptions(S, 'static', [actStatic(S), actClear(S)]);
+
+runGuidedModule(CFG, (H) => buildBalanceScene(H, S));
+</script>
+</body>
+</html>

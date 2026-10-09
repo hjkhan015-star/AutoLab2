@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hidden weight — Hidden weight — Wheel Balancing — Auto Lab</title>
+<link rel="stylesheet" href="../app.css">
+<link rel="stylesheet" href="../controls.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+:root { --al-accent: #ef4444; }
+html.light-theme { --al-accent: color-mix(in oklch, #ef4444 62%, black); }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="labels-root"></div>
+
+<script src="../guard.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import { runGuidedModule } from '../components.js';
+import { buildBalanceScene } from './wb-scene.js';
+import { makeSession, commonCtls, commonOptions, ROWS, fitSplit, hiddenText } from './wb-page.js';
+import { applyFault, rotToTop, correction } from './balancing-model.js';
+const S = makeSession('split', 'mixed');
+
+const CFG = {
+  moduleId: 'wb-split',
+  title: 'Hidden Weight (Split)',
+  kicker: 'Wheel Balancing',
+  accent: '#ef4444',
+  badge: 'Spokes',
+  camPos: [2.2, 1.2, 2.8],
+  target: [0, 0.6, 0],
+  ctl: null,
+  chipLabel: 'Largest correction',
+  rows: [],
+  ro: [ROWS.inner, ROWS.outer, ['hid', 'Correction spot'], ROWS.rpm, ROWS.feel],
+  legend: [['var(--c-green)', 'Balanced'], ['var(--c-orange)', 'Out of balance'], ['var(--c-red)', 'True heavy spot']],
+  overview: '<div class="al-sec"><h4>Weights behind spokes</h4><p>Stick-on weights must sit on the inside of the rim barrel, and a spoke can be in the way. The balancer then asks for the same correction <b>split into two smaller weights</b> either side of the spoke. Their vector sum equals the single weight, so the wheel balances the same, but the two weights add up to <b>more</b> than one.</p><p>Pick a plane and use <b>Turn wheel to mark</b> to see if it falls behind a spoke, then <b>Fit weight (split if hidden)</b>.</p></div>',
+  faults: [['Weight will not stick behind spoke', 'The spot falls where a spoke hides the barrel.', 'Split the weight into two, either side of the spoke.'], ['Two weights, still vibrates', 'Split angles or sizes wrong.', 'Re-spin; the machine shows what is left.']],
+  quiz: [['A hidden weight is split because…', ['A spoke blocks the barrel', 'The tyre is worn', 'The valve is in the way'], 0, 'Weights stick to the barrel, so go either side of the spoke.'], ['Two split weights together weigh…', ['More than the single weight', 'Less', 'The same'], 0, 'Their vector sum equals the one weight, but their sum is larger.']],
+  onReset: () => { applyFault(S.wheel, 'mixed'); S.hasSpun = false; S.rot = 0; S.ver++; }
+};
+
+CFG.ctls = commonCtls(S);
+CFG.options = commonOptions(S, 'split', [{ id: 'plane', type: 'choice', layout: 'segmented', label: 'Plane', def: 'inner', onChange: (id) => { S.plane = id; }, options: [{ id: 'inner', label: 'Inner' }, { id: 'outer', label: 'Outer' }] },
+  { id: 'toMark', type: 'action', label: 'Turn wheel to mark', onAction: () => { S.rot = rotToTop(correction(S.wheel)[S.plane].a); } },
+  { id: 'fit', type: 'action', label: 'Fit weight (split if hidden)', onAction: () => { S.msg = fitSplit(S, S.plane); } }]);
+
+S.plane = 'inner';
+runGuidedModule(CFG, (H) => {
+  const api = buildBalanceScene(H, S), u0 = api.update;
+  api.update = (c) => {
+    const o = u0(c);
+    o.ro.hid = [hiddenText(S, S.plane), hiddenText(S, S.plane) === 'Behind a spoke' ? 'warn' : 'ok'];
+    if (S.rpmNow >= 90) S.msg = '';
+    if (S.msg) o.status = [S.msg, true];
+    return o;
+  };
+  return api;
+});
+</script>
+</body>
+</html>
