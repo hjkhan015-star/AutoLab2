@@ -30,34 +30,130 @@ html.light-theme { --al-accent: color-mix(in oklch, #fb7185 68%, black); }
 import { runGuidedModule } from './components.js';
 
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId": "airfilter", "title": "Air Filter & Intake", "kicker": "Air Intake & Boost", "accent": "#fb7185", "badge": "Airbox · Pleated paper", "camPos": [5.2, 3.2, 6.6], "target": [0, 0, 0], "floorY": -1.5, "ctl": {"label": "Filter clogging", "val": 15, "caption": "Filter condition"}, "chipLabel": "Airflow", "rows": [["dp", "Pressure drop"], ["pw", "Power loss"]], "ro": [["flow", "Airflow"], ["dp", "Pressure drop"], ["pw", "Power loss"], ["cond", "Filter state"], ["thr", "Throttle"]], "legend": [["var(--c-cyan)", "Clean air"], ["var(--c-orange)", "Dust"], ["var(--c-amber)", "Filter element"]], "overview": "<div class=\"al-sec\"><h4>What it does<\/h4><p>The air filter stops dust, sand and soot before they reach the cylinders. A few grams of grit can score cylinder walls and rings, so the intake is filtered to roughly 99% at 5 µm.<\/p><\/div><div class=\"al-sec\"><h4>Path of the air<\/h4><ul><li><b>Snorkel / inlet<\/b> – draws cool, dry air.<\/li><li><b>Airbox &amp; pleated element<\/b> – pleats give a huge surface in a small box.<\/li><li><b>Airflow meter (MAF)<\/b> – measures the clean air.<\/li><li><b>Throttle body<\/b> – the butterfly meters load.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Restriction<\/h4><p>As dirt loads the element, pressure drop rises and airflow falls. On a modern engine the ECU compensates, so the damage shows as lost power and higher fuel use rather than a warning light. Drag the slider to see it.<\/p><\/div>", "faults": [["Clogged element", "Sluggish acceleration, black smoke on diesels, slight mpg loss.", "Hold the element to a light – if you cannot see through the pleats, replace it."], ["Air leak after the filter", "Rough idle, lean codes (P0171), whistling.", "Inspect intake hose clamps and cracked ducts; smoke-test the intake."], ["Oiled or wet element", "MAF reading errors, hesitation.", "Check for over-oiled reusable filters and water ingress from the snorkel."]], "quiz": [["Why is the filter pleated?", ["To make it look better", "To give a large filtering area in a small box", "To slow the air down"], 1, "Pleating packs several square metres of media into the airbox, keeping restriction low."], ["A clogged filter mainly causes…", ["Less airflow and lost power", "Higher compression", "More oil pressure"], 0, "Restriction reduces the air that can be drawn in, so less fuel can be burned efficiently."], ["Where must filtered air enter?", ["After the throttle only", "Before the MAF sensor and throttle", "Directly into the exhaust"], 1, "All air must be filtered before any sensors or the engine – a leak after the filter admits dirt."]]};
+const CFG = {"moduleId": "airfilter", "title": "Air Filter & Intake", "kicker": "Air Intake & Boost", "accent": "#fb7185", "badge": "Airbox · Pleated paper · MAF", "camPos": [3.2, 2.4, 13.5], "target": [0.5, 0.2, 0], "floorY": -1.45, "ctl": {"label": "Filter clogging", "val": 15, "caption": "Filter condition"}, "chipLabel": "Airflow", "rows": [["dp", "Pressure drop"], ["pw", "Power loss"]], "ro": [["flow", "Airflow"], ["dp", "Pressure drop"], ["pw", "Power loss"], ["cond", "Filter state"], ["thr", "Throttle"]], "legend": [["var(--c-cyan)", "Clean (filtered) air"], ["var(--c-orange)", "Dust and dirty-side air"], ["var(--c-amber)", "Pleated paper element"], ["var(--c-slate)", "Rubber hoses and clamps"]], "overview": "<div class=\"al-sec\"><h4>What it does</h4><p>The air filter stops dust, sand and soot before they reach the cylinders. A few grams of grit can score cylinder walls and rings, so the intake is filtered to roughly 99 % at 5 &micro;m.</p></div><div class=\"al-sec\"><h4>Path of the air</h4><ul><li><b>Grille and snorkel hose</b> &ndash; draw cool, dry air through a ribbed rubber hose, which flexes with the engine.</li><li><b>Resonator</b> &ndash; a side chamber that cancels intake noise.</li><li><b>Airbox</b> &ndash; a <b>dirty side</b> (warm tint) and a <b>clean side</b> (cool tint) separated by the <b>pleated paper element</b>. Pleats give square metres of filtering area in a small box. The lid clips hold it shut and sealed.</li><li><b>Pressure-drop gauge</b> &ndash; compares the two sides; the needle rises as the element loads.</li><li><b>Clean-air hose, MAF sensor</b> &ndash; the hot wire in the stream measures the air; a leak <i>before</i> it would let in dirt, a leak <i>after</i> it upsets the reading.</li><li><b>Throttle body and manifold</b> &ndash; the butterfly plate meters the load; the plenum shares the air to the cylinders.</li></ul></div><div class=\"al-sec\"><h4>Restriction</h4><p>Drag the <b>Filter clogging</b> slider. A dust cake builds on the dirty face, the paper darkens, pressure drop rises and airflow falls. A modern engine&rsquo;s ECU compensates, so the damage shows as lost power and higher fuel use rather than a warning light.</p></div>", "faults": [["Clogged element", "Sluggish acceleration, black smoke on diesels, slight mpg loss.", "Hold the element to a light; if you cannot see through the pleats, replace it."], ["Air leak after the filter", "Rough idle, lean codes (P0171), whistling; unfiltered dirt reaches the engine.", "Inspect hose clamps and cracked ribbed hoses; smoke-test the intake."], ["Oiled or wet element", "MAF reading errors, hesitation.", "Check for over-oiled reusable filters and water ingress from the snorkel."], ["Dirty or contaminated MAF", "Hesitation, poor idle, wrong fuel trims even with a clean filter.", "Clean the hot wire with MAF cleaner only; never touch it."], ["Cracked or loose airbox lid", "Whistling, dirt on the clean side, rough idle.", "Check the lid clips and the seal around the element."]], "quiz": [["Why is the filter pleated?", ["To make it look better", "To give a large filtering area in a small box", "To slow the air down"], 1, "Pleating packs several square metres of media into the airbox, keeping restriction low."], ["A clogged filter mainly causes…", ["Less airflow and lost power", "Higher compression", "More oil pressure"], 0, "Restriction reduces the air that can be drawn in, so less fuel can be burned efficiently."], ["Where must filtered air enter?", ["After the throttle only", "Before the MAF sensor and throttle", "Directly into the exhaust"], 1, "All air must be filtered before any sensors or the engine – a leak after the filter admits dirt."], ["What does the pressure-drop gauge compare?", ["Dirty side and clean side of the element", "Oil and coolant", "Inlet and exhaust"], 0, "The needle shows how much the element restricts the flow; it rises as the filter clogs."], ["Why are intake hoses ribbed?", ["To make them look strong", "So they bend and absorb engine movement without kinking", "To slow the air down"], 1, "Corrugations let the hose flex and stay round while the engine rocks on its mounts."], ["What does the MAF hot wire measure?", ["Air mass entering the engine", "Oil pressure", "Throttle angle"], 0, "Moving air cools the heated wire; the ECU converts the current needed to hold its temperature into mass flow."]]};
 
 /* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
-function build(H){
- const {box,cyl,cylX,mat,glass,glow,stream,lc,clamp,root,THREE}=H;
- const duct=mat(0x475569,.5,.5), dark=mat(0x2b303b,.4,.6);
- box(4.2,.15,2.6,dark,0,-1,0); box(4.2,2.0,2.6,glass(0x94a3b8,.14),0,0,0);
- cylX(.5,.5,1.6,duct,-3.0,0,0,null,32,true); cylX(.42,.42,1.6,duct,3.0,0,0,null,32,true);
- const fmat=mat(0xf5e9c8,0,.9); const pleats=[];
- for(let i=0;i<22;i++){ const p=box(.55,1.5,.04,fmat,0,0,-1.05+i*(2.1/21)); p.rotation.y=(i%2?1:-1)*.9; pleats.push(p); }
- box(.7,.1,2.3,dark,0,.8,0); box(.7,.1,2.3,dark,0,-.8,0);
- const plate=cyl(.4,.4,.04,mat(0xcbd5e1,.8,.3),3.9,0,0); cyl(.44,.44,.5,duct,3.9,0,0,null,32,true).rotation.z=Math.PI/2;
- const air=stream([[-4.2,0,0],[-1,0,0],[-.3,0,0]],26,0x7dd3fc,.11);
- const dust=stream([[-4.2,.25,.25],[-1,.25,.25],[-.3,.25,.25]],14,0xb08050,.09);
- const clean=stream([[.3,0,0],[2,0,0],[4.4,0,0]],26,0x7dd3fc,.11);
- return {
-  labels:[['Inlet duct',[-3.4,.75,0]],['Pleated element',[0,1.05,0]],['Airbox',[-1.6,1.15,1.2]],['Clean-air duct',[2.4,.7,0]],['Throttle plate',[3.9,.75,0]]],
-  update(c){
-   const k=c.k, open=.55+.45*Math.sin(c.t*.9), q=1-.72*k, flow=30+95*open*q;
-   fmat.color.copy(lc(0xf5e9c8,0x3f2e1c,k));
-   plate.rotation.z=(1-open)*Math.PI/2*.92;
-   air.update(c.t,.16+.2*open,1); dust.update(c.t,.16+.2*open,.35+.5*k); clean.update(c.t,(.16+.2*open)*q,q);
-   const dp=.4+k*5.6, loss=clamp((k-.35)/.65)*10;
-   const st=k<.4?'Clean':k<.75?'Loaded':'Replace';
-   return {big:flow.toFixed(0),unit:' g/s',bar:flow/1.25,rows:{dp:dp.toFixed(1)+' kPa',pw:loss.toFixed(1)+' %'},
-    ro:{flow:[flow.toFixed(0)+' g/s','hi'],dp:[dp.toFixed(1)+' kPa',dp>4?'warn':''],pw:[loss.toFixed(1)+' %',loss>4?'warn':'ok'],cond:[st,k>.75?'crit':k>.4?'warn':'ok'],thr:[(open*100).toFixed(0)+' %','']},
-    status:[k>.75?'Restricted':'Breathing',true],ctl:Math.round(k*100)+' % clogged'};
-  }};
+function build(H) {
+  const { box, cyl, cylX, cylZ, sph, mat, glass, glow, pipe, stream, lc, clamp, root, THREE, lowEnd, V3 } = H;
+  /* materials */
+  const plastic = mat(0x1b2029, 0.15, 0.7), plasticL = mat(0x2b3340, 0.2, 0.6), rubber = mat(0x262d38, 0.08, 0.8), steel = mat(0xcbd5e1, 0.9, 0.28),
+        alu = mat(0xaab4c2, 0.85, 0.35), brass = mat(0xc9a227, 0.8, 0.3), seal = mat(0x0b0d12, 0.0, 1.0);
+  const dirtyGlass = glass(0xf59e0b, 0.10), cleanGlass = glass(0x38bdf8, 0.10);
+  const paper = new THREE.MeshStandardMaterial({ color: 0xf5e9c8, metalness: 0, roughness: 0.92, side: THREE.DoubleSide });
+
+  /* ── ribbed rubber hose: the tube from the shared pipe() helper plus corrugation rings and worm-drive clamps ── */
+  function hose(pts, r, ribs) {
+    const P = pts.map((a) => new THREE.Vector3(a[0], a[1], a[2])), curve = new THREE.CatmullRomCurve3(P, false, 'catmullrom', 0.4);
+    pipe(pts, r, rubber);
+    if (ribs) {
+      const len = curve.getLength(), n = Math.max(4, Math.round(len / 0.13)), up = new THREE.Vector3(0, 0, 1), q = new THREE.Quaternion(), tg = new THREE.Vector3();
+      const rg = new THREE.TorusGeometry(r * 1.0, r * 0.1, 6, lowEnd ? 10 : 16), rings = new THREE.InstancedMesh(rg, rubber, n), d = new THREE.Object3D();
+      for (let i = 0; i < n; i++) {
+        const t = (i + 0.5) / n; curve.getPointAt(t, d.position); curve.getTangentAt(t, tg); q.setFromUnitVectors(up, tg); d.quaternion.copy(q); d.scale.set(1, 1, 1); d.updateMatrix(); rings.setMatrixAt(i, d.matrix);
+      }
+      root.add(rings);
+    }
+    return curve;
+  }
+  function clampBand(x, y, z, r) {                                         /* worm-drive hose clamp around a round section along x */
+    const b = cylX(r * 1.14, r * 1.14, 0.12, steel, x, y, z);
+    box(0.1, 0.1, 0.1, steel, x, y + r * 1.2, z + 0.0); cyl(0.035, 0.035, 0.12, brass, x, y + r * 1.28, z + 0.0).rotation.z = Math.PI / 2;
+    return b;
+  }
+
+  /* ═════════ INTAKE: grille, ribbed snorkel hose, resonator ═════════ */
+  const R1 = 0.5;
+  box(0.12, 0.9, 1.3, plasticL, -5.25, 0.25, 0);                                           /* grille frame */
+  for (let i = 0; i < 6; i++) box(0.05, 0.9, 0.05, plastic, -5.3, 0.25, -0.5 + i * 0.2);      /* grille bars */
+  const inlet = [[-5.1, 0.25, 0], [-4.4, 0.25, 0], [-3.7, 0.6, 0], [-2.9, 0.6, 0], [-2.2, 0.25, 0]];
+  hose(inlet, R1, true);
+  cylX(R1 * 1.08, R1 * 1.08, 0.25, plasticL, -5.0, 0.25, 0); clampBand(-4.75, 0.25, 0, R1); clampBand(-2.35, 0.25, 0, R1);
+  /* resonator (Helmholtz) tank on a neck: quiets the intake roar */
+  cyl(0.14, 0.14, 0.55, plasticL, -3.4, 1.0, 0); cylX(0.4, 0.4, 1.0, plasticL, -3.4, 1.55, 0); sph(0.4, plasticL, -3.9, 1.55, 0); sph(0.4, plasticL, -2.9, 1.55, 0);
+  /* ═════════ AIRBOX: dirty side | pleated element | clean side ═════════ */
+  const AX0 = -1.75, AX1 = 1.75, AY = 0.2, AH = 2.0, AD = 2.7;
+  box(AX1 - AX0, 0.14, AD, plastic, 0, AY - AH / 2, 0);                                     /* tray */
+  box(AX1 - AX0, 0.1, AD + 0.1, plasticL, 0, AY - AH / 2 + 0.12, 0);
+  box((0 - AX0) - 0.05, AH, AD, dirtyGlass, (AX0 + 0) / 2 - 0.02, AY, 0);                    /* dirty-side chamber (warm tint) */
+  box((AX1 - 0) - 0.05, AH, AD, cleanGlass, (AX1 + 0) / 2 + 0.02, AY, 0);                    /* clean-side chamber (cool tint) */
+  box(AX1 - AX0 + 0.12, 0.12, AD + 0.12, glass(0x475569, 0.32), 0, AY + AH / 2, 0);              /* lid (smoked, so the pleats show from above) */
+  for (const x of [-1.2, 0, 1.2]) for (const z of [-1.4, 1.4]) { box(0.14, 0.34, 0.1, steel, x, AY + AH / 2 - 0.06, z); box(0.1, 0.1, 0.12, plasticL, x, AY + AH / 2 + 0.12, z); }   /* latch clips */
+  box(0.16, AH, 0.1, plastic, AX0, AY, AD / 2); box(0.16, AH, 0.1, plastic, AX0, AY, -AD / 2); box(0.16, AH, 0.1, plastic, AX1, AY, AD / 2); box(0.16, AH, 0.1, plastic, AX1, AY, -AD / 2);
+  /* inlet and outlet nozzles */
+  cylX(R1 * 1.1, R1 * 1.1, 0.4, plasticL, AX0 - 0.1, 0.25, 0); cylX(R1 * 1.1, R1 * 1.1, 0.4, plasticL, AX1 + 0.1, 0.25, 0);
+  /* mounting feet */
+  box(0.6, 0.12, 0.5, alu, -1.0, AY - AH / 2 - 0.1, 1.5); box(0.6, 0.12, 0.5, alu, 1.0, AY - AH / 2 - 0.1, -1.5);
+
+  /* ── the pleated paper element: a real zig-zag panel in a rubber frame ── */
+  const NP = 22, PW = 0.22, EW = 2.3, EH = 1.7;
+  const sh = new THREE.Shape(), top = [], bot = [];
+  for (let i = 0; i <= NP; i++) { const z = -EW / 2 + i * EW / NP, x = (i % 2 ? PW : -PW); top.push([x, -z]); bot.push([x + 0.012, -z]); }
+  sh.moveTo(top[0][0], top[0][1]); for (let i = 1; i < top.length; i++) sh.lineTo(top[i][0], top[i][1]); for (let i = bot.length - 1; i >= 0; i--) sh.lineTo(bot[i][0], bot[i][1]); sh.closePath();
+  const eg = new THREE.ExtrudeGeometry(sh, { depth: EH, bevelEnabled: false }); eg.rotateX(-Math.PI / 2); eg.translate(0, AY - EH / 2, 0);
+  const pleats = new THREE.Mesh(eg, paper); root.add(pleats);
+  box(PW * 2 + 0.2, 0.09, EW + 0.14, seal, 0, AY + EH / 2 + 0.03, 0); box(PW * 2 + 0.2, 0.09, EW + 0.14, seal, 0, AY - EH / 2 - 0.03, 0);       /* urethane frame */
+  box(PW * 2 + 0.2, EH, 0.09, seal, 0, AY, EW / 2 + 0.03); box(PW * 2 + 0.2, EH, 0.09, seal, 0, AY, -EW / 2 - 0.03);
+  const cakeM = new THREE.MeshStandardMaterial({ color: 0x4a3420, roughness: 1, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  box(0.05, EH * 0.96, EW * 0.96, cakeM, -PW - 0.08, AY, 0);                                /* dust cake on the dirty face */
+
+  /* differential-pressure gauge across the element (on the lid) */
+  const gG = new THREE.Group(); gG.position.set(0, AY + AH / 2 + 0.2, 0.0); root.add(gG);
+  cyl(0.34, 0.34, 0.1, plastic, 0, 0, 0, gG); cyl(0.29, 0.29, 0.02, mat(0xf1f5f9, 0.1, 0.8), 0, 0.06, 0, gG);
+  for (let i = 0; i <= 10; i++) { const a = (225 - 270 * i / 10) * Math.PI / 180, t = box(0.025, 0.012, i % 5 === 0 ? 0.09 : 0.05, i > 7 ? mat(0xdc2626, 0.1, 0.6) : plastic, Math.cos(a) * 0.23, 0.075, Math.sin(a) * 0.23, gG); t.rotation.y = -a; }
+  const needle = new THREE.Group(); needle.position.y = 0.09; gG.add(needle); box(0.26, 0.012, 0.025, mat(0x111827, 0.1, 0.6), 0.1, 0, 0, needle); cyl(0.03, 0.03, 0.03, steel, 0, 0, 0, needle);
+
+  /* ═════════ CLEAN-AIR HOSE → MAF → HOSE → THROTTLE BODY → PLENUM ═════════ */
+  const clean1 = [[2.0, 0.25, 0], [2.6, 0.25, 0], [3.1, 0.6, 0], [3.5, 0.6, 0]];
+  hose(clean1, R1 * 0.9, true); clampBand(2.15, 0.25, 0, R1 * 0.9); clampBand(3.45, 0.6, 0, R1 * 0.9);
+  /* MAF sensor: plastic housing in a short clear duct, hot wire in the stream */
+  const MY = 0.6, MX = 3.95;
+  cylX(0.46, 0.46, 0.75, glass(0xa5b4c4, 0.28), MX, MY, 0); cylX(0.5, 0.5, 0.1, plasticL, MX - 0.4, MY, 0); cylX(0.5, 0.5, 0.1, plasticL, MX + 0.4, MY, 0);
+  box(0.42, 0.26, 0.4, plastic, MX, MY + 0.62, 0); box(0.2, 0.16, 0.3, plasticL, MX, MY + 0.82, 0); for (let i = 0; i < 3; i++) box(0.025, 0.1, 0.025, brass, MX - 0.07 + i * 0.07, MY + 0.95, 0);
+  cyl(0.05, 0.05, 0.5, plasticL, MX, MY + 0.28, 0);                                         /* sensing probe going into the duct */
+  const wire = sph(0.045, glow(0xfb923c, 1.5), MX, MY + 0.06, 0);
+  const clean2 = [[4.35, 0.6, 0], [4.8, 0.6, 0]];
+  hose(clean2, R1 * 0.85, true); clampBand(4.45, 0.6, 0, R1 * 0.85);
+  /* throttle body: cast bore with a butterfly plate, drive-by-wire motor and position sensor */
+  const TX = 5.4, TY = 0.6;
+  cylX(0.5, 0.5, 0.8, alu, TX, TY, 0); cylX(0.42, 0.42, 0.82, glass(0xbfdbfe, 0.2), TX, TY, 0);
+  box(0.12, 0.08, 1.1, steel, TX, TY, 0);                                                    /* butterfly shaft (vertical bore diameter, along z) */
+  const plate = new THREE.Group(); plate.position.set(TX, TY, 0); root.add(plate); cylX(0.41, 0.41, 0.035, steel, 0, 0, 0, plate);
+  box(0.4, 0.4, 0.32, plastic, TX, TY + 0.0, 0.78); cylZ(0.1, 0.1, 0.1, steel, TX, TY, 0.62); box(0.3, 0.06, 0.2, brass, TX, TY + 0.22, 0.78);       /* motor housing + TPS */
+  box(0.16, 0.16, 0.3, plastic, TX, TY, -0.8);
+  /* intake manifold plenum with runner stubs */
+  cylZ(0.5, 0.5, 2.0, alu, 6.25, TY, 0, null, 24);
+  for (let i = 0; i < 4; i++) { const z = -0.75 + i * 0.5; cylX(0.17, 0.17, 0.7, alu, 6.8, TY + 0.0, z); box(0.1, 0.46, 0.46, steel, 7.18, TY, z); }
+  box(0.12, 0.62, 0.62, steel, 5.85, TY, 0);
+
+  /* ═════════ airflow, dust and cleaned-air streams (follow the hoses) ═════════ */
+  const air   = stream([[-5.0, 0.25, 0], [-4.4, 0.25, 0], [-3.7, 0.6, 0], [-2.9, 0.6, 0], [-2.2, 0.25, 0], [-1.0, 0.25, 0], [-0.3, 0.25, 0]], lowEnd ? 16 : 28, 0x7dd3fc, 0.11);
+  const dust  = stream([[-5.0, 0.4, 0.2], [-4.4, 0.4, 0.2], [-3.7, 0.75, 0.2], [-2.9, 0.75, 0.2], [-2.2, 0.4, 0.2], [-1.0, 0.4, 0.2], [-0.3, 0.4, 0.2]], lowEnd ? 10 : 16, 0xb08050, 0.09);
+  const clean = stream([[0.3, 0.25, 0], [1.6, 0.25, 0], [2.6, 0.25, 0], [3.1, 0.6, 0], [4.8, 0.6, 0], [6.0, 0.6, 0]], lowEnd ? 16 : 28, 0x7dd3fc, 0.11);
+
+  return {
+    labels: [
+      ['Grille / inlet', [-5.3, 0.95, 0]], ['Ribbed snorkel hose', [-4.0, 1.05, 0.5]], ['Resonator', [-3.4, 2.05, 0]], ['Dirty side', [-0.9, 1.5, 1.3]], ['Pleated paper element', [0, -1.35, 1.0]],
+      ['Clean side', [0.95, 1.5, 1.3]], ['Airbox lid + clips', [-1.2, 1.55, 1.4]], ['Pressure-drop gauge', [0, 1.7, 0]], ['Clean-air hose', [2.7, 1.0, 0]], ['Hose clamp', [2.15, 0.9, 0]],
+      ['MAF sensor', [3.95, 1.9, 0]], ['Throttle body', [5.4, 1.35, 0]], ['Butterfly plate', [5.4, -0.3, 0]], ['Intake manifold', [6.3, 1.25, 0]]
+    ],
+    update(c) {
+      const k = c.k, open = .55 + .45 * Math.sin(c.t * .9), q = 1 - .72 * k, flow = 30 + 95 * open * q;
+      paper.color.copy(lc(0xf5e9c8, 0x3f2e1c, k));
+      cakeM.opacity = 0.62 * clamp((k - 0.1) / 0.9);
+      plate.rotation.y = (1 - open) * Math.PI / 2 * .92;
+      const sp = .16 + .2 * open;
+      air.update(c.t, sp, 1); dust.update(c.t, sp, .35 + .5 * k); clean.update(c.t, sp * q, q);
+      const dp = .4 + k * 5.6, loss = clamp((k - .35) / .65) * 10;
+      needle.rotation.y = -(( 225 - 270 * clamp(dp / 6)) * Math.PI / 180);
+      wire.material.emissiveIntensity = 0.5 + 2.2 * clamp(flow / 125);
+      const st = k < .4 ? 'Clean' : k < .75 ? 'Loaded' : 'Replace';
+      return {
+        big: flow.toFixed(0), unit: ' g/s', bar: flow / 1.25, rows: { dp: dp.toFixed(1) + ' kPa', pw: loss.toFixed(1) + ' %' },
+        ro: { flow: [flow.toFixed(0) + ' g/s', 'hi'], dp: [dp.toFixed(1) + ' kPa', dp > 4 ? 'warn' : ''], pw: [loss.toFixed(1) + ' %', loss > 4 ? 'warn' : 'ok'], cond: [st, k > .75 ? 'crit' : k > .4 ? 'warn' : 'ok'], thr: [(open * 100).toFixed(0) + ' %', '']},
+        status: [k > .75 ? 'Restricted' : 'Breathing', true], ctl: Math.round(k * 100) + ' % clogged'
+      };
+    }
+  };
 }
 
 runGuidedModule(CFG, build);
