@@ -29,79 +29,355 @@ html.light-theme { --al-accent: color-mix(in oklch, #06b6d4 68%, black); }
 <script type="module">
 import { runGuidedModule } from './components.js';
 
+
 /* ── CONFIG (module content) ─────────────────────────────────────── */
-const CFG = {"moduleId":"accycle","title":"A/C Refrigeration Cycle","kicker":"Climate Control (HVAC)","accent":"#06b6d4","badge":"Compressor · Condenser · Evaporator","camPos":[0,1.2,9.4],"target":[0,-0.1,0],"floorY":-2.4,"ctl":{"label":"Compressor speed","val":40,"caption":"rpm"},"chipLabel":"Vent air","rows":[],"ro":[["hi","High side (gauge)"],["lo","Low side (gauge)"],["ev","Evaporator temp"],["cond","Condenser temp"],["clutch","Compressor clutch"],["diag","Gauge diagnosis"]],"legend":[["var(--c-red)","Hot high-pressure gas"],["var(--c-orange)","Warm liquid"],["var(--c-sky)","Cold low-pressure mix"],["var(--c-cyan)","Cool vapour"]],"overview":"<div class=\"al-sec\"><h4>Moving heat out of the cabin<\/h4><p>An A/C does not make cold, it moves heat. A refrigerant (R-134a or R-1234yf) boils at a very low temperature when its pressure is low, soaking up heat from the cabin air, then is compressed and condensed to dump that heat outside.<\/p><\/div><div class=\"al-sec\"><h4>The four steps<\/h4><ul><li><b>Compressor<\/b> – squeezes the vapour; it leaves hot and at high pressure.<\/li><li><b>Condenser<\/b> – in front of the radiator; air cools the gas until it turns to liquid.<\/li><li><b>Expansion valve<\/b> – a small restriction; pressure drops and the liquid turns cold.<\/li><li><b>Evaporator<\/b> – behind the dash; the cold liquid boils, absorbing cabin heat and drying the air.<\/li><\/ul><\/div><div class=\"al-sec\"><h4>Try it<\/h4><p>Change <b>Compressor speed<\/b> and <b>Outside temp<\/b> and watch the two gauges and the vent air. Then pick a fault in the options row and read the gauges the way a technician does: the pair of readings tells you what is wrong.<\/p><\/div><div class=\"al-sec\"><h4>Safety and service<\/h4><p>Refrigerant must be recovered with a machine, never vented. The system is dried with a vacuum before recharging, because moisture freezes and forms acid.<\/p><\/div>","faults":[["Low refrigerant (leak)","Warm vent air, both gauges low, clutch cycles rapidly.","Leak-test with UV dye or a sniffer, repair, evacuate and recharge by weight."],["Overcharge","High pressures, poor cooling, compressor strain.","Recover the charge and refill to the exact specified weight."],["Blocked expansion valve / orifice tube","Low side near vacuum, frost on the valve, high side normal.","Replace the valve or tube and the receiver-drier; flush debris."],["Condenser fan not working","High side very high at idle, better at speed.","Check fan relay, fuse and motor; clean the condenser fins."],["Weak compressor","Low side too high and high side too low.","Check the clutch gap, then replace the compressor and flush the system."]],"quiz":[["Where does the refrigerant boil and absorb heat?",["Condenser","Evaporator","Compressor"],1,"The evaporator boils the refrigerant, taking heat from the cabin air."],["Which part causes the pressure drop that makes it cold?",["Expansion valve","Compressor","Receiver-drier"],0,"The restriction drops the pressure so the liquid flashes and chills."],["Both gauges low and warm air suggests…",["Overcharge","Low refrigerant","Good system"],1,"Too little refrigerant gives low pressures and weak cooling."]]};
+const CFG = {
+  "moduleId": "accycle",
+  "title": "A/C Refrigeration Cycle",
+  "kicker": "Climate Control (HVAC)",
+  "accent": "#06b6d4",
+  "badge": "Compressor · Condenser · Evaporator",
+  "camPos": [2.4, 1.6, 15.8],
+  "target": [-0.2, -0.1, 0],
+  "floorY": -3.6,
+  "ctl": { "label": "Compressor speed", "val": 40, "caption": "rpm" },
+  "chipLabel": "Vent air",
+  "rows": [],
+  "ro": [
+    ["hi", "High side (gauge)"], ["lo", "Low side (gauge)"], ["ev", "Evaporator temp"], ["cond", "Condenser temp"],
+    ["clutch", "Compressor clutch"], ["cabin", "Cabin temp"], ["air", "Cabin air flow"], ["diag", "Gauge diagnosis"]
+  ],
+  "legend": [
+    ["var(--c-red)", "Hot high-pressure gas"],
+    ["var(--c-yellow)", "High-pressure liquid"],
+    ["var(--c-blue)", "Cold low-pressure liquid / gas mix"],
+    ["var(--c-sky)", "Cold vapour back to the compressor"]
+  ],
+  "overview": "<div class=\"al-sec\"><h4>Moving heat out of the cabin</h4><p>An A/C does not make cold, it moves heat. A refrigerant (R-134a or R-1234yf) boils at a very low temperature when its pressure is low, soaking up heat from the cabin air, then is compressed and condensed to dump that heat outside.</p></div><div class=\"al-sec\"><h4>Follow the colours round the loop</h4><ul><li><b>Compressor</b> (red line out) &ndash; the clutch pulley turns the pumping pistons; low-pressure vapour leaves as hot, high-pressure gas.</li><li><b>Condenser + fan</b> &ndash; air through the fins cools the gas until it turns to liquid (red tubes turn yellow).</li><li><b>Receiver-drier</b> (yellow line) &ndash; stores liquid, filters it and its desiccant bag absorbs moisture.</li><li><b>Expansion valve</b> &ndash; a tiny restriction; pressure drops and the liquid turns cold (blue line). The bulb on the outlet pipe senses the superheat and opens or closes it.</li><li><b>Evaporator</b> &ndash; the cold liquid boils inside the core, absorbing heat from the blower air, and returns as cold vapour (light blue) to the compressor.</li></ul></div><div class=\"al-sec\"><h4>The cabin fan control panel</h4><p>The knobs on the dashboard panel are live: <b>Blower speed</b> sets how much cabin air crosses the evaporator, <b>Set temp</b> sets where the thermostat cycles the clutch, and the <b>A/C</b> and <b>Recirc</b> buttons light up when on. Use the dock to move them and watch the panel follow.</p></div><div class=\"al-sec\"><h4>Try it</h4><p>Change <b>Compressor speed</b>, <b>Outside temp</b> and the blower, then pick a fault and read the two gauges the way a technician does: the pair of readings tells you what is wrong.</p></div><div class=\"al-sec\"><h4>Safety and service</h4><p>Refrigerant must be recovered with a machine, never vented. The system is dried with a vacuum before recharging, because moisture freezes and forms acid.</p></div>",
+  "faults": [
+    ["Low refrigerant (leak)", "Warm vent air, both gauges low, clutch cycles rapidly.", "Leak-test with UV dye or a sniffer, repair, evacuate and recharge by weight."],
+    ["Overcharge", "High pressures, poor cooling, compressor strain.", "Recover the charge and refill to the exact specified weight."],
+    ["Blocked expansion valve / orifice tube", "Low side near vacuum, frost on the valve, high side normal.", "Replace the valve or tube and the receiver-drier; flush debris."],
+    ["Condenser fan not working", "High side very high at idle, better at speed.", "Check fan relay, fuse and motor; clean the condenser fins."],
+    ["Weak compressor", "Low side too high and high side too low.", "Check the clutch gap, then replace the compressor and flush the system."]
+  ],
+  "quiz": [
+    ["Where does the refrigerant boil and absorb heat?", ["Condenser", "Evaporator", "Compressor"], 1, "The evaporator boils the refrigerant, taking heat from the cabin air."],
+    ["Which part causes the pressure drop that makes it cold?", ["Expansion valve", "Compressor", "Receiver-drier"], 0, "The restriction drops the pressure so the liquid flashes and chills."],
+    ["Both gauges low and warm air suggests...", ["Overcharge", "Low refrigerant", "Good system"], 1, "Too little refrigerant gives low pressures and weak cooling."],
+    ["What does the receiver-drier's desiccant bag do?", ["Cools the liquid", "Absorbs moisture", "Raises the pressure"], 1, "Moisture would freeze at the valve and form acid in the system."],
+    ["Why does the compressor clutch cycle on and off?", ["The thermostat stops the evaporator freezing", "The belt slips", "The fan is too slow"], 0, "When the evaporator nears 0 degrees C the clutch drops out so the core does not ice up."],
+    ["Which line is the hottest?", ["Compressor to condenser", "Valve to evaporator", "Evaporator to compressor"], 0, "Compressing the gas heats it, so the discharge line is the hottest."]
+  ]
+};
 
 /* ── module state + dock options ─────────────────────────────────── */
-const S = { amb: 32, fault: 'ok' };
+const S = { amb: 32, fault: 'ok', fan: 2, set: 22, ac: true, recirc: false };
 CFG.ctls = [
   { id: 'ctl', preset: 'percent', label: 'Compressor speed', unit: 'rpm', min: 800, max: 4500, step: 50, def: 1800 },
-  { id: 'amb', preset: 'percent', label: 'Outside temp', unit: '°C', min: 15, max: 45, step: 1, def: 32, onChange: (v) => { S.amb = v; } }
+  { id: 'amb', preset: 'percent', label: 'Outside temp', unit: '°C', min: 15, max: 45, step: 1, def: 32, onChange: (v) => { S.amb = v; } },
+  { id: 'fan', preset: 'percent', label: 'Blower speed', unit: '', min: 0, max: 4, step: 1, def: 2, onChange: (v) => { S.fan = v; } },
+  { id: 'set', preset: 'percent', label: 'Set temp', unit: '°C', min: 16, max: 30, step: 1, def: 22, onChange: (v) => { S.set = v; } }
 ];
 CFG.options = [
+  { id: 'ac', type: 'toggle', label: 'A/C', def: true, onChange: (on) => { S.ac = !!on; } },
+  { id: 'recirc', type: 'toggle', label: 'Recirc', def: false, onChange: (on) => { S.recirc = !!on; } },
   { id: 'fault', type: 'choice', layout: 'select', label: 'Fault', options: [{ id: 'ok', label: 'Normal' }, { id: 'low', label: 'Low refrigerant' }, { id: 'over', label: 'Overcharged' }, { id: 'clog', label: 'Blocked expansion valve' }, { id: 'fan', label: 'Condenser fan failed' }, { id: 'comp', label: 'Weak compressor' }], def: 'ok', onChange: (id) => { S.fault = id; } }
 ];
-CFG.onReset = () => { S.amb = 32; S.fault = 'ok'; };
+const sim = { Tev: 20, cabin: 32, clutch: false, run: 0, lastT: -1 };
+CFG.onReset = () => { S.amb = 32; S.fault = 'ok'; S.fan = 2; S.set = 22; S.ac = true; S.recirc = false; sim.Tev = 20; sim.cabin = 32; sim.clutch = false; sim.run = 0; sim.lastT = -1; };
 
 /* ── MODULE SCENE (per-module 3D parts) ──────────────────────────── */
 function build(H) {
-    const { box, cyl, cylZ, mat, glow, pipe, stream, lc, clamp, THREE, root } = H;
-    const SAT = [[-10, 201], [0, 293], [10, 414], [20, 572], [30, 770], [40, 1017], [50, 1319], [60, 1682], [70, 2117]];
-    const psat = (T) => { for (let i = 1; i < SAT.length; i++) if (T <= SAT[i][0]) { const a = SAT[i - 1], b = SAT[i]; return Math.max(60, a[1] + (b[1] - a[1]) * (T - a[0]) / (b[0] - a[0])); } return SAT[SAT.length - 1][1]; };
-    const steel = mat(0x94a3b8, .6, .4), dark = mat(0x1f2937, .3, .6), fin = mat(0x64748b, .5, .5);
-    cylZ(.5, .5, .8, steel, -2.7, 1.1, 0); cylZ(.62, .62, .14, dark, -2.7, 1.1, .5);
-    const clutchM = glow(0x22c55e, 0); cylZ(.66, .66, .05, clutchM, -2.7, 1.1, .6);
-    box(1.4, 1.0, 1.3, fin, 2.7, 1.1, 0); box(1.4, .9, 1.2, fin, -2.7, -1.1, 0);
-    const evM = mat(0x38bdf8, .3, .6); box(1.3, .8, 1.1, evM, -2.7, -1.1, 0);
-    const frost = mat(0xf8fafc, .1, .9), vlv = cyl(0, .22, .5, mat(0xfbbf24, .5, .4), 2.9, -1.1, 0); vlv.rotation.z = Math.PI / 2;
-    const tip = box(.2, .2, .2, frost, 2.7, -1.1, 0);
-    cyl(.14, .14, .6, steel, 3.75, -.1, 0);
-    const lines = [
-      [[[-2.2, 1.4, 0], [0, 1.6, 0], [2.0, 1.4, 0]], 0xef4444], [[[3.4, .8, 0], [3.75, .6, 0], [3.75, -.4, 0], [3.5, -1.1, 0]], 0xfb923c],
-      [[[2.5, -1.1, 0], [0, -1.3, 0], [-2.0, -1.1, 0]], 0x38bdf8], [[[-3.4, -.8, 0], [-3.85, -.5, 0], [-3.85, .9, 0], [-3.2, 1.1, 0]], 0x67e8f9]
-    ];
-    lines.forEach((l) => pipe(l[0], .07, mat(l[1], .3, .5)));
-    const flows = lines.map((l) => stream(l[0], 18, l[1], .13));
-    const fan = new THREE.Group(); root.add(fan); fan.position.set(2.7, 1.1, .85);
-    for (let i = 0; i < 4; i++) { const b = box(.9, .12, .04, dark, 0, 0, 0, fan); b.rotation.z = i * Math.PI / 4; }
-    const airC = [stream([[2.7, 1.1, -2.2], [2.7, 1.1, -.7]], 14, 0xbae6fd, .1), stream([[2.7, 1.1, .7], [2.7, 1.1, 2.2]], 14, 0xfb923c, .1)];
-    const airE = [stream([[-2.7, -1.1, -2.2], [-2.7, -1.1, -.6]], 14, 0xfca5a5, .1), stream([[-2.7, -1.1, .6], [-2.7, -1.1, 2.2]], 14, 0x7dd3fc, .1)];
-    const gauge = (x, col) => {
-      cylZ(.55, .55, .06, dark, x, .05, 0); cylZ(.5, .5, .02, mat(col, .1, .6), x, .05, .04);
-      const g = new THREE.Group(); root.add(g); g.position.set(x, .05, .09); box(.42, .04, .03, mat(0xf8fafc, .1, .6), .18, 0, 0, g); return g;
-    };
-    const gLo = gauge(-.75, 0x2563eb), gHi = gauge(.75, 0xdc2626);
-    const needle = (g, f) => { g.rotation.z = (225 - 270 * clamp(f)) * Math.PI / 180; };
+  const { box, cyl, cylX, cylZ, sph, mat, glass, glow, stream, lc, clamp, V3, THREE, root, lowEnd } = H;
+  const TAU = Math.PI * 2;
+  /* saturation pressure of R-134a (kPa abs) against temperature (deg C): a short lookup, linear in between */
+  const SAT = [[-10, 201], [0, 293], [10, 414], [20, 572], [30, 770], [40, 1017], [50, 1319], [60, 1682], [70, 2117]];
+  const psat = (T) => { for (let i = 1; i < SAT.length; i++) if (T <= SAT[i][0]) { const a = SAT[i - 1], b = SAT[i]; return Math.max(60, a[1] + (b[1] - a[1]) * (T - a[0]) / (b[0] - a[0])); } return SAT[SAT.length - 1][1]; };
+
+  /* materials */
+  const alu = mat(0xb9c2cf, 0.85, 0.32), aluD = mat(0x8794a6, 0.8, 0.4), steel = mat(0x94a3b8, 0.8, 0.35), dark = mat(0x1f2937, 0.3, 0.6),
+        black = mat(0x0f141c, 0.2, 0.7), brass = mat(0xc9a227, 0.85, 0.3), rubber = mat(0x111418, 0.05, 0.95), finM = mat(0xd5dbe4, 0.8, 0.35),
+        plastic = mat(0x2b3340, 0.2, 0.55), caseM = glass(0x94a3b8, 0.13);
+  const RED = 0xef4444, YEL = 0xfacc15, BLU = 0x3b82f6, LBL = 0x93c5fd;
+
+  /* ── 90-degree pipes: straight runs + a sphere at every elbow + fittings at the ends ── */
+  function lpipe(pts, r, color, glowI) {
+    const m = new THREE.MeshStandardMaterial({ color, metalness: 0.45, roughness: 0.4, emissive: color, emissiveIntensity: glowI == null ? 0.25 : glowI });
+    const P = pts.map(V3), dirs = [];
+    for (let i = 1; i < P.length; i++) {
+      const d = new THREE.Vector3().subVectors(P[i], P[i - 1]), L = d.length(); d.normalize(); dirs.push(d);
+      const seg = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 14), m);
+      seg.position.copy(P[i - 1]).addScaledVector(d, L / 2);
+      seg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d); root.add(seg);
+    }
+    for (let i = 1; i < P.length - 1; i++) { const e = new THREE.Mesh(new THREE.SphereGeometry(r * 1.02, 16, 12), m); e.position.copy(P[i]); root.add(e); }
+    for (const [pi, di, s] of [[0, 0, 1], [P.length - 1, P.length - 2, -1]]) {   /* crimped end fittings */
+      const f = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.55, r * 1.55, 0.16, 16), aluD);
+      f.position.copy(P[pi]).addScaledVector(dirs[di], s * 0.1); f.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirs[di]); root.add(f);
+    }
+    return { mat: m, pts };
+  }
+  /* flow dots that follow the pipe exactly, corner to corner (the shared stream() rounds the corners) */
+  const seed = stream([[0, 0, 0], [1, 0, 0]], 1, 0xffffff, 0.1); seed.points.visible = false;
+  function polyStream(pts, n, color, size) {
+    const P = pts.map(V3), cum = [0];
+    for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + P[i].distanceTo(P[i - 1]));
+    const total = cum[cum.length - 1], pos = new Float32Array(n * 3), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const m = seed.mat.clone(); m.color.set(color); m.size = size || 0.12;
+    const pt = new THREE.Points(g, m); pt.frustumCulled = false; root.add(pt);
+    const v = new THREE.Vector3();
     return {
-      labels: [['Compressor', [-2.7, 1.9, 0]], ['Condenser', [2.7, 1.85, 0]], ['Receiver-drier', [3.75, .5, .0]], ['Expansion valve', [2.9, -1.7, 0]], ['Evaporator', [-2.7, -2.0, 0]], ['Low / high gauges', [0, .8, 0]]],
-      update(c) {
-        const rpm = 800 + 3700 * c.k, amb = S.amb, f = S.fault;
-        const Tev0 = clamp(8 - 8 * c.k + (amb - 32) * .12, 1, 14), Tc0 = amb + 12 + 14 * c.k;
-        const ph0 = psat(Tc0) - 101, pl0 = psat(Tev0) - 101;
-        let Tc = Tc0, pH = ph0, pL = pl0, cap = .96, fl = 1;
-        if (f === 'low') { pH *= .62; pL -= 90; cap = .42; fl = .6; }
-        if (f === 'over') { pH += 450; pL += 60; cap = .62; }
-        if (f === 'clog') { pL = Math.max(-60, pL - 260); pH *= .92; cap = .22; fl = .15; }
-        if (f === 'fan') { Tc += 30 - 22 * c.k; pH = psat(Tc) - 101; cap = .72; }
-        if (f === 'comp') { pL += 180; pH *= .62; cap = .35; fl = .5; }
-        const Tev = clamp(Tev0 + (cap < .5 ? 3 : 0), 1, 20), Tv = Tev + 2 + (1 - cap) * (amb - Tev - 2);
-        const cyc = Tev0 <= 1.5 && f === 'ok';
-        const sp = (.1 + .3 * c.k) * fl;
-        flows.forEach((s, i) => s.update(c.t, sp, i === 2 && f === 'clog' ? .25 : 1));
-        fan.rotation.z = -c.t * (f === 'fan' ? 0 : 14); airC.forEach((s) => s.update(c.t, f === 'fan' ? .05 : .3, 1)); airE.forEach((s) => s.update(c.t, .3, 1));
-        clutchM.emissiveIntensity = cyc ? (Math.sin(c.t * 5) > 0 ? 2.5 : 0) : 2.5;
-        evM.color.copy(lc(0x38bdf8, 0xf8fafc, f === 'clog' ? .6 : 0)); tip.visible = f === 'clog';
-        needle(gLo, (pL + 60) / 560); needle(gHi, pH / 2500);
-        const dH = (pH - ph0) / ph0, dL = (pL - pl0) / Math.max(60, pl0 + 100);
-        const diag = { ok: 'Normal', low: 'Both low: low charge', over: 'Both high: overcharge', clog: 'Low vacuum, high ok: blockage', fan: 'High side high: condenser airflow', comp: 'Low high, high low: weak compressor' }[f];
-        return {
-          big: Tv.toFixed(1), unit: ' °C', bar: clamp((35 - Tv) / 35) * 100,
-          ro: { hi: [pH.toFixed(0) + ' kPa · ' + (pH * .145).toFixed(0) + ' psi', Math.abs(dH) > .35 ? 'crit' : Math.abs(dH) > .15 ? 'warn' : 'ok'], lo: [pL.toFixed(0) + ' kPa · ' + (pL * .145).toFixed(0) + ' psi', Math.abs(dL) > .8 ? 'crit' : Math.abs(dL) > .3 ? 'warn' : 'ok'], ev: [Tev.toFixed(1) + ' °C', ''], cond: [Tc.toFixed(0) + ' °C', Tc > 70 ? 'crit' : ''], clutch: [cyc ? 'Cycling' : 'Engaged', ''], diag: [diag, f === 'ok' ? 'ok' : 'warn'] },
-          status: [f === 'ok' ? 'Cooling' : 'Fault: ' + diag, f === 'ok'], ctl: rpm.toFixed(0) + ' rpm'
-        };
+      mat: m,
+      update(time, speed, density) {
+        const cnt = Math.round(n * clamp(density == null ? 1 : density));
+        for (let i = 0; i < n; i++) {
+          if (i >= cnt) { pos[i * 3] = pos[i * 3 + 1] = pos[i * 3 + 2] = 1e4; continue; }
+          let u = ((i / n) + time * speed) % 1; if (u < 0) u += 1;
+          const s = u * total; let k = 1; while (k < cum.length - 1 && cum[k] < s) k++;
+          const f = (s - cum[k - 1]) / Math.max(1e-6, cum[k] - cum[k - 1]);
+          v.lerpVectors(P[k - 1], P[k], f); pos[i * 3] = v.x; pos[i * 3 + 1] = v.y; pos[i * 3 + 2] = v.z;
+        }
+        g.attributes.position.needsUpdate = true;
       }
     };
   }
+
+  /* ═════════ COMPRESSOR (swash-plate type, axis toward the viewer) ═════════ */
+  const CP = [-3.9, 1.55, 0];
+  const comp = new THREE.Group(); comp.position.set(...CP); comp.rotation.y = Math.PI / 2; root.add(comp);   /* local +z (pulley end) points right */
+  cylZ(0.72, 0.72, 1.3, alu, 0, 0, -0.1, comp);                                     /* body */
+  for (let i = 0; i < 6; i++) cylZ(0.76, 0.76, 0.05, aluD, 0, 0, -0.55 + i * 0.2, comp);   /* cooling ribs */
+  for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; cylZ(0.17, 0.17, 1.15, aluD, Math.cos(a) * 0.62, Math.sin(a) * 0.62, -0.05, comp); }   /* piston pods */
+  cylZ(0.7, 0.7, 0.3, aluD, 0, 0, -0.85, comp);                                     /* rear head */
+  box(0.34, 0.42, 0.3, aluD, 0, 0.82, -0.3, comp);                                  /* discharge port block (top, toward the pulley) */
+  box(0.34, 0.42, 0.3, aluD, 0, 0.82, -0.85, comp);                                 /* suction port block (top, rear) */
+  cylZ(0.42, 0.42, 0.35, steel, 0, 0, 0.7, comp);                                   /* front bearing housing */
+  box(0.5, 0.18, 0.3, aluD, 0.55, -0.78, -0.2, comp); box(0.5, 0.18, 0.3, aluD, -0.55, -0.78, -0.2, comp);  /* mounting lugs */
+  const pulley = new THREE.Group(); pulley.position.set(0, 0, 1.0); comp.add(pulley);
+  cylZ(0.78, 0.78, 0.32, steel, 0, 0, 0, pulley);
+  for (let i = -2; i <= 2; i++) cylZ(0.8, 0.8, 0.022, dark, 0, 0, i * 0.06, pulley);   /* five belt grooves */
+  const coilM = glow(0x22c55e, 0); cylZ(0.62, 0.62, 0.05, coilM, 0, 0, -0.18, comp);   /* field coil */
+  const plate = new THREE.Group(); plate.position.set(0, 0, 1.22); comp.add(plate);
+  cylZ(0.58, 0.58, 0.07, aluD, 0, 0, 0, plate);
+  for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; box(0.1, 0.1, 0.06, steel, Math.cos(a) * 0.45, Math.sin(a) * 0.45, 0.05, plate); }
+  cylZ(0.14, 0.14, 0.14, steel, 0, 0, 0.08, plate);
+  box(0.5, 0.07, 0.03, mat(0xfde047, 0.1, 0.5), 0.25, 0, 0.1, plate);               /* rotation marker */
+  box(0.08, 0.1, 0.34, mat(0xfde047, 0.1, 0.5), 0.8, 0, 0, pulley);                 /* marker on the pulley rim (visible edge-on) */
+  for (let i = 0; i < 4; i++) { const a = i / 4 * TAU; box(0.08, 0.08, 0.34, dark, Math.cos(a) * 0.79, Math.sin(a) * 0.79, 0, pulley).rotation.z = a; }
+
+  /* ═════════ CONDENSER (serpentine tubes between corrugated fins) + FAN ═════════ */
+  const CC = [1.6, 1.45, 0], CW = 3.6, CH = 2.1, CD = 0.34, NT = 9, tubePitch = (CH - 0.3) / (NT - 1), ty0 = CC[1] + CH / 2 - 0.15;
+  box(CW, 0.08, CD, alu, CC[0], CC[1] + CH / 2 - 0.04, 0); box(CW, 0.08, CD, alu, CC[0], CC[1] - CH / 2 + 0.04, 0);
+  box(0.08, CH, CD, alu, CC[0] - CW / 2 + 0.04, CC[1], 0); box(0.08, CH, CD, alu, CC[0] + CW / 2 - 0.04, CC[1], 0);
+  const tubeX0 = CC[0] - CW / 2 + 0.15, tubeX1 = CC[0] + CW / 2 - 0.15;
+  const condMats = [], R_U = tubePitch / 2;
+  for (let i = 0; i < NT; i++) {
+    const m = new THREE.MeshStandardMaterial({ color: RED, metalness: 0.4, roughness: 0.4, emissive: RED, emissiveIntensity: 0.4 }); condMats.push(m);
+    cylX(0.055, 0.055, tubeX1 - tubeX0, m, CC[0], ty0 - i * tubePitch, 0);
+    if (i < NT - 1) {                                                   /* U-bend joining this tube to the next */
+      const right = i % 2 === 0, u = new THREE.Mesh(new THREE.TorusGeometry(R_U, 0.055, 8, 18, Math.PI), m);
+      u.position.set(right ? tubeX1 : tubeX0, ty0 - i * tubePitch - R_U, 0); u.rotation.z = right ? -Math.PI / 2 : Math.PI / 2; root.add(u);
+    }
+  }
+  const finGeo = new THREE.BoxGeometry(0.012, tubePitch - 0.05, CD - 0.04), nFinCol = lowEnd ? 40 : 82, finInst = new THREE.InstancedMesh(finGeo, finM, (NT - 1) * nFinCol);
+  const dm = new THREE.Object3D();
+  for (let r = 0; r < NT - 1; r++) for (let c = 0; c < nFinCol; c++) {
+    dm.position.set(tubeX0 + 0.1 + (tubeX1 - tubeX0 - 0.2) * c / (nFinCol - 1), ty0 - (r + 0.5) * tubePitch, 0);
+    dm.rotation.set(0, 0, (c % 2 ? 0.45 : -0.45)); dm.updateMatrix(); finInst.setMatrixAt(r * nFinCol + c, dm.matrix);
+  }
+  root.add(finInst);
+  /* fan shroud + 7-blade fan behind the condenser */
+  box(CW + 0.5, CH - 0.2, 0.12, plastic, CC[0] + 0.25, CC[1], -0.62);
+  const fanP = [CC[0] + 1.0, CC[1], -0.45];
+  const ringM = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.05, 10, 40), dark); ringM.position.set(...fanP); root.add(ringM);
+  const fan = new THREE.Group(); fan.position.set(...fanP); root.add(fan);
+  for (let i = 0; i < 7; i++) { const a = i / 7 * TAU, b = box(0.8, 0.3, 0.025, black, 0, 0, 0, fan); b.position.set(Math.cos(a) * 0.55, Math.sin(a) * 0.55, 0); b.rotation.z = a; b.rotation.x = 0.5; }
+  cylZ(0.22, 0.22, 0.18, steel, 0, 0, 0.0, fan);
+  cylZ(0.3, 0.3, 0.3, dark, fanP[0], fanP[1], -0.78);                                     /* fan motor */
+  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4, s = box(0.9, 0.05, 0.05, dark, 0, 0, 0); s.position.set(fanP[0] + Math.cos(a) * 0.5, fanP[1] + Math.sin(a) * 0.5, -0.62); s.rotation.z = a; }
+
+  /* ═════════ RECEIVER-DRIER (cut-away can: desiccant bag, pick-up tube, liquid level) ═════════ */
+  const DP = [4.55, -1.3];
+  const canGlass = glass(0xcbd5e1, 0.2);
+  cyl(0.32, 0.32, 1.5, canGlass, DP[0], DP[1], 0);
+  sph(0.32, canGlass, DP[0], DP[1] - 0.75, 0).scale.set(1, 0.5, 1);
+  box(0.9, 0.22, 0.5, aluD, DP[0], DP[1] + 0.86, 0);                                  /* head block with the two ports */
+  cyl(0.22, 0.22, 0.85, mat(0xd6b25e, 0.1, 0.9), DP[0] - 0.02, DP[1] - 0.3, 0);       /* desiccant bag */
+  cyl(0.04, 0.04, 1.5, steel, DP[0] - 0.2, DP[1] - 0.05, 0);                          /* pick-up tube */
+  cyl(0.1, 0.1, 0.05, glass(0x7dd3fc, 0.7), DP[0] + 0.1, DP[1] + 0.97, 0.25);         /* sight glass */
+  const liq = cyl(0.3, 0.3, 1, glass(YEL, 0.4), DP[0], DP[1] - 0.7, 0);               /* liquid level (scaled in update) */
+
+  /* ═════════ EXPANSION VALVE (thermostatic, with sensing bulb) ═════════ */
+  const VP = [3.0, -1.25];
+  box(0.5, 0.5, 0.44, brass, VP[0], VP[1], 0);
+  cyl(0.28, 0.28, 0.12, brass, VP[0], VP[1] + 0.32, 0);
+  const dome = sph(0.27, brass, VP[0], VP[1] + 0.38, 0); dome.scale.set(1, 0.6, 1);
+  cylX(0.07, 0.07, 0.25, brass, VP[0] - 0.36, VP[1], 0);                              /* outlet stub */
+  const needle = cyl(0.0, 0.07, 0.3, steel, VP[0], VP[1] - 0.25, 0);                 /* adjusting needle underneath */
+  cyl(0.06, 0.06, 0.3, brass, VP[0], VP[1] + 0.52, 0);
+  const frostV = sph(0.38, mat(0xf8fafc, 0.1, 0.9, { transparent: true, opacity: 0.0 }), VP[0], VP[1], 0.0); frostV.scale.set(1.3, 1, 1.1);
+
+  /* ═════════ EVAPORATOR in its case, with the blower ═════════ */
+  const EC = [-3.1, -2.1, 0], EW = 3.2, EH = 1.6, ED = 0.9, NE = 7, ePitch = 0.175, ey0 = -2.5, eX0 = EC[0] - EW / 2 + 0.15, eX1 = EC[0] + EW / 2 - 0.15;
+  box(EW, EH, ED, caseM, EC[0], EC[1], 0);
+  box(EW + 0.06, 0.08, ED + 0.06, plastic, EC[0], EC[1] + EH / 2, 0); box(EW + 0.06, 0.08, ED + 0.06, plastic, EC[0], EC[1] - EH / 2, 0);
+  const evMats = [];
+  for (let i = 0; i < NE; i++) {
+    const m = new THREE.MeshStandardMaterial({ color: BLU, metalness: 0.4, roughness: 0.4, emissive: BLU, emissiveIntensity: 0.4 }); evMats.push(m);
+    cylX(0.05, 0.05, eX1 - eX0, m, EC[0], ey0 + i * ePitch, 0);
+    if (i < NE - 1) { const right = i % 2 === 1, u = new THREE.Mesh(new THREE.TorusGeometry(ePitch / 2, 0.05, 8, 16, Math.PI), m); u.position.set(right ? eX1 : eX0, ey0 + i * ePitch + ePitch / 2, 0); u.rotation.z = right ? -Math.PI / 2 : Math.PI / 2; root.add(u); }
+  }
+  const eFin = new THREE.InstancedMesh(new THREE.BoxGeometry(0.012, ePitch * 6 + 0.1, 0.4), finM, lowEnd ? 40 : 70);
+  for (let c = 0; c < eFin.count; c++) { dm.position.set(eX0 + 0.1 + (eX1 - eX0 - 0.2) * c / (eFin.count - 1), ey0 + ePitch * 3, -0.22); dm.rotation.set(0, 0, 0); dm.updateMatrix(); eFin.setMatrixAt(c, dm.matrix); }
+  root.add(eFin);
+  const frostE = box(EW - 0.2, EH - 0.3, ED - 0.1, mat(0xf8fafc, 0.1, 0.9, { transparent: true, opacity: 0 }), EC[0], EC[1], 0);
+  cyl(0.03, 0.03, 0.3, steel, EC[0] - 0.4, EC[1] - EH / 2 - 0.12, 0);   /* condensate drain */
+  const drops = []; for (let i = 0; i < 4; i++) drops.push(sph(0.045, glass(0x7dd3fc, 0.8), EC[0] - 0.4, EC[1] - EH / 2 - 0.3, 0));
+  /* blower: motor + squirrel-cage wheel in a scroll housing, behind the evaporator */
+  const BP = [EC[0], EC[1] + 0.1, -1.25];
+  const blower = new THREE.Group(); blower.position.set(...BP); root.add(blower);
+  const cageGeo = new THREE.BoxGeometry(0.03, 0.34, 0.5);
+  for (let i = 0; i < 24; i++) { const a = i / 24 * TAU, b = new THREE.Mesh(cageGeo, steel); b.position.set(Math.cos(a) * 0.55, Math.sin(a) * 0.55, 0); b.rotation.z = a + 0.5; blower.add(b); }
+  cylZ(0.5, 0.5, 0.04, aluD, 0, 0, 0.26, blower); cylZ(0.5, 0.5, 0.04, aluD, 0, 0, -0.26, blower); cylZ(0.12, 0.12, 0.6, steel, 0, 0, 0, blower);
+  const scroll = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.06, 8, 40), plastic); scroll.position.set(...BP); root.add(scroll);
+  cylZ(0.3, 0.3, 0.5, dark, BP[0], BP[1], BP[2] - 0.5);
+
+  /* ═════════ PIPES: only 90-degree corners ═════════ */
+  const L1 = [[-4.2, 2.52, 0], [-4.2, 3.1, 0], [-0.8, 3.1, 0], [-0.8, 2.35, 0], [-0.25, 2.35, 0]];                                      /* discharge: compressor -> condenser */
+  const L2 = [[3.45, 0.55, 0], [4.8, 0.55, 0], [4.8, -0.2, 0], [4.8, -0.45, 0]];                                                       /* liquid: condenser -> drier */
+  const L3 = [[4.3, -0.45, 0], [4.3, -0.05, 0], [3.0, -0.05, 0], [3.0, -0.72, 0]];                                                       /* liquid: drier -> valve */
+  const L4 = [[2.65, -1.25, 0], [2.0, -1.25, 0], [2.0, -2.5, 0], [-1.35, -2.5, 0]];                                                     /* cold mix: valve -> evaporator */
+  const L5 = [[-4.85, -1.45, 0], [-5.5, -1.45, 0], [-5.5, 2.75, 0], [-4.75, 2.75, 0], [-4.75, 2.52, 0]];                                                          /* cold vapour: evaporator -> compressor */
+  const line1 = lpipe(L1, 0.075, RED), line2 = lpipe(L2, 0.075, YEL), line3 = lpipe(L3, 0.075, YEL), line4 = lpipe(L4, 0.075, BLU), line5 = lpipe(L5, 0.085, LBL);
+  /* capillary tube from the valve to the sensing bulb clamped on the suction line */
+  lpipe([[3.2, -1.25, 0.25], [3.2, -3.1, 0.25], [-5.85, -3.1, 0.25], [-5.85, -0.5, 0.25], [-5.62, -0.5, 0.25]], 0.022, 0x374151, 0);
+  cyl(0.12, 0.12, 0.45, brass, -5.62, -0.5, 0.25);
+  const flows = [polyStream(L1, 24, RED, 0.14), polyStream(L2, 12, YEL, 0.14), polyStream(L3, 14, YEL, 0.14), polyStream(L4, 18, BLU, 0.14), polyStream(L5, 24, LBL, 0.14)];
+
+  /* air through the condenser (fan) and through the evaporator (blower) */
+  const airC = [], airE = [];
+  for (const y of [0.85, 1.45, 2.05]) for (const x of [1.2, 3.0]) {
+    airC.push(polyStream([[x, y, -2.4], [x, y, -0.8]], 5, 0xbae6fd, 0.1), polyStream([[x, y, 0.3], [x, y, 2.4]], 5, 0xfb923c, 0.1));
+  }
+    for (const x of [-4.2, -3.1, -2.0]) { airE.push(polyStream([[x, -2.1, -2.4], [x, -2.1, -0.5]], 5, 0xfca5a5, 0.1), polyStream([[x, -2.1, 0.5], [x, -2.1, 2.4]], 5, 0x7dd3fc, 0.1)); }
+
+  /* ═════════ MANIFOLD GAUGES ═════════ */
+  const gauge = (x, col) => {
+    const g0 = new THREE.Group(); g0.position.set(x, 1.0, 0.2); root.add(g0);
+    cylZ(0.52, 0.52, 0.1, dark, 0, 0, 0, g0); cylZ(0.46, 0.46, 0.02, mat(0xf1f5f9, 0.1, 0.8), 0, 0, 0.06, g0); cylZ(0.46, 0.46, 0.012, glass(0xffffff, 0.12), 0, 0, 0.17, g0);
+    for (let i = 0; i <= 10; i++) { const a = (225 - 270 * i / 10) * Math.PI / 180, t = box(0.04, i % 5 === 0 ? 0.12 : 0.07, 0.01, i > 7 ? mat(0xdc2626, 0.1, 0.6) : dark, Math.cos(a) * 0.37, Math.sin(a) * 0.37, 0.09, g0); t.rotation.z = a - Math.PI / 2; }
+    box(0.5, 0.2, 0.01, mat(col, 0.1, 0.6), 0, -0.2, 0.09, g0);
+    const n = new THREE.Group(); n.position.z = 0.13; g0.add(n); box(0.4, 0.035, 0.02, mat(0x111827, 0.1, 0.6), 0.16, 0, 0, n); cylZ(0.05, 0.05, 0.03, steel, 0, 0, 0, n);
+    return n;
+  };
+  const gLo = gauge(-1.95, 0x2563eb), gHi = gauge(-0.95, 0xdc2626);
+  const needleTo = (g, f) => { g.rotation.z = (225 - 270 * clamp(f)) * Math.PI / 180; };
+
+  /* ═════════ CABIN FAN CONTROL PANEL (dash fascia) ═════════ */
+  const PP = [-0.3, -0.6, 0.3];
+  box(2.9, 1.2, 0.14, plastic, PP[0], PP[1], PP[2]); box(3.0, 1.3, 0.06, black, PP[0], PP[1], PP[2] - 0.08);
+  const knob = (x, ringCols) => {
+    const g0 = new THREE.Group(); g0.position.set(PP[0] + x, PP[1] - 0.05, PP[2] + 0.1); root.add(g0);
+    cylZ(0.44, 0.44, 0.03, black, 0, 0, 0, g0);
+    if (ringCols) for (let i = 0; i < 9; i++) { const a = (225 - 270 * i / 8) * Math.PI / 180; box(0.07, 0.07, 0.02, mat(lc(ringCols[0], ringCols[1], i / 8).getHex(), 0.1, 0.6, { emissive: lc(ringCols[0], ringCols[1], i / 8).getHex(), emissiveIntensity: 0.5 }), Math.cos(a) * 0.38, Math.sin(a) * 0.38, 0.02, g0); }
+    const k = new THREE.Group(); k.position.z = 0.04; g0.add(k);
+    cylZ(0.28, 0.3, 0.12, steel, 0, 0, 0.03, k); box(0.04, 0.2, 0.03, mat(0xfde047, 0.1, 0.5), 0, 0.2, 0.1, k);
+    return k;
+  };
+  const knobFan = knob(-1.0, null), knobTemp = knob(0.95, [0x3b82f6, 0xef4444]);
+  for (let i = 0; i < 5; i++) { const a = (225 - 270 * i / 4) * Math.PI / 180; box(0.04, 0.05 + 0.025 * i, 0.02, steel, -1.0 + Math.cos(a) * 0.38, PP[1] - 0.05 + Math.sin(a) * 0.38, PP[2] + 0.13); }
+  const leds = [];                                                                       /* blower-speed LED bar */
+  for (let i = 0; i < 4; i++) leds.push(box(0.15, 0.08, 0.03, glow(0x22c55e, 0), PP[0] - 0.3 + i * 0.2, PP[1] + 0.38, PP[2] + 0.1));
+  const btn = (y, col) => { const m = glow(col, 0); box(0.62, 0.22, 0.08, plastic, PP[0] - 0.05, y, PP[2] + 0.1); box(0.09, 0.09, 0.03, m, PP[0] + 0.2, y, PP[2] + 0.16); return m; };
+  const ledAC = btn(PP[1] - 0.02, 0x22c55e), ledRe = btn(PP[1] - 0.34, 0xf59e0b);
+
+  const _c = new THREE.Color();
+  return {
+    labels: [
+      ['Compressor', [-3.9, 3.35, 0]], ['Clutch pulley', [-2.9, 0.6, 0.6]], ['Condenser', [1.6, 2.85, 0]], ['Condenser fan', [3.9, 2.3, -0.5]],
+      ['Receiver-drier', [4.55, -2.3, 0]], ['Expansion valve (TXV)', [3.0, -2.0, 0]], ['Sensing bulb', [-5.9, 0.0, 0.3]], ['Evaporator', [-3.1, -3.3, 0]],
+      ['Blower', [-2.0, -1.4, -1.25]], ['Cabin fan control panel', [-0.3, 0.2, 0.3]], ['Low / high gauges', [-1.45, 1.75, 0.2]],
+      ['Hot gas', [-2.4, 3.4, 0]], ['High-pressure liquid', [4.8, 0.85, 0]], ['Cold mix', [-0.2, -2.7, 0]], ['Cold vapour', [-5.5, 0.9, 0]]
+    ],
+    update(c) {
+      const dt = Math.max(0, c.dt || 0);
+      if (sim.lastT >= 0 && c.t + 1e-4 < sim.lastT) { sim.Tev = 20; sim.cabin = S.amb; sim.clutch = false; sim.run = 0; }
+      sim.lastT = c.t;
+      const rpm = 800 + 3700 * c.k, amb = S.amb, f = S.fault, fanF = S.fan / 4;
+      /* thermostat: clutch drops out near 0-1.5 C so the core does not freeze, re-engages above ~4 C */
+      if (!S.ac) sim.clutch = false; else if (sim.Tev < 1.5) sim.clutch = false; else if (sim.Tev > 4.5) sim.clutch = true;
+      sim.run += ((sim.clutch ? 1 : 0) - sim.run) * (1 - Math.exp(-dt * 6));
+      const inlet = S.recirc ? sim.cabin : amb;
+      const Tev0 = clamp(8 - 8 * c.k + (inlet - 32) * 0.12 + fanF * 3, 0, 14), Tc0 = amb + 12 + 14 * c.k;
+      const capBase = f === 'low' ? 0.42 : f === 'over' ? 0.62 : f === 'clog' ? 0.22 : f === 'fan' ? 0.72 : f === 'comp' ? 0.35 : 0.96;
+      const tgt = sim.clutch ? Tev0 + (capBase < 0.5 ? 3 : 0) : Math.max(inlet - 4, Tev0);
+      sim.Tev += (tgt - sim.Tev) * (1 - Math.exp(-dt / 2.2));
+      const Tev = clamp(sim.Tev, 0, 30);
+      const ph0 = psat(Tc0) - 101, pl0 = psat(Tev0) - 101;
+      let Tc = Tc0, pH = ph0, pL = psat(Tev) - 101, cap = 0.96, fl = 1;
+      if (f === 'low')  { pH *= 0.62; pL -= 90; cap = 0.42; fl = 0.6; }
+      if (f === 'over') { pH += 450; pL += 60; cap = 0.62; }
+      if (f === 'clog') { pL = Math.max(-60, pL - 260); pH *= 0.92; cap = 0.22; fl = 0.15; }
+      if (f === 'fan')  { Tc += 30 - 22 * c.k; pH = psat(Tc) - 101; cap = 0.72; }
+      if (f === 'comp') { pL += 180; pH *= 0.62; cap = 0.35; fl = 0.5; }
+      const eq = psat(amb) - 101;                                                         /* idle: both sides equalise */
+      pH = eq + (pH - eq) * sim.run; pL = (pL - 0) * sim.run + (psat(Math.min(amb, Tev + 8)) - 101) * (1 - sim.run);
+      const Tv = Tev + 2 + (1 - cap) * (inlet - Tev - 2);
+      const vent = S.ac && S.fan > 0 ? Tv + (inlet - Tv) * (sim.run < 0.5 ? (1 - sim.run * 2) * 0.4 : 0) : inlet;
+      if (dt > 0) sim.cabin += ((S.fan > 0 ? vent : sim.cabin) - sim.cabin) * (1 - Math.exp(-dt * (0.02 + 0.03 * fanF))) + (amb - sim.cabin) * dt * 0.004;
+      const sp = (0.1 + 0.3 * c.k) * fl * sim.run;
+
+      /* flows: speed follows the compressor, density the refrigerant throughput */
+      flows.forEach((s, i) => s.update(c.t, sp, (i === 3 && f === 'clog' ? 0.25 : 1) * (sim.run > 0.04 ? 1 : 0)));
+      const fanRpmF = f === 'fan' ? 0 : 1;
+      fan.rotation.z -= dt * 14 * fanRpmF;
+      blower.rotation.z -= dt * (3 + 22 * fanF) * (S.fan > 0 ? 1 : 0);
+      airC.forEach((s) => s.update(c.t, f === 'fan' ? 0.05 : 0.3, 1));
+      airE.forEach((s) => s.update(c.t, 0.05 + 0.3 * fanF, S.fan > 0 ? 1 : 0));
+      /* clutch + pulley: the pulley always turns with the belt, the plate only when engaged */
+      pulley.rotation.z -= dt * rpm / 60 * 0.35;
+      if (sim.run > 0.5) plate.rotation.z = pulley.rotation.z;
+      coilM.emissiveIntensity = 2.5 * sim.run; coilM.emissive.setHex(0x22c55e);
+      /* condenser tube colour: gas at the top, liquid at the bottom (the line moves down as condensing gets worse) */
+      const sEnd = 0.45 + 0.5 * (1 - cap) + (f === 'low' ? 0.15 : 0);
+      for (let i = 0; i < NT; i++) { _c.copy(lc(RED, YEL, clamp((i / (NT - 1)) / Math.max(0.35, sEnd * 1.0)))); condMats[i].color.copy(_c); condMats[i].emissive.copy(_c); condMats[i].emissiveIntensity = 0.1 + 0.5 * sim.run; }
+      for (let i = 0; i < NE; i++) { _c.copy(lc(BLU, LBL, clamp((i / (NE - 1)) * (f === 'low' ? 1.8 : 1)))); if (f === 'clog') _c.copy(lc(_c.getHex(), 0xf8fafc, 0.55)); evMats[i].color.copy(_c); evMats[i].emissive.copy(_c); evMats[i].emissiveIntensity = 0.1 + 0.5 * sim.run; }
+      line1.mat.emissiveIntensity = 0.1 + 0.5 * sim.run; line2.mat.emissiveIntensity = line3.mat.emissiveIntensity = 0.1 + 0.4 * sim.run;
+      line4.mat.emissiveIntensity = 0.1 + 0.5 * sim.run; line5.mat.emissiveIntensity = 0.1 + 0.4 * sim.run;
+      const frozen = clamp((2 - Tev) / 2) * (S.fan === 0 ? 1 : 0.4) + (f === 'clog' ? 0.5 : 0);
+      frostE.material.opacity = 0.55 * clamp(frozen); frostV.material.opacity = f === 'clog' ? 0.7 : 0;
+      needle.position.y = VP[1] - 0.25 + (f === 'clog' ? 0.1 : 0);
+      liq.scale.y = 0.2 + 0.7 * (f === 'low' ? 0.3 : f === 'over' ? 1 : 0.65 + 0.2 * sim.run); liq.position.y = DP[1] - 0.75 + 0.75 * liq.scale.y;
+      drops.forEach((d, i) => { const u = ((c.t * 0.7 + i / drops.length) % 1) * (sim.Tev < 12 && S.fan > 0 ? 1 : 0); d.position.y = EC[1] - EH / 2 - 0.12 - u * 0.5; d.visible = u > 0.02; });
+      needleTo(gLo, (pL + 60) / 560); needleTo(gHi, pH / 2500);
+      /* panel follows the dock */
+      knobFan.rotation.z = (225 - 270 * S.fan / 4) * Math.PI / 180 - Math.PI / 2;
+      knobTemp.rotation.z = (225 - 270 * (S.set - 16) / 14) * Math.PI / 180 - Math.PI / 2;
+      leds.forEach((l, i) => { l.material.emissiveIntensity = S.fan > i ? 2 : 0; });
+      ledAC.emissiveIntensity = S.ac ? 2.5 : 0; ledRe.emissiveIntensity = S.recirc ? 2.5 : 0;
+
+      const dH = (pH - ph0) / ph0 * (sim.run > 0.5 ? 1 : 0), dL = (pL - pl0) / Math.max(60, pl0 + 100) * (sim.run > 0.5 ? 1 : 0);
+      const diag = { ok: 'Normal', low: 'Both low: low charge', over: 'Both high: overcharge', clog: 'Low vacuum, high ok: blockage', fan: 'High side high: condenser airflow', comp: 'Low high, high low: weak compressor' }[f];
+      const clutchTxt = !S.ac ? 'A/C off' : (sim.clutch ? 'Engaged' : 'Cycled off (thermostat)');
+      return {
+        big: vent.toFixed(1), unit: ' °C', bar: clamp((35 - vent) / 35) * 100,
+        ro: {
+          hi: [pH.toFixed(0) + ' kPa · ' + (pH * 0.145).toFixed(0) + ' psi', Math.abs(dH) > 0.35 ? 'crit' : Math.abs(dH) > 0.15 ? 'warn' : 'ok'],
+          lo: [pL.toFixed(0) + ' kPa · ' + (pL * 0.145).toFixed(0) + ' psi', Math.abs(dL) > 0.8 ? 'crit' : Math.abs(dL) > 0.4 ? 'warn' : 'ok'],
+          ev: [Tev.toFixed(1) + ' °C', Tev < 1 ? 'warn' : 'ok'],
+          cond: [(sim.run > 0.3 ? Tc : amb).toFixed(0) + ' °C', Tc > 70 ? 'crit' : Tc > 60 ? 'warn' : 'ok'],
+          clutch: [clutchTxt, sim.clutch ? 'ok' : ''],
+          cabin: [sim.cabin.toFixed(1) + ' °C (set ' + S.set + ')', ''],
+          air: [S.fan === 0 ? 'Blower off' : 'Speed ' + S.fan + ' of 4 · ' + (S.recirc ? 'recirculating' : 'fresh air'), S.fan === 0 ? 'warn' : 'ok'],
+          diag: [diag, f === 'ok' ? 'ok' : 'warn']
+        },
+        status: [!S.ac ? 'A/C off' : (f === 'ok' ? (sim.clutch ? 'Cooling' : 'Clutch cycled off') : 'Fault: ' + diag), f === 'ok'], ctl: rpm.toFixed(0) + ' rpm'
+      };
+    }
+  };
+}
 
 runGuidedModule(CFG, build);
 </script>
